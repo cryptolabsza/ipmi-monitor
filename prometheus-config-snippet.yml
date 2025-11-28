@@ -1,0 +1,13 @@
+# Add this to your prometheus.yml scrape_configs section
+# Example: /home/admin/prometheus/prometheus.yml on 88.0.33.141
+
+scrape_configs:
+  # ... existing configs ...
+
+  - job_name: 'ipmi-monitor'
+    static_configs:
+      - targets: ['ipmi-monitor:5000']  # Use 'localhost:5000' if using host network
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    metrics_path: /metrics
+

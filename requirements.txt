@@ -1,0 +1,6 @@
+flask==3.0.0
+flask-sqlalchemy==3.1.1
+gunicorn==21.2.0
+requests==2.31.0
+prometheus-client==0.19.0
+

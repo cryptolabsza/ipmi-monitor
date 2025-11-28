@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server {{ bmc_ip }} - BrickBox IPMI Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a25;
+            --border-color: #2a2a3a;
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a0;
+            --accent-blue: #4a9eff;
+            --accent-green: #00d68f;
+            --accent-yellow: #ffaa00;
+            --accent-red: #ff4757;
+            --accent-purple: #a855f7;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .breadcrumb a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: var(--accent-purple);
+            border-radius: 2px;
+        }
+        
+        .events-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .events-table th,
+        .events-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .events-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        
+        .events-table tr:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .events-table td {
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .severity-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical {
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--accent-red);
+        }
+        
+        .severity-warning {
+            background: rgba(255, 170, 0, 0.15);
+            color: var(--accent-yellow);
+        }
+        
+        .severity-info {
+            background: rgba(74, 158, 255, 0.15);
+            color: var(--accent-blue);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .mini-stat {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .mini-stat .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .mini-stat .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .mini-stat.critical .value { color: var(--accent-red); }
+        .mini-stat.warning .value { color: var(--accent-yellow); }
+        .mini-stat.info .value { color: var(--accent-blue); }
+        .mini-stat.total .value { color: var(--text-primary); }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <div class="breadcrumb">
+                    <a href="/">← Dashboard</a>
+                    <span>/</span>
+                    <span>Server Detail</span>
+                </div>
+                <h1>{{ bmc_ip }}</h1>
+            </div>
+            <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
+        </header>
+        
+        <div class="stats-row" id="statsRow">
+            <div class="mini-stat critical">
+                <div class="value" id="criticalCount">-</div>
+                <div class="label">Critical</div>
+            </div>
+            <div class="mini-stat warning">
+                <div class="value" id="warningCount">-</div>
+                <div class="label">Warning</div>
+            </div>
+            <div class="mini-stat info">
+                <div class="value" id="infoCount">-</div>
+                <div class="label">Info</div>
+            </div>
+            <div class="mini-stat total">
+                <div class="value" id="totalCount">-</div>
+                <div class="label">Total Events</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2 class="section-title">Event Log</h2>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Severity:</label>
+                    <select id="severityFilter" onchange="loadEvents()">
+                        <option value="">All</option>
+                        <option value="critical">Critical</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Sensor Type:</label>
+                    <input type="text" id="sensorFilter" placeholder="Filter..." oninput="filterTable()">
+                </div>
+            </div>
+            
+            <div id="eventsContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading events...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const bmcIp = '{{ bmc_ip }}';
+        let allEvents = [];
+        
+        async function loadEvents() {
+            try {
+                const severity = document.getElementById('severityFilter').value;
+                let url = `/api/server/${bmcIp}/events?limit=1000`;
+                
+                const response = await fetch(url);
+                allEvents = await response.json();
+                
+                // Update stats
+                const stats = {
+                    critical: allEvents.filter(e => e.severity === 'critical').length,
+                    warning: allEvents.filter(e => e.severity === 'warning').length,
+                    info: allEvents.filter(e => e.severity === 'info').length,
+                    total: allEvents.length
+                };
+                
+                document.getElementById('criticalCount').textContent = stats.critical;
+                document.getElementById('warningCount').textContent = stats.warning;
+                document.getElementById('infoCount').textContent = stats.info;
+                document.getElementById('totalCount').textContent = stats.total;
+                
+                renderTable(allEvents);
+            } catch (e) {
+                console.error('Failed to load events:', e);
+                document.getElementById('eventsContainer').innerHTML = 
+                    '<div class="loading">Failed to load events</div>';
+            }
+        }
+        
+        function renderTable(events) {
+            const severityFilter = document.getElementById('severityFilter').value;
+            const sensorFilter = document.getElementById('sensorFilter').value.toLowerCase();
+            
+            let filtered = events;
+            if (severityFilter) {
+                filtered = filtered.filter(e => e.severity === severityFilter);
+            }
+            if (sensorFilter) {
+                filtered = filtered.filter(e => 
+                    e.sensor_type.toLowerCase().includes(sensorFilter) ||
+                    e.event_description.toLowerCase().includes(sensorFilter)
+                );
+            }
+            
+            if (filtered.length === 0) {
+                document.getElementById('eventsContainer').innerHTML = 
+                    '<div class="loading">No events found</div>';
+                return;
+            }
+            
+            const html = `
+                <table class="events-table">
+                    <thead>
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Severity</th>
+                            <th>Sensor Type</th>
+                            <th>Event Description</th>
+                            <th>SEL ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(event => {
+                            const date = new Date(event.event_date);
+                            return `
+                                <tr>
+                                    <td>${date.toLocaleString()}</td>
+                                    <td>
+                                        <span class="severity-badge severity-${event.severity}">
+                                            ${event.severity}
+                                        </span>
+                                    </td>
+                                    <td>${event.sensor_type}</td>
+                                    <td>${event.event_description}</td>
+                                    <td>${event.sel_id}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('eventsContainer').innerHTML = html;
+        }
+        
+        function filterTable() {
+            renderTable(allEvents);
+        }
+        
+        function exportEvents() {
+            const csv = [
+                'Date,Severity,Sensor Type,Event Description,SEL ID',
+                ...allEvents.map(e => 
+                    `"${e.event_date}","${e.severity}","${e.sensor_type}","${e.event_description}","${e.sel_id}"`
+                )
+            ].join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ipmi_events_${bmcIp}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        // Initial load
+        loadEvents();
+    </script>
+</body>
+</html>
+

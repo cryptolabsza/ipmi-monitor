@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  ipmi-monitor:
+    image: ghcr.io/jjziets/ipmi-monitor:latest
+    # Or build locally:
+    # build: .
+    container_name: ipmi-monitor
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - IPMI_USER=admin
+      - IPMI_PASS=BBccc321
+      - IPMI_PASS_NVIDIA=BBccc321BBccc321  # NVIDIA DGX/HGX systems need 16-char
+      - POLL_INTERVAL=300  # 5 minutes
+    volumes:
+      - ipmi_data:/app/instance  # SQLite database location
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    # For IPMI access, need host network or proper routing
+    # Uncomment below if BMC IPs are not directly accessible
+    # network_mode: host
+
+volumes:
+  ipmi_data:
+
+networks:
+  monitoring:
+    external: true  # Use existing monitoring network
+
