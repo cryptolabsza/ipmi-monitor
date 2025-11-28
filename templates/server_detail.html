@@ -75,6 +75,26 @@
             font-weight: 500;
             background: var(--accent-blue);
             color: white;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+        
+        .btn-danger {
+            background: var(--accent-red);
+        }
+        
+        .btn-warning {
+            background: var(--accent-yellow);
+            color: #000;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
         }
         
         .card {
@@ -245,7 +265,11 @@
                 </div>
                 <h1>{{ bmc_ip }}</h1>
             </div>
-            <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
+            <div class="btn-group">
+                <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
+                <button class="btn btn-warning" onclick="clearDbEvents()">🗑️ Clear DB Events</button>
+                <button class="btn btn-danger" onclick="clearSel()">⚠️ Clear BMC SEL</button>
+            </div>
         </header>
         
         <div class="stats-row" id="statsRow">
@@ -402,6 +426,57 @@
             a.href = url;
             a.download = `ipmi_events_${bmcIp}_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
+        }
+        
+        async function clearDbEvents() {
+            if (!confirm('Clear all events from the database for this server?\n\nThis will NOT clear the BMC SEL log.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/clear_db_events`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert(data.message);
+                    loadEvents();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Failed to clear events: ' + e.message);
+            }
+        }
+        
+        async function clearSel() {
+            if (!confirm('⚠️ WARNING: This will permanently clear the SEL log on the BMC!\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) {
+                return;
+            }
+            
+            if (!confirm('FINAL CONFIRMATION:\n\nClear SEL on BMC ' + bmcIp + '?')) {
+                return;
+            }
+            
+            try {
+                const btn = document.querySelector('.btn-danger');
+                btn.textContent = '⏳ Clearing...';
+                btn.disabled = true;
+                
+                const response = await fetch(`/api/server/${bmcIp}/clear_sel`, { method: 'POST' });
+                const data = await response.json();
+                
+                btn.textContent = '⚠️ Clear BMC SEL';
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    alert('SEL cleared successfully!\n\n' + data.output);
+                    loadEvents();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Failed to clear SEL: ' + e.message);
+            }
         }
         
         // Initial load

@@ -407,6 +407,7 @@
             </div>
             <div class="header-actions">
                 <button class="btn btn-primary" onclick="triggerCollection()">🔄 Refresh All</button>
+                <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
             </div>
         </header>
         
@@ -579,6 +580,33 @@
                 }, 3000);
             } catch (e) {
                 console.error('Failed to trigger collection:', e);
+            }
+        }
+        
+        async function clearAllSel() {
+            if (!confirm('⚠️ WARNING: This will clear SEL logs on ALL BMCs!\n\nThis action cannot be undone.\n\nAre you sure?')) {
+                return;
+            }
+            
+            if (!confirm('FINAL CONFIRMATION:\n\nClear SEL on ALL servers?')) {
+                return;
+            }
+            
+            try {
+                const btn = document.querySelectorAll('.btn')[1];
+                btn.textContent = '⏳ Clearing...';
+                btn.disabled = true;
+                
+                const response = await fetch('/api/clear_all_sel', { method: 'POST' });
+                const data = await response.json();
+                
+                btn.textContent = '⚠️ Clear All SEL';
+                btn.disabled = false;
+                
+                alert(`SEL Clear Complete!\n\nCleared: ${data.cleared} servers\nFailed: ${data.failed} servers`);
+                loadAll();
+            } catch (e) {
+                alert('Failed to clear SEL: ' + e.message);
             }
         }
         

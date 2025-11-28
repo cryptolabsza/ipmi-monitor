@@ -455,6 +455,91 @@ def api_server_events(bmc_ip):
         'raw_entry': e.raw_entry
     } for e in events])
 
+@app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
+def api_clear_sel(bmc_ip):
+    """Clear SEL log on a specific BMC"""
+    try:
+        password = get_ipmi_password(bmc_ip)
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'sel', 'clear'],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode == 0:
+            # Also clear from local database
+            IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
+            db.session.commit()
+            
+            # Update server status
+            server_name = SERVERS.get(bmc_ip, bmc_ip)
+            update_server_status(bmc_ip, server_name)
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'SEL cleared for {bmc_ip}',
+                'output': result.stdout.strip()
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to clear SEL: {result.stderr}'
+            }), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Timeout clearing SEL'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/clear_all_sel', methods=['POST'])
+def api_clear_all_sel():
+    """Clear SEL logs on all BMCs"""
+    results = {'success': [], 'failed': []}
+    
+    for bmc_ip, server_name in SERVERS.items():
+        try:
+            password = get_ipmi_password(bmc_ip)
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'sel', 'clear'],
+                capture_output=True, text=True, timeout=30
+            )
+            
+            if result.returncode == 0:
+                IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
+                results['success'].append(bmc_ip)
+            else:
+                results['failed'].append({'bmc_ip': bmc_ip, 'error': result.stderr})
+        except Exception as e:
+            results['failed'].append({'bmc_ip': bmc_ip, 'error': str(e)})
+    
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'completed',
+        'cleared': len(results['success']),
+        'failed': len(results['failed']),
+        'details': results
+    })
+
+@app.route('/api/server/<bmc_ip>/clear_db_events', methods=['POST'])
+def api_clear_db_events(bmc_ip):
+    """Clear events from database only (don't touch BMC SEL)"""
+    try:
+        count = IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
+        db.session.commit()
+        
+        # Update server status
+        server_name = SERVERS.get(bmc_ip, bmc_ip)
+        update_server_status(bmc_ip, server_name)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Cleared {count} events from database for {bmc_ip}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # Prometheus Metrics Endpoint
 def update_prometheus_metrics():
     """Update all Prometheus metrics from database"""
