@@ -494,18 +494,20 @@ def health_check():
     """Health check endpoint for container orchestration"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
 
-# Initialize
+# Initialize database
 def init_db():
     with app.app_context():
         db.create_all()
+        app.logger.info("Database initialized")
+
+# Initialize on import (for gunicorn)
+init_db()
+
+# Start background collector thread
+collector_thread = threading.Thread(target=background_collector, daemon=True)
+collector_thread.start()
 
 if __name__ == '__main__':
-    init_db()
-    
-    # Start background collector
-    collector_thread = threading.Thread(target=background_collector, daemon=True)
-    collector_thread.start()
-    
-    # Run Flask app
+    # Run Flask app directly (for development)
     app.run(host='0.0.0.0', port=5000, debug=False)
 
