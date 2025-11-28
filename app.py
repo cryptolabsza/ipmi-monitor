@@ -14,6 +14,7 @@ import time
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ipmi_events.db'
@@ -162,8 +163,13 @@ class ServerStatus(db.Model):
     last_check = db.Column(db.DateTime)
     is_reachable = db.Column(db.Boolean, default=True)
     total_events = db.Column(db.Integer, default=0)
+    total_events_24h = db.Column(db.Integer, default=0)
     critical_events_24h = db.Column(db.Integer, default=0)
     warning_events_24h = db.Column(db.Integer, default=0)
+    info_events_24h = db.Column(db.Integer, default=0)
+    critical_events_total = db.Column(db.Integer, default=0)
+    warning_events_total = db.Column(db.Integer, default=0)
+    info_events_total = db.Column(db.Integer, default=0)
 
 # Helper functions
 def classify_severity(event_text):
@@ -279,18 +285,28 @@ def collect_power_status(bmc_ip):
 def update_server_status(bmc_ip, server_name):
     """Update server status in database"""
     with app.app_context():
-        status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
-        if not status:
-            status = ServerStatus(bmc_ip=bmc_ip, server_name=server_name)
-            db.session.add(status)
+        # Use get_or_create pattern with retry for race conditions
+        try:
+            status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+            if not status:
+                status = ServerStatus(bmc_ip=bmc_ip, server_name=server_name)
+                db.session.add(status)
+                db.session.flush()  # Try to insert now to catch duplicates
+        except Exception:
+            db.session.rollback()
+            status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
         
         status.power_status = collect_power_status(bmc_ip)
         status.last_check = datetime.utcnow()
         status.is_reachable = status.power_status != 'Unreachable'
         
-        # Count events
+        # Count events - 24h
         cutoff = datetime.utcnow() - timedelta(hours=24)
         status.total_events = IPMIEvent.query.filter_by(bmc_ip=bmc_ip).count()
+        status.total_events_24h = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == bmc_ip,
+            IPMIEvent.event_date >= cutoff
+        ).count()
         status.critical_events_24h = IPMIEvent.query.filter(
             IPMIEvent.bmc_ip == bmc_ip,
             IPMIEvent.severity == 'critical',
@@ -301,34 +317,73 @@ def update_server_status(bmc_ip, server_name):
             IPMIEvent.severity == 'warning',
             IPMIEvent.event_date >= cutoff
         ).count()
+        status.info_events_24h = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == bmc_ip,
+            IPMIEvent.severity == 'info',
+            IPMIEvent.event_date >= cutoff
+        ).count()
+        
+        # Count events - Total (all time)
+        status.critical_events_total = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == bmc_ip,
+            IPMIEvent.severity == 'critical'
+        ).count()
+        status.warning_events_total = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == bmc_ip,
+            IPMIEvent.severity == 'warning'
+        ).count()
+        status.info_events_total = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == bmc_ip,
+            IPMIEvent.severity == 'info'
+        ).count()
         
         db.session.commit()
 
+def collect_single_server(bmc_ip, server_name):
+    """Collect events from a single server (for parallel execution)"""
+    try:
+        events = collect_ipmi_sel(bmc_ip, server_name)
+        return (bmc_ip, server_name, events, None)
+    except Exception as e:
+        return (bmc_ip, server_name, [], str(e))
+
 def collect_all_events():
-    """Background task to collect events from all servers"""
+    """Background task to collect events from all servers in parallel"""
     with app.app_context():
-        app.logger.info("Starting IPMI event collection...")
+        app.logger.info("Starting IPMI event collection (parallel)...")
         
-        for bmc_ip, server_name in SERVERS.items():
-            try:
-                events = collect_ipmi_sel(bmc_ip, server_name)
+        # Use ThreadPoolExecutor for parallel collection (10 workers)
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {
+                executor.submit(collect_single_server, bmc_ip, server_name): (bmc_ip, server_name)
+                for bmc_ip, server_name in SERVERS.items()
+            }
+            
+            for future in as_completed(futures):
+                bmc_ip, server_name, events, error = future.result()
                 
-                for event in events:
-                    # Check if event already exists
-                    existing = IPMIEvent.query.filter_by(
-                        bmc_ip=event.bmc_ip, 
-                        sel_id=event.sel_id
-                    ).first()
+                if error:
+                    app.logger.error(f"Error collecting from {bmc_ip}: {error}")
+                    continue
+                
+                try:
+                    for event in events:
+                        # Check if event already exists
+                        existing = IPMIEvent.query.filter_by(
+                            bmc_ip=event.bmc_ip, 
+                            sel_id=event.sel_id
+                        ).first()
+                        
+                        if not existing:
+                            db.session.add(event)
                     
-                    if not existing:
-                        db.session.add(event)
-                
-                db.session.commit()
-                update_server_status(bmc_ip, server_name)
-                
-            except Exception as e:
-                app.logger.error(f"Error processing {bmc_ip}: {e}")
-                db.session.rollback()
+                    db.session.commit()
+                    update_server_status(bmc_ip, server_name)
+                    app.logger.info(f"Collected {len(events)} events from {server_name}")
+                    
+                except Exception as e:
+                    app.logger.error(f"Error processing {bmc_ip}: {e}")
+                    db.session.rollback()
         
         app.logger.info("IPMI event collection complete")
 
@@ -346,18 +401,49 @@ def dashboard():
 
 @app.route('/api/servers')
 def api_servers():
-    """Get all server statuses"""
+    """Get all server statuses with configurable time range"""
+    hours = request.args.get('hours', 24, type=int)
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    
     servers = ServerStatus.query.all()
-    return jsonify([{
-        'bmc_ip': s.bmc_ip,
-        'server_name': s.server_name,
-        'power_status': s.power_status,
-        'last_check': s.last_check.isoformat() if s.last_check else None,
-        'is_reachable': s.is_reachable,
-        'total_events': s.total_events,
-        'critical_24h': s.critical_events_24h,
-        'warning_24h': s.warning_events_24h
-    } for s in servers])
+    result = []
+    
+    for s in servers:
+        # Calculate counts for the specified time range
+        critical = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == s.bmc_ip,
+            IPMIEvent.severity == 'critical',
+            IPMIEvent.event_date >= cutoff
+        ).count()
+        warning = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == s.bmc_ip,
+            IPMIEvent.severity == 'warning',
+            IPMIEvent.event_date >= cutoff
+        ).count()
+        info = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == s.bmc_ip,
+            IPMIEvent.severity == 'info',
+            IPMIEvent.event_date >= cutoff
+        ).count()
+        total = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == s.bmc_ip,
+            IPMIEvent.event_date >= cutoff
+        ).count()
+        
+        result.append({
+            'bmc_ip': s.bmc_ip,
+            'server_name': s.server_name,
+            'power_status': s.power_status,
+            'last_check': s.last_check.isoformat() if s.last_check else None,
+            'is_reachable': s.is_reachable,
+            'total_events': s.total_events,
+            'critical': critical,
+            'warning': warning,
+            'info': info,
+            'total': total
+        })
+    
+    return jsonify(result)
 
 @app.route('/api/events')
 def api_events():
@@ -392,23 +478,27 @@ def api_events():
 
 @app.route('/api/stats')
 def api_stats():
-    """Get dashboard statistics"""
-    cutoff_24h = datetime.utcnow() - timedelta(hours=24)
-    cutoff_7d = datetime.utcnow() - timedelta(days=7)
+    """Get dashboard statistics with configurable time range"""
+    hours = request.args.get('hours', 24, type=int)
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
     
     return jsonify({
         'total_servers': ServerStatus.query.count(),
         'reachable_servers': ServerStatus.query.filter_by(is_reachable=True).count(),
-        'events_24h': IPMIEvent.query.filter(IPMIEvent.event_date >= cutoff_24h).count(),
-        'critical_24h': IPMIEvent.query.filter(
+        'total': IPMIEvent.query.filter(IPMIEvent.event_date >= cutoff).count(),
+        'critical': IPMIEvent.query.filter(
             IPMIEvent.severity == 'critical',
-            IPMIEvent.event_date >= cutoff_24h
+            IPMIEvent.event_date >= cutoff
         ).count(),
-        'warning_24h': IPMIEvent.query.filter(
+        'warning': IPMIEvent.query.filter(
             IPMIEvent.severity == 'warning',
-            IPMIEvent.event_date >= cutoff_24h
+            IPMIEvent.event_date >= cutoff
         ).count(),
-        'events_7d': IPMIEvent.query.filter(IPMIEvent.event_date >= cutoff_7d).count(),
+        'info': IPMIEvent.query.filter(
+            IPMIEvent.severity == 'info',
+            IPMIEvent.event_date >= cutoff
+        ).count(),
+        'hours': hours
     })
 
 @app.route('/api/event_types')

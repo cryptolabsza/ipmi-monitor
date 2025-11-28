@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   ipmi-monitor:
-    image: ghcr.io/jjziets/ipmi-monitor:latest
+    image: ipmi-monitor:latest
     # Or build locally:
     # build: .
     container_name: ipmi-monitor
