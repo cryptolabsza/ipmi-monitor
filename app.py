@@ -171,6 +171,51 @@ class ServerStatus(db.Model):
     warning_events_total = db.Column(db.Integer, default=0)
     info_events_total = db.Column(db.Integer, default=0)
 
+class ServerConfig(db.Model):
+    """Per-server configuration (IPMI credentials, SSH keys)"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, unique=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    server_ip = db.Column(db.String(20))  # OS IP (usually .1 instead of .0)
+    ipmi_user = db.Column(db.String(50))
+    ipmi_pass = db.Column(db.String(100))
+    ssh_user = db.Column(db.String(50), default='root')
+    ssh_key = db.Column(db.Text)  # Private key content
+    ssh_port = db.Column(db.Integer, default=22)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class SensorReading(db.Model):
+    """Sensor readings from BMC"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    sensor_name = db.Column(db.String(50), nullable=False, index=True)
+    sensor_type = db.Column(db.String(30), nullable=False, index=True)  # temperature, fan, voltage, power
+    value = db.Column(db.Float)
+    unit = db.Column(db.String(20))  # degrees C, RPM, Volts, Watts
+    status = db.Column(db.String(20))  # ok, warning, critical, nr (non-recoverable)
+    lower_critical = db.Column(db.Float)
+    lower_warning = db.Column(db.Float)
+    upper_warning = db.Column(db.Float)
+    upper_critical = db.Column(db.Float)
+    collected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    __table_args__ = (
+        db.Index('idx_sensor_bmc_time', 'bmc_ip', 'collected_at'),
+    )
+
+class PowerReading(db.Model):
+    """Power consumption readings"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    current_watts = db.Column(db.Float)
+    min_watts = db.Column(db.Float)
+    max_watts = db.Column(db.Float)
+    avg_watts = db.Column(db.Float)
+    collected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
 # Helper functions
 def classify_severity(event_text):
     """Classify event severity based on keywords"""
@@ -234,9 +279,21 @@ def parse_sel_line(line, bmc_ip, server_name):
         app.logger.error(f"Failed to parse SEL line: {line} - {e}")
     return None
 
+def get_ipmi_credentials(bmc_ip):
+    """Get IPMI credentials for a BMC (per-server config or defaults)"""
+    with app.app_context():
+        config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+        if config and config.ipmi_user and config.ipmi_pass:
+            return config.ipmi_user, config.ipmi_pass
+    
+    # Fall back to defaults
+    password = IPMI_PASS_NVIDIA if bmc_ip in NVIDIA_BMCS else IPMI_PASS
+    return IPMI_USER, password
+
 def get_ipmi_password(bmc_ip):
-    """Get the correct password for a BMC (NVIDIA uses 16-char)"""
-    return IPMI_PASS_NVIDIA if bmc_ip in NVIDIA_BMCS else IPMI_PASS
+    """Get the correct password for a BMC (legacy function)"""
+    _, password = get_ipmi_credentials(bmc_ip)
+    return password
 
 def collect_ipmi_sel(bmc_ip, server_name):
     """Collect IPMI SEL from a single server"""
@@ -270,10 +327,10 @@ def collect_ipmi_sel(bmc_ip, server_name):
 def collect_power_status(bmc_ip):
     """Get power status from BMC"""
     try:
-        password = get_ipmi_password(bmc_ip)
+        user, password = get_ipmi_credentials(bmc_ip)
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-             '-U', IPMI_USER, '-P', password, 'power', 'status'],
+             '-U', user, '-P', password, 'power', 'status'],
             capture_output=True, text=True, timeout=10
         )
         if result.returncode == 0:
@@ -281,6 +338,112 @@ def collect_power_status(bmc_ip):
         return 'Unknown'
     except:
         return 'Unreachable'
+
+def collect_sensors(bmc_ip, server_name):
+    """Collect sensor readings from BMC"""
+    sensors = []
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', user, '-P', password, 'sensor', 'list'],
+            capture_output=True, text=True, timeout=30
+        )
+        if result.returncode != 0:
+            return sensors
+        
+        for line in result.stdout.strip().split('\n'):
+            parts = [p.strip() for p in line.split('|')]
+            if len(parts) >= 3:
+                sensor_name = parts[0]
+                value_str = parts[1]
+                unit = parts[2] if len(parts) > 2 else ''
+                status = parts[3] if len(parts) > 3 else 'ok'
+                
+                # Parse value
+                try:
+                    value = float(value_str) if value_str and value_str != 'na' else None
+                except ValueError:
+                    value = None
+                
+                # Determine sensor type
+                sensor_type = 'other'
+                unit_lower = unit.lower() if unit else ''
+                name_lower = sensor_name.lower()
+                
+                if 'degrees c' in unit_lower or 'temp' in name_lower:
+                    sensor_type = 'temperature'
+                elif 'rpm' in unit_lower or 'fan' in name_lower:
+                    sensor_type = 'fan'
+                elif 'volts' in unit_lower or 'volt' in name_lower:
+                    sensor_type = 'voltage'
+                elif 'watts' in unit_lower or 'power' in name_lower:
+                    sensor_type = 'power'
+                elif 'amps' in unit_lower:
+                    sensor_type = 'current'
+                
+                # Parse thresholds if available
+                lc = float(parts[4]) if len(parts) > 4 and parts[4] and parts[4] != 'na' else None
+                lw = float(parts[5]) if len(parts) > 5 and parts[5] and parts[5] != 'na' else None
+                uw = float(parts[7]) if len(parts) > 7 and parts[7] and parts[7] != 'na' else None
+                uc = float(parts[8]) if len(parts) > 8 and parts[8] and parts[8] != 'na' else None
+                
+                sensor = SensorReading(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    sensor_name=sensor_name,
+                    sensor_type=sensor_type,
+                    value=value,
+                    unit=unit,
+                    status=status.lower() if status else 'ok',
+                    lower_critical=lc,
+                    lower_warning=lw,
+                    upper_warning=uw,
+                    upper_critical=uc
+                )
+                sensors.append(sensor)
+    except Exception as e:
+        app.logger.error(f"Error collecting sensors from {bmc_ip}: {e}")
+    
+    return sensors
+
+def collect_power_reading(bmc_ip, server_name):
+    """Collect power consumption from BMC using DCMI"""
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', user, '-P', password, 'dcmi', 'power', 'reading'],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode != 0:
+            return None
+        
+        reading = PowerReading(bmc_ip=bmc_ip, server_name=server_name)
+        
+        for line in result.stdout.strip().split('\n'):
+            line_lower = line.lower()
+            if 'instantaneous' in line_lower or 'current' in line_lower:
+                match = re.search(r'(\d+)\s*watts', line_lower)
+                if match:
+                    reading.current_watts = float(match.group(1))
+            elif 'minimum' in line_lower:
+                match = re.search(r'(\d+)\s*watts', line_lower)
+                if match:
+                    reading.min_watts = float(match.group(1))
+            elif 'maximum' in line_lower:
+                match = re.search(r'(\d+)\s*watts', line_lower)
+                if match:
+                    reading.max_watts = float(match.group(1))
+            elif 'average' in line_lower:
+                match = re.search(r'(\d+)\s*watts', line_lower)
+                if match:
+                    reading.avg_watts = float(match.group(1))
+        
+        return reading
+    except Exception as e:
+        app.logger.error(f"Error collecting power from {bmc_ip}: {e}")
+        return None
 
 def update_server_status(bmc_ip, server_name):
     """Update server status in database"""
@@ -657,6 +820,237 @@ def update_prometheus_metrics():
         IPMIEvent.event_date >= cutoff_24h
     ).count())
     prom_collection_timestamp.set(time.time())
+
+# ============== Server Configuration API ==============
+
+@app.route('/api/config/servers')
+def api_config_servers():
+    """Get all server configurations"""
+    configs = ServerConfig.query.all()
+    return jsonify([{
+        'bmc_ip': c.bmc_ip,
+        'server_name': c.server_name,
+        'server_ip': c.server_ip,
+        'ipmi_user': c.ipmi_user,
+        'has_ipmi_pass': bool(c.ipmi_pass),
+        'ssh_user': c.ssh_user,
+        'has_ssh_key': bool(c.ssh_key),
+        'ssh_port': c.ssh_port,
+        'updated_at': c.updated_at.isoformat() if c.updated_at else None
+    } for c in configs])
+
+@app.route('/api/config/server/<bmc_ip>', methods=['GET', 'POST', 'PUT'])
+def api_config_server(bmc_ip):
+    """Get or update server configuration"""
+    if request.method == 'GET':
+        config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+        if not config:
+            return jsonify({'error': 'Server not found'}), 404
+        return jsonify({
+            'bmc_ip': config.bmc_ip,
+            'server_name': config.server_name,
+            'server_ip': config.server_ip,
+            'ipmi_user': config.ipmi_user,
+            'has_ipmi_pass': bool(config.ipmi_pass),
+            'ssh_user': config.ssh_user,
+            'has_ssh_key': bool(config.ssh_key),
+            'ssh_port': config.ssh_port
+        })
+    
+    # POST/PUT - Create or update config
+    data = request.get_json()
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    
+    if not config:
+        server_name = SERVERS.get(bmc_ip, f'server-{bmc_ip}')
+        config = ServerConfig(bmc_ip=bmc_ip, server_name=server_name)
+        db.session.add(config)
+    
+    # Update fields if provided
+    if 'server_name' in data:
+        config.server_name = data['server_name']
+    if 'server_ip' in data:
+        config.server_ip = data['server_ip']
+    if 'ipmi_user' in data:
+        config.ipmi_user = data['ipmi_user']
+    if 'ipmi_pass' in data:
+        config.ipmi_pass = data['ipmi_pass']
+    if 'ssh_user' in data:
+        config.ssh_user = data['ssh_user']
+    if 'ssh_key' in data:
+        config.ssh_key = data['ssh_key']
+    if 'ssh_port' in data:
+        config.ssh_port = data['ssh_port']
+    
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': f'Configuration updated for {bmc_ip}'})
+
+@app.route('/api/config/bulk', methods=['POST'])
+def api_config_bulk():
+    """Bulk update server configurations"""
+    data = request.get_json()
+    updated = 0
+    
+    # Common credentials to apply to all or specified servers
+    ipmi_user = data.get('ipmi_user')
+    ipmi_pass = data.get('ipmi_pass')
+    ssh_user = data.get('ssh_user')
+    ssh_key = data.get('ssh_key')
+    ssh_port = data.get('ssh_port')
+    target_servers = data.get('servers', list(SERVERS.keys()))  # Default to all servers
+    
+    for bmc_ip in target_servers:
+        if bmc_ip not in SERVERS:
+            continue
+            
+        config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+        if not config:
+            config = ServerConfig(bmc_ip=bmc_ip, server_name=SERVERS[bmc_ip])
+            db.session.add(config)
+        
+        if ipmi_user:
+            config.ipmi_user = ipmi_user
+        if ipmi_pass:
+            config.ipmi_pass = ipmi_pass
+        if ssh_user:
+            config.ssh_user = ssh_user
+        if ssh_key:
+            config.ssh_key = ssh_key
+        if ssh_port:
+            config.ssh_port = ssh_port
+        
+        updated += 1
+    
+    db.session.commit()
+    return jsonify({'status': 'success', 'updated': updated})
+
+# ============== Sensor Data API ==============
+
+@app.route('/api/sensors/<bmc_ip>')
+def api_sensors(bmc_ip):
+    """Get latest sensor readings for a server"""
+    hours = request.args.get('hours', 1, type=int)
+    sensor_type = request.args.get('type')  # temperature, fan, voltage, power
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    
+    query = SensorReading.query.filter(
+        SensorReading.bmc_ip == bmc_ip,
+        SensorReading.collected_at >= cutoff
+    )
+    
+    if sensor_type:
+        query = query.filter(SensorReading.sensor_type == sensor_type)
+    
+    # Get latest reading per sensor
+    latest = {}
+    for reading in query.order_by(SensorReading.collected_at.desc()).all():
+        if reading.sensor_name not in latest:
+            latest[reading.sensor_name] = {
+                'sensor_name': reading.sensor_name,
+                'sensor_type': reading.sensor_type,
+                'value': reading.value,
+                'unit': reading.unit,
+                'status': reading.status,
+                'lower_critical': reading.lower_critical,
+                'lower_warning': reading.lower_warning,
+                'upper_warning': reading.upper_warning,
+                'upper_critical': reading.upper_critical,
+                'collected_at': reading.collected_at.isoformat()
+            }
+    
+    return jsonify(list(latest.values()))
+
+@app.route('/api/sensors/<bmc_ip>/history')
+def api_sensors_history(bmc_ip):
+    """Get sensor history for graphing"""
+    hours = request.args.get('hours', 24, type=int)
+    sensor_name = request.args.get('sensor')
+    sensor_type = request.args.get('type')
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    
+    query = SensorReading.query.filter(
+        SensorReading.bmc_ip == bmc_ip,
+        SensorReading.collected_at >= cutoff
+    )
+    
+    if sensor_name:
+        query = query.filter(SensorReading.sensor_name == sensor_name)
+    if sensor_type:
+        query = query.filter(SensorReading.sensor_type == sensor_type)
+    
+    readings = query.order_by(SensorReading.collected_at.asc()).all()
+    
+    return jsonify([{
+        'sensor_name': r.sensor_name,
+        'sensor_type': r.sensor_type,
+        'value': r.value,
+        'unit': r.unit,
+        'status': r.status,
+        'collected_at': r.collected_at.isoformat()
+    } for r in readings])
+
+@app.route('/api/power/<bmc_ip>')
+def api_power(bmc_ip):
+    """Get latest power readings for a server"""
+    hours = request.args.get('hours', 24, type=int)
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    
+    readings = PowerReading.query.filter(
+        PowerReading.bmc_ip == bmc_ip,
+        PowerReading.collected_at >= cutoff
+    ).order_by(PowerReading.collected_at.desc()).all()
+    
+    return jsonify([{
+        'current_watts': r.current_watts,
+        'min_watts': r.min_watts,
+        'max_watts': r.max_watts,
+        'avg_watts': r.avg_watts,
+        'collected_at': r.collected_at.isoformat()
+    } for r in readings])
+
+@app.route('/api/sensors/collect', methods=['POST'])
+def api_collect_sensors():
+    """Trigger sensor collection for all servers"""
+    def collect_all_sensors():
+        with app.app_context():
+            app.logger.info("Starting sensor collection...")
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = {
+                    executor.submit(collect_single_server_sensors, bmc_ip, server_name): bmc_ip
+                    for bmc_ip, server_name in SERVERS.items()
+                }
+                for future in as_completed(futures):
+                    pass
+            app.logger.info("Sensor collection complete")
+    
+    thread = threading.Thread(target=collect_all_sensors, daemon=True)
+    thread.start()
+    return jsonify({'status': 'Sensor collection started'})
+
+def collect_single_server_sensors(bmc_ip, server_name):
+    """Collect sensors from a single server"""
+    try:
+        sensors = collect_sensors(bmc_ip, server_name)
+        power = collect_power_reading(bmc_ip, server_name)
+        
+        with app.app_context():
+            for sensor in sensors:
+                db.session.add(sensor)
+            if power:
+                db.session.add(power)
+            db.session.commit()
+        
+        return True
+    except Exception as e:
+        app.logger.error(f"Error collecting sensors from {bmc_ip}: {e}")
+        return False
+
+# ============== Settings Page ==============
+
+@app.route('/settings')
+def settings_page():
+    """Server configuration page"""
+    return render_template('settings.html')
 
 @app.route('/metrics')
 def prometheus_metrics():

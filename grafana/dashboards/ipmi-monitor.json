@@ -1,13 +1,25 @@
 {
   "annotations": {
-    "list": []
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": null,
+  "id": 0,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "datasource": {
@@ -23,27 +35,40 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null}
+              {
+                "color": "green",
+                "value": 0
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_total_servers",
@@ -68,27 +93,40 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null}
+              {
+                "color": "green",
+                "value": 0
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
       "id": 2,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_reachable_servers",
@@ -113,28 +151,44 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "red", "value": 1}
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
       "id": 3,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_total_critical_events_24h",
@@ -155,32 +209,49 @@
           "color": {
             "mode": "thresholds"
           },
+          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 1}
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
       "id": 4,
       "options": {
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_total_warning_events_24h",
@@ -205,31 +276,49 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "text", "value": null}
+              {
+                "color": "text",
+                "value": 0
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
       "id": 5,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
+          "editorMode": "code",
+          "exemplar": false,
           "expr": "time() - ipmi_last_collection_timestamp",
+          "format": "time_series",
+          "instant": false,
           "legendFormat": "",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -251,59 +340,144 @@
             "cellOptions": {
               "type": "auto"
             },
+            "footer": {
+              "reducers": []
+            },
             "inspect": false
           },
           "mappings": [
-            {"options": {"0": {"color": "red", "index": 1, "text": "Offline"}}, "type": "value"},
-            {"options": {"1": {"color": "green", "index": 0, "text": "Online"}}, "type": "value"}
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 1,
+                  "text": "Offline"
+                }
+              },
+              "type": "value"
+            },
+            {
+              "options": {
+                "1": {
+                  "color": "green",
+                  "index": 0,
+                  "text": "Online"
+                }
+              },
+              "type": "value"
+            }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null}
+              {
+                "color": "green",
+                "value": 0
+              }
             ]
           }
         },
         "overrides": [
           {
-            "matcher": {"id": "byName", "options": "Status"},
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
             "properties": [
-              {"id": "custom.cellOptions", "value": {"mode": "lcd", "type": "gauge"}},
-              {"id": "custom.width", "value": 100}
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "gauge",
+                  "valueDisplayMode": "color"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Critical"},
+            "matcher": {
+              "id": "byName",
+              "options": "Critical"
+            },
             "properties": [
-              {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}},
-              {"id": "custom.cellOptions", "value": {"mode": "basic", "type": "gauge"}}
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "red",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "gauge"
+                }
+              }
             ]
           },
           {
-            "matcher": {"id": "byName", "options": "Warning"},
+            "matcher": {
+              "id": "byName",
+              "options": "Warning"
+            },
             "properties": [
-              {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}]}},
-              {"id": "custom.cellOptions", "value": {"mode": "basic", "type": "gauge"}}
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "gauge"
+                }
+              }
             ]
           }
         ]
       },
-      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 4},
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
       "id": 6,
       "options": {
         "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": ["sum"],
-          "show": false
-        },
         "showHeader": true,
-        "sortBy": [{"desc": true, "displayName": "Critical"}]
+        "sortBy": []
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
+          "editorMode": "code",
           "expr": "ipmi_server_reachable",
           "format": "table",
           "instant": true,
@@ -334,12 +508,56 @@
       ],
       "title": "Server Status",
       "transformations": [
-        {"id": "seriesToColumns", "options": {"byField": "server_name"}},
-        {"id": "organize", "options": {
-          "excludeByName": {"Time": true, "Time 1": true, "Time 2": true, "Time 3": true, "Time 4": true, "__name__": true, "__name__ 1": true, "__name__ 2": true, "__name__ 3": true, "__name__ 4": true, "bmc_ip 1": true, "bmc_ip 2": true, "bmc_ip 3": true, "bmc_ip 4": true, "instance": true, "instance 1": true, "instance 2": true, "instance 3": true, "instance 4": true, "job": true, "job 1": true, "job 2": true, "job 3": true, "job 4": true, "server_name 1": true, "server_name 2": true, "server_name 3": true, "server_name 4": true},
-          "indexByName": {},
-          "renameByName": {"Value #A": "Status", "Value #B": "Critical", "Value #C": "Warning", "Value #D": "Total Events", "bmc_ip": "BMC IP", "server_name": "Server"}
-        }}
+        {
+          "id": "seriesToColumns",
+          "options": {
+            "byField": "server_name"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "bmc_ip 1": true,
+              "bmc_ip 2": true,
+              "bmc_ip 3": true,
+              "bmc_ip 4": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "server_name 1": true,
+              "server_name 2": true,
+              "server_name 3": true,
+              "server_name 4": true
+            },
+            "indexByName": {},
+            "renameByName": {
+              "Value #A": "Status",
+              "Value #B": "Critical",
+              "Value #C": "Warning",
+              "Value #D": "Total Events",
+              "bmc_ip": "BMC IP",
+              "server_name": "Server"
+            }
+          }
+        }
       ],
       "type": "table"
     },
@@ -360,34 +578,67 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
-            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
             "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
-            "scaleDistribution": {"type": "linear"},
+            "scaleDistribution": {
+              "type": "linear"
+            },
             "showPoints": "never",
+            "showValues": false,
             "spanNulls": false,
-            "stacking": {"group": "A", "mode": "none"},
-            "thresholdsStyle": {"mode": "off"}
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [{"color": "green", "value": null}]
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "id": 7,
       "options": {
-        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_total_critical_events_24h",
@@ -420,34 +671,67 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 10,
             "gradientMode": "none",
-            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
             "insertNulls": false,
             "lineInterpolation": "linear",
             "lineWidth": 1,
             "pointSize": 5,
-            "scaleDistribution": {"type": "linear"},
+            "scaleDistribution": {
+              "type": "linear"
+            },
             "showPoints": "never",
+            "showValues": false,
             "spanNulls": false,
-            "stacking": {"group": "A", "mode": "none"},
-            "thresholdsStyle": {"mode": "off"}
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
-            "steps": [{"color": "green", "value": null}]
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
       "id": 8,
       "options": {
-        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true},
-        "tooltip": {"mode": "multi", "sort": "desc"}
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
       },
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_reachable_servers",
@@ -477,29 +761,43 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "green", "value": 1}
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
             ]
           }
         },
         "overrides": []
       },
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
       "id": 9,
       "options": {
         "minVizHeight": 75,
         "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
         "showThresholdLabels": false,
         "showThresholdMarkers": true,
+        "sizing": "auto",
         "text": {}
       },
-      "pluginVersion": "10.0.0",
+      "pluginVersion": "12.3.0",
       "targets": [
         {
           "expr": "ipmi_server_reachable",
@@ -511,27 +809,29 @@
       "type": "gauge"
     }
   ],
+  "preload": false,
   "refresh": "30s",
-  "schemaVersion": 38,
-  "tags": ["ipmi", "bmc", "hardware", "brickbox"],
+  "schemaVersion": 42,
+  "tags": [
+    "ipmi",
+    "bmc",
+    "hardware",
+    "brickbox"
+  ],
   "templating": {
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "Prometheus",
-          "value": "prometheus"
+          "text": "prometheus",
+          "value": "fdfcbypxyeps0d"
         },
-        "hide": 0,
         "includeAll": false,
         "label": "Data Source",
-        "multi": false,
         "name": "datasource",
         "options": [],
         "query": "prometheus",
         "refresh": 1,
         "regex": "",
-        "skipUrlSync": false,
         "type": "datasource"
       }
     ]
@@ -544,7 +844,5 @@
   "timezone": "",
   "title": "IPMI Monitor - BrickBox",
   "uid": "ipmi-monitor-brickbox",
-  "version": 1,
-  "weekStart": ""
+  "version": 7
 }
-

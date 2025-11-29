@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - BrickBox IPMI Monitor</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a25;
+            --border-color: #2a2a3a;
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a0;
+            --accent-blue: #4a9eff;
+            --accent-green: #00d68f;
+            --accent-yellow: #ffaa00;
+            --accent-red: #ff4757;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+        }
+        
+        .breadcrumb a { color: var(--accent-blue); text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        
+        h1 { font-size: 1.5rem; font-weight: 700; }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        
+        .tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+        
+        .tab:hover { color: var(--text-primary); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        .form-group textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #3a8eef;
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+        
+        .server-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .server-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .server-item:last-child { border-bottom: none; }
+        
+        .server-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .server-name { font-weight: 600; }
+        .server-ip { color: var(--text-secondary); font-size: 0.85rem; font-family: 'JetBrains Mono', monospace; }
+        
+        .server-badges {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-green { background: rgba(0, 214, 143, 0.2); color: var(--accent-green); }
+        .badge-yellow { background: rgba(255, 170, 0, 0.2); color: var(--accent-yellow); }
+        .badge-red { background: rgba(255, 71, 87, 0.2); color: var(--accent-red); }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: rgba(0, 214, 143, 0.1);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+        }
+        
+        .alert-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+        }
+        
+        .help-text {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="breadcrumb">
+                <a href="/">← Dashboard</a>
+                <span>/</span>
+                <h1>Settings</h1>
+            </div>
+        </header>
+        
+        <div id="alertBox" class="alert"></div>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('credentials')">🔑 Credentials</button>
+            <button class="tab" onclick="showTab('ssh')">🖥️ SSH Keys</button>
+            <button class="tab" onclick="showTab('servers')">📋 Server List</button>
+        </div>
+        
+        <!-- Credentials Tab -->
+        <div id="credentials" class="tab-content active">
+            <div class="card">
+                <div class="card-title">🔐 Default IPMI Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Set default credentials that apply to all servers unless overridden.
+                </p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>IPMI Username</label>
+                        <input type="text" id="defaultIpmiUser" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>IPMI Password</label>
+                        <input type="password" id="defaultIpmiPass" placeholder="••••••••">
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveDefaultCredentials()">
+                    💾 Apply to All Servers
+                </button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">⚙️ Per-Server IPMI Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Override credentials for specific servers (e.g., NVIDIA BMCs that need 16-char passwords).
+                </p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Select Server</label>
+                        <select id="serverSelect" onchange="loadServerConfig()">
+                            <option value="">-- Select a server --</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="serverConfigForm" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>IPMI Username</label>
+                            <input type="text" id="serverIpmiUser" placeholder="admin">
+                        </div>
+                        <div class="form-group">
+                            <label>IPMI Password</label>
+                            <input type="password" id="serverIpmiPass" placeholder="••••••••">
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="saveServerCredentials()">
+                        💾 Save Server Credentials
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- SSH Keys Tab -->
+        <div id="ssh" class="tab-content">
+            <div class="card">
+                <div class="card-title">🔑 Default SSH Configuration</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Configure SSH access for all servers. Server IPs are automatically derived from BMC IP (.0 → .1).
+                </p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SSH Username</label>
+                        <input type="text" id="defaultSshUser" value="root" placeholder="root">
+                    </div>
+                    <div class="form-group">
+                        <label>SSH Port</label>
+                        <input type="number" id="defaultSshPort" value="22" placeholder="22">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>SSH Private Key</label>
+                    <textarea id="defaultSshKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----"></textarea>
+                    <p class="help-text">Paste your private SSH key here. It will be used to connect to servers.</p>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveDefaultSsh()">
+                    💾 Apply SSH Config to All Servers
+                </button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🖥️ Per-Server SSH Configuration</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Select Server</label>
+                        <select id="sshServerSelect" onchange="loadServerSshConfig()">
+                            <option value="">-- Select a server --</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div id="serverSshForm" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Server IP (OS)</label>
+                            <input type="text" id="serverIp" placeholder="88.0.X.1">
+                        </div>
+                        <div class="form-group">
+                            <label>SSH Username</label>
+                            <input type="text" id="serverSshUser" placeholder="root">
+                        </div>
+                        <div class="form-group">
+                            <label>SSH Port</label>
+                            <input type="number" id="serverSshPort" value="22">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>SSH Private Key (leave empty to use default)</label>
+                        <textarea id="serverSshKey" placeholder="Leave empty to use default key"></textarea>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="saveServerSsh()">
+                        💾 Save Server SSH Config
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Servers Tab -->
+        <div id="servers" class="tab-content">
+            <div class="card">
+                <div class="card-title">📋 Server Configuration Status</div>
+                
+                <div class="server-list" id="serverList">
+                    <div class="loading">Loading servers...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const SERVERS = {};
+        
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+        
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = `alert alert-${type}`;
+            alertBox.style.display = 'block';
+            setTimeout(() => alertBox.style.display = 'none', 5000);
+        }
+        
+        async function loadServers() {
+            try {
+                const response = await fetch('/api/servers');
+                const servers = await response.json();
+                
+                const select1 = document.getElementById('serverSelect');
+                const select2 = document.getElementById('sshServerSelect');
+                
+                select1.innerHTML = '<option value="">-- Select a server --</option>';
+                select2.innerHTML = '<option value="">-- Select a server --</option>';
+                
+                servers.forEach(s => {
+                    SERVERS[s.bmc_ip] = s;
+                    select1.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
+                    select2.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
+                });
+                
+                loadServerConfigs();
+            } catch (e) {
+                console.error('Failed to load servers:', e);
+            }
+        }
+        
+        async function loadServerConfigs() {
+            try {
+                const response = await fetch('/api/config/servers');
+                const configs = await response.json();
+                
+                const configMap = {};
+                configs.forEach(c => configMap[c.bmc_ip] = c);
+                
+                const serverList = document.getElementById('serverList');
+                serverList.innerHTML = '';
+                
+                Object.entries(SERVERS).forEach(([bmc_ip, server]) => {
+                    const config = configMap[bmc_ip] || {};
+                    const hasIpmi = config.has_ipmi_pass ? 'badge-green' : 'badge-yellow';
+                    const hasSsh = config.has_ssh_key ? 'badge-green' : 'badge-yellow';
+                    
+                    serverList.innerHTML += `
+                        <div class="server-item">
+                            <div class="server-info">
+                                <span class="server-name">${server.server_name}</span>
+                                <span class="server-ip">BMC: ${bmc_ip} | OS: ${config.server_ip || bmc_ip.replace('.0', '.1')}</span>
+                            </div>
+                            <div class="server-badges">
+                                <span class="badge ${hasIpmi}">IPMI: ${config.has_ipmi_pass ? '✓' : 'Default'}</span>
+                                <span class="badge ${hasSsh}">SSH: ${config.has_ssh_key ? '✓' : 'Not Set'}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                console.error('Failed to load configs:', e);
+            }
+        }
+        
+        function loadServerConfig() {
+            const bmc_ip = document.getElementById('serverSelect').value;
+            const form = document.getElementById('serverConfigForm');
+            
+            if (!bmc_ip) {
+                form.style.display = 'none';
+                return;
+            }
+            
+            form.style.display = 'block';
+            document.getElementById('serverIpmiUser').value = '';
+            document.getElementById('serverIpmiPass').value = '';
+        }
+        
+        function loadServerSshConfig() {
+            const bmc_ip = document.getElementById('sshServerSelect').value;
+            const form = document.getElementById('serverSshForm');
+            
+            if (!bmc_ip) {
+                form.style.display = 'none';
+                return;
+            }
+            
+            form.style.display = 'block';
+            document.getElementById('serverIp').value = bmc_ip.replace('.0', '.1');
+            document.getElementById('serverSshUser').value = 'root';
+            document.getElementById('serverSshPort').value = '22';
+            document.getElementById('serverSshKey').value = '';
+        }
+        
+        async function saveDefaultCredentials() {
+            const user = document.getElementById('defaultIpmiUser').value;
+            const pass = document.getElementById('defaultIpmiPass').value;
+            
+            if (!user || !pass) {
+                showAlert('Please enter both username and password', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/config/bulk', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ipmi_user: user, ipmi_pass: pass})
+                });
+                
+                const result = await response.json();
+                showAlert(`Updated ${result.updated} servers`, 'success');
+                loadServerConfigs();
+            } catch (e) {
+                showAlert('Failed to save credentials', 'error');
+            }
+        }
+        
+        async function saveServerCredentials() {
+            const bmc_ip = document.getElementById('serverSelect').value;
+            const user = document.getElementById('serverIpmiUser').value;
+            const pass = document.getElementById('serverIpmiPass').value;
+            
+            if (!bmc_ip || !user || !pass) {
+                showAlert('Please fill all fields', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/config/server/${bmc_ip}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ipmi_user: user, ipmi_pass: pass})
+                });
+                
+                const result = await response.json();
+                showAlert(result.message, 'success');
+                loadServerConfigs();
+            } catch (e) {
+                showAlert('Failed to save credentials', 'error');
+            }
+        }
+        
+        async function saveDefaultSsh() {
+            const user = document.getElementById('defaultSshUser').value;
+            const port = document.getElementById('defaultSshPort').value;
+            const key = document.getElementById('defaultSshKey').value;
+            
+            if (!key) {
+                showAlert('Please enter an SSH key', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/config/bulk', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ssh_user: user, ssh_port: parseInt(port), ssh_key: key})
+                });
+                
+                const result = await response.json();
+                showAlert(`Updated SSH config for ${result.updated} servers`, 'success');
+                loadServerConfigs();
+            } catch (e) {
+                showAlert('Failed to save SSH config', 'error');
+            }
+        }
+        
+        async function saveServerSsh() {
+            const bmc_ip = document.getElementById('sshServerSelect').value;
+            const server_ip = document.getElementById('serverIp').value;
+            const user = document.getElementById('serverSshUser').value;
+            const port = document.getElementById('serverSshPort').value;
+            const key = document.getElementById('serverSshKey').value;
+            
+            if (!bmc_ip) {
+                showAlert('Please select a server', 'error');
+                return;
+            }
+            
+            try {
+                const data = {server_ip, ssh_user: user, ssh_port: parseInt(port)};
+                if (key) data.ssh_key = key;
+                
+                const response = await fetch(`/api/config/server/${bmc_ip}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                showAlert(result.message, 'success');
+                loadServerConfigs();
+            } catch (e) {
+                showAlert('Failed to save SSH config', 'error');
+            }
+        }
+        
+        // Initialize
+        loadServers();
+    </script>
+</body>
+</html>
+

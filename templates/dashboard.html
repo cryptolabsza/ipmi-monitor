@@ -130,6 +130,16 @@
             transform: translateY(-1px);
         }
         
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-card);
+        }
+        
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -454,7 +464,9 @@
                     </select>
                 </div>
                 <button class="btn btn-primary" onclick="triggerCollection()">🔄 Refresh All</button>
+                <button class="btn" style="background: var(--accent-green);" onclick="collectSensors()">📊 Collect Sensors</button>
                 <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
+                <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
             </div>
         </header>
         
@@ -687,6 +699,25 @@
                 loadAll();
             } catch (e) {
                 alert('Failed to clear SEL: ' + e.message);
+            }
+        }
+        
+        async function collectSensors() {
+            try {
+                const btn = document.querySelector('button[onclick="collectSensors()"]');
+                btn.textContent = '⏳ Collecting Sensors...';
+                btn.disabled = true;
+                
+                await fetch('/api/sensors/collect', { method: 'POST' });
+                
+                setTimeout(() => {
+                    btn.textContent = '📊 Collect Sensors';
+                    btn.disabled = false;
+                    alert('Sensor collection started! Data will be available shortly.');
+                }, 2000);
+            } catch (e) {
+                console.error('Failed to collect sensors:', e);
+                alert('Failed to start sensor collection');
             }
         }
         
