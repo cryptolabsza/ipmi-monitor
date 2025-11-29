@@ -163,8 +163,8 @@ def get_servers():
             servers = Server.query.filter_by(enabled=True).all()
             if servers:
                 return {s.bmc_ip: s.server_name for s in servers}
-        except:
-            pass
+        except Exception as e:
+            app.logger.warning(f"Failed to get servers from database, using defaults: {e}")
     return DEFAULT_SERVERS
 
 # Legacy compatibility - will be replaced by get_servers() calls
@@ -266,27 +266,35 @@ class PowerReading(db.Model):
     avg_watts = db.Column(db.Float)
     collected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
+# Thread locks for global state
+import threading as _threading
+_sensor_cache_lock = _threading.Lock()
+_nvidia_bmcs_lock = _threading.Lock()
+
 # Sensor name cache (bmc_ip -> {sensor_hex_id: sensor_name})
 SENSOR_NAME_CACHE = {}
 
 def get_sensor_name_from_cache(bmc_ip, sensor_hex_id):
-    """Look up sensor name from cache only (non-blocking)"""
+    """Look up sensor name from cache only (non-blocking, thread-safe)"""
     if not sensor_hex_id:
         return None
     
     # Clean up hex ID  
     hex_id = sensor_hex_id.replace('#', '').replace('0x', '').upper()
     
-    # Check cache
-    if bmc_ip in SENSOR_NAME_CACHE:
-        return SENSOR_NAME_CACHE[bmc_ip].get(hex_id)
+    # Check cache with lock
+    with _sensor_cache_lock:
+        if bmc_ip in SENSOR_NAME_CACHE:
+            return SENSOR_NAME_CACHE[bmc_ip].get(hex_id)
     
     return None
 
 def build_sensor_cache(bmc_ip):
-    """Build sensor name cache for a BMC (call separately from parsing)"""
-    if bmc_ip in SENSOR_NAME_CACHE:
-        return True
+    """Build sensor name cache for a BMC (thread-safe)"""
+    # Check if already cached
+    with _sensor_cache_lock:
+        if bmc_ip in SENSOR_NAME_CACHE:
+            return True
     
     try:
         user, password = get_ipmi_credentials(bmc_ip)
@@ -296,7 +304,7 @@ def build_sensor_cache(bmc_ip):
                '-U', user, '-P', password, 'sdr', 'elist']
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
         
-        SENSOR_NAME_CACHE[bmc_ip] = {}
+        cache_data = {}
         for line in result.stdout.strip().split('\n'):
             # Format: "CPU1 Temperature | 31h | ok  |  3.0 | 41 degrees C"
             # Or:     "CPU1_ECC1        | D1h | ok  |  0.0 | Presence Detected"
@@ -307,15 +315,34 @@ def build_sensor_cache(bmc_ip):
                 # Extract hex value (e.g., "D1H" -> "D1")
                 sensor_id = sensor_id_str.replace('H', '').strip()
                 if sensor_id and sensor_name:
-                    SENSOR_NAME_CACHE[bmc_ip][sensor_id] = sensor_name
+                    cache_data[sensor_id] = sensor_name
         
-        app.logger.info(f"Built sensor cache for {bmc_ip}: {len(SENSOR_NAME_CACHE[bmc_ip])} sensors")
+        # Update cache with lock
+        with _sensor_cache_lock:
+            SENSOR_NAME_CACHE[bmc_ip] = cache_data
+        
+        app.logger.info(f"Built sensor cache for {bmc_ip}: {len(cache_data)} sensors")
         return True
+    except subprocess.TimeoutExpired:
+        app.logger.warning(f"Timeout building sensor cache for {bmc_ip}")
+        return False
     except Exception as e:
         app.logger.warning(f"Failed to build sensor cache for {bmc_ip}: {e}")
         return False
 
 # Helper functions
+def validate_ip_address(ip):
+    """Validate IP address format"""
+    if not ip:
+        return False
+    parts = ip.split('.')
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(part) <= 255 for part in parts)
+    except (ValueError, TypeError):
+        return False
+
 def classify_severity(event_text):
     """Classify event severity based on keywords"""
     event_lower = event_text.lower()
@@ -376,8 +403,9 @@ def parse_sel_line(line, bmc_ip, server_name):
                     sensor_number = f"0x{hex_id}"
                     # Try to look up the actual sensor name from cache (if available)
                     sensor_name_lookup = get_sensor_name_from_cache(bmc_ip, hex_id)
-                except:
+                except (ValueError, TypeError) as e:
                     sensor_number = sensor_id
+                    app.logger.debug(f"Could not parse sensor ID {sensor_id}: {e}")
             
             # For Memory/ECC events, try to extract DIMM info
             event_direction = ''
@@ -490,7 +518,11 @@ def collect_power_status(bmc_ip):
         if result.returncode == 0:
             return result.stdout.strip()
         return 'Unknown'
-    except:
+    except subprocess.TimeoutExpired:
+        app.logger.debug(f"Timeout getting power status for {bmc_ip}")
+        return 'Unreachable'
+    except Exception as e:
+        app.logger.debug(f"Error getting power status for {bmc_ip}: {e}")
         return 'Unreachable'
 
 def collect_sensors(bmc_ip, server_name):
@@ -668,47 +700,70 @@ def collect_all_events():
     """Background task to collect events from all servers in parallel"""
     with app.app_context():
         app.logger.info("Starting IPMI event collection (parallel)...")
+        servers = get_servers()  # Get current server list
+        
+        if not servers:
+            app.logger.warning("No servers configured for collection")
+            return
         
         # Use ThreadPoolExecutor for parallel collection (10 workers)
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = {
-                executor.submit(collect_single_server, bmc_ip, server_name): (bmc_ip, server_name)
-                for bmc_ip, server_name in SERVERS.items()
-            }
-            
-            for future in as_completed(futures):
-                bmc_ip, server_name, events, error = future.result()
+        try:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = {
+                    executor.submit(collect_single_server, bmc_ip, server_name): (bmc_ip, server_name)
+                    for bmc_ip, server_name in servers.items()
+                }
                 
-                if error:
-                    app.logger.error(f"Error collecting from {bmc_ip}: {error}")
-                    continue
-                
-                try:
-                    for event in events:
-                        # Check if event already exists
-                        existing = IPMIEvent.query.filter_by(
-                            bmc_ip=event.bmc_ip, 
-                            sel_id=event.sel_id
-                        ).first()
+                for future in as_completed(futures):
+                    try:
+                        bmc_ip, server_name, events, error = future.result(timeout=660)
+                    except Exception as e:
+                        app.logger.error(f"Future result error: {e}")
+                        continue
+                    
+                    if error:
+                        app.logger.error(f"Error collecting from {bmc_ip}: {error}")
+                        continue
+                    
+                    try:
+                        new_events = 0
+                        for event in events:
+                            # Check if event already exists
+                            existing = IPMIEvent.query.filter_by(
+                                bmc_ip=event.bmc_ip, 
+                                sel_id=event.sel_id
+                            ).first()
+                            
+                            if not existing:
+                                db.session.add(event)
+                                new_events += 1
                         
-                        if not existing:
-                            db.session.add(event)
-                    
-                    db.session.commit()
-                    update_server_status(bmc_ip, server_name)
-                    app.logger.info(f"Collected {len(events)} events from {server_name}")
-                    
-                except Exception as e:
-                    app.logger.error(f"Error processing {bmc_ip}: {e}")
-                    db.session.rollback()
+                        db.session.commit()
+                        update_server_status(bmc_ip, server_name)
+                        if new_events > 0:
+                            app.logger.info(f"Collected {new_events} new events from {server_name} ({len(events)} total)")
+                        
+                    except Exception as e:
+                        app.logger.error(f"Error processing {bmc_ip}: {e}")
+                        db.session.rollback()
+        except Exception as e:
+            app.logger.error(f"ThreadPoolExecutor error: {e}")
         
         app.logger.info("IPMI event collection complete")
 
+_shutdown_event = _threading.Event()
+
 def background_collector():
-    """Background thread for periodic collection"""
-    while True:
-        collect_all_events()
-        time.sleep(POLL_INTERVAL)
+    """Background thread for periodic collection with graceful shutdown"""
+    app.logger.info(f"Background collector started (interval: {POLL_INTERVAL}s)")
+    while not _shutdown_event.is_set():
+        try:
+            collect_all_events()
+        except Exception as e:
+            app.logger.error(f"Error in background collector: {e}")
+        
+        # Wait with interruptible sleep for graceful shutdown
+        _shutdown_event.wait(POLL_INTERVAL)
 
 # Routes
 @app.route('/')
@@ -854,8 +909,7 @@ def api_trigger_collection():
                         db.session.add(event)
                 db.session.commit()
                 # Update server status
-                is_reachable = len(events) > 0 or check_bmc_reachable(bmc_ip)
-                update_server_status(bmc_ip, server_name, is_reachable)
+                update_server_status(bmc_ip, server_name)
                 app.logger.info(f"Collected {len(events)} events from {bmc_ip}")
         threading.Thread(target=collect_single, daemon=True).start()
         return jsonify({'status': f'Collection started for {bmc_ip}'})
@@ -884,7 +938,10 @@ def check_bmc_reachable(bmc_ip):
             capture_output=True, text=True, timeout=10
         )
         return result.returncode == 0
-    except:
+    except subprocess.TimeoutExpired:
+        return False
+    except Exception as e:
+        app.logger.debug(f"BMC reachability check failed for {bmc_ip}: {e}")
         return False
 
 @app.route('/server/<bmc_ip>')
@@ -1049,12 +1106,18 @@ def api_managed_servers():
 def api_add_server():
     """Add a new server to monitor - Admin only"""
     data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body must be JSON'}), 400
     
-    bmc_ip = data.get('bmc_ip')
-    server_name = data.get('server_name')
+    bmc_ip = data.get('bmc_ip', '').strip()
+    server_name = data.get('server_name', '').strip()
     
     if not bmc_ip or not server_name:
         return jsonify({'error': 'bmc_ip and server_name are required'}), 400
+    
+    # Validate IP address format
+    if not validate_ip_address(bmc_ip):
+        return jsonify({'error': f'Invalid IP address format: {bmc_ip}'}), 400
     
     # Check if already exists
     existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
@@ -1073,9 +1136,10 @@ def api_add_server():
     db.session.add(server)
     db.session.commit()
     
-    # Also update NVIDIA_BMCS set if needed
+    # Also update NVIDIA_BMCS set if needed (thread-safe)
     if server.use_nvidia_password:
-        NVIDIA_BMCS.add(bmc_ip)
+        with _nvidia_bmcs_lock:
+            NVIDIA_BMCS.add(bmc_ip)
     
     return jsonify({'status': 'success', 'message': f'Added server {server_name} ({bmc_ip})', 'id': server.id})
 
@@ -1133,10 +1197,12 @@ def api_manage_server(bmc_ip):
             server.enabled = data['enabled']
         if 'use_nvidia_password' in data:
             server.use_nvidia_password = data['use_nvidia_password']
-            if data['use_nvidia_password']:
-                NVIDIA_BMCS.add(bmc_ip)
-            else:
-                NVIDIA_BMCS.discard(bmc_ip)
+            # Thread-safe update of NVIDIA_BMCS
+            with _nvidia_bmcs_lock:
+                if data['use_nvidia_password']:
+                    NVIDIA_BMCS.add(bmc_ip)
+                else:
+                    NVIDIA_BMCS.discard(bmc_ip)
         if 'notes' in data:
             server.notes = data['notes']
         
@@ -1554,7 +1620,37 @@ def prometheus_metrics():
 @app.route('/health')
 def health_check():
     """Health check endpoint for container orchestration"""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
+    health_status = {
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'checks': {}
+    }
+    
+    # Check database connectivity
+    try:
+        db.session.execute(db.text('SELECT 1'))
+        health_status['checks']['database'] = 'ok'
+    except Exception as e:
+        health_status['status'] = 'degraded'
+        health_status['checks']['database'] = f'error: {str(e)}'
+    
+    # Check if collector thread is alive
+    if collector_thread and collector_thread.is_alive():
+        health_status['checks']['collector_thread'] = 'running'
+    else:
+        health_status['status'] = 'degraded'
+        health_status['checks']['collector_thread'] = 'not running'
+    
+    # Get last collection time
+    try:
+        latest_status = ServerStatus.query.order_by(ServerStatus.last_check.desc()).first()
+        if latest_status and latest_status.last_check:
+            health_status['last_collection'] = latest_status.last_check.isoformat()
+    except:
+        pass
+    
+    status_code = 200 if health_status['status'] == 'healthy' else 503
+    return jsonify(health_status), status_code
 
 # ============== Authentication ==============
 
@@ -1577,7 +1673,7 @@ def login():
             if request.is_json:
                 return jsonify({'status': 'success', 'message': 'Logged in'})
             
-            next_url = request.args.get('next', url_for('index'))
+            next_url = request.args.get('next', url_for('dashboard'))
             return redirect(next_url)
         else:
             if request.is_json:
@@ -1591,7 +1687,7 @@ def logout():
     """Logout admin"""
     session.pop('admin_logged_in', None)
     session.pop('admin_user', None)
-    return redirect(url_for('index'))
+    return redirect(url_for('dashboard'))
 
 @app.route('/api/auth/status')
 def auth_status():
@@ -1600,6 +1696,32 @@ def auth_status():
         'is_admin': is_admin(),
         'username': session.get('admin_user')
     })
+
+# Global error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    """Handle 404 errors"""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Resource not found'}), 404
+    return render_template('login.html', error='Page not found'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    db.session.rollback()
+    app.logger.error(f"Internal server error: {error}")
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error'}), 500
+    return render_template('login.html', error='Internal server error'), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle uncaught exceptions"""
+    app.logger.exception(f"Unhandled exception: {e}")
+    db.session.rollback()
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'An unexpected error occurred'}), 500
+    return render_template('login.html', error='An unexpected error occurred'), 500
 
 # Initialize database
 def init_db():
