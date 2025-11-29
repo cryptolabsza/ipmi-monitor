@@ -495,6 +495,28 @@ prom_collection_timestamp = Gauge(
     registry=PROM_REGISTRY
 )
 
+# Alert metrics
+prom_alerts_total = Gauge(
+    'ipmi_alerts_total',
+    'Total number of fired alerts',
+    registry=PROM_REGISTRY
+)
+prom_alerts_unacknowledged = Gauge(
+    'ipmi_alerts_unacknowledged',
+    'Number of unacknowledged alerts',
+    registry=PROM_REGISTRY
+)
+prom_alerts_critical_24h = Gauge(
+    'ipmi_alerts_critical_24h',
+    'Critical alerts in last 24 hours',
+    registry=PROM_REGISTRY
+)
+prom_alerts_warning_24h = Gauge(
+    'ipmi_alerts_warning_24h',
+    'Warning alerts in last 24 hours',
+    registry=PROM_REGISTRY
+)
+
 # Sensor metrics
 prom_temperature = Gauge(
     'ipmi_temperature_celsius',
@@ -673,10 +695,570 @@ class PowerReading(db.Model):
     avg_watts = db.Column(db.Float)
     collected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
+# ============== Alerting Models ==============
+
+class AlertRule(db.Model):
+    """Configurable alert rules"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    alert_type = db.Column(db.String(50), nullable=False)  # fan, temperature, memory, psu, pci, server
+    condition = db.Column(db.String(50), nullable=False)  # eq, lt, gt, lte, gte, contains
+    threshold = db.Column(db.Float)  # For numeric comparisons
+    threshold_str = db.Column(db.String(100))  # For string matching
+    severity = db.Column(db.String(20), default='warning')  # info, warning, critical
+    enabled = db.Column(db.Boolean, default=True)
+    cooldown_minutes = db.Column(db.Integer, default=30)  # Don't re-alert for X minutes
+    notify_telegram = db.Column(db.Boolean, default=True)
+    notify_email = db.Column(db.Boolean, default=False)
+    notify_webhook = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class AlertHistory(db.Model):
+    """History of fired alerts"""
+    id = db.Column(db.Integer, primary_key=True)
+    rule_id = db.Column(db.Integer, db.ForeignKey('alert_rule.id'))
+    rule_name = db.Column(db.String(100))
+    bmc_ip = db.Column(db.String(20), index=True)
+    server_name = db.Column(db.String(50))
+    alert_type = db.Column(db.String(50))
+    severity = db.Column(db.String(20))
+    message = db.Column(db.Text)
+    value = db.Column(db.String(100))  # The value that triggered the alert
+    threshold = db.Column(db.String(100))  # The threshold that was exceeded
+    notified_telegram = db.Column(db.Boolean, default=False)
+    notified_email = db.Column(db.Boolean, default=False)
+    notified_webhook = db.Column(db.Boolean, default=False)
+    acknowledged = db.Column(db.Boolean, default=False)
+    acknowledged_by = db.Column(db.String(50))
+    acknowledged_at = db.Column(db.DateTime)
+    resolved = db.Column(db.Boolean, default=False)
+    resolved_at = db.Column(db.DateTime)
+    fired_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class NotificationConfig(db.Model):
+    """Global notification channel configuration"""
+    id = db.Column(db.Integer, primary_key=True)
+    channel_type = db.Column(db.String(20), nullable=False, unique=True)  # telegram, email, webhook
+    enabled = db.Column(db.Boolean, default=False)
+    config_json = db.Column(db.Text)  # JSON config for the channel
+    test_successful = db.Column(db.Boolean, default=False)
+    last_test = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+# ============== Default Alert Rules ==============
+
+DEFAULT_ALERT_RULES = [
+    # Fan alerts
+    {
+        'name': 'Fan Stopped',
+        'description': 'Fan RPM is 0 or critically low - immediate hardware failure risk',
+        'alert_type': 'fan',
+        'condition': 'lt',
+        'threshold': 500,
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    },
+    {
+        'name': 'Fan Speed Low',
+        'description': 'Fan running below normal speed - may indicate bearing failure',
+        'alert_type': 'fan',
+        'condition': 'lt',
+        'threshold': 2000,
+        'severity': 'warning',
+        'cooldown_minutes': 15
+    },
+    # Temperature alerts
+    {
+        'name': 'CPU Temperature Critical',
+        'description': 'CPU temperature exceeds safe operating limit - thermal throttling or shutdown imminent',
+        'alert_type': 'temperature',
+        'condition': 'gt',
+        'threshold': 85,
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    },
+    {
+        'name': 'CPU Temperature Warning',
+        'description': 'CPU temperature elevated - check cooling',
+        'alert_type': 'temperature',
+        'condition': 'gt',
+        'threshold': 75,
+        'severity': 'warning',
+        'cooldown_minutes': 15
+    },
+    {
+        'name': 'System Temperature Critical',
+        'description': 'Ambient/inlet temperature too high - check datacenter cooling',
+        'alert_type': 'temperature',
+        'condition': 'gt',
+        'threshold': 45,
+        'severity': 'critical',
+        'cooldown_minutes': 10
+    },
+    # Memory alerts
+    {
+        'name': 'ECC Correctable Errors High',
+        'description': 'High rate of correctable ECC errors - DIMM may be failing',
+        'alert_type': 'memory_ecc',
+        'condition': 'gt',
+        'threshold': 10,  # More than 10 in collection period
+        'severity': 'warning',
+        'cooldown_minutes': 60
+    },
+    {
+        'name': 'ECC Uncorrectable Error',
+        'description': 'Uncorrectable memory error detected - data corruption possible',
+        'alert_type': 'memory_ecc_uncorrectable',
+        'condition': 'contains',
+        'threshold_str': 'Uncorrectable',
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    },
+    # PSU alerts
+    {
+        'name': 'PSU Failure',
+        'description': 'Power supply unit failure detected',
+        'alert_type': 'psu',
+        'condition': 'contains',
+        'threshold_str': 'Failure|failure|failed',
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    },
+    {
+        'name': 'PSU Redundancy Lost',
+        'description': 'Redundant power supply offline - single point of failure',
+        'alert_type': 'psu',
+        'condition': 'contains',
+        'threshold_str': 'Redundancy|redundancy lost|non-redundant',
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    },
+    {
+        'name': 'Voltage Out of Range',
+        'description': 'Power rail voltage outside acceptable range',
+        'alert_type': 'voltage',
+        'condition': 'contains',
+        'threshold_str': 'Lower Critical|Upper Critical|out of range',
+        'severity': 'critical',
+        'cooldown_minutes': 10
+    },
+    # PCI/GPU alerts
+    {
+        'name': 'PCI Device Error',
+        'description': 'PCI bus error detected - possible hardware failure',
+        'alert_type': 'pci',
+        'condition': 'contains',
+        'threshold_str': 'PCI|PERR|SERR|Bus Error',
+        'severity': 'critical',
+        'cooldown_minutes': 10
+    },
+    {
+        'name': 'GPU Error',
+        'description': 'GPU or accelerator error detected',
+        'alert_type': 'pci',
+        'condition': 'contains',
+        'threshold_str': 'GPU|Xid|NVSwitch|accelerator',
+        'severity': 'critical',
+        'cooldown_minutes': 10
+    },
+    # Server availability
+    {
+        'name': 'Server Unreachable',
+        'description': 'BMC not responding - server may be down or network issue',
+        'alert_type': 'server',
+        'condition': 'eq',
+        'threshold': 0,  # is_reachable = 0
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    },
+    {
+        'name': 'Server Power Off',
+        'description': 'Server powered off unexpectedly',
+        'alert_type': 'server_power',
+        'condition': 'contains',
+        'threshold_str': 'off|Off|OFF',
+        'severity': 'critical',
+        'cooldown_minutes': 5
+    }
+]
+
 # Thread locks for global state
 import threading as _threading
 _sensor_cache_lock = _threading.Lock()
 _nvidia_bmcs_lock = _threading.Lock()
+_alert_lock = _threading.Lock()
+
+# Alert cooldown tracking (rule_id -> {bmc_ip: last_fired_time})
+_alert_cooldowns = {}
+
+# ============== Notification Functions ==============
+
+def get_notification_config(channel_type):
+    """Get notification channel configuration"""
+    with app.app_context():
+        config = NotificationConfig.query.filter_by(channel_type=channel_type).first()
+        if config and config.config_json:
+            try:
+                return json.loads(config.config_json), config.enabled
+            except Exception:
+                pass
+    return {}, False
+
+def send_telegram_notification(message, severity='info'):
+    """Send notification via Telegram"""
+    try:
+        config, enabled = get_notification_config('telegram')
+        if not enabled or not config.get('bot_token') or not config.get('chat_id'):
+            return False
+        
+        bot_token = config['bot_token']
+        chat_id = config['chat_id']
+        
+        # Add severity emoji
+        emoji_map = {
+            'critical': '🚨',
+            'warning': '⚠️',
+            'info': 'ℹ️'
+        }
+        emoji = emoji_map.get(severity, 'ℹ️')
+        
+        full_message = f"{emoji} *IPMI Alert*\n\n{message}"
+        
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            'chat_id': chat_id,
+            'text': full_message,
+            'parse_mode': 'Markdown',
+            'disable_web_page_preview': True
+        }
+        
+        response = requests.post(url, json=payload, timeout=10)
+        return response.status_code == 200
+    except Exception as e:
+        app.logger.error(f"Telegram notification failed: {e}")
+        return False
+
+def send_email_notification(subject, message, severity='info'):
+    """Send notification via Email (SMTP)"""
+    try:
+        config, enabled = get_notification_config('email')
+        if not enabled:
+            return False
+        
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        smtp_server = config.get('smtp_server')
+        smtp_port = config.get('smtp_port', 587)
+        smtp_user = config.get('smtp_user')
+        smtp_pass = config.get('smtp_pass')
+        from_addr = config.get('from_address', smtp_user)
+        to_addrs = config.get('to_addresses', [])
+        
+        if not smtp_server or not to_addrs:
+            return False
+        
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"[{severity.upper()}] {subject}"
+        msg['From'] = from_addr
+        msg['To'] = ', '.join(to_addrs) if isinstance(to_addrs, list) else to_addrs
+        
+        # Plain text version
+        text_part = MIMEText(message, 'plain')
+        msg.attach(text_part)
+        
+        # HTML version
+        severity_colors = {
+            'critical': '#ff4757',
+            'warning': '#ffaa00',
+            'info': '#4a9eff'
+        }
+        html = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif;">
+            <div style="border-left: 4px solid {severity_colors.get(severity, '#4a9eff')}; padding-left: 15px;">
+                <h2 style="color: {severity_colors.get(severity, '#4a9eff')};">IPMI Alert: {severity.upper()}</h2>
+                <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">{message}</pre>
+            </div>
+            <p style="color: #888; font-size: 12px;">Sent by BrickBox IPMI Monitor</p>
+        </body>
+        </html>
+        """
+        html_part = MIMEText(html, 'html')
+        msg.attach(html_part)
+        
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            if config.get('use_tls', True):
+                server.starttls()
+            if smtp_user and smtp_pass:
+                server.login(smtp_user, smtp_pass)
+            server.sendmail(from_addr, to_addrs, msg.as_string())
+        
+        return True
+    except Exception as e:
+        app.logger.error(f"Email notification failed: {e}")
+        return False
+
+def send_webhook_notification(alert_data):
+    """Send notification via Webhook (for custom integrations)"""
+    try:
+        config, enabled = get_notification_config('webhook')
+        if not enabled or not config.get('url'):
+            return False
+        
+        url = config['url']
+        headers = config.get('headers', {'Content-Type': 'application/json'})
+        
+        payload = {
+            'source': 'ipmi-monitor',
+            'timestamp': datetime.utcnow().isoformat(),
+            **alert_data
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=10)
+        return response.status_code in [200, 201, 202, 204]
+    except Exception as e:
+        app.logger.error(f"Webhook notification failed: {e}")
+        return False
+
+def send_alert_notifications(alert_history, rule):
+    """Send notifications for an alert based on rule configuration"""
+    message = f"""
+Server: {alert_history.server_name} ({alert_history.bmc_ip})
+Alert: {alert_history.rule_name}
+Severity: {alert_history.severity.upper()}
+Type: {alert_history.alert_type}
+
+{alert_history.message}
+
+Value: {alert_history.value}
+Threshold: {alert_history.threshold}
+Time: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
+"""
+    
+    # Telegram
+    if rule.notify_telegram:
+        if send_telegram_notification(message, alert_history.severity):
+            alert_history.notified_telegram = True
+    
+    # Email
+    if rule.notify_email:
+        subject = f"{alert_history.rule_name} - {alert_history.server_name}"
+        if send_email_notification(subject, message, alert_history.severity):
+            alert_history.notified_email = True
+    
+    # Webhook
+    if rule.notify_webhook:
+        alert_data = {
+            'rule_name': alert_history.rule_name,
+            'server_name': alert_history.server_name,
+            'bmc_ip': alert_history.bmc_ip,
+            'severity': alert_history.severity,
+            'alert_type': alert_history.alert_type,
+            'message': alert_history.message,
+            'value': alert_history.value,
+            'threshold': alert_history.threshold
+        }
+        if send_webhook_notification(alert_data):
+            alert_history.notified_webhook = True
+
+def check_alert_cooldown(rule_id, bmc_ip, cooldown_minutes):
+    """Check if alert is in cooldown period"""
+    with _alert_lock:
+        key = f"{rule_id}_{bmc_ip}"
+        if key in _alert_cooldowns:
+            last_fired = _alert_cooldowns[key]
+            if datetime.utcnow() - last_fired < timedelta(minutes=cooldown_minutes):
+                return True
+        return False
+
+def set_alert_cooldown(rule_id, bmc_ip):
+    """Set cooldown for an alert"""
+    with _alert_lock:
+        key = f"{rule_id}_{bmc_ip}"
+        _alert_cooldowns[key] = datetime.utcnow()
+
+def evaluate_alert_condition(condition, value, threshold, threshold_str=None):
+    """Evaluate if an alert condition is met"""
+    try:
+        if condition == 'eq':
+            return float(value) == float(threshold)
+        elif condition == 'lt':
+            return float(value) < float(threshold)
+        elif condition == 'gt':
+            return float(value) > float(threshold)
+        elif condition == 'lte':
+            return float(value) <= float(threshold)
+        elif condition == 'gte':
+            return float(value) >= float(threshold)
+        elif condition == 'contains' and threshold_str:
+            patterns = threshold_str.split('|')
+            value_str = str(value).lower()
+            return any(p.lower() in value_str for p in patterns)
+        return False
+    except (ValueError, TypeError):
+        return False
+
+def evaluate_alerts_for_event(event, bmc_ip, server_name):
+    """Evaluate alert rules for a SEL event"""
+    try:
+        rules = AlertRule.query.filter_by(enabled=True).all()
+        
+        for rule in rules:
+            # Skip if in cooldown
+            if check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
+                continue
+            
+            triggered = False
+            value_str = ''
+            
+            # Check event type matches rule type
+            event_desc = event.event_description.lower() if hasattr(event, 'event_description') else str(event).lower()
+            sensor_type = event.sensor_type.lower() if hasattr(event, 'sensor_type') else ''
+            
+            if rule.alert_type == 'memory_ecc' and 'ecc' in event_desc and 'memory' in sensor_type:
+                # For ECC, we check event description
+                if rule.condition == 'contains':
+                    triggered = evaluate_alert_condition('contains', event_desc, None, rule.threshold_str)
+                value_str = event_desc
+                
+            elif rule.alert_type == 'memory_ecc_uncorrectable' and 'uncorrectable' in event_desc:
+                triggered = True
+                value_str = event_desc
+                
+            elif rule.alert_type == 'psu' and 'power' in sensor_type:
+                triggered = evaluate_alert_condition('contains', event_desc, None, rule.threshold_str)
+                value_str = event_desc
+                
+            elif rule.alert_type == 'voltage' and 'voltage' in sensor_type:
+                triggered = evaluate_alert_condition('contains', event_desc, None, rule.threshold_str)
+                value_str = event_desc
+                
+            elif rule.alert_type == 'pci' and ('pci' in event_desc or 'gpu' in event_desc or 'xid' in event_desc):
+                triggered = evaluate_alert_condition('contains', event_desc, None, rule.threshold_str)
+                value_str = event_desc
+            
+            if triggered:
+                fire_alert(rule, bmc_ip, server_name, value_str, event_desc)
+                
+    except Exception as e:
+        app.logger.error(f"Error evaluating alerts for event: {e}")
+
+def evaluate_alerts_for_sensor(sensor, bmc_ip, server_name):
+    """Evaluate alert rules for a sensor reading"""
+    try:
+        rules = AlertRule.query.filter_by(enabled=True).all()
+        
+        for rule in rules:
+            if check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
+                continue
+            
+            triggered = False
+            sensor_type = sensor.sensor_type.lower() if hasattr(sensor, 'sensor_type') else ''
+            sensor_name = sensor.sensor_name.lower() if hasattr(sensor, 'sensor_name') else ''
+            value = sensor.value if hasattr(sensor, 'value') else None
+            
+            if value is None:
+                continue
+            
+            # Fan alerts
+            if rule.alert_type == 'fan' and sensor_type == 'fan':
+                triggered = evaluate_alert_condition(rule.condition, value, rule.threshold)
+            
+            # Temperature alerts
+            elif rule.alert_type == 'temperature' and sensor_type == 'temperature':
+                # Only CPU temps for CPU alerts
+                if 'cpu' in rule.name.lower() and 'cpu' not in sensor_name:
+                    continue
+                triggered = evaluate_alert_condition(rule.condition, value, rule.threshold)
+            
+            if triggered:
+                fire_alert(
+                    rule, bmc_ip, server_name, 
+                    f"{value} {sensor.unit if hasattr(sensor, 'unit') else ''}",
+                    f"Sensor: {sensor.sensor_name}"
+                )
+                
+    except Exception as e:
+        app.logger.error(f"Error evaluating alerts for sensor: {e}")
+
+def evaluate_alerts_for_server(bmc_ip, server_name, is_reachable, power_status):
+    """Evaluate alert rules for server status"""
+    try:
+        rules = AlertRule.query.filter_by(enabled=True).all()
+        
+        for rule in rules:
+            if check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
+                continue
+            
+            triggered = False
+            value_str = ''
+            
+            if rule.alert_type == 'server' and not is_reachable:
+                triggered = evaluate_alert_condition('eq', 0, rule.threshold)
+                value_str = 'Unreachable'
+                
+            elif rule.alert_type == 'server_power' and power_status:
+                triggered = evaluate_alert_condition('contains', power_status, None, rule.threshold_str)
+                value_str = power_status
+            
+            if triggered:
+                fire_alert(rule, bmc_ip, server_name, value_str, f"Server status: {value_str}")
+                
+    except Exception as e:
+        app.logger.error(f"Error evaluating alerts for server: {e}")
+
+def fire_alert(rule, bmc_ip, server_name, value, detail_message):
+    """Fire an alert and send notifications"""
+    try:
+        with app.app_context():
+            # Create alert history record
+            alert = AlertHistory(
+                rule_id=rule.id,
+                rule_name=rule.name,
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                alert_type=rule.alert_type,
+                severity=rule.severity,
+                message=f"{rule.description}\n\n{detail_message}",
+                value=str(value),
+                threshold=str(rule.threshold or rule.threshold_str)
+            )
+            
+            db.session.add(alert)
+            db.session.commit()
+            
+            # Send notifications
+            send_alert_notifications(alert, rule)
+            db.session.commit()
+            
+            # Set cooldown
+            set_alert_cooldown(rule.id, bmc_ip)
+            
+            app.logger.warning(f"Alert fired: {rule.name} for {server_name} ({bmc_ip})")
+            
+    except Exception as e:
+        app.logger.error(f"Error firing alert: {e}")
+        db.session.rollback()
+
+def initialize_default_alerts():
+    """Initialize default alert rules if none exist"""
+    with app.app_context():
+        try:
+            existing = AlertRule.query.count()
+            if existing == 0:
+                for rule_data in DEFAULT_ALERT_RULES:
+                    rule = AlertRule(**rule_data)
+                    db.session.add(rule)
+                db.session.commit()
+                app.logger.info(f"Initialized {len(DEFAULT_ALERT_RULES)} default alert rules")
+        except Exception as e:
+            app.logger.error(f"Error initializing default alerts: {e}")
+            db.session.rollback()
 
 # Sensor name cache (bmc_ip -> {sensor_hex_id: sensor_name})
 SENSOR_NAME_CACHE = {}
@@ -1682,6 +2264,21 @@ def update_prometheus_metrics():
         IPMIEvent.event_date >= cutoff_24h
     ).count())
     prom_collection_timestamp.set(time.time())
+    
+    # Alert metrics
+    try:
+        prom_alerts_total.set(AlertHistory.query.count())
+        prom_alerts_unacknowledged.set(AlertHistory.query.filter_by(acknowledged=False).count())
+        prom_alerts_critical_24h.set(AlertHistory.query.filter(
+            AlertHistory.fired_at >= cutoff_24h,
+            AlertHistory.severity == 'critical'
+        ).count())
+        prom_alerts_warning_24h.set(AlertHistory.query.filter(
+            AlertHistory.fired_at >= cutoff_24h,
+            AlertHistory.severity == 'warning'
+        ).count())
+    except Exception as e:
+        app.logger.debug(f"Error updating alert metrics: {e}")
 
 # ============== Server Management API ==============
 
@@ -2280,6 +2877,302 @@ def api_clear_redfish_cache():
         _redfish_cache.clear()
     return jsonify({'status': 'success', 'message': 'Redfish cache cleared'})
 
+# ============== Alerting API ==============
+
+@app.route('/api/alerts/rules')
+def api_get_alert_rules():
+    """Get all alert rules"""
+    rules = AlertRule.query.all()
+    return jsonify([{
+        'id': r.id,
+        'name': r.name,
+        'description': r.description,
+        'alert_type': r.alert_type,
+        'condition': r.condition,
+        'threshold': r.threshold,
+        'threshold_str': r.threshold_str,
+        'severity': r.severity,
+        'enabled': r.enabled,
+        'cooldown_minutes': r.cooldown_minutes,
+        'notify_telegram': r.notify_telegram,
+        'notify_email': r.notify_email,
+        'notify_webhook': r.notify_webhook
+    } for r in rules])
+
+@app.route('/api/alerts/rules/<int:rule_id>', methods=['GET', 'PUT', 'DELETE'])
+def api_manage_alert_rule(rule_id):
+    """Get, update, or delete an alert rule"""
+    rule = AlertRule.query.get(rule_id)
+    if not rule:
+        return jsonify({'error': 'Rule not found'}), 404
+    
+    if request.method == 'GET':
+        return jsonify({
+            'id': rule.id,
+            'name': rule.name,
+            'description': rule.description,
+            'alert_type': rule.alert_type,
+            'condition': rule.condition,
+            'threshold': rule.threshold,
+            'threshold_str': rule.threshold_str,
+            'severity': rule.severity,
+            'enabled': rule.enabled,
+            'cooldown_minutes': rule.cooldown_minutes,
+            'notify_telegram': rule.notify_telegram,
+            'notify_email': rule.notify_email,
+            'notify_webhook': rule.notify_webhook
+        })
+    
+    elif request.method == 'PUT':
+        if not is_admin():
+            return jsonify({'error': 'Admin authentication required'}), 401
+        
+        data = request.get_json()
+        if 'name' in data:
+            rule.name = data['name']
+        if 'description' in data:
+            rule.description = data['description']
+        if 'alert_type' in data:
+            rule.alert_type = data['alert_type']
+        if 'condition' in data:
+            rule.condition = data['condition']
+        if 'threshold' in data:
+            rule.threshold = data['threshold']
+        if 'threshold_str' in data:
+            rule.threshold_str = data['threshold_str']
+        if 'severity' in data:
+            rule.severity = data['severity']
+        if 'enabled' in data:
+            rule.enabled = data['enabled']
+        if 'cooldown_minutes' in data:
+            rule.cooldown_minutes = data['cooldown_minutes']
+        if 'notify_telegram' in data:
+            rule.notify_telegram = data['notify_telegram']
+        if 'notify_email' in data:
+            rule.notify_email = data['notify_email']
+        if 'notify_webhook' in data:
+            rule.notify_webhook = data['notify_webhook']
+        
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'Updated rule: {rule.name}'})
+    
+    elif request.method == 'DELETE':
+        if not is_admin():
+            return jsonify({'error': 'Admin authentication required'}), 401
+        
+        db.session.delete(rule)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Rule deleted'})
+
+@app.route('/api/alerts/rules', methods=['POST'])
+@admin_required
+def api_create_alert_rule():
+    """Create a new alert rule"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+    
+    required = ['name', 'alert_type', 'condition', 'severity']
+    for field in required:
+        if field not in data:
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    rule = AlertRule(
+        name=data['name'],
+        description=data.get('description', ''),
+        alert_type=data['alert_type'],
+        condition=data['condition'],
+        threshold=data.get('threshold'),
+        threshold_str=data.get('threshold_str'),
+        severity=data['severity'],
+        enabled=data.get('enabled', True),
+        cooldown_minutes=data.get('cooldown_minutes', 30),
+        notify_telegram=data.get('notify_telegram', True),
+        notify_email=data.get('notify_email', False),
+        notify_webhook=data.get('notify_webhook', False)
+    )
+    
+    db.session.add(rule)
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': f'Created rule: {rule.name}', 'id': rule.id})
+
+@app.route('/api/alerts/history')
+def api_get_alert_history():
+    """Get alert history with optional filters"""
+    limit = request.args.get('limit', 100, type=int)
+    severity = request.args.get('severity')
+    bmc_ip = request.args.get('bmc_ip')
+    acknowledged = request.args.get('acknowledged')
+    
+    query = AlertHistory.query
+    
+    if severity:
+        query = query.filter_by(severity=severity)
+    if bmc_ip:
+        query = query.filter_by(bmc_ip=bmc_ip)
+    if acknowledged is not None:
+        query = query.filter_by(acknowledged=acknowledged.lower() == 'true')
+    
+    alerts = query.order_by(AlertHistory.fired_at.desc()).limit(limit).all()
+    
+    return jsonify([{
+        'id': a.id,
+        'rule_name': a.rule_name,
+        'bmc_ip': a.bmc_ip,
+        'server_name': a.server_name,
+        'alert_type': a.alert_type,
+        'severity': a.severity,
+        'message': a.message,
+        'value': a.value,
+        'threshold': a.threshold,
+        'notified_telegram': a.notified_telegram,
+        'notified_email': a.notified_email,
+        'notified_webhook': a.notified_webhook,
+        'acknowledged': a.acknowledged,
+        'acknowledged_by': a.acknowledged_by,
+        'acknowledged_at': a.acknowledged_at.isoformat() if a.acknowledged_at else None,
+        'resolved': a.resolved,
+        'resolved_at': a.resolved_at.isoformat() if a.resolved_at else None,
+        'fired_at': a.fired_at.isoformat()
+    } for a in alerts])
+
+@app.route('/api/alerts/history/<int:alert_id>/acknowledge', methods=['POST'])
+@admin_required
+def api_acknowledge_alert(alert_id):
+    """Acknowledge an alert"""
+    alert = AlertHistory.query.get(alert_id)
+    if not alert:
+        return jsonify({'error': 'Alert not found'}), 404
+    
+    alert.acknowledged = True
+    alert.acknowledged_by = session.get('admin_user', 'admin')
+    alert.acknowledged_at = datetime.utcnow()
+    db.session.commit()
+    
+    return jsonify({'status': 'success', 'message': 'Alert acknowledged'})
+
+@app.route('/api/alerts/history/<int:alert_id>/resolve', methods=['POST'])
+@admin_required
+def api_resolve_alert(alert_id):
+    """Mark an alert as resolved"""
+    alert = AlertHistory.query.get(alert_id)
+    if not alert:
+        return jsonify({'error': 'Alert not found'}), 404
+    
+    alert.resolved = True
+    alert.resolved_at = datetime.utcnow()
+    db.session.commit()
+    
+    return jsonify({'status': 'success', 'message': 'Alert resolved'})
+
+@app.route('/api/alerts/notifications')
+def api_get_notification_config():
+    """Get notification channel configurations"""
+    configs = NotificationConfig.query.all()
+    
+    result = {}
+    for config in configs:
+        parsed_config = {}
+        if config.config_json:
+            try:
+                parsed_config = json.loads(config.config_json)
+                # Mask sensitive fields
+                if 'bot_token' in parsed_config:
+                    parsed_config['bot_token'] = '***' + parsed_config['bot_token'][-6:] if len(parsed_config.get('bot_token', '')) > 6 else '***'
+                if 'smtp_pass' in parsed_config:
+                    parsed_config['smtp_pass'] = '********'
+            except Exception:
+                pass
+        
+        result[config.channel_type] = {
+            'enabled': config.enabled,
+            'config': parsed_config,
+            'test_successful': config.test_successful,
+            'last_test': config.last_test.isoformat() if config.last_test else None
+        }
+    
+    return jsonify(result)
+
+@app.route('/api/alerts/notifications/<channel_type>', methods=['PUT'])
+@admin_required
+def api_update_notification_config(channel_type):
+    """Update notification channel configuration"""
+    if channel_type not in ['telegram', 'email', 'webhook']:
+        return jsonify({'error': 'Invalid channel type'}), 400
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Request body required'}), 400
+    
+    config = NotificationConfig.query.filter_by(channel_type=channel_type).first()
+    if not config:
+        config = NotificationConfig(channel_type=channel_type)
+        db.session.add(config)
+    
+    if 'enabled' in data:
+        config.enabled = data['enabled']
+    
+    if 'config' in data:
+        config.config_json = json.dumps(data['config'])
+    
+    db.session.commit()
+    return jsonify({'status': 'success', 'message': f'Updated {channel_type} configuration'})
+
+@app.route('/api/alerts/notifications/<channel_type>/test', methods=['POST'])
+@admin_required
+def api_test_notification(channel_type):
+    """Test a notification channel"""
+    config = NotificationConfig.query.filter_by(channel_type=channel_type).first()
+    
+    if not config or not config.enabled:
+        return jsonify({'error': 'Channel not configured or not enabled'}), 400
+    
+    test_message = "🧪 Test notification from BrickBox IPMI Monitor\n\nIf you see this, notifications are working correctly!"
+    
+    success = False
+    if channel_type == 'telegram':
+        success = send_telegram_notification(test_message, 'info')
+    elif channel_type == 'email':
+        success = send_email_notification("Test Notification", test_message, 'info')
+    elif channel_type == 'webhook':
+        success = send_webhook_notification({
+            'type': 'test',
+            'message': test_message
+        })
+    
+    config.test_successful = success
+    config.last_test = datetime.utcnow()
+    db.session.commit()
+    
+    if success:
+        return jsonify({'status': 'success', 'message': f'Test notification sent to {channel_type}'})
+    else:
+        return jsonify({'error': f'Failed to send test notification to {channel_type}'}), 500
+
+@app.route('/api/alerts/stats')
+def api_alert_stats():
+    """Get alert statistics"""
+    cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+    cutoff_7d = datetime.utcnow() - timedelta(days=7)
+    
+    stats = {
+        'total_rules': AlertRule.query.count(),
+        'enabled_rules': AlertRule.query.filter_by(enabled=True).count(),
+        'alerts_24h': AlertHistory.query.filter(AlertHistory.fired_at >= cutoff_24h).count(),
+        'alerts_7d': AlertHistory.query.filter(AlertHistory.fired_at >= cutoff_7d).count(),
+        'unacknowledged': AlertHistory.query.filter_by(acknowledged=False).count(),
+        'critical_24h': AlertHistory.query.filter(
+            AlertHistory.fired_at >= cutoff_24h,
+            AlertHistory.severity == 'critical'
+        ).count(),
+        'warning_24h': AlertHistory.query.filter(
+            AlertHistory.fired_at >= cutoff_24h,
+            AlertHistory.severity == 'warning'
+        ).count()
+    }
+    
+    return jsonify(stats)
+
 # ============== Settings Page ==============
 
 @app.route('/settings')
@@ -2405,6 +3298,8 @@ def init_db():
     with app.app_context():
         db.create_all()
         app.logger.info("Database initialized")
+        # Initialize default alert rules
+        initialize_default_alerts()
 
 # Initialize on import (for gunicorn)
 init_db()

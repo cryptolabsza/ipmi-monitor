@@ -292,6 +292,8 @@
             <button class="tab active" onclick="showTab('manage')">🖥️ Manage Servers</button>
             <button class="tab" onclick="showTab('credentials')">🔑 Credentials</button>
             <button class="tab" onclick="showTab('ssh')">🔐 SSH Keys</button>
+            <button class="tab" onclick="showTab('alerts')">🔔 Alerts</button>
+            <button class="tab" onclick="showTab('notifications')">📬 Notifications</button>
             <button class="tab" onclick="showTab('import')">📥 Import/Export</button>
         </div>
         
@@ -543,7 +545,288 @@
             </div>
         </div>
         
-        <!-- Servers Tab -->
+        <!-- Alerts Tab -->
+        <div id="alerts" class="tab-content">
+            <div class="card">
+                <div class="card-title">📊 Alert Statistics</div>
+                <div id="alertStats" style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; min-width: 120px;">
+                        <div style="font-size: 2rem; font-weight: bold;" id="statAlertsTotal">-</div>
+                        <div style="color: var(--text-secondary);">Total Alerts</div>
+                    </div>
+                    <div style="padding: 15px; background: rgba(255, 71, 87, 0.2); border-radius: 8px; min-width: 120px;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-red);" id="statCritical24h">-</div>
+                        <div style="color: var(--text-secondary);">Critical (24h)</div>
+                    </div>
+                    <div style="padding: 15px; background: rgba(255, 170, 0, 0.2); border-radius: 8px; min-width: 120px;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-yellow);" id="statWarning24h">-</div>
+                        <div style="color: var(--text-secondary);">Warnings (24h)</div>
+                    </div>
+                    <div style="padding: 15px; background: rgba(74, 158, 255, 0.2); border-radius: 8px; min-width: 120px;">
+                        <div style="font-size: 2rem; font-weight: bold; color: var(--accent-blue);" id="statUnack">-</div>
+                        <div style="color: var(--text-secondary);">Unacknowledged</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">⚙️ Alert Rules</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Configure which alerts trigger notifications. Click a rule to edit.
+                </p>
+                
+                <div id="alertRulesList" class="server-list">
+                    <div class="loading"><div class="spinner"></div> Loading rules...</div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="showAddRuleModal()">➕ Add Custom Rule</button>
+                    <button class="btn btn-secondary" onclick="resetDefaultRules()">🔄 Reset to Defaults</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📜 Recent Alerts</div>
+                <div id="alertHistory" class="server-list" style="max-height: 400px; overflow-y: auto;">
+                    <div class="loading"><div class="spinner"></div> Loading history...</div>
+                </div>
+            </div>
+            
+            <!-- Add/Edit Rule Modal -->
+            <div id="ruleModal" class="modal" style="display: none;">
+                <div class="modal-content" style="max-width: 600px;">
+                    <div class="card-title" id="ruleModalTitle">➕ Add Alert Rule</div>
+                    <input type="hidden" id="ruleId">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Rule Name</label>
+                            <input type="text" id="ruleName" placeholder="e.g., Fan Stopped">
+                        </div>
+                        <div class="form-group">
+                            <label>Severity</label>
+                            <select id="ruleSeverity">
+                                <option value="info">Info</option>
+                                <option value="warning">Warning</option>
+                                <option value="critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="ruleDescription" placeholder="What this alert monitors..."></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Alert Type</label>
+                            <select id="ruleAlertType">
+                                <option value="fan">Fan</option>
+                                <option value="temperature">Temperature</option>
+                                <option value="memory_ecc">Memory ECC</option>
+                                <option value="memory_ecc_uncorrectable">Memory Uncorrectable</option>
+                                <option value="psu">PSU</option>
+                                <option value="voltage">Voltage</option>
+                                <option value="pci">PCI/GPU</option>
+                                <option value="server">Server Unreachable</option>
+                                <option value="server_power">Server Power</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Condition</label>
+                            <select id="ruleCondition">
+                                <option value="lt">Less than</option>
+                                <option value="gt">Greater than</option>
+                                <option value="eq">Equals</option>
+                                <option value="lte">Less than or equal</option>
+                                <option value="gte">Greater than or equal</option>
+                                <option value="contains">Contains (text)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Threshold (numeric)</label>
+                            <input type="number" id="ruleThreshold" placeholder="e.g., 85 for temperature">
+                        </div>
+                        <div class="form-group">
+                            <label>Threshold (text pattern)</label>
+                            <input type="text" id="ruleThresholdStr" placeholder="e.g., Failure|failed (use | for OR)">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Cooldown (minutes)</label>
+                            <input type="number" id="ruleCooldown" value="30" min="1">
+                            <small style="color: var(--text-secondary);">Don't re-alert for this period</small>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="ruleEnabled" checked> Enabled
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notify via:</label>
+                        <div style="display: flex; gap: 20px; margin-top: 5px;">
+                            <label><input type="checkbox" id="ruleNotifyTelegram" checked> Telegram</label>
+                            <label><input type="checkbox" id="ruleNotifyEmail"> Email</label>
+                            <label><input type="checkbox" id="ruleNotifyWebhook"> Webhook</label>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="saveRule()">💾 Save</button>
+                        <button class="btn btn-secondary" onclick="closeRuleModal()">Cancel</button>
+                        <button class="btn btn-danger" id="deleteRuleBtn" onclick="deleteRule()" style="margin-left: auto; display: none;">🗑️ Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notifications Tab -->
+        <div id="notifications" class="tab-content">
+            <div class="card">
+                <div class="card-title">📱 Telegram Notifications</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Send alerts to a Telegram channel or chat. <a href="https://core.telegram.org/bots#creating-a-new-bot" target="_blank" style="color: var(--accent-blue);">Create a bot</a> first.
+                </p>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="telegramEnabled" onchange="updateTelegramConfig()"> Enable Telegram
+                    </label>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Bot Token</label>
+                        <input type="password" id="telegramBotToken" placeholder="123456:ABC-DEF1234...">
+                    </div>
+                    <div class="form-group">
+                        <label>Chat ID</label>
+                        <input type="text" id="telegramChatId" placeholder="-1001234567890 or @channel">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick="saveTelegramConfig()">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="testTelegram()">🧪 Send Test</button>
+                </div>
+                <div id="telegramTestResult" style="margin-top: 10px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📧 Email Notifications (SMTP)</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Send alerts via email. Requires SMTP server access.
+                </p>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="emailEnabled" onchange="updateEmailConfig()"> Enable Email
+                    </label>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SMTP Server</label>
+                        <input type="text" id="smtpServer" placeholder="smtp.gmail.com">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Port</label>
+                        <input type="number" id="smtpPort" value="587">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SMTP Username</label>
+                        <input type="text" id="smtpUser" placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>SMTP Password</label>
+                        <input type="password" id="smtpPass" placeholder="App password">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>From Address</label>
+                        <input type="email" id="emailFrom" placeholder="alerts@brickbox.local">
+                    </div>
+                    <div class="form-group">
+                        <label>To Addresses (comma-separated)</label>
+                        <input type="text" id="emailTo" placeholder="admin@example.com, ops@example.com">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="smtpTls" checked> Use TLS
+                    </label>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick="saveEmailConfig()">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="testEmail()">🧪 Send Test</button>
+                </div>
+                <div id="emailTestResult" style="margin-top: 10px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🔗 Webhook Notifications</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Send alerts to a custom HTTP endpoint (Slack, Discord, PagerDuty, etc.)
+                </p>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="webhookEnabled" onchange="updateWebhookConfig()"> Enable Webhook
+                    </label>
+                </div>
+                
+                <div class="form-group">
+                    <label>Webhook URL</label>
+                    <input type="url" id="webhookUrl" placeholder="https://hooks.slack.com/services/...">
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom Headers (JSON)</label>
+                    <textarea id="webhookHeaders" placeholder='{"Authorization": "Bearer xxx"}'></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-primary" onclick="saveWebhookConfig()">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="testWebhook()">🧪 Send Test</button>
+                </div>
+                <div id="webhookTestResult" style="margin-top: 10px;"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📡 Grafana Integration</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    For Grafana alerting, configure a contact point in Grafana using the same Telegram bot or SMTP settings.
+                    The IPMI Monitor exports Prometheus metrics that Grafana can use for alerts.
+                </p>
+                
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                    <strong>Prometheus Metrics for Alerting:</strong><br><br>
+                    <code>ipmi_alerts_total</code> - Total fired alerts<br>
+                    <code>ipmi_alerts_unacknowledged</code> - Unacked alerts<br>
+                    <code>ipmi_alerts_critical_24h</code> - Critical alerts (24h)<br>
+                    <code>ipmi_alerts_warning_24h</code> - Warning alerts (24h)<br><br>
+                    <code>ipmi_temperature_celsius{sensor_name="CPU..."}</code><br>
+                    <code>ipmi_fan_speed_rpm{sensor_name="..."}</code><br>
+                    <code>ipmi_power_watts{server_name="..."}</code>
+                </div>
+            </div>
+        </div>
+        
         <!-- Import/Export Tab -->
         <div id="import" class="tab-content">
             <div class="card">
@@ -596,6 +879,8 @@
             
             if (tabId === 'manage') loadManagedServers();
             if (tabId === 'import') loadExportPreview();
+            if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); }
+            if (tabId === 'notifications') loadNotificationConfigs();
         }
         
         function showAlert(message, type) {
@@ -990,6 +1275,398 @@
                 loadServerConfigs();
             } catch (e) {
                 showAlert('Failed to save SSH config', 'error');
+            }
+        }
+        
+        // ============== Alerts ==============
+        
+        let ALERT_RULES = [];
+        
+        async function loadAlertStats() {
+            try {
+                const response = await fetch('/api/alerts/stats');
+                const stats = await response.json();
+                
+                document.getElementById('statAlertsTotal').textContent = stats.alerts_7d || 0;
+                document.getElementById('statCritical24h').textContent = stats.critical_24h || 0;
+                document.getElementById('statWarning24h').textContent = stats.warning_24h || 0;
+                document.getElementById('statUnack').textContent = stats.unacknowledged || 0;
+            } catch (e) {
+                console.error('Failed to load alert stats:', e);
+            }
+        }
+        
+        async function loadAlertRules() {
+            try {
+                const response = await fetch('/api/alerts/rules');
+                ALERT_RULES = await response.json();
+                
+                const rulesList = document.getElementById('alertRulesList');
+                
+                if (ALERT_RULES.length === 0) {
+                    rulesList.innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">No alert rules configured.</p>';
+                    return;
+                }
+                
+                rulesList.innerHTML = ALERT_RULES.map(r => `
+                    <div class="server-item ${r.enabled ? '' : 'disabled'}" onclick="openRuleModal(${r.id})">
+                        <div class="server-info">
+                            <span class="server-name">${r.name}</span>
+                            <span class="server-ip">${r.description || r.alert_type}</span>
+                        </div>
+                        <div class="server-badges">
+                            <span class="badge ${r.enabled ? 'badge-green' : 'badge-red'}">${r.enabled ? 'On' : 'Off'}</span>
+                            <span class="badge badge-${r.severity === 'critical' ? 'red' : r.severity === 'warning' ? 'yellow' : 'blue'}">${r.severity.toUpperCase()}</span>
+                            ${r.notify_telegram ? '<span class="badge badge-blue">TG</span>' : ''}
+                            ${r.notify_email ? '<span class="badge badge-blue">📧</span>' : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load alert rules:', e);
+            }
+        }
+        
+        async function loadAlertHistory() {
+            try {
+                const response = await fetch('/api/alerts/history?limit=50');
+                const alerts = await response.json();
+                
+                const historyList = document.getElementById('alertHistory');
+                
+                if (alerts.length === 0) {
+                    historyList.innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">No alerts fired yet.</p>';
+                    return;
+                }
+                
+                historyList.innerHTML = alerts.map(a => {
+                    const time = new Date(a.fired_at).toLocaleString();
+                    return `
+                        <div class="server-item" style="border-left: 4px solid ${a.severity === 'critical' ? 'var(--accent-red)' : a.severity === 'warning' ? 'var(--accent-yellow)' : 'var(--accent-blue)'};">
+                            <div class="server-info">
+                                <span class="server-name">${a.rule_name}</span>
+                                <span class="server-ip">${a.server_name} (${a.bmc_ip}) - ${time}</span>
+                            </div>
+                            <div class="server-badges">
+                                ${a.acknowledged ? '<span class="badge badge-green">ACK</span>' : `<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="event.stopPropagation(); acknowledgeAlert(${a.id})">ACK</button>`}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load alert history:', e);
+            }
+        }
+        
+        async function acknowledgeAlert(alertId) {
+            try {
+                const response = await fetch(`/api/alerts/history/${alertId}/acknowledge`, { method: 'POST' });
+                if (response.ok) {
+                    loadAlertHistory();
+                    loadAlertStats();
+                }
+            } catch (e) {
+                showAlert('Failed to acknowledge', 'error');
+            }
+        }
+        
+        function showAddRuleModal() {
+            document.getElementById('ruleModalTitle').textContent = '➕ Add Alert Rule';
+            document.getElementById('ruleId').value = '';
+            document.getElementById('ruleName').value = '';
+            document.getElementById('ruleDescription').value = '';
+            document.getElementById('ruleAlertType').value = 'fan';
+            document.getElementById('ruleCondition').value = 'lt';
+            document.getElementById('ruleThreshold').value = '';
+            document.getElementById('ruleThresholdStr').value = '';
+            document.getElementById('ruleSeverity').value = 'warning';
+            document.getElementById('ruleCooldown').value = '30';
+            document.getElementById('ruleEnabled').checked = true;
+            document.getElementById('ruleNotifyTelegram').checked = true;
+            document.getElementById('ruleNotifyEmail').checked = false;
+            document.getElementById('ruleNotifyWebhook').checked = false;
+            document.getElementById('deleteRuleBtn').style.display = 'none';
+            document.getElementById('ruleModal').style.display = 'flex';
+        }
+        
+        function openRuleModal(ruleId) {
+            const rule = ALERT_RULES.find(r => r.id === ruleId);
+            if (!rule) return;
+            
+            document.getElementById('ruleModalTitle').textContent = '✏️ Edit Alert Rule';
+            document.getElementById('ruleId').value = rule.id;
+            document.getElementById('ruleName').value = rule.name;
+            document.getElementById('ruleDescription').value = rule.description || '';
+            document.getElementById('ruleAlertType').value = rule.alert_type;
+            document.getElementById('ruleCondition').value = rule.condition;
+            document.getElementById('ruleThreshold').value = rule.threshold || '';
+            document.getElementById('ruleThresholdStr').value = rule.threshold_str || '';
+            document.getElementById('ruleSeverity').value = rule.severity;
+            document.getElementById('ruleCooldown').value = rule.cooldown_minutes;
+            document.getElementById('ruleEnabled').checked = rule.enabled;
+            document.getElementById('ruleNotifyTelegram').checked = rule.notify_telegram;
+            document.getElementById('ruleNotifyEmail').checked = rule.notify_email;
+            document.getElementById('ruleNotifyWebhook').checked = rule.notify_webhook;
+            document.getElementById('deleteRuleBtn').style.display = 'block';
+            document.getElementById('ruleModal').style.display = 'flex';
+        }
+        
+        function closeRuleModal() {
+            document.getElementById('ruleModal').style.display = 'none';
+        }
+        
+        async function saveRule() {
+            const ruleId = document.getElementById('ruleId').value;
+            const data = {
+                name: document.getElementById('ruleName').value,
+                description: document.getElementById('ruleDescription').value,
+                alert_type: document.getElementById('ruleAlertType').value,
+                condition: document.getElementById('ruleCondition').value,
+                threshold: parseFloat(document.getElementById('ruleThreshold').value) || null,
+                threshold_str: document.getElementById('ruleThresholdStr').value || null,
+                severity: document.getElementById('ruleSeverity').value,
+                cooldown_minutes: parseInt(document.getElementById('ruleCooldown').value) || 30,
+                enabled: document.getElementById('ruleEnabled').checked,
+                notify_telegram: document.getElementById('ruleNotifyTelegram').checked,
+                notify_email: document.getElementById('ruleNotifyEmail').checked,
+                notify_webhook: document.getElementById('ruleNotifyWebhook').checked
+            };
+            
+            try {
+                const url = ruleId ? `/api/alerts/rules/${ruleId}` : '/api/alerts/rules';
+                const method = ruleId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    closeRuleModal();
+                    loadAlertRules();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to save rule', 'error');
+            }
+        }
+        
+        async function deleteRule() {
+            const ruleId = document.getElementById('ruleId').value;
+            if (!ruleId) return;
+            
+            if (!confirm('Delete this alert rule?')) return;
+            
+            try {
+                const response = await fetch(`/api/alerts/rules/${ruleId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showAlert('Rule deleted', 'success');
+                    closeRuleModal();
+                    loadAlertRules();
+                }
+            } catch (e) {
+                showAlert('Failed to delete rule', 'error');
+            }
+        }
+        
+        async function resetDefaultRules() {
+            if (!confirm('This will delete all custom rules and restore defaults. Continue?')) return;
+            
+            // Delete all existing rules
+            for (const rule of ALERT_RULES) {
+                await fetch(`/api/alerts/rules/${rule.id}`, { method: 'DELETE' });
+            }
+            
+            // Re-initialize defaults by restarting (or API call)
+            showAlert('Please restart the IPMI Monitor to restore default rules', 'info');
+            loadAlertRules();
+        }
+        
+        // ============== Notifications ==============
+        
+        async function loadNotificationConfigs() {
+            try {
+                const response = await fetch('/api/alerts/notifications');
+                const configs = await response.json();
+                
+                // Telegram
+                if (configs.telegram) {
+                    document.getElementById('telegramEnabled').checked = configs.telegram.enabled;
+                    if (configs.telegram.config) {
+                        document.getElementById('telegramBotToken').value = configs.telegram.config.bot_token || '';
+                        document.getElementById('telegramChatId').value = configs.telegram.config.chat_id || '';
+                    }
+                }
+                
+                // Email
+                if (configs.email) {
+                    document.getElementById('emailEnabled').checked = configs.email.enabled;
+                    if (configs.email.config) {
+                        document.getElementById('smtpServer').value = configs.email.config.smtp_server || '';
+                        document.getElementById('smtpPort').value = configs.email.config.smtp_port || 587;
+                        document.getElementById('smtpUser').value = configs.email.config.smtp_user || '';
+                        document.getElementById('emailFrom').value = configs.email.config.from_address || '';
+                        document.getElementById('emailTo').value = (configs.email.config.to_addresses || []).join(', ');
+                        document.getElementById('smtpTls').checked = configs.email.config.use_tls !== false;
+                    }
+                }
+                
+                // Webhook
+                if (configs.webhook) {
+                    document.getElementById('webhookEnabled').checked = configs.webhook.enabled;
+                    if (configs.webhook.config) {
+                        document.getElementById('webhookUrl').value = configs.webhook.config.url || '';
+                        document.getElementById('webhookHeaders').value = JSON.stringify(configs.webhook.config.headers || {}, null, 2);
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load notification configs:', e);
+            }
+        }
+        
+        async function saveTelegramConfig() {
+            try {
+                const response = await fetch('/api/alerts/notifications/telegram', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        enabled: document.getElementById('telegramEnabled').checked,
+                        config: {
+                            bot_token: document.getElementById('telegramBotToken').value,
+                            chat_id: document.getElementById('telegramChatId').value
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    showAlert('Telegram configuration saved', 'success');
+                } else {
+                    showAlert('Failed to save', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to save', 'error');
+            }
+        }
+        
+        async function testTelegram() {
+            const resultDiv = document.getElementById('telegramTestResult');
+            resultDiv.innerHTML = '⏳ Sending test...';
+            
+            try {
+                const response = await fetch('/api/alerts/notifications/telegram/test', { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '✅ Test sent successfully!';
+                } else {
+                    resultDiv.innerHTML = `❌ ${result.error}`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '❌ Failed to send test';
+            }
+        }
+        
+        async function saveEmailConfig() {
+            const toAddresses = document.getElementById('emailTo').value.split(',').map(e => e.trim()).filter(e => e);
+            
+            try {
+                const response = await fetch('/api/alerts/notifications/email', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        enabled: document.getElementById('emailEnabled').checked,
+                        config: {
+                            smtp_server: document.getElementById('smtpServer').value,
+                            smtp_port: parseInt(document.getElementById('smtpPort').value) || 587,
+                            smtp_user: document.getElementById('smtpUser').value,
+                            smtp_pass: document.getElementById('smtpPass').value,
+                            from_address: document.getElementById('emailFrom').value,
+                            to_addresses: toAddresses,
+                            use_tls: document.getElementById('smtpTls').checked
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    showAlert('Email configuration saved', 'success');
+                } else {
+                    showAlert('Failed to save', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to save', 'error');
+            }
+        }
+        
+        async function testEmail() {
+            const resultDiv = document.getElementById('emailTestResult');
+            resultDiv.innerHTML = '⏳ Sending test...';
+            
+            try {
+                const response = await fetch('/api/alerts/notifications/email/test', { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '✅ Test sent successfully!';
+                } else {
+                    resultDiv.innerHTML = `❌ ${result.error}`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '❌ Failed to send test';
+            }
+        }
+        
+        async function saveWebhookConfig() {
+            let headers = {};
+            try {
+                const headersStr = document.getElementById('webhookHeaders').value;
+                if (headersStr) headers = JSON.parse(headersStr);
+            } catch (e) {
+                showAlert('Invalid JSON in headers', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/alerts/notifications/webhook', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        enabled: document.getElementById('webhookEnabled').checked,
+                        config: {
+                            url: document.getElementById('webhookUrl').value,
+                            headers: headers
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    showAlert('Webhook configuration saved', 'success');
+                } else {
+                    showAlert('Failed to save', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to save', 'error');
+            }
+        }
+        
+        async function testWebhook() {
+            const resultDiv = document.getElementById('webhookTestResult');
+            resultDiv.innerHTML = '⏳ Sending test...';
+            
+            try {
+                const response = await fetch('/api/alerts/notifications/webhook/test', { method: 'POST' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '✅ Test sent successfully!';
+                } else {
+                    resultDiv.innerHTML = `❌ ${result.error}`;
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '❌ Failed to send test';
             }
         }
         
