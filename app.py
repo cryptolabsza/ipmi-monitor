@@ -115,6 +115,32 @@ prom_collection_timestamp = Gauge(
     registry=PROM_REGISTRY
 )
 
+# Sensor metrics
+prom_temperature = Gauge(
+    'ipmi_temperature_celsius',
+    'Temperature sensor reading in Celsius',
+    ['bmc_ip', 'server_name', 'sensor_name'],
+    registry=PROM_REGISTRY
+)
+prom_fan_speed = Gauge(
+    'ipmi_fan_speed_rpm',
+    'Fan speed in RPM',
+    ['bmc_ip', 'server_name', 'sensor_name'],
+    registry=PROM_REGISTRY
+)
+prom_voltage = Gauge(
+    'ipmi_voltage_volts',
+    'Voltage sensor reading in Volts',
+    ['bmc_ip', 'server_name', 'sensor_name'],
+    registry=PROM_REGISTRY
+)
+prom_power_watts = Gauge(
+    'ipmi_power_watts',
+    'Power consumption in Watts',
+    ['bmc_ip', 'server_name'],
+    registry=PROM_REGISTRY
+)
+
 # Default server inventory - will be migrated to database
 DEFAULT_SERVERS = {
     '88.0.1.0': 'brickbox-01',
@@ -1059,6 +1085,7 @@ def api_clear_db_events(bmc_ip):
 def update_prometheus_metrics():
     """Update all Prometheus metrics from database"""
     cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+    cutoff_1h = datetime.utcnow() - timedelta(hours=1)
     
     # Per-server metrics
     servers = ServerStatus.query.all()
@@ -1069,6 +1096,56 @@ def update_prometheus_metrics():
         prom_events_total.labels(**labels).set(s.total_events or 0)
         prom_events_critical_24h.labels(**labels).set(s.critical_events_24h or 0)
         prom_events_warning_24h.labels(**labels).set(s.warning_events_24h or 0)
+    
+    # Sensor metrics - get latest reading per sensor (within last hour)
+    try:
+        sensors = SensorReading.query.filter(
+            SensorReading.collected_at >= cutoff_1h
+        ).all()
+        
+        # Track latest reading per sensor
+        latest_sensors = {}
+        for sensor in sensors:
+            key = (sensor.bmc_ip, sensor.sensor_name)
+            if key not in latest_sensors or sensor.collected_at > latest_sensors[key].collected_at:
+                latest_sensors[key] = sensor
+        
+        # Export sensor metrics
+        for sensor in latest_sensors.values():
+            if sensor.value is None:
+                continue
+            
+            labels = {
+                'bmc_ip': sensor.bmc_ip,
+                'server_name': sensor.server_name,
+                'sensor_name': sensor.sensor_name
+            }
+            
+            if sensor.sensor_type == 'temperature':
+                prom_temperature.labels(**labels).set(sensor.value)
+            elif sensor.sensor_type == 'fan':
+                prom_fan_speed.labels(**labels).set(sensor.value)
+            elif sensor.sensor_type == 'voltage':
+                prom_voltage.labels(**labels).set(sensor.value)
+        
+        # Power readings
+        power_readings = PowerReading.query.filter(
+            PowerReading.collected_at >= cutoff_1h
+        ).all()
+        
+        latest_power = {}
+        for reading in power_readings:
+            if reading.bmc_ip not in latest_power or reading.collected_at > latest_power[reading.bmc_ip].collected_at:
+                latest_power[reading.bmc_ip] = reading
+        
+        for reading in latest_power.values():
+            if reading.current_watts is not None:
+                prom_power_watts.labels(
+                    bmc_ip=reading.bmc_ip,
+                    server_name=reading.server_name
+                ).set(reading.current_watts)
+    except Exception as e:
+        app.logger.warning(f"Error updating sensor metrics: {e}")
     
     # Aggregate metrics
     prom_total_servers.set(len(servers))

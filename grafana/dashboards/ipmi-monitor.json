@@ -18,9 +18,22 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 0,
+  "id": null,
   "links": [],
   "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "panels": [],
+      "title": "Overview",
+      "type": "row"
+    },
     {
       "datasource": {
         "type": "prometheus",
@@ -36,8 +49,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": 0
+                "color": "blue",
+                "value": null
               }
             ]
           }
@@ -48,7 +61,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 0
+        "y": 1
       },
       "id": 1,
       "options": {
@@ -56,11 +69,8 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -95,7 +105,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -106,7 +116,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 0
+        "y": 1
       },
       "id": 2,
       "options": {
@@ -114,11 +124,8 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -134,7 +141,7 @@
           "refId": "A"
         }
       ],
-      "title": "Reachable Servers",
+      "title": "Online Servers",
       "type": "stat"
     },
     {
@@ -153,7 +160,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               },
               {
                 "color": "red",
@@ -168,7 +175,7 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 0
+        "y": 1
       },
       "id": 3,
       "options": {
@@ -176,11 +183,8 @@
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -209,14 +213,13 @@
           "color": {
             "mode": "thresholds"
           },
-          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               },
               {
                 "color": "yellow",
@@ -231,7 +234,7 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 0
+        "y": 1
       },
       "id": 4,
       "options": {
@@ -239,11 +242,8 @@
         "graphMode": "area",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -278,18 +278,19 @@
             "steps": [
               {
                 "color": "text",
-                "value": 0
+                "value": null
               }
             ]
-          }
+          },
+          "unit": "s"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 4,
-        "w": 8,
+        "w": 4,
         "x": 16,
-        "y": 0
+        "y": 1
       },
       "id": 5,
       "options": {
@@ -297,11 +298,8 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -313,16 +311,68 @@
       "targets": [
         {
           "editorMode": "code",
-          "exemplar": false,
           "expr": "time() - ipmi_last_collection_timestamp",
-          "format": "time_series",
-          "instant": false,
           "legendFormat": "",
-          "range": true,
           "refId": "A"
         }
       ],
-      "title": "Last Collection (seconds ago)",
+      "title": "Last Collection",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["sum"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "sum(ipmi_power_watts)",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Power",
       "type": "stat"
     },
     {
@@ -340,9 +390,6 @@
             "cellOptions": {
               "type": "auto"
             },
-            "footer": {
-              "reducers": []
-            },
             "inspect": false
           },
           "mappings": [
@@ -352,12 +399,7 @@
                   "color": "red",
                   "index": 1,
                   "text": "Offline"
-                }
-              },
-              "type": "value"
-            },
-            {
-              "options": {
+                },
                 "1": {
                   "color": "green",
                   "index": 0,
@@ -372,7 +414,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -411,7 +453,7 @@
                   "steps": [
                     {
                       "color": "green",
-                      "value": 0
+                      "value": null
                     },
                     {
                       "color": "red",
@@ -442,7 +484,7 @@
                   "steps": [
                     {
                       "color": "green",
-                      "value": 0
+                      "value": null
                     },
                     {
                       "color": "yellow",
@@ -463,16 +505,21 @@
         ]
       },
       "gridPos": {
-        "h": 12,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 5
       },
       "id": 6,
       "options": {
         "cellHeight": "sm",
         "showHeader": true,
-        "sortBy": []
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Server"
+          }
+        ]
       },
       "pluginVersion": "12.3.0",
       "targets": [
@@ -562,6 +609,649 @@
       "type": "table"
     },
     {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "id": 101,
+      "panels": [],
+      "title": "Temperatures",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "ipmi_temperature_celsius{sensor_name=~\".*CPU.*|.*Temp.*\"}",
+          "legendFormat": "{{server_name}} - {{sensor_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Temperatures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "id": 12,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "ipmi_temperature_celsius{sensor_name=~\".*CPU.*\"}",
+          "legendFormat": "{{server_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Current CPU Temperatures",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 102,
+      "panels": [],
+      "title": "Fans & Cooling",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "rotrpm"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "ipmi_fan_speed_rpm",
+          "legendFormat": "{{server_name}} - {{sensor_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Fan Speeds",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 10000,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "green",
+                "value": 3000
+              }
+            ]
+          },
+          "unit": "rotrpm"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "id": 14,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "avg by (server_name) (ipmi_fan_speed_rpm)",
+          "legendFormat": "{{server_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Average Fan Speed by Server",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 103,
+      "panels": [],
+      "title": "Power Consumption",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "ipmi_power_watts",
+          "legendFormat": "{{server_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Power Consumption (Stacked)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "watt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 34
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "sum(ipmi_power_watts)",
+          "legendFormat": "Total Power",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Power Over Time",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 42
+      },
+      "id": 104,
+      "panels": [],
+      "title": "Voltages",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "volt"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 43
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "min", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.3.0",
+      "targets": [
+        {
+          "expr": "ipmi_voltage_volts{sensor_name=~\".*12V.*|.*5V.*|.*3.3V.*\"}",
+          "legendFormat": "{{server_name}} - {{sensor_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Main Voltages (12V, 5V, 3.3V)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "id": 105,
+      "panels": [],
+      "title": "Events & Availability",
+      "type": "row"
+    },
+    {
       "datasource": {
         "type": "prometheus",
         "uid": "${datasource}"
@@ -595,7 +1285,6 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "showValues": false,
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -611,18 +1300,49 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Critical"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Warning"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 52
       },
       "id": 7,
       "options": {
@@ -651,7 +1371,7 @@
           "refId": "B"
         }
       ],
-      "title": "Events Over Time (24h)",
+      "title": "Events Over Time",
       "type": "timeseries"
     },
     {
@@ -688,7 +1408,6 @@
               "type": "linear"
             },
             "showPoints": "never",
-            "showValues": false,
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -704,18 +1423,49 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Reachable"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unreachable"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 52
       },
       "id": 8,
       "options": {
@@ -763,7 +1513,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": 0
+                "value": null
               },
               {
                 "color": "green",
@@ -775,27 +1525,24 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 60
       },
       "id": 9,
       "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
+        "minVizHeight": 50,
+        "minVizWidth": 50,
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
         "showThresholdLabels": false,
         "showThresholdMarkers": true,
-        "sizing": "auto",
-        "text": {}
+        "sizing": "auto"
       },
       "pluginVersion": "12.3.0",
       "targets": [
@@ -812,18 +1559,13 @@
   "preload": false,
   "refresh": "30s",
   "schemaVersion": 42,
-  "tags": [
-    "ipmi",
-    "bmc",
-    "hardware",
-    "brickbox"
-  ],
+  "tags": ["ipmi", "bmc", "hardware", "brickbox", "sensors", "temperature", "power"],
   "templating": {
     "list": [
       {
         "current": {
           "text": "prometheus",
-          "value": "fdfcbypxyeps0d"
+          "value": "prometheus"
         },
         "includeAll": false,
         "label": "Data Source",
@@ -844,5 +1586,5 @@
   "timezone": "",
   "title": "IPMI Monitor - BrickBox",
   "uid": "ipmi-monitor-brickbox",
-  "version": 7
+  "version": 8
 }
