@@ -435,6 +435,103 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--accent-purple);
         }
+        
+        /* Countdown timer */
+        .refresh-timer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 15px;
+            margin-right: 15px;
+        }
+        
+        .timer-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .timer-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+            min-width: 35px;
+        }
+        
+        .timer-value.refreshing {
+            color: var(--accent-green);
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        .timer-progress {
+            width: 60px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .timer-progress-bar {
+            height: 100%;
+            background: var(--accent-blue);
+            border-radius: 2px;
+            transition: width 1s linear;
+        }
+        
+        .timer-progress-bar.refreshing {
+            background: var(--accent-green);
+            animation: progress-pulse 0.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes progress-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .auto-refresh-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            background: var(--border-color);
+            border-radius: 10px;
+            transition: background 0.3s;
+        }
+        
+        .toggle-switch.active {
+            background: var(--accent-green);
+        }
+        
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        
+        .toggle-switch.active::after {
+            transform: translateX(16px);
+        }
     </style>
 </head>
 <body>
@@ -448,6 +545,19 @@
                 </div>
             </div>
             <div class="header-actions">
+                <!-- Auto-refresh countdown -->
+                <div class="refresh-timer">
+                    <div class="auto-refresh-toggle" onclick="toggleAutoRefresh()">
+                        <div class="toggle-switch" id="autoRefreshToggle"></div>
+                        <span class="timer-label">Auto</span>
+                    </div>
+                    <div class="timer-label">Next refresh:</div>
+                    <div class="timer-value" id="countdownValue">60s</div>
+                    <div class="timer-progress">
+                        <div class="timer-progress-bar" id="countdownBar" style="width: 100%;"></div>
+                    </div>
+                </div>
+                
                 <div class="time-selector">
                     <label>Time Range:</label>
                     <select id="timeRange" onchange="onTimeRangeChange()">
@@ -766,11 +876,103 @@
             }
         }
         
+        // ============ Countdown Timer ============
+        const REFRESH_INTERVAL = 60; // seconds
+        let countdownSeconds = REFRESH_INTERVAL;
+        let autoRefreshEnabled = true;
+        let countdownInterval = null;
+        let isRefreshing = false;
+        
+        function updateCountdownDisplay() {
+            const valueEl = document.getElementById('countdownValue');
+            const barEl = document.getElementById('countdownBar');
+            
+            if (isRefreshing) {
+                valueEl.textContent = '...';
+                valueEl.classList.add('refreshing');
+                barEl.classList.add('refreshing');
+            } else {
+                valueEl.textContent = countdownSeconds + 's';
+                valueEl.classList.remove('refreshing');
+                barEl.classList.remove('refreshing');
+                barEl.style.width = (countdownSeconds / REFRESH_INTERVAL * 100) + '%';
+            }
+        }
+        
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            const toggle = document.getElementById('autoRefreshToggle');
+            
+            if (autoRefreshEnabled) {
+                toggle.classList.add('active');
+                startCountdown();
+            } else {
+                toggle.classList.remove('active');
+                stopCountdown();
+            }
+        }
+        
+        function startCountdown() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownSeconds = REFRESH_INTERVAL;
+            updateCountdownDisplay();
+            
+            countdownInterval = setInterval(() => {
+                if (!autoRefreshEnabled) return;
+                
+                countdownSeconds--;
+                updateCountdownDisplay();
+                
+                if (countdownSeconds <= 0) {
+                    doRefresh();
+                }
+            }, 1000);
+        }
+        
+        function stopCountdown() {
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('countdownValue').textContent = 'Off';
+            document.getElementById('countdownBar').style.width = '0%';
+        }
+        
+        async function doRefresh() {
+            isRefreshing = true;
+            updateCountdownDisplay();
+            
+            try {
+                await loadAll();
+            } finally {
+                isRefreshing = false;
+                countdownSeconds = REFRESH_INTERVAL;
+                updateCountdownDisplay();
+            }
+        }
+        
+        // Override triggerCollection to reset countdown
+        const originalTriggerCollection = triggerCollection;
+        triggerCollection = async function() {
+            isRefreshing = true;
+            updateCountdownDisplay();
+            
+            try {
+                await originalTriggerCollection();
+            } finally {
+                isRefreshing = false;
+                countdownSeconds = REFRESH_INTERVAL;
+                updateCountdownDisplay();
+            }
+        };
+        
+        // Initialize
         checkAuth();
         loadAll();
         
-        // Auto-refresh every 60 seconds
-        setInterval(loadAll, 60000);
+        // Start auto-refresh countdown
+        document.getElementById('autoRefreshToggle').classList.add('active');
+        startCountdown();
     </script>
 </body>
 </html>
