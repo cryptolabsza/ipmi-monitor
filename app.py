@@ -266,6 +266,55 @@ class PowerReading(db.Model):
     avg_watts = db.Column(db.Float)
     collected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
+# Sensor name cache (bmc_ip -> {sensor_hex_id: sensor_name})
+SENSOR_NAME_CACHE = {}
+
+def get_sensor_name_from_cache(bmc_ip, sensor_hex_id):
+    """Look up sensor name from cache only (non-blocking)"""
+    if not sensor_hex_id:
+        return None
+    
+    # Clean up hex ID  
+    hex_id = sensor_hex_id.replace('#', '').replace('0x', '').upper()
+    
+    # Check cache
+    if bmc_ip in SENSOR_NAME_CACHE:
+        return SENSOR_NAME_CACHE[bmc_ip].get(hex_id)
+    
+    return None
+
+def build_sensor_cache(bmc_ip):
+    """Build sensor name cache for a BMC (call separately from parsing)"""
+    if bmc_ip in SENSOR_NAME_CACHE:
+        return True
+    
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        # Use 'sdr elist' which shows sensor IDs in hex format
+        # Allow 600 seconds - some BMCs are very slow
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
+               '-U', user, '-P', password, 'sdr', 'elist']
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        
+        SENSOR_NAME_CACHE[bmc_ip] = {}
+        for line in result.stdout.strip().split('\n'):
+            # Format: "CPU1 Temperature | 31h | ok  |  3.0 | 41 degrees C"
+            # Or:     "CPU1_ECC1        | D1h | ok  |  0.0 | Presence Detected"
+            parts = [p.strip() for p in line.split('|')]
+            if len(parts) >= 2:
+                sensor_name = parts[0].strip()
+                sensor_id_str = parts[1].strip().upper()
+                # Extract hex value (e.g., "D1H" -> "D1")
+                sensor_id = sensor_id_str.replace('H', '').strip()
+                if sensor_id and sensor_name:
+                    SENSOR_NAME_CACHE[bmc_ip][sensor_id] = sensor_name
+        
+        app.logger.info(f"Built sensor cache for {bmc_ip}: {len(SENSOR_NAME_CACHE[bmc_ip])} sensors")
+        return True
+    except Exception as e:
+        app.logger.warning(f"Failed to build sensor cache for {bmc_ip}: {e}")
+        return False
+
 # Helper functions
 def classify_severity(event_text):
     """Classify event severity based on keywords"""
@@ -317,12 +366,16 @@ def parse_sel_line(line, bmc_ip, server_name):
             sensor_type = sensor_match.group(1).strip() if sensor_match else sensor_info
             sensor_id = sensor_match.group(2) if sensor_match and sensor_match.group(2) else ''
             
-            # Extract sensor number from hex ID for DIMM identification
+            # Extract sensor number and name from hex ID
             sensor_number = ''
+            sensor_name_lookup = ''
             if sensor_id:
                 try:
-                    sensor_num = int(sensor_id.replace('#', ''), 16)
-                    sensor_number = f"Sensor {sensor_num}"
+                    hex_id = sensor_id.replace('#', '').replace('0x', '').upper()
+                    sensor_num = int(hex_id, 16)
+                    sensor_number = f"0x{hex_id}"
+                    # Try to look up the actual sensor name from cache (if available)
+                    sensor_name_lookup = get_sensor_name_from_cache(bmc_ip, hex_id)
                 except:
                     sensor_number = sensor_id
             
@@ -340,16 +393,14 @@ def parse_sel_line(line, bmc_ip, server_name):
                 if 'dimm' in part_lower or part.startswith('DIMM') or re.match(r'^[A-Z]\d+$', part.strip()):
                     event_data = part.strip()
             
-            # Enhance event description for Memory/ECC events
+            # Enhance event description - always show sensor ID for identification
             enhanced_desc = event_desc
-            if 'memory' in sensor_type.lower() or 'ecc' in event_desc.lower():
-                if sensor_number and 'Sensor' in sensor_number:
-                    # Try to map sensor number to DIMM slot
-                    # This is vendor-specific, but we can show the sensor number
-                    if not event_data:
-                        event_data = sensor_number
-                if event_data:
-                    enhanced_desc = f"{event_desc} [{event_data}]"
+            if sensor_id:
+                # Use the actual sensor name if available (e.g., CPU1_ECC1)
+                if sensor_name_lookup:
+                    enhanced_desc = f"{event_desc} [{sensor_name_lookup}]"
+                else:
+                    enhanced_desc = f"{event_desc} [Sensor {sensor_number}]"
             
             severity = classify_severity(event_desc)
             
@@ -393,10 +444,11 @@ def collect_ipmi_sel(bmc_ip, server_name):
         user, password = get_ipmi_credentials(bmc_ip)
         
         # Try elist first for more details (includes sensor numbers)
+        # Allow 600 seconds (10 min) for large SEL logs - some BMCs are very slow
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
              '-U', user, '-P', password, 'sel', 'elist'],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True, timeout=600
         )
         
         # Fall back to regular list if elist fails
@@ -404,7 +456,7 @@ def collect_ipmi_sel(bmc_ip, server_name):
             result = subprocess.run(
                 ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
                  '-U', user, '-P', password, 'sel', 'list'],
-                capture_output=True, text=True, timeout=30
+                capture_output=True, text=True, timeout=600
             )
         
         if result.returncode != 0:
@@ -784,8 +836,56 @@ def api_event_types():
 @app.route('/api/collect', methods=['POST'])
 def api_trigger_collection():
     """Manually trigger event collection"""
-    threading.Thread(target=collect_all_events).start()
-    return jsonify({'status': 'Collection started'})
+    bmc_ip = request.args.get('bmc_ip')
+    if bmc_ip:
+        # Collect from single server
+        def collect_single():
+            with app.app_context():
+                server_name = get_server_name(bmc_ip)
+                # Build sensor cache first
+                build_sensor_cache(bmc_ip)
+                events = collect_ipmi_sel(bmc_ip, server_name)
+                for event in events:
+                    # Check if event already exists
+                    existing = IPMIEvent.query.filter_by(
+                        bmc_ip=bmc_ip, sel_id=event.sel_id
+                    ).first()
+                    if not existing:
+                        db.session.add(event)
+                db.session.commit()
+                # Update server status
+                is_reachable = len(events) > 0 or check_bmc_reachable(bmc_ip)
+                update_server_status(bmc_ip, server_name, is_reachable)
+                app.logger.info(f"Collected {len(events)} events from {bmc_ip}")
+        threading.Thread(target=collect_single, daemon=True).start()
+        return jsonify({'status': f'Collection started for {bmc_ip}'})
+    else:
+        threading.Thread(target=collect_all_events).start()
+        return jsonify({'status': 'Collection started'})
+
+def get_server_name(bmc_ip):
+    """Get server name for a BMC IP"""
+    # Check database first
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if server:
+        return server.server_name
+    # Check defaults
+    if bmc_ip in DEFAULT_SERVERS:
+        return DEFAULT_SERVERS[bmc_ip]
+    return f"unknown-{bmc_ip}"
+
+def check_bmc_reachable(bmc_ip):
+    """Quick check if BMC is reachable"""
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', user, '-P', password, 'power', 'status'],
+            capture_output=True, text=True, timeout=10
+        )
+        return result.returncode == 0
+    except:
+        return False
 
 @app.route('/server/<bmc_ip>')
 def server_detail(bmc_ip):
@@ -1298,6 +1398,25 @@ def api_config_bulk():
     return jsonify({'status': 'success', 'updated': updated})
 
 # ============== Sensor Data API ==============
+
+@app.route('/api/sensors/<bmc_ip>/names')
+def api_sensor_names(bmc_ip):
+    """Get sensor name mapping for a BMC (sensor_id -> sensor_name)"""
+    # Try to build cache if not already present
+    if bmc_ip not in SENSOR_NAME_CACHE:
+        build_sensor_cache(bmc_ip)
+    
+    if bmc_ip in SENSOR_NAME_CACHE:
+        return jsonify({
+            'bmc_ip': bmc_ip,
+            'sensors': SENSOR_NAME_CACHE[bmc_ip]
+        })
+    else:
+        return jsonify({
+            'bmc_ip': bmc_ip,
+            'error': 'Could not build sensor cache',
+            'sensors': {}
+        })
 
 @app.route('/api/sensors/<bmc_ip>')
 def api_sensors(bmc_ip):

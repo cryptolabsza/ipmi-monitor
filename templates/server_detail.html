@@ -252,6 +252,106 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .tab-btn.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Sensor cards */
+        .sensors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .sensor-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .sensor-card.ok { border-left: 4px solid var(--accent-green); }
+        .sensor-card.warning { border-left: 4px solid var(--accent-yellow); }
+        .sensor-card.critical { border-left: 4px solid var(--accent-red); }
+        .sensor-card.nr { border-left: 4px solid var(--accent-purple); }
+        
+        .sensor-name {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        
+        .sensor-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .sensor-type-section {
+            margin-bottom: 25px;
+        }
+        
+        .sensor-type-title {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sensor-type-title::before {
+            font-size: 1.2rem;
+        }
+        
+        .sensor-type-title.temperature::before { content: '🌡️'; }
+        .sensor-type-title.fan::before { content: '💨'; }
+        .sensor-type-title.voltage::before { content: '⚡'; }
+        .sensor-type-title.power::before { content: '🔌'; }
+        .sensor-type-title.memory::before { content: '💾'; }
+        .sensor-type-title.other::before { content: '📊'; }
+        
+        .no-sensors {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -291,29 +391,55 @@
             </div>
         </div>
         
-        <div class="card">
-            <h2 class="section-title">Event Log</h2>
-            
-            <div class="filter-row">
-                <div class="filter-group">
-                    <label>Severity:</label>
-                    <select id="severityFilter" onchange="loadEvents()">
-                        <option value="">All</option>
-                        <option value="critical">Critical</option>
-                        <option value="warning">Warning</option>
-                        <option value="info">Info</option>
-                    </select>
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('events')">📋 Events</button>
+            <button class="tab-btn" onclick="switchTab('sensors')">🌡️ Sensors</button>
+        </div>
+        
+        <!-- Events Tab -->
+        <div id="eventsTab" class="tab-content active">
+            <div class="card">
+                <h2 class="section-title">Event Log</h2>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>Severity:</label>
+                        <select id="severityFilter" onchange="loadEvents()">
+                            <option value="">All</option>
+                            <option value="critical">Critical</option>
+                            <option value="warning">Warning</option>
+                            <option value="info">Info</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sensor Type:</label>
+                        <input type="text" id="sensorFilter" placeholder="Filter..." oninput="filterTable()">
+                    </div>
                 </div>
-                <div class="filter-group">
-                    <label>Sensor Type:</label>
-                    <input type="text" id="sensorFilter" placeholder="Filter..." oninput="filterTable()">
+                
+                <div id="eventsContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading events...
+                    </div>
                 </div>
             </div>
-            
-            <div id="eventsContainer">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Loading events...
+        </div>
+        
+        <!-- Sensors Tab -->
+        <div id="sensorsTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Live Sensor Data</h2>
+                    <button class="btn" onclick="loadSensors()">🔄 Refresh Sensors</button>
+                </div>
+                
+                <div id="sensorsContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading sensors...
+                    </div>
                 </div>
             </div>
         </div>
@@ -476,6 +602,100 @@
                 }
             } catch (e) {
                 alert('Failed to clear SEL: ' + e.message);
+            }
+        }
+        
+        // Tab switching
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'sensors') {
+                loadSensors();
+            }
+        }
+        
+        // Load sensors
+        async function loadSensors() {
+            const container = document.getElementById('sensorsContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading sensors...</div>';
+            
+            try {
+                const response = await fetch(`/api/sensors/${bmcIp}`);
+                const sensors = await response.json();
+                
+                if (sensors.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-sensors">
+                            <p>No sensor data available.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">Click "Collect Sensors" on the dashboard to gather sensor data.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Group sensors by type
+                const grouped = {};
+                sensors.forEach(s => {
+                    const type = s.sensor_type || 'other';
+                    if (!grouped[type]) grouped[type] = [];
+                    grouped[type].push(s);
+                });
+                
+                // Render sensors
+                let html = '';
+                const typeOrder = ['temperature', 'fan', 'voltage', 'power', 'memory', 'other'];
+                
+                typeOrder.forEach(type => {
+                    if (!grouped[type] || grouped[type].length === 0) return;
+                    
+                    const typeTitle = type.charAt(0).toUpperCase() + type.slice(1);
+                    html += `
+                        <div class="sensor-type-section">
+                            <div class="sensor-type-title ${type}">${typeTitle}</div>
+                            <div class="sensors-grid">
+                                ${grouped[type].map(s => `
+                                    <div class="sensor-card ${s.status || 'ok'}">
+                                        <div class="sensor-name">${s.sensor_name}</div>
+                                        <div class="sensor-value">${s.value !== null ? s.value + ' ' + (s.unit || '') : 'N/A'}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Handle any types not in order
+                Object.keys(grouped).forEach(type => {
+                    if (!typeOrder.includes(type) && grouped[type].length > 0) {
+                        const typeTitle = type.charAt(0).toUpperCase() + type.slice(1);
+                        html += `
+                            <div class="sensor-type-section">
+                                <div class="sensor-type-title other">${typeTitle}</div>
+                                <div class="sensors-grid">
+                                    ${grouped[type].map(s => `
+                                        <div class="sensor-card ${s.status || 'ok'}">
+                                            <div class="sensor-name">${s.sensor_name}</div>
+                                            <div class="sensor-value">${s.value !== null ? s.value + ' ' + (s.unit || '') : 'N/A'}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                
+                container.innerHTML = html || '<div class="no-sensors">No sensor data available</div>';
+                
+            } catch (e) {
+                console.error('Failed to load sensors:', e);
+                container.innerHTML = '<div class="no-sensors">Failed to load sensors: ' + e.message + '</div>';
             }
         }
         
