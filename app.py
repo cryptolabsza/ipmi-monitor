@@ -94,8 +94,8 @@ prom_collection_timestamp = Gauge(
     registry=PROM_REGISTRY
 )
 
-# Server inventory - BMC IPs
-SERVERS = {
+# Default server inventory - will be migrated to database
+DEFAULT_SERVERS = {
     '88.0.1.0': 'brickbox-01',
     '88.0.2.0': 'brickbox-02',
     '88.0.3.0': 'brickbox-03',
@@ -135,7 +135,33 @@ SERVERS = {
     '88.0.99.0': 'brickbox-99',
 }
 
+def get_servers():
+    """Get servers from database, fallback to defaults"""
+    with app.app_context():
+        try:
+            servers = Server.query.filter_by(enabled=True).all()
+            if servers:
+                return {s.bmc_ip: s.server_name for s in servers}
+        except:
+            pass
+    return DEFAULT_SERVERS
+
+# Legacy compatibility - will be replaced by get_servers() calls
+SERVERS = DEFAULT_SERVERS
+
 # Database Models
+class Server(db.Model):
+    """Server inventory - managed dynamically"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, unique=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    server_ip = db.Column(db.String(20))  # OS IP (usually .1)
+    enabled = db.Column(db.Boolean, default=True)
+    use_nvidia_password = db.Column(db.Boolean, default=False)  # Needs 16-char password
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class IPMIEvent(db.Model):
     """IPMI SEL Event"""
     id = db.Column(db.Integer, primary_key=True)
@@ -145,7 +171,10 @@ class IPMIEvent(db.Model):
     event_date = db.Column(db.DateTime, nullable=False, index=True)
     sensor_type = db.Column(db.String(50), nullable=False, index=True)
     sensor_id = db.Column(db.String(20))
+    sensor_number = db.Column(db.String(10))  # For identifying specific DIMM/sensor
     event_description = db.Column(db.String(200), nullable=False)
+    event_direction = db.Column(db.String(20))  # Asserted/Deasserted
+    event_data = db.Column(db.String(50))  # Raw event data bytes for ECC details
     severity = db.Column(db.String(20), nullable=False, index=True)  # critical, warning, info
     raw_entry = db.Column(db.Text)
     collected_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -237,8 +266,9 @@ def classify_severity(event_text):
     return 'info'
 
 def parse_sel_line(line, bmc_ip, server_name):
-    """Parse a single SEL log line"""
+    """Parse a single SEL log line with extended details for ECC events"""
     # Format: "  abc | 12/12/23 | 03:21:32 SAST | Power Supply #0x9f | Presence detected | Asserted"
+    # Extended format may include: "Memory #0x53 | Correctable ECC | Asserted | DIMM_A1"
     try:
         parts = [p.strip() for p in line.split('|')]
         if len(parts) >= 5:
@@ -246,7 +276,10 @@ def parse_sel_line(line, bmc_ip, server_name):
             date_str = parts[1].strip()
             time_str = parts[2].strip().split()[0]  # Remove timezone
             sensor_info = parts[3].strip()
-            event_desc = ' | '.join(parts[4:])
+            
+            # Collect all remaining parts for event description
+            remaining_parts = parts[4:]
+            event_desc = ' | '.join(remaining_parts)
             
             # Parse date - handle both MM/DD/YY and MM/DD/YYYY
             try:
@@ -257,10 +290,45 @@ def parse_sel_line(line, bmc_ip, server_name):
             except ValueError:
                 event_date = datetime.utcnow()
             
-            # Extract sensor type and ID
+            # Extract sensor type, ID and number
+            # Pattern: "Memory #0x53" or "CPU Temp" or "Fan1 #0x30"
             sensor_match = re.match(r'(.+?)\s*(#0x[a-fA-F0-9]+)?$', sensor_info)
-            sensor_type = sensor_match.group(1) if sensor_match else sensor_info
+            sensor_type = sensor_match.group(1).strip() if sensor_match else sensor_info
             sensor_id = sensor_match.group(2) if sensor_match and sensor_match.group(2) else ''
+            
+            # Extract sensor number from hex ID for DIMM identification
+            sensor_number = ''
+            if sensor_id:
+                try:
+                    sensor_num = int(sensor_id.replace('#', ''), 16)
+                    sensor_number = f"Sensor {sensor_num}"
+                except:
+                    sensor_number = sensor_id
+            
+            # For Memory/ECC events, try to extract DIMM info
+            event_direction = ''
+            event_data = ''
+            
+            for part in remaining_parts:
+                part_lower = part.lower().strip()
+                if 'asserted' in part_lower:
+                    event_direction = 'Asserted'
+                elif 'deasserted' in part_lower:
+                    event_direction = 'Deasserted'
+                # Look for DIMM identifiers
+                if 'dimm' in part_lower or part.startswith('DIMM') or re.match(r'^[A-Z]\d+$', part.strip()):
+                    event_data = part.strip()
+            
+            # Enhance event description for Memory/ECC events
+            enhanced_desc = event_desc
+            if 'memory' in sensor_type.lower() or 'ecc' in event_desc.lower():
+                if sensor_number and 'Sensor' in sensor_number:
+                    # Try to map sensor number to DIMM slot
+                    # This is vendor-specific, but we can show the sensor number
+                    if not event_data:
+                        event_data = sensor_number
+                if event_data:
+                    enhanced_desc = f"{event_desc} [{event_data}]"
             
             severity = classify_severity(event_desc)
             
@@ -271,7 +339,10 @@ def parse_sel_line(line, bmc_ip, server_name):
                 event_date=event_date,
                 sensor_type=sensor_type,
                 sensor_id=sensor_id,
-                event_description=event_desc,
+                sensor_number=sensor_number,
+                event_description=enhanced_desc,
+                event_direction=event_direction,
+                event_data=event_data,
                 severity=severity,
                 raw_entry=line
             )
@@ -296,14 +367,24 @@ def get_ipmi_password(bmc_ip):
     return password
 
 def collect_ipmi_sel(bmc_ip, server_name):
-    """Collect IPMI SEL from a single server"""
+    """Collect IPMI SEL from a single server using extended list for more details"""
     try:
-        password = get_ipmi_password(bmc_ip)
+        user, password = get_ipmi_credentials(bmc_ip)
+        
+        # Try elist first for more details (includes sensor numbers)
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-             '-U', IPMI_USER, '-P', password, 'sel', 'list'],
+             '-U', user, '-P', password, 'sel', 'elist'],
             capture_output=True, text=True, timeout=30
         )
+        
+        # Fall back to regular list if elist fails
+        if result.returncode != 0:
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
+                 '-U', user, '-P', password, 'sel', 'list'],
+                capture_output=True, text=True, timeout=30
+            )
         
         if result.returncode != 0:
             app.logger.warning(f"IPMI command failed for {bmc_ip}: {result.stderr}")
@@ -820,6 +901,262 @@ def update_prometheus_metrics():
         IPMIEvent.event_date >= cutoff_24h
     ).count())
     prom_collection_timestamp.set(time.time())
+
+# ============== Server Management API ==============
+
+@app.route('/api/servers/managed')
+def api_managed_servers():
+    """Get all managed servers from database"""
+    servers = Server.query.all()
+    return jsonify([{
+        'id': s.id,
+        'bmc_ip': s.bmc_ip,
+        'server_name': s.server_name,
+        'server_ip': s.server_ip,
+        'enabled': s.enabled,
+        'use_nvidia_password': s.use_nvidia_password,
+        'notes': s.notes,
+        'created_at': s.created_at.isoformat() if s.created_at else None,
+        'updated_at': s.updated_at.isoformat() if s.updated_at else None
+    } for s in servers])
+
+@app.route('/api/servers/add', methods=['POST'])
+def api_add_server():
+    """Add a new server to monitor"""
+    data = request.get_json()
+    
+    bmc_ip = data.get('bmc_ip')
+    server_name = data.get('server_name')
+    
+    if not bmc_ip or not server_name:
+        return jsonify({'error': 'bmc_ip and server_name are required'}), 400
+    
+    # Check if already exists
+    existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if existing:
+        return jsonify({'error': f'Server with BMC IP {bmc_ip} already exists'}), 409
+    
+    server = Server(
+        bmc_ip=bmc_ip,
+        server_name=server_name,
+        server_ip=data.get('server_ip', bmc_ip.replace('.0', '.1')),
+        enabled=data.get('enabled', True),
+        use_nvidia_password=data.get('use_nvidia_password', False),
+        notes=data.get('notes', '')
+    )
+    
+    db.session.add(server)
+    db.session.commit()
+    
+    # Also update NVIDIA_BMCS set if needed
+    if server.use_nvidia_password:
+        NVIDIA_BMCS.add(bmc_ip)
+    
+    return jsonify({'status': 'success', 'message': f'Added server {server_name} ({bmc_ip})', 'id': server.id})
+
+@app.route('/api/servers/<bmc_ip>', methods=['GET', 'PUT', 'DELETE'])
+def api_manage_server(bmc_ip):
+    """Get, update, or delete a server"""
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    
+    if request.method == 'GET':
+        if not server:
+            # Check if in default list
+            if bmc_ip in DEFAULT_SERVERS:
+                return jsonify({
+                    'bmc_ip': bmc_ip,
+                    'server_name': DEFAULT_SERVERS[bmc_ip],
+                    'enabled': True,
+                    'is_default': True
+                })
+            return jsonify({'error': 'Server not found'}), 404
+        
+        return jsonify({
+            'id': server.id,
+            'bmc_ip': server.bmc_ip,
+            'server_name': server.server_name,
+            'server_ip': server.server_ip,
+            'enabled': server.enabled,
+            'use_nvidia_password': server.use_nvidia_password,
+            'notes': server.notes,
+            'is_default': False
+        })
+    
+    elif request.method == 'PUT':
+        data = request.get_json()
+        
+        if not server:
+            # Create from default if exists
+            if bmc_ip in DEFAULT_SERVERS:
+                server = Server(
+                    bmc_ip=bmc_ip,
+                    server_name=DEFAULT_SERVERS[bmc_ip]
+                )
+                db.session.add(server)
+            else:
+                return jsonify({'error': 'Server not found'}), 404
+        
+        if 'server_name' in data:
+            server.server_name = data['server_name']
+        if 'server_ip' in data:
+            server.server_ip = data['server_ip']
+        if 'enabled' in data:
+            server.enabled = data['enabled']
+        if 'use_nvidia_password' in data:
+            server.use_nvidia_password = data['use_nvidia_password']
+            if data['use_nvidia_password']:
+                NVIDIA_BMCS.add(bmc_ip)
+            else:
+                NVIDIA_BMCS.discard(bmc_ip)
+        if 'notes' in data:
+            server.notes = data['notes']
+        
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'Updated server {bmc_ip}'})
+    
+    elif request.method == 'DELETE':
+        if not server:
+            return jsonify({'error': 'Server not found'}), 404
+        
+        # Also delete related data
+        ServerStatus.query.filter_by(bmc_ip=bmc_ip).delete()
+        IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
+        ServerConfig.query.filter_by(bmc_ip=bmc_ip).delete()
+        SensorReading.query.filter_by(bmc_ip=bmc_ip).delete()
+        PowerReading.query.filter_by(bmc_ip=bmc_ip).delete()
+        
+        db.session.delete(server)
+        db.session.commit()
+        
+        return jsonify({'status': 'success', 'message': f'Deleted server {bmc_ip} and all related data'})
+
+@app.route('/api/servers/import', methods=['POST'])
+def api_import_servers():
+    """Import servers from INI format or JSON"""
+    content_type = request.content_type
+    
+    if 'application/json' in content_type:
+        data = request.get_json()
+        servers_data = data.get('servers', [])
+    else:
+        # Parse INI format
+        ini_content = request.get_data(as_text=True)
+        servers_data = parse_ini_servers(ini_content)
+    
+    added = 0
+    updated = 0
+    errors = []
+    
+    for server_data in servers_data:
+        bmc_ip = server_data.get('bmc_ip')
+        server_name = server_data.get('server_name')
+        
+        if not bmc_ip or not server_name:
+            errors.append(f"Missing bmc_ip or server_name: {server_data}")
+            continue
+        
+        try:
+            existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            if existing:
+                existing.server_name = server_name
+                existing.server_ip = server_data.get('server_ip', bmc_ip.replace('.0', '.1'))
+                existing.enabled = server_data.get('enabled', True)
+                existing.use_nvidia_password = server_data.get('use_nvidia_password', False)
+                existing.notes = server_data.get('notes', '')
+                updated += 1
+            else:
+                server = Server(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    server_ip=server_data.get('server_ip', bmc_ip.replace('.0', '.1')),
+                    enabled=server_data.get('enabled', True),
+                    use_nvidia_password=server_data.get('use_nvidia_password', False),
+                    notes=server_data.get('notes', '')
+                )
+                db.session.add(server)
+                added += 1
+        except Exception as e:
+            errors.append(f"Error processing {bmc_ip}: {str(e)}")
+    
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'added': added,
+        'updated': updated,
+        'errors': errors
+    })
+
+@app.route('/api/servers/export')
+def api_export_servers():
+    """Export servers in INI format"""
+    format_type = request.args.get('format', 'ini')
+    servers = Server.query.all()
+    
+    if format_type == 'json':
+        return jsonify([{
+            'bmc_ip': s.bmc_ip,
+            'server_name': s.server_name,
+            'server_ip': s.server_ip,
+            'enabled': s.enabled,
+            'use_nvidia_password': s.use_nvidia_password,
+            'notes': s.notes
+        } for s in servers])
+    
+    # INI format
+    ini_lines = ["# BrickBox IPMI Monitor - Server List", "# Format: bmc_ip = server_name", ""]
+    ini_lines.append("[servers]")
+    for s in servers:
+        line = f"{s.bmc_ip} = {s.server_name}"
+        if s.use_nvidia_password:
+            line += "  # nvidia"
+        ini_lines.append(line)
+    
+    return Response('\n'.join(ini_lines), mimetype='text/plain')
+
+def parse_ini_servers(ini_content):
+    """Parse INI format server list"""
+    servers = []
+    for line in ini_content.strip().split('\n'):
+        line = line.strip()
+        if not line or line.startswith('#') or line.startswith('['):
+            continue
+        
+        # Parse: bmc_ip = server_name  # optional comment
+        match = re.match(r'([0-9.]+)\s*=\s*(\S+)(?:\s*#\s*(.*))?', line)
+        if match:
+            bmc_ip = match.group(1)
+            server_name = match.group(2)
+            comment = match.group(3) or ''
+            
+            servers.append({
+                'bmc_ip': bmc_ip,
+                'server_name': server_name,
+                'use_nvidia_password': 'nvidia' in comment.lower(),
+                'notes': comment
+            })
+    
+    return servers
+
+@app.route('/api/servers/init-from-defaults', methods=['POST'])
+def api_init_from_defaults():
+    """Initialize database with default servers"""
+    added = 0
+    for bmc_ip, server_name in DEFAULT_SERVERS.items():
+        existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        if not existing:
+            server = Server(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                server_ip=bmc_ip.replace('.0', '.1'),
+                enabled=True,
+                use_nvidia_password=bmc_ip in NVIDIA_BMCS
+            )
+            db.session.add(server)
+            added += 1
+    
+    db.session.commit()
+    return jsonify({'status': 'success', 'added': added})
 
 # ============== Server Configuration API ==============
 

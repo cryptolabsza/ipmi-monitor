@@ -230,6 +230,49 @@
             color: var(--text-secondary);
             margin-top: 5px;
         }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .server-item {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .server-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .server-item.disabled {
+            opacity: 0.5;
+        }
+        
+        code {
+            background: var(--bg-secondary);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -245,13 +288,109 @@
         <div id="alertBox" class="alert"></div>
         
         <div class="tabs">
-            <button class="tab active" onclick="showTab('credentials')">🔑 Credentials</button>
-            <button class="tab" onclick="showTab('ssh')">🖥️ SSH Keys</button>
-            <button class="tab" onclick="showTab('servers')">📋 Server List</button>
+            <button class="tab active" onclick="showTab('manage')">🖥️ Manage Servers</button>
+            <button class="tab" onclick="showTab('credentials')">🔑 Credentials</button>
+            <button class="tab" onclick="showTab('ssh')">🔐 SSH Keys</button>
+            <button class="tab" onclick="showTab('import')">📥 Import/Export</button>
+        </div>
+        
+        <!-- Manage Servers Tab -->
+        <div id="manage" class="tab-content active">
+            <div class="card">
+                <div class="card-title">➕ Add New Server</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>BMC IP Address</label>
+                        <input type="text" id="newBmcIp" placeholder="88.0.X.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Server Name</label>
+                        <input type="text" id="newServerName" placeholder="brickbox-XX">
+                    </div>
+                    <div class="form-group">
+                        <label>Server OS IP (optional)</label>
+                        <input type="text" id="newServerIp" placeholder="88.0.X.1">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="newNvidiaPassword"> Uses NVIDIA 16-char password
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Notes (optional)</label>
+                    <input type="text" id="newNotes" placeholder="e.g., DGX system, special config">
+                </div>
+                
+                <button class="btn btn-primary" onclick="addServer()">➕ Add Server</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📋 Managed Servers</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Click on a server to edit. Red button deletes the server and all its data.
+                </p>
+                
+                <div class="server-list" id="managedServerList">
+                    <div class="loading">Loading servers...</div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" onclick="initFromDefaults()">
+                        🔄 Initialize from Defaults (add missing)
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Edit Server Modal -->
+            <div id="editModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="card-title">✏️ Edit Server</div>
+                    <input type="hidden" id="editBmcIp">
+                    
+                    <div class="form-group">
+                        <label>Server Name</label>
+                        <input type="text" id="editServerName">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Server OS IP</label>
+                        <input type="text" id="editServerIp">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="editEnabled"> Enabled (monitor this server)
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="editNvidiaPassword"> Uses NVIDIA 16-char password
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <input type="text" id="editNotes">
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="saveServerEdit()">💾 Save</button>
+                        <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                        <button class="btn btn-danger" onclick="deleteServer()" style="margin-left: auto;">🗑️ Delete</button>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Credentials Tab -->
-        <div id="credentials" class="tab-content active">
+        <div id="credentials" class="tab-content">
             <div class="card">
                 <div class="card-title">🔐 Default IPMI Credentials</div>
                 <p style="color: var(--text-secondary); margin-bottom: 20px;">
@@ -381,12 +520,40 @@
         </div>
         
         <!-- Servers Tab -->
-        <div id="servers" class="tab-content">
+        <!-- Import/Export Tab -->
+        <div id="import" class="tab-content">
             <div class="card">
-                <div class="card-title">📋 Server Configuration Status</div>
+                <div class="card-title">📥 Import Servers from INI File</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Paste INI content or upload a file. Format: <code>bmc_ip = server_name # optional comment</code>
+                </p>
                 
-                <div class="server-list" id="serverList">
-                    <div class="loading">Loading servers...</div>
+                <div class="form-group">
+                    <label>INI Content</label>
+                    <textarea id="iniImport" placeholder="# Server list
+[servers]
+88.0.1.0 = brickbox-01
+88.0.2.0 = brickbox-02
+88.0.98.0 = brickbox-98  # nvidia"></textarea>
+                </div>
+                
+                <button class="btn btn-primary" onclick="importServers()">📥 Import Servers</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">📤 Export Servers</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Download current server list as INI or JSON file.
+                </p>
+                
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="exportServers('ini')">📄 Export as INI</button>
+                    <button class="btn btn-secondary" onclick="exportServers('json')">📄 Export as JSON</button>
+                </div>
+                
+                <div class="form-group" style="margin-top: 20px;">
+                    <label>Preview</label>
+                    <textarea id="exportPreview" readonly style="height: 200px;"></textarea>
                 </div>
             </div>
         </div>
@@ -394,6 +561,7 @@
     
     <script>
         const SERVERS = {};
+        let MANAGED_SERVERS = [];
         
         function showTab(tabId) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -401,6 +569,9 @@
             
             event.target.classList.add('active');
             document.getElementById(tabId).classList.add('active');
+            
+            if (tabId === 'manage') loadManagedServers();
+            if (tabId === 'import') loadExportPreview();
         }
         
         function showAlert(message, type) {
@@ -410,6 +581,203 @@
             alertBox.style.display = 'block';
             setTimeout(() => alertBox.style.display = 'none', 5000);
         }
+        
+        // ============== Server Management ==============
+        
+        async function loadManagedServers() {
+            try {
+                const response = await fetch('/api/servers/managed');
+                MANAGED_SERVERS = await response.json();
+                
+                const serverList = document.getElementById('managedServerList');
+                
+                if (MANAGED_SERVERS.length === 0) {
+                    serverList.innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">No servers in database. Click "Initialize from Defaults" to add the default servers.</p>';
+                    return;
+                }
+                
+                serverList.innerHTML = MANAGED_SERVERS.map(s => `
+                    <div class="server-item ${s.enabled ? '' : 'disabled'}" onclick="openEditModal('${s.bmc_ip}')">
+                        <div class="server-info">
+                            <span class="server-name">${s.server_name}</span>
+                            <span class="server-ip">BMC: ${s.bmc_ip} | OS: ${s.server_ip || s.bmc_ip.replace('.0', '.1')}</span>
+                        </div>
+                        <div class="server-badges">
+                            <span class="badge ${s.enabled ? 'badge-green' : 'badge-red'}">${s.enabled ? 'Enabled' : 'Disabled'}</span>
+                            ${s.use_nvidia_password ? '<span class="badge badge-yellow">NVIDIA</span>' : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load managed servers:', e);
+            }
+        }
+        
+        async function addServer() {
+            const bmc_ip = document.getElementById('newBmcIp').value.trim();
+            const server_name = document.getElementById('newServerName').value.trim();
+            const server_ip = document.getElementById('newServerIp').value.trim();
+            const use_nvidia_password = document.getElementById('newNvidiaPassword').checked;
+            const notes = document.getElementById('newNotes').value.trim();
+            
+            if (!bmc_ip || !server_name) {
+                showAlert('BMC IP and Server Name are required', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/servers/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({bmc_ip, server_name, server_ip, use_nvidia_password, notes})
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    document.getElementById('newBmcIp').value = '';
+                    document.getElementById('newServerName').value = '';
+                    document.getElementById('newServerIp').value = '';
+                    document.getElementById('newNvidiaPassword').checked = false;
+                    document.getElementById('newNotes').value = '';
+                    loadManagedServers();
+                    loadServers();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to add server', 'error');
+            }
+        }
+        
+        function openEditModal(bmc_ip) {
+            const server = MANAGED_SERVERS.find(s => s.bmc_ip === bmc_ip);
+            if (!server) return;
+            
+            document.getElementById('editBmcIp').value = bmc_ip;
+            document.getElementById('editServerName').value = server.server_name;
+            document.getElementById('editServerIp').value = server.server_ip || bmc_ip.replace('.0', '.1');
+            document.getElementById('editEnabled').checked = server.enabled;
+            document.getElementById('editNvidiaPassword').checked = server.use_nvidia_password;
+            document.getElementById('editNotes').value = server.notes || '';
+            
+            document.getElementById('editModal').style.display = 'flex';
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+        
+        async function saveServerEdit() {
+            const bmc_ip = document.getElementById('editBmcIp').value;
+            
+            try {
+                const response = await fetch(`/api/servers/${bmc_ip}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        server_name: document.getElementById('editServerName').value,
+                        server_ip: document.getElementById('editServerIp').value,
+                        enabled: document.getElementById('editEnabled').checked,
+                        use_nvidia_password: document.getElementById('editNvidiaPassword').checked,
+                        notes: document.getElementById('editNotes').value
+                    })
+                });
+                
+                const result = await response.json();
+                showAlert(result.message, 'success');
+                closeEditModal();
+                loadManagedServers();
+                loadServers();
+            } catch (e) {
+                showAlert('Failed to update server', 'error');
+            }
+        }
+        
+        async function deleteServer() {
+            const bmc_ip = document.getElementById('editBmcIp').value;
+            
+            if (!confirm(`Delete server ${bmc_ip} and ALL its data (events, sensors, config)? This cannot be undone!`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/servers/${bmc_ip}`, { method: 'DELETE' });
+                const result = await response.json();
+                showAlert(result.message, 'success');
+                closeEditModal();
+                loadManagedServers();
+                loadServers();
+            } catch (e) {
+                showAlert('Failed to delete server', 'error');
+            }
+        }
+        
+        async function initFromDefaults() {
+            try {
+                const response = await fetch('/api/servers/init-from-defaults', { method: 'POST' });
+                const result = await response.json();
+                showAlert(`Added ${result.added} servers from defaults`, 'success');
+                loadManagedServers();
+                loadServers();
+            } catch (e) {
+                showAlert('Failed to initialize', 'error');
+            }
+        }
+        
+        // ============== Import/Export ==============
+        
+        async function importServers() {
+            const ini = document.getElementById('iniImport').value.trim();
+            if (!ini) {
+                showAlert('Please enter INI content', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/servers/import', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'text/plain'},
+                    body: ini
+                });
+                
+                const result = await response.json();
+                showAlert(`Added: ${result.added}, Updated: ${result.updated}${result.errors.length ? ', Errors: ' + result.errors.length : ''}`, 'success');
+                loadManagedServers();
+                loadServers();
+            } catch (e) {
+                showAlert('Import failed', 'error');
+            }
+        }
+        
+        async function exportServers(format) {
+            try {
+                const response = await fetch(`/api/servers/export?format=${format}`);
+                const content = format === 'json' ? JSON.stringify(await response.json(), null, 2) : await response.text();
+                document.getElementById('exportPreview').value = content;
+                
+                // Create download
+                const blob = new Blob([content], {type: format === 'json' ? 'application/json' : 'text/plain'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `servers.${format === 'json' ? 'json' : 'ini'}`;
+                a.click();
+            } catch (e) {
+                showAlert('Export failed', 'error');
+            }
+        }
+        
+        async function loadExportPreview() {
+            try {
+                const response = await fetch('/api/servers/export?format=ini');
+                document.getElementById('exportPreview').value = await response.text();
+            } catch (e) {
+                console.error('Failed to load export preview:', e);
+            }
+        }
+        
+        // ============== Credentials (existing) ==============
         
         async function loadServers() {
             try {
@@ -427,44 +795,8 @@
                     select1.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
                     select2.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
                 });
-                
-                loadServerConfigs();
             } catch (e) {
                 console.error('Failed to load servers:', e);
-            }
-        }
-        
-        async function loadServerConfigs() {
-            try {
-                const response = await fetch('/api/config/servers');
-                const configs = await response.json();
-                
-                const configMap = {};
-                configs.forEach(c => configMap[c.bmc_ip] = c);
-                
-                const serverList = document.getElementById('serverList');
-                serverList.innerHTML = '';
-                
-                Object.entries(SERVERS).forEach(([bmc_ip, server]) => {
-                    const config = configMap[bmc_ip] || {};
-                    const hasIpmi = config.has_ipmi_pass ? 'badge-green' : 'badge-yellow';
-                    const hasSsh = config.has_ssh_key ? 'badge-green' : 'badge-yellow';
-                    
-                    serverList.innerHTML += `
-                        <div class="server-item">
-                            <div class="server-info">
-                                <span class="server-name">${server.server_name}</span>
-                                <span class="server-ip">BMC: ${bmc_ip} | OS: ${config.server_ip || bmc_ip.replace('.0', '.1')}</span>
-                            </div>
-                            <div class="server-badges">
-                                <span class="badge ${hasIpmi}">IPMI: ${config.has_ipmi_pass ? '✓' : 'Default'}</span>
-                                <span class="badge ${hasSsh}">SSH: ${config.has_ssh_key ? '✓' : 'Not Set'}</span>
-                            </div>
-                        </div>
-                    `;
-                });
-            } catch (e) {
-                console.error('Failed to load configs:', e);
             }
         }
         
@@ -516,7 +848,6 @@
                 
                 const result = await response.json();
                 showAlert(`Updated ${result.updated} servers`, 'success');
-                loadServerConfigs();
             } catch (e) {
                 showAlert('Failed to save credentials', 'error');
             }
@@ -541,7 +872,6 @@
                 
                 const result = await response.json();
                 showAlert(result.message, 'success');
-                loadServerConfigs();
             } catch (e) {
                 showAlert('Failed to save credentials', 'error');
             }
@@ -604,6 +934,7 @@
         
         // Initialize
         loadServers();
+        loadManagedServers();
     </script>
 </body>
 </html>
