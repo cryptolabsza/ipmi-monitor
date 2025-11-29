@@ -532,6 +532,57 @@
         .toggle-switch.active::after {
             transform: translateX(16px);
         }
+        
+        /* Sorting controls */
+        .sort-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sort-controls label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        .sort-select {
+            padding: 6px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        
+        .sort-select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        .sort-direction {
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .sort-direction:hover {
+            background: var(--bg-card);
+            border-color: var(--accent-blue);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -609,6 +660,19 @@
             <div>
                 <div class="section-header">
                     <h2 class="section-title">Server Status</h2>
+                    <div class="sort-controls">
+                        <label>Sort by:</label>
+                        <select class="sort-select" id="sortField" onchange="sortServers()">
+                            <option value="name">Name</option>
+                            <option value="ip">IP Address</option>
+                            <option value="critical">Critical</option>
+                            <option value="warning">Warning</option>
+                            <option value="info">Info</option>
+                            <option value="total">Total Events</option>
+                            <option value="status">Status</option>
+                        </select>
+                        <button class="sort-direction" id="sortDirection" onclick="toggleSortDirection()" title="Toggle sort direction">↓</button>
+                    </div>
                 </div>
                 <div class="server-grid" id="serverGrid">
                     <div class="loading">
@@ -642,6 +706,9 @@
     
     <script>
         let currentFilter = 'all';
+        let serversData = [];  // Store servers for sorting
+        let sortField = 'name';
+        let sortAscending = true;
         
         function getTimeRange() {
             return document.getElementById('timeRange').value;
@@ -690,46 +757,105 @@
             try {
                 const hours = getTimeRange();
                 const response = await fetch(`/api/servers?hours=${hours}`);
-                const servers = await response.json();
+                serversData = await response.json();
                 
-                const grid = document.getElementById('serverGrid');
-                
-                if (servers.length === 0) {
-                    grid.innerHTML = '<div class="loading">No servers found. Click "Refresh All" to collect data.</div>';
-                    return;
-                }
-                
-                grid.innerHTML = servers.map(server => `
-                    <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'">
-                        <div class="server-header">
-                            <div>
-                                <div class="server-name">${server.server_name}</div>
-                                <div class="server-ip">${server.bmc_ip}</div>
-                            </div>
-                            <span class="status-badge ${server.is_reachable ? 'status-online' : 'status-offline'}">
-                                ${server.is_reachable ? 'Online' : 'Offline'}
-                            </span>
-                        </div>
-                        <div class="server-stats">
-                            <div class="mini-stat critical">
-                                <span class="count">${server.critical}</span> critical
-                            </div>
-                            <div class="mini-stat warning">
-                                <span class="count">${server.warning}</span> warning
-                            </div>
-                            <div class="mini-stat info">
-                                <span class="count">${server.info || 0}</span> info
-                            </div>
-                            <div class="mini-stat total">
-                                <span class="count">${server.total || 0}</span> total
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+                renderServers();
             } catch (e) {
                 console.error('Failed to load servers:', e);
                 document.getElementById('serverGrid').innerHTML = '<div class="loading">Failed to load servers</div>';
             }
+        }
+        
+        function renderServers() {
+            const grid = document.getElementById('serverGrid');
+            
+            if (serversData.length === 0) {
+                grid.innerHTML = '<div class="loading">No servers found. Click "Refresh All" to collect data.</div>';
+                return;
+            }
+            
+            // Sort the servers
+            const sortedServers = [...serversData].sort((a, b) => {
+                let aVal, bVal;
+                
+                switch (sortField) {
+                    case 'name':
+                        aVal = a.server_name.toLowerCase();
+                        bVal = b.server_name.toLowerCase();
+                        break;
+                    case 'ip':
+                        // Sort by IP numerically
+                        aVal = a.bmc_ip.split('.').map(n => parseInt(n).toString().padStart(3, '0')).join('');
+                        bVal = b.bmc_ip.split('.').map(n => parseInt(n).toString().padStart(3, '0')).join('');
+                        break;
+                    case 'critical':
+                        aVal = a.critical || 0;
+                        bVal = b.critical || 0;
+                        break;
+                    case 'warning':
+                        aVal = a.warning || 0;
+                        bVal = b.warning || 0;
+                        break;
+                    case 'info':
+                        aVal = a.info || 0;
+                        bVal = b.info || 0;
+                        break;
+                    case 'total':
+                        aVal = a.total || 0;
+                        bVal = b.total || 0;
+                        break;
+                    case 'status':
+                        aVal = a.is_reachable ? 1 : 0;
+                        bVal = b.is_reachable ? 1 : 0;
+                        break;
+                    default:
+                        aVal = a.server_name.toLowerCase();
+                        bVal = b.server_name.toLowerCase();
+                }
+                
+                if (aVal < bVal) return sortAscending ? -1 : 1;
+                if (aVal > bVal) return sortAscending ? 1 : -1;
+                return 0;
+            });
+            
+            grid.innerHTML = sortedServers.map(server => `
+                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'">
+                    <div class="server-header">
+                        <div>
+                            <div class="server-name">${server.server_name}</div>
+                            <div class="server-ip">${server.bmc_ip}</div>
+                        </div>
+                        <span class="status-badge ${server.is_reachable ? 'status-online' : 'status-offline'}">
+                            ${server.is_reachable ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
+                    <div class="server-stats">
+                        <div class="mini-stat critical">
+                            <span class="count">${server.critical}</span> critical
+                        </div>
+                        <div class="mini-stat warning">
+                            <span class="count">${server.warning}</span> warning
+                        </div>
+                        <div class="mini-stat info">
+                            <span class="count">${server.info || 0}</span> info
+                        </div>
+                        <div class="mini-stat total">
+                            <span class="count">${server.total || 0}</span> total
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function sortServers() {
+            sortField = document.getElementById('sortField').value;
+            renderServers();
+        }
+        
+        function toggleSortDirection() {
+            sortAscending = !sortAscending;
+            document.getElementById('sortDirection').textContent = sortAscending ? '↓' : '↑';
+            renderServers();
         }
         
         async function loadEvents() {
