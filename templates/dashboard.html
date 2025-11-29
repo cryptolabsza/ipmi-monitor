@@ -465,8 +465,14 @@
                 </div>
                 <button class="btn btn-primary" onclick="triggerCollection()">🔄 Refresh All</button>
                 <button class="btn" style="background: var(--accent-green);" onclick="collectSensors()">📊 Collect Sensors</button>
-                <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
-                <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
+                <span id="adminButtons" style="display: none;">
+                    <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
+                    <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
+                </span>
+                <span id="authButtons">
+                    <a href="/login" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
+                    <a href="/logout" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
+                </span>
             </div>
         </header>
         
@@ -740,6 +746,27 @@
         });
         
         // Initial load
+        // Check auth status
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.is_admin) {
+                    document.getElementById('adminButtons').style.display = 'inline';
+                    document.getElementById('loginBtn').style.display = 'none';
+                    document.getElementById('logoutBtn').style.display = 'inline';
+                } else {
+                    document.getElementById('adminButtons').style.display = 'none';
+                    document.getElementById('loginBtn').style.display = 'inline';
+                    document.getElementById('logoutBtn').style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Failed to check auth:', e);
+            }
+        }
+        
+        checkAuth();
         loadAll();
         
         // Auto-refresh every 60 seconds

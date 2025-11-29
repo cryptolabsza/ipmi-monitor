@@ -4,7 +4,8 @@ BrickBox IPMI/BMC Event Monitor
 A Flask-based dashboard for monitoring IPMI SEL logs across all servers
 """
 
-from flask import Flask, render_template, jsonify, request, Response
+from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
+from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from prometheus_client import Gauge, Counter, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry
@@ -19,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ipmi_events.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'brickbox-ipmi-monitor-secret-key-change-me')
 db = SQLAlchemy(app)
 
 # Configuration
@@ -26,6 +28,25 @@ IPMI_USER = os.environ.get('IPMI_USER', 'admin')
 IPMI_PASS = os.environ.get('IPMI_PASS', 'BBccc321')
 IPMI_PASS_NVIDIA = os.environ.get('IPMI_PASS_NVIDIA', 'BBccc321BBccc321')  # NVIDIA BMCs need 16 chars
 POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 300))  # 5 minutes
+
+# Admin authentication
+ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
+ADMIN_PASS = os.environ.get('ADMIN_PASS', 'brickbox')  # Change this!
+
+def admin_required(f):
+    """Decorator to require admin login for a route"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            if request.is_json:
+                return jsonify({'error': 'Admin authentication required'}), 401
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def is_admin():
+    """Check if current user is admin"""
+    return session.get('admin_logged_in', False)
 
 # NVIDIA BMCs (require 16-char password)
 NVIDIA_BMCS = {'88.0.98.0', '88.0.99.0'}
@@ -790,8 +811,9 @@ def api_server_events(bmc_ip):
     } for e in events])
 
 @app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
+@admin_required
 def api_clear_sel(bmc_ip):
-    """Clear SEL log on a specific BMC"""
+    """Clear SEL log on a specific BMC - Admin only"""
     try:
         password = get_ipmi_password(bmc_ip)
         result = subprocess.run(
@@ -825,8 +847,9 @@ def api_clear_sel(bmc_ip):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/clear_all_sel', methods=['POST'])
+@admin_required
 def api_clear_all_sel():
-    """Clear SEL logs on all BMCs"""
+    """Clear SEL logs on all BMCs - Admin only"""
     results = {'success': [], 'failed': []}
     
     for bmc_ip, server_name in SERVERS.items():
@@ -856,8 +879,9 @@ def api_clear_all_sel():
     })
 
 @app.route('/api/server/<bmc_ip>/clear_db_events', methods=['POST'])
+@admin_required
 def api_clear_db_events(bmc_ip):
-    """Clear events from database only (don't touch BMC SEL)"""
+    """Clear events from database only - Admin only"""
     try:
         count = IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
         db.session.commit()
@@ -921,8 +945,9 @@ def api_managed_servers():
     } for s in servers])
 
 @app.route('/api/servers/add', methods=['POST'])
+@admin_required
 def api_add_server():
-    """Add a new server to monitor"""
+    """Add a new server to monitor - Admin only"""
     data = request.get_json()
     
     bmc_ip = data.get('bmc_ip')
@@ -956,7 +981,11 @@ def api_add_server():
 
 @app.route('/api/servers/<bmc_ip>', methods=['GET', 'PUT', 'DELETE'])
 def api_manage_server(bmc_ip):
-    """Get, update, or delete a server"""
+    """Get, update, or delete a server (PUT/DELETE require admin)"""
+    # Require admin for modifications
+    if request.method in ['PUT', 'DELETE'] and not is_admin():
+        return jsonify({'error': 'Admin authentication required'}), 401
+    
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     
     if request.method == 'GET':
@@ -1031,8 +1060,9 @@ def api_manage_server(bmc_ip):
         return jsonify({'status': 'success', 'message': f'Deleted server {bmc_ip} and all related data'})
 
 @app.route('/api/servers/import', methods=['POST'])
+@admin_required
 def api_import_servers():
-    """Import servers from INI format or JSON"""
+    """Import servers from INI format or JSON - Admin only"""
     content_type = request.content_type
     
     if 'application/json' in content_type:
@@ -1139,8 +1169,9 @@ def parse_ini_servers(ini_content):
     return servers
 
 @app.route('/api/servers/init-from-defaults', methods=['POST'])
+@admin_required
 def api_init_from_defaults():
-    """Initialize database with default servers"""
+    """Initialize database with default servers - Admin only"""
     added = 0
     for bmc_ip, server_name in DEFAULT_SERVERS.items():
         existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
@@ -1178,7 +1209,11 @@ def api_config_servers():
 
 @app.route('/api/config/server/<bmc_ip>', methods=['GET', 'POST', 'PUT'])
 def api_config_server(bmc_ip):
-    """Get or update server configuration"""
+    """Get or update server configuration (POST/PUT require admin)"""
+    # Require admin for modifications
+    if request.method in ['POST', 'PUT'] and not is_admin():
+        return jsonify({'error': 'Admin authentication required'}), 401
+    
     if request.method == 'GET':
         config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
         if not config:
@@ -1223,8 +1258,9 @@ def api_config_server(bmc_ip):
     return jsonify({'status': 'success', 'message': f'Configuration updated for {bmc_ip}'})
 
 @app.route('/api/config/bulk', methods=['POST'])
+@admin_required
 def api_config_bulk():
-    """Bulk update server configurations"""
+    """Bulk update server configurations - Admin only"""
     data = request.get_json()
     updated = 0
     
@@ -1385,8 +1421,9 @@ def collect_single_server_sensors(bmc_ip, server_name):
 # ============== Settings Page ==============
 
 @app.route('/settings')
+@admin_required
 def settings_page():
-    """Server configuration page"""
+    """Server configuration page - Admin only"""
     return render_template('settings.html')
 
 @app.route('/metrics')
@@ -1399,6 +1436,51 @@ def prometheus_metrics():
 def health_check():
     """Health check endpoint for container orchestration"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.utcnow().isoformat()})
+
+# ============== Authentication ==============
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Admin login page"""
+    if request.method == 'POST':
+        if request.is_json:
+            data = request.get_json()
+            username = data.get('username')
+            password = data.get('password')
+        else:
+            username = request.form.get('username')
+            password = request.form.get('password')
+        
+        if username == ADMIN_USER and password == ADMIN_PASS:
+            session['admin_logged_in'] = True
+            session['admin_user'] = username
+            
+            if request.is_json:
+                return jsonify({'status': 'success', 'message': 'Logged in'})
+            
+            next_url = request.args.get('next', url_for('index'))
+            return redirect(next_url)
+        else:
+            if request.is_json:
+                return jsonify({'error': 'Invalid credentials'}), 401
+            return render_template('login.html', error='Invalid username or password')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """Logout admin"""
+    session.pop('admin_logged_in', None)
+    session.pop('admin_user', None)
+    return redirect(url_for('index'))
+
+@app.route('/api/auth/status')
+def auth_status():
+    """Check authentication status"""
+    return jsonify({
+        'is_admin': is_admin(),
+        'username': session.get('admin_user')
+    })
 
 # Initialize database
 def init_db():

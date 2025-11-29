@@ -14,6 +14,9 @@ services:
       - IPMI_PASS=BBccc321
       - IPMI_PASS_NVIDIA=BBccc321BBccc321  # NVIDIA DGX/HGX systems need 16-char
       - POLL_INTERVAL=300  # 5 minutes
+      - ADMIN_USER=admin
+      - ADMIN_PASS=brickbox  # CHANGE THIS!
+      - SECRET_KEY=your-secret-key-change-me  # For session encryption
     volumes:
       - ipmi_data:/app/instance  # SQLite database location
     networks:
