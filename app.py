@@ -15,7 +15,12 @@ import time
 import json
 import os
 import re
+import requests
+import urllib3
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# Suppress SSL warnings for self-signed BMC certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ipmi_events.db'
@@ -50,6 +55,381 @@ def is_admin():
 
 # NVIDIA BMCs (require 16-char password)
 NVIDIA_BMCS = {'88.0.98.0', '88.0.99.0'}
+
+# ============== Redfish Client ==============
+
+class RedfishClient:
+    """Redfish REST API client for BMC communication"""
+    
+    def __init__(self, host, username, password, timeout=30):
+        self.host = host
+        self.base_url = f"https://{host}"
+        self.username = username
+        self.password = password
+        self.timeout = timeout
+        self.session = requests.Session()
+        self.session.verify = False  # BMCs use self-signed certs
+        self.session.auth = (username, password)
+        self.session.headers.update({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+        self._service_root = None
+        self._managers_uri = None
+        self._systems_uri = None
+        self._chassis_uri = None
+    
+    def _get(self, uri, timeout=None):
+        """Make GET request to Redfish endpoint"""
+        try:
+            url = f"{self.base_url}{uri}"
+            resp = self.session.get(url, timeout=timeout or self.timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.RequestException as e:
+            app.logger.debug(f"Redfish GET {uri} failed for {self.host}: {e}")
+            return None
+    
+    def is_available(self):
+        """Check if Redfish is available on this BMC"""
+        try:
+            resp = self.session.get(
+                f"{self.base_url}/redfish/v1/", 
+                timeout=5
+            )
+            return resp.status_code == 200
+        except Exception:
+            return False
+    
+    def get_service_root(self):
+        """Get Redfish service root"""
+        if not self._service_root:
+            self._service_root = self._get("/redfish/v1/")
+        return self._service_root
+    
+    def get_managers_uri(self):
+        """Get Managers collection URI"""
+        if not self._managers_uri:
+            root = self.get_service_root()
+            if root and 'Managers' in root:
+                self._managers_uri = root['Managers'].get('@odata.id')
+        return self._managers_uri
+    
+    def get_systems_uri(self):
+        """Get Systems collection URI"""
+        if not self._systems_uri:
+            root = self.get_service_root()
+            if root and 'Systems' in root:
+                self._systems_uri = root['Systems'].get('@odata.id')
+        return self._systems_uri
+    
+    def get_chassis_uri(self):
+        """Get Chassis collection URI"""
+        if not self._chassis_uri:
+            root = self.get_service_root()
+            if root and 'Chassis' in root:
+                self._chassis_uri = root['Chassis'].get('@odata.id')
+        return self._chassis_uri
+    
+    def get_power_status(self):
+        """Get server power state via Redfish"""
+        try:
+            systems_uri = self.get_systems_uri()
+            if not systems_uri:
+                return None
+            
+            systems = self._get(systems_uri)
+            if not systems or 'Members' not in systems or not systems['Members']:
+                return None
+            
+            # Get first system
+            system_uri = systems['Members'][0].get('@odata.id')
+            system = self._get(system_uri)
+            
+            if system and 'PowerState' in system:
+                state = system['PowerState']
+                return f"Chassis Power is {'on' if state == 'On' else 'off'}"
+            return None
+        except Exception as e:
+            app.logger.debug(f"Redfish power status failed for {self.host}: {e}")
+            return None
+    
+    def get_sel_entries(self):
+        """Get System Event Log entries via Redfish"""
+        events = []
+        try:
+            managers_uri = self.get_managers_uri()
+            if not managers_uri:
+                return events
+            
+            managers = self._get(managers_uri)
+            if not managers or 'Members' not in managers or not managers['Members']:
+                return events
+            
+            # Get first manager
+            manager_uri = managers['Members'][0].get('@odata.id')
+            manager = self._get(manager_uri)
+            
+            if not manager or 'LogServices' not in manager:
+                return events
+            
+            # Get LogServices
+            log_services_uri = manager['LogServices'].get('@odata.id')
+            log_services = self._get(log_services_uri)
+            
+            if not log_services or 'Members' not in log_services:
+                return events
+            
+            # Look for SEL or Log service
+            for member in log_services['Members']:
+                log_uri = member.get('@odata.id', '')
+                if 'SEL' in log_uri.upper() or 'LOG' in log_uri.upper():
+                    log_service = self._get(log_uri)
+                    if log_service and 'Entries' in log_service:
+                        entries_uri = log_service['Entries'].get('@odata.id')
+                        # Allow longer timeout for large logs
+                        entries_resp = self._get(entries_uri, timeout=120)
+                        if entries_resp and 'Members' in entries_resp:
+                            for entry in entries_resp['Members']:
+                                event = self._parse_log_entry(entry)
+                                if event:
+                                    events.append(event)
+                    break
+            
+            return events
+        except Exception as e:
+            app.logger.error(f"Redfish SEL collection failed for {self.host}: {e}")
+            return events
+    
+    def _parse_log_entry(self, entry):
+        """Parse Redfish log entry into our event format"""
+        try:
+            event_id = entry.get('Id', entry.get('EntryCode', ''))
+            message = entry.get('Message', entry.get('MessageId', ''))
+            created = entry.get('Created', entry.get('EventTimestamp', ''))
+            severity = entry.get('Severity', 'OK')
+            sensor_type = entry.get('SensorType', entry.get('EntryType', 'System'))
+            
+            # Parse timestamp
+            if created:
+                try:
+                    # Handle various Redfish date formats
+                    if 'T' in created:
+                        created = created.replace('Z', '+00:00')
+                        if '.' in created:
+                            event_date = datetime.fromisoformat(created.split('.')[0])
+                        else:
+                            event_date = datetime.fromisoformat(created.split('+')[0])
+                    else:
+                        event_date = datetime.utcnow()
+                except Exception:
+                    event_date = datetime.utcnow()
+            else:
+                event_date = datetime.utcnow()
+            
+            # Map severity
+            severity_map = {
+                'Critical': 'critical',
+                'Warning': 'warning',
+                'OK': 'info',
+                'Informational': 'info'
+            }
+            mapped_severity = severity_map.get(severity, 'info')
+            
+            return {
+                'sel_id': str(event_id),
+                'event_date': event_date,
+                'sensor_type': sensor_type,
+                'event_description': message,
+                'severity': mapped_severity,
+                'raw_entry': json.dumps(entry)
+            }
+        except Exception as e:
+            app.logger.debug(f"Failed to parse Redfish log entry: {e}")
+            return None
+    
+    def get_thermal(self):
+        """Get thermal (temperature/fan) readings via Redfish"""
+        sensors = []
+        try:
+            chassis_uri = self.get_chassis_uri()
+            if not chassis_uri:
+                return sensors
+            
+            chassis_coll = self._get(chassis_uri)
+            if not chassis_coll or 'Members' not in chassis_coll or not chassis_coll['Members']:
+                return sensors
+            
+            # Get first chassis
+            chassis_member_uri = chassis_coll['Members'][0].get('@odata.id')
+            chassis = self._get(chassis_member_uri)
+            
+            if not chassis or 'Thermal' not in chassis:
+                # Try direct path
+                thermal = self._get(f"{chassis_member_uri}/Thermal")
+            else:
+                thermal_uri = chassis['Thermal'].get('@odata.id')
+                thermal = self._get(thermal_uri)
+            
+            if not thermal:
+                return sensors
+            
+            # Parse temperatures
+            for temp in thermal.get('Temperatures', []):
+                if temp.get('ReadingCelsius') is not None:
+                    sensors.append({
+                        'sensor_name': temp.get('Name', temp.get('MemberId', 'Unknown')),
+                        'sensor_type': 'temperature',
+                        'value': temp.get('ReadingCelsius'),
+                        'unit': 'degrees C',
+                        'status': temp.get('Status', {}).get('Health', 'OK'),
+                        'upper_critical': temp.get('UpperThresholdCritical'),
+                        'upper_warning': temp.get('UpperThresholdNonCritical'),
+                        'lower_warning': temp.get('LowerThresholdNonCritical'),
+                        'lower_critical': temp.get('LowerThresholdCritical')
+                    })
+            
+            # Parse fans
+            for fan in thermal.get('Fans', []):
+                reading = fan.get('Reading') or fan.get('ReadingRPM')
+                if reading is not None:
+                    sensors.append({
+                        'sensor_name': fan.get('Name', fan.get('MemberId', 'Unknown')),
+                        'sensor_type': 'fan',
+                        'value': reading,
+                        'unit': fan.get('ReadingUnits', 'RPM'),
+                        'status': fan.get('Status', {}).get('Health', 'OK'),
+                        'lower_critical': fan.get('LowerThresholdCritical')
+                    })
+            
+            return sensors
+        except Exception as e:
+            app.logger.debug(f"Redfish thermal failed for {self.host}: {e}")
+            return sensors
+    
+    def get_power(self):
+        """Get power readings via Redfish"""
+        power_data = {
+            'current_watts': None,
+            'min_watts': None,
+            'max_watts': None,
+            'avg_watts': None
+        }
+        voltages = []
+        
+        try:
+            chassis_uri = self.get_chassis_uri()
+            if not chassis_uri:
+                return power_data, voltages
+            
+            chassis_coll = self._get(chassis_uri)
+            if not chassis_coll or 'Members' not in chassis_coll or not chassis_coll['Members']:
+                return power_data, voltages
+            
+            chassis_member_uri = chassis_coll['Members'][0].get('@odata.id')
+            chassis = self._get(chassis_member_uri)
+            
+            if not chassis or 'Power' not in chassis:
+                power = self._get(f"{chassis_member_uri}/Power")
+            else:
+                power_uri = chassis['Power'].get('@odata.id')
+                power = self._get(power_uri)
+            
+            if not power:
+                return power_data, voltages
+            
+            # Parse power consumption
+            for ctrl in power.get('PowerControl', []):
+                if ctrl.get('PowerConsumedWatts') is not None:
+                    power_data['current_watts'] = ctrl.get('PowerConsumedWatts')
+                metrics = ctrl.get('PowerMetrics', {})
+                if metrics:
+                    power_data['min_watts'] = metrics.get('MinConsumedWatts')
+                    power_data['max_watts'] = metrics.get('MaxConsumedWatts')
+                    power_data['avg_watts'] = metrics.get('AverageConsumedWatts')
+                break
+            
+            # Parse voltages
+            for volt in power.get('Voltages', []):
+                if volt.get('ReadingVolts') is not None:
+                    voltages.append({
+                        'sensor_name': volt.get('Name', volt.get('MemberId', 'Unknown')),
+                        'sensor_type': 'voltage',
+                        'value': volt.get('ReadingVolts'),
+                        'unit': 'Volts',
+                        'status': volt.get('Status', {}).get('Health', 'OK'),
+                        'upper_critical': volt.get('UpperThresholdCritical'),
+                        'upper_warning': volt.get('UpperThresholdNonCritical'),
+                        'lower_warning': volt.get('LowerThresholdNonCritical'),
+                        'lower_critical': volt.get('LowerThresholdCritical')
+                    })
+            
+            return power_data, voltages
+        except Exception as e:
+            app.logger.debug(f"Redfish power failed for {self.host}: {e}")
+            return power_data, voltages
+    
+    def clear_sel(self):
+        """Clear SEL via Redfish"""
+        try:
+            managers_uri = self.get_managers_uri()
+            if not managers_uri:
+                return False
+            
+            managers = self._get(managers_uri)
+            if not managers or 'Members' not in managers:
+                return False
+            
+            manager_uri = managers['Members'][0].get('@odata.id')
+            manager = self._get(manager_uri)
+            
+            if not manager or 'LogServices' not in manager:
+                return False
+            
+            log_services_uri = manager['LogServices'].get('@odata.id')
+            log_services = self._get(log_services_uri)
+            
+            for member in log_services.get('Members', []):
+                log_uri = member.get('@odata.id', '')
+                if 'SEL' in log_uri.upper() or 'LOG' in log_uri.upper():
+                    log_service = self._get(log_uri)
+                    if log_service:
+                        # Try ClearLog action
+                        actions = log_service.get('Actions', {})
+                        clear_action = actions.get('#LogService.ClearLog', {})
+                        clear_target = clear_action.get('target')
+                        
+                        if clear_target:
+                            resp = self.session.post(
+                                f"{self.base_url}{clear_target}",
+                                json={},
+                                timeout=30
+                            )
+                            return resp.status_code in [200, 202, 204]
+                    break
+            
+            return False
+        except Exception as e:
+            app.logger.error(f"Redfish clear SEL failed for {self.host}: {e}")
+            return False
+
+
+def check_redfish_available(bmc_ip):
+    """Quick check if BMC supports Redfish"""
+    try:
+        resp = requests.get(
+            f"https://{bmc_ip}/redfish/v1/",
+            verify=False,
+            timeout=5
+        )
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+# Redfish availability cache
+_redfish_cache = {}
+_redfish_cache_lock = threading.Lock()
 
 # Prometheus Metrics
 PROM_REGISTRY = CollectorRegistry()
@@ -205,6 +585,7 @@ class Server(db.Model):
     server_ip = db.Column(db.String(20))  # OS IP (usually .1)
     enabled = db.Column(db.Boolean, default=True)
     use_nvidia_password = db.Column(db.Boolean, default=False)  # Needs 16-char password
+    protocol = db.Column(db.String(20), default='auto')  # 'auto', 'ipmi', 'redfish'
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -492,6 +873,68 @@ def get_ipmi_password(bmc_ip):
     _, password = get_ipmi_credentials(bmc_ip)
     return password
 
+def get_server_protocol(bmc_ip):
+    """Get the protocol preference for a server (auto, ipmi, redfish)"""
+    with app.app_context():
+        try:
+            server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            if server and server.protocol:
+                return server.protocol
+        except Exception:
+            pass
+    return 'auto'
+
+def should_use_redfish(bmc_ip):
+    """Determine if we should use Redfish for this BMC"""
+    protocol = get_server_protocol(bmc_ip)
+    
+    if protocol == 'ipmi':
+        return False
+    elif protocol == 'redfish':
+        return True
+    else:  # 'auto' - check cache first, then probe
+        with _redfish_cache_lock:
+            if bmc_ip in _redfish_cache:
+                return _redfish_cache[bmc_ip]
+        
+        # Probe for Redfish
+        available = check_redfish_available(bmc_ip)
+        with _redfish_cache_lock:
+            _redfish_cache[bmc_ip] = available
+        return available
+
+def get_redfish_client(bmc_ip):
+    """Get a Redfish client for the given BMC"""
+    user, password = get_ipmi_credentials(bmc_ip)
+    return RedfishClient(bmc_ip, user, password)
+
+# ============== Collection Functions (with Redfish support) ==============
+
+def collect_sel_redfish(bmc_ip, server_name):
+    """Collect SEL via Redfish"""
+    try:
+        client = get_redfish_client(bmc_ip)
+        rf_events = client.get_sel_entries()
+        
+        events = []
+        for evt in rf_events:
+            event = IPMIEvent(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                sel_id=evt.get('sel_id', ''),
+                event_date=evt.get('event_date', datetime.utcnow()),
+                sensor_type=evt.get('sensor_type', 'System'),
+                event_description=evt.get('event_description', ''),
+                severity=evt.get('severity', 'info'),
+                raw_entry=evt.get('raw_entry', '')
+            )
+            events.append(event)
+        
+        return events
+    except Exception as e:
+        app.logger.error(f"Redfish SEL collection failed for {bmc_ip}: {e}")
+        return []
+
 def collect_ipmi_sel(bmc_ip, server_name):
     """Collect IPMI SEL from a single server using extended list for more details"""
     try:
@@ -532,8 +975,39 @@ def collect_ipmi_sel(bmc_ip, server_name):
         app.logger.error(f"Error collecting from {bmc_ip}: {e}")
         return []
 
+def collect_sel(bmc_ip, server_name):
+    """Unified SEL collection - chooses Redfish or IPMI based on config/availability"""
+    if should_use_redfish(bmc_ip):
+        app.logger.debug(f"Using Redfish for {bmc_ip}")
+        events = collect_sel_redfish(bmc_ip, server_name)
+        if events:
+            return events
+        # Fall back to IPMI if Redfish returns nothing
+        app.logger.debug(f"Redfish returned no events for {bmc_ip}, falling back to IPMI")
+    
+    return collect_ipmi_sel(bmc_ip, server_name)
+
+def collect_power_status_redfish(bmc_ip):
+    """Get power status via Redfish"""
+    try:
+        client = get_redfish_client(bmc_ip)
+        status = client.get_power_status()
+        if status:
+            return status
+        return None
+    except Exception as e:
+        app.logger.debug(f"Redfish power status failed for {bmc_ip}: {e}")
+        return None
+
 def collect_power_status(bmc_ip):
-    """Get power status from BMC"""
+    """Get power status from BMC (tries Redfish first if available)"""
+    # Try Redfish first
+    if should_use_redfish(bmc_ip):
+        status = collect_power_status_redfish(bmc_ip)
+        if status:
+            return status
+    
+    # Fall back to IPMI
     try:
         user, password = get_ipmi_credentials(bmc_ip)
         result = subprocess.run(
@@ -550,6 +1024,55 @@ def collect_power_status(bmc_ip):
     except Exception as e:
         app.logger.debug(f"Error getting power status for {bmc_ip}: {e}")
         return 'Unreachable'
+
+def collect_sensors_redfish(bmc_ip, server_name):
+    """Collect sensor readings via Redfish"""
+    sensors = []
+    try:
+        client = get_redfish_client(bmc_ip)
+        
+        # Get thermal sensors (temps and fans)
+        thermal = client.get_thermal()
+        for s in thermal:
+            sensor = SensorReading(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                sensor_name=s.get('sensor_name', 'Unknown'),
+                sensor_type=s.get('sensor_type'),
+                value=s.get('value'),
+                unit=s.get('unit', ''),
+                status=s.get('status', 'ok'),
+                upper_critical=s.get('upper_critical'),
+                upper_warning=s.get('upper_warning'),
+                lower_warning=s.get('lower_warning'),
+                lower_critical=s.get('lower_critical'),
+                collected_at=datetime.utcnow()
+            )
+            sensors.append(sensor)
+        
+        # Get power/voltage sensors
+        power_data, voltages = client.get_power()
+        for v in voltages:
+            sensor = SensorReading(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                sensor_name=v.get('sensor_name', 'Unknown'),
+                sensor_type='voltage',
+                value=v.get('value'),
+                unit='Volts',
+                status=v.get('status', 'ok'),
+                upper_critical=v.get('upper_critical'),
+                upper_warning=v.get('upper_warning'),
+                lower_warning=v.get('lower_warning'),
+                lower_critical=v.get('lower_critical'),
+                collected_at=datetime.utcnow()
+            )
+            sensors.append(sensor)
+        
+        return sensors, power_data
+    except Exception as e:
+        app.logger.debug(f"Redfish sensor collection failed for {bmc_ip}: {e}")
+        return sensors, None
 
 def collect_sensors(bmc_ip, server_name):
     """Collect sensor readings from BMC"""
@@ -1201,12 +1724,17 @@ def api_add_server():
     if existing:
         return jsonify({'error': f'Server with BMC IP {bmc_ip} already exists'}), 409
     
+    protocol = data.get('protocol', 'auto')
+    if protocol not in ['auto', 'ipmi', 'redfish']:
+        protocol = 'auto'
+    
     server = Server(
         bmc_ip=bmc_ip,
         server_name=server_name,
         server_ip=data.get('server_ip', bmc_ip.replace('.0', '.1')),
         enabled=data.get('enabled', True),
         use_nvidia_password=data.get('use_nvidia_password', False),
+        protocol=protocol,
         notes=data.get('notes', '')
     )
     
@@ -1248,6 +1776,7 @@ def api_manage_server(bmc_ip):
             'server_ip': server.server_ip,
             'enabled': server.enabled,
             'use_nvidia_password': server.use_nvidia_password,
+            'protocol': server.protocol or 'auto',
             'notes': server.notes,
             'is_default': False
         })
@@ -1280,6 +1809,13 @@ def api_manage_server(bmc_ip):
                     NVIDIA_BMCS.add(bmc_ip)
                 else:
                     NVIDIA_BMCS.discard(bmc_ip)
+        if 'protocol' in data:
+            protocol = data['protocol']
+            if protocol in ['auto', 'ipmi', 'redfish']:
+                server.protocol = protocol
+                # Clear Redfish cache when protocol changes
+                with _redfish_cache_lock:
+                    _redfish_cache.pop(bmc_ip, None)
         if 'notes' in data:
             server.notes = data['notes']
         
@@ -1679,6 +2215,70 @@ def collect_single_server_sensors(bmc_ip, server_name):
     except Exception as e:
         app.logger.error(f"Error collecting sensors from {bmc_ip}: {e}")
         return False
+
+# ============== Redfish API ==============
+
+@app.route('/api/redfish/status/<bmc_ip>')
+def api_redfish_status(bmc_ip):
+    """Check Redfish availability for a BMC"""
+    if not validate_ip_address(bmc_ip):
+        return jsonify({'error': 'Invalid IP address'}), 400
+    
+    available = check_redfish_available(bmc_ip)
+    
+    # Get current protocol setting
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    current_protocol = server.protocol if server else 'auto'
+    
+    # Get cached status
+    with _redfish_cache_lock:
+        cached = _redfish_cache.get(bmc_ip)
+    
+    return jsonify({
+        'bmc_ip': bmc_ip,
+        'redfish_available': available,
+        'current_protocol': current_protocol,
+        'cached_status': cached,
+        'effective_protocol': 'redfish' if should_use_redfish(bmc_ip) else 'ipmi'
+    })
+
+@app.route('/api/redfish/check_all', methods=['POST'])
+def api_check_all_redfish():
+    """Check Redfish availability for all servers"""
+    servers = get_servers()
+    results = {}
+    
+    def check_one(bmc_ip):
+        return bmc_ip, check_redfish_available(bmc_ip)
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(check_one, ip) for ip in servers.keys()]
+        for future in as_completed(futures):
+            try:
+                bmc_ip, available = future.result()
+                results[bmc_ip] = available
+                # Update cache
+                with _redfish_cache_lock:
+                    _redfish_cache[bmc_ip] = available
+            except Exception as e:
+                app.logger.error(f"Error checking Redfish: {e}")
+    
+    total = len(results)
+    available_count = sum(1 for v in results.values() if v)
+    
+    return jsonify({
+        'total_servers': total,
+        'redfish_available': available_count,
+        'results': results
+    })
+
+@app.route('/api/redfish/clear_cache', methods=['POST'])
+@admin_required
+def api_clear_redfish_cache():
+    """Clear the Redfish availability cache"""
+    with _redfish_cache_lock:
+        _redfish_cache.clear()
+    return jsonify({'status': 'success', 'message': 'Redfish cache cleared'})
 
 # ============== Settings Page ==============
 

@@ -205,6 +205,7 @@
         .badge-green { background: rgba(0, 214, 143, 0.2); color: var(--accent-green); }
         .badge-yellow { background: rgba(255, 170, 0, 0.2); color: var(--accent-yellow); }
         .badge-red { background: rgba(255, 71, 87, 0.2); color: var(--accent-red); }
+        .badge-blue { background: rgba(74, 158, 255, 0.2); color: var(--accent-blue); }
         
         .alert {
             padding: 15px 20px;
@@ -316,6 +317,14 @@
                 
                 <div class="form-row">
                     <div class="form-group">
+                        <label>Protocol</label>
+                        <select id="newProtocol">
+                            <option value="auto">Auto (try Redfish first)</option>
+                            <option value="ipmi">IPMI only</option>
+                            <option value="redfish">Redfish only</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>
                             <input type="checkbox" id="newNvidiaPassword"> Uses NVIDIA 16-char password
                         </label>
@@ -364,6 +373,16 @@
                     </div>
                     
                     <div class="form-group">
+                        <label>Protocol</label>
+                        <select id="editProtocol">
+                            <option value="auto">Auto (try Redfish first)</option>
+                            <option value="ipmi">IPMI only</option>
+                            <option value="redfish">Redfish only</option>
+                        </select>
+                        <small style="color: var(--text-secondary);">Auto will try Redfish first, fall back to IPMI</small>
+                    </div>
+                    
+                    <div class="form-group">
                         <label>
                             <input type="checkbox" id="editEnabled"> Enabled (monitor this server)
                         </label>
@@ -380,9 +399,14 @@
                         <input type="text" id="editNotes">
                     </div>
                     
+                    <div id="redfishStatus" style="display: none; margin: 15px 0; padding: 10px; border-radius: 8px;">
+                        <!-- Redfish status will be shown here -->
+                    </div>
+                    
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn btn-primary" onclick="saveServerEdit()">💾 Save</button>
                         <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                        <button class="btn" style="background: var(--accent-blue);" onclick="checkRedfishStatus()">🔗 Check Redfish</button>
                         <button class="btn btn-danger" onclick="deleteServer()" style="margin-left: auto;">🗑️ Delete</button>
                     </div>
                 </div>
@@ -604,6 +628,7 @@
                         </div>
                         <div class="server-badges">
                             <span class="badge ${s.enabled ? 'badge-green' : 'badge-red'}">${s.enabled ? 'Enabled' : 'Disabled'}</span>
+                            <span class="badge badge-blue">${(s.protocol || 'auto').toUpperCase()}</span>
                             ${s.use_nvidia_password ? '<span class="badge badge-yellow">NVIDIA</span>' : ''}
                         </div>
                     </div>
@@ -617,6 +642,7 @@
             const bmc_ip = document.getElementById('newBmcIp').value.trim();
             const server_name = document.getElementById('newServerName').value.trim();
             const server_ip = document.getElementById('newServerIp').value.trim();
+            const protocol = document.getElementById('newProtocol').value;
             const use_nvidia_password = document.getElementById('newNvidiaPassword').checked;
             const notes = document.getElementById('newNotes').value.trim();
             
@@ -629,7 +655,7 @@
                 const response = await fetch('/api/servers/add', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({bmc_ip, server_name, server_ip, use_nvidia_password, notes})
+                    body: JSON.stringify({bmc_ip, server_name, server_ip, protocol, use_nvidia_password, notes})
                 });
                 
                 const result = await response.json();
@@ -638,6 +664,7 @@
                     document.getElementById('newBmcIp').value = '';
                     document.getElementById('newServerName').value = '';
                     document.getElementById('newServerIp').value = '';
+                    document.getElementById('newProtocol').value = 'auto';
                     document.getElementById('newNvidiaPassword').checked = false;
                     document.getElementById('newNotes').value = '';
                     loadManagedServers();
@@ -657,11 +684,44 @@
             document.getElementById('editBmcIp').value = bmc_ip;
             document.getElementById('editServerName').value = server.server_name;
             document.getElementById('editServerIp').value = server.server_ip || bmc_ip.replace('.0', '.1');
+            document.getElementById('editProtocol').value = server.protocol || 'auto';
             document.getElementById('editEnabled').checked = server.enabled;
             document.getElementById('editNvidiaPassword').checked = server.use_nvidia_password;
             document.getElementById('editNotes').value = server.notes || '';
+            document.getElementById('redfishStatus').style.display = 'none';
             
             document.getElementById('editModal').style.display = 'flex';
+        }
+        
+        async function checkRedfishStatus() {
+            const bmc_ip = document.getElementById('editBmcIp').value;
+            const statusDiv = document.getElementById('redfishStatus');
+            
+            statusDiv.innerHTML = '⏳ Checking Redfish availability...';
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'var(--bg-secondary)';
+            
+            try {
+                const response = await fetch(`/api/redfish/status/${bmc_ip}`);
+                const data = await response.json();
+                
+                if (data.redfish_available) {
+                    statusDiv.style.background = 'rgba(0, 214, 143, 0.2)';
+                    statusDiv.innerHTML = `
+                        ✅ <strong>Redfish Available</strong><br>
+                        <small>Current protocol: ${data.current_protocol} | Effective: ${data.effective_protocol}</small>
+                    `;
+                } else {
+                    statusDiv.style.background = 'rgba(255, 71, 87, 0.2)';
+                    statusDiv.innerHTML = `
+                        ❌ <strong>Redfish Not Available</strong><br>
+                        <small>This BMC does not support Redfish. IPMI will be used.</small>
+                    `;
+                }
+            } catch (e) {
+                statusDiv.style.background = 'rgba(255, 170, 0, 0.2)';
+                statusDiv.innerHTML = '⚠️ Could not check Redfish status';
+            }
         }
         
         function closeEditModal() {
@@ -678,6 +738,7 @@
                     body: JSON.stringify({
                         server_name: document.getElementById('editServerName').value,
                         server_ip: document.getElementById('editServerIp').value,
+                        protocol: document.getElementById('editProtocol').value,
                         enabled: document.getElementById('editEnabled').checked,
                         use_nvidia_password: document.getElementById('editNvidiaPassword').checked,
                         notes: document.getElementById('editNotes').value
