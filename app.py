@@ -89,12 +89,19 @@ def allow_anonymous_read():
     except Exception:
         return True  # Default to allow
 
+def is_api_request():
+    """Check if this is an API request that expects JSON"""
+    return (request.is_json or 
+            request.path.startswith('/api/') or
+            request.headers.get('Accept', '').startswith('application/json') or
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest')
+
 def admin_required(f):
     """Decorator to require admin login for a route"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in') or session.get('user_role') != 'admin':
-            if request.is_json:
+            if is_api_request():
                 return jsonify({'error': 'Admin authentication required'}), 401
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
@@ -108,7 +115,7 @@ def login_required(f):
             # Check if anonymous access is allowed
             if allow_anonymous_read():
                 return f(*args, **kwargs)
-            if request.is_json:
+            if is_api_request():
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)

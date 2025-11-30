@@ -367,8 +367,8 @@
             </div>
             <div class="btn-group">
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
-                <button class="btn btn-warning" onclick="clearDbEvents()">🗑️ Clear DB Events</button>
-                <button class="btn btn-danger" onclick="clearSel()">⚠️ Clear BMC SEL</button>
+                <button class="btn btn-warning admin-only" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
+                <button class="btn btn-danger admin-only" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
             </div>
         </header>
         
@@ -699,7 +699,25 @@
             }
         }
         
+        // Check auth status and show/hide admin buttons
+        async function checkAuthAndSetup() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.logged_in && data.role === 'admin') {
+                    // Show admin-only buttons
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = '';
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to check auth status:', e);
+            }
+        }
+        
         // Initial load
+        checkAuthAndSetup();
         loadEvents();
     </script>
 </body>
