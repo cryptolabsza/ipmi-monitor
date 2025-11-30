@@ -1559,7 +1559,7 @@
   "preload": false,
   "refresh": "30s",
   "schemaVersion": 42,
-  "tags": ["ipmi", "bmc", "hardware", "brickbox", "sensors", "temperature", "power"],
+  "tags": ["ipmi", "bmc", "hardware", "monitoring", "sensors", "temperature", "power"],
   "templating": {
     "list": [
       {
@@ -1584,7 +1584,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "IPMI Monitor - BrickBox",
-  "uid": "ipmi-monitor-brickbox",
+  "title": "IPMI Monitor",
+  "uid": "ipmi-monitor-main",
   "version": 8
 }

@@ -1,13 +1,14 @@
 # Add this to your prometheus.yml scrape_configs section
-# Example: /home/admin/prometheus/prometheus.yml on 88.0.33.141
+# Update the target to match your IPMI Monitor deployment
 
 scrape_configs:
   # ... existing configs ...
 
   - job_name: 'ipmi-monitor'
     static_configs:
-      - targets: ['ipmi-monitor:5000']  # Use 'localhost:5000' if using host network
+      - targets: ['ipmi-monitor:5000']  # Use container name in Docker network
+        # Or 'localhost:5000' if using host network
+        # Or 'your-server-ip:5000' if accessing remotely
     scrape_interval: 60s
     scrape_timeout: 30s
     metrics_path: /metrics
-

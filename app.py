@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-BrickBox IPMI/BMC Event Monitor
+IPMI/BMC Event Monitor
 A Flask-based dashboard for monitoring IPMI SEL logs across all servers
+
+GitHub: https://github.com/jjziets/ipmi-monitor
+License: MIT
 """
 
 from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
@@ -25,8 +28,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ipmi_events.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'brickbox-ipmi-monitor-secret-key-change-me')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'ipmi-monitor-secret-key-change-me')
 db = SQLAlchemy(app)
+
+# Branding - customize for your organization
+APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 
 # Configure logging to work with gunicorn
 import logging
@@ -53,7 +59,7 @@ SENSOR_POLL_MULTIPLIER = int(os.environ.get('SENSOR_POLL_MULTIPLIER', 1))  # Col
 
 # Admin authentication
 ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
-ADMIN_PASS = os.environ.get('ADMIN_PASS', 'brickbox')  # Change this!
+ADMIN_PASS = os.environ.get('ADMIN_PASS', 'changeme')  # IMPORTANT: Change this in production!
 
 def admin_required(f):
     """Decorator to require admin login for a route"""
@@ -70,8 +76,9 @@ def is_admin():
     """Check if current user is admin"""
     return session.get('admin_logged_in', False)
 
-# NVIDIA BMCs (require 16-char password)
-NVIDIA_BMCS = {'88.0.98.0', '88.0.99.0'}
+# NVIDIA BMCs (require 16-char password) - loaded from server config or env
+# Can be set via NVIDIA_BMCS env var as comma-separated IPs, e.g.: "192.168.1.98,192.168.1.99"
+NVIDIA_BMCS = set(os.environ.get('NVIDIA_BMCS', '').split(',')) if os.environ.get('NVIDIA_BMCS') else set()
 
 # ============== Redfish Client ==============
 
@@ -560,46 +567,9 @@ prom_power_watts = Gauge(
     registry=PROM_REGISTRY
 )
 
-# Default server inventory - will be migrated to database
-DEFAULT_SERVERS = {
-    '88.0.1.0': 'brickbox-01',
-    '88.0.2.0': 'brickbox-02',
-    '88.0.3.0': 'brickbox-03',
-    '88.0.5.0': 'brickbox-05',
-    '88.0.6.0': 'brickbox-06',
-    '88.0.7.0': 'brickbox-07',
-    '88.0.8.0': 'brickbox-08',
-    '88.0.9.0': 'brickbox-09',
-    '88.0.10.0': 'brickbox-10',
-    '88.0.11.0': 'brickbox-11',
-    '88.0.25.0': 'brickbox-25',
-    '88.0.26.0': 'brickbox-26',
-    '88.0.27.0': 'brickbox-27',
-    '88.0.28.0': 'brickbox-28',
-    '88.0.30.0': 'brickbox-30',
-    '88.0.31.0': 'brickbox-31',
-    '88.0.32.0': 'brickbox-32',
-    '88.0.33.0': 'brickbox-33',
-    '88.0.34.0': 'brickbox-34',
-    '88.0.35.0': 'brickbox-35',
-    '88.0.36.0': 'brickbox-36',
-    '88.0.37.0': 'brickbox-37',
-    '88.0.38.0': 'brickbox-38',
-    '88.0.39.0': 'brickbox-39',
-    '88.0.40.0': 'brickbox-40',
-    '88.0.41.0': 'brickbox-41',
-    '88.0.42.0': 'brickbox-42',
-    '88.0.43.0': 'brickbox-43',
-    '88.0.44.0': 'brickbox-44',
-    '88.0.45.0': 'brickbox-45',
-    '88.0.46.0': 'brickbox-46',
-    '88.0.47.0': 'brickbox-47',
-    '88.0.48.0': 'brickbox-48',
-    '88.0.96.0': 'brickbox-96',
-    '88.0.97.0': 'brickbox-97',
-    '88.0.98.0': 'brickbox-98',
-    '88.0.99.0': 'brickbox-99',
-}
+# Default server inventory - empty by default, add servers via UI or INI import
+# Example format: {'192.168.1.100': 'server-01', '192.168.1.101': 'server-02'}
+DEFAULT_SERVERS = {}
 
 def get_servers():
     """Get servers from database, fallback to defaults"""
@@ -1022,7 +992,7 @@ def send_email_notification(subject, message, severity='info'):
                 <h2 style="color: {severity_colors.get(severity, '#4a9eff')};">IPMI Alert: {severity.upper()}</h2>
                 <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px;">{message}</pre>
             </div>
-            <p style="color: #888; font-size: 12px;">Sent by BrickBox IPMI Monitor</p>
+            <p style="color: #888; font-size: 12px;">Sent by {APP_NAME}</p>
         </body>
         </html>
         """
@@ -2125,6 +2095,11 @@ def collect_all_sensors_background():
         
         print(f"[IPMI Monitor] Background sensor collection complete: {collected}/{len(servers)} servers", flush=True)
 
+# Template context processor - inject APP_NAME into all templates
+@app.context_processor
+def inject_app_name():
+    return {'app_name': APP_NAME}
+
 # Routes
 @app.route('/')
 def dashboard():
@@ -2739,7 +2714,7 @@ def api_export_servers():
         } for s in servers])
     
     # INI format
-    ini_lines = ["# BrickBox IPMI Monitor - Server List", "# Format: bmc_ip = server_name", ""]
+    ini_lines = [f"# {APP_NAME} - Server List", "# Format: bmc_ip = server_name", ""]
     ini_lines.append("[servers]")
     for s in servers:
         line = f"{s.bmc_ip} = {s.server_name}"
@@ -3358,7 +3333,7 @@ def api_test_notification(channel_type):
     if not config or not config.enabled:
         return jsonify({'error': 'Channel not configured or not enabled'}), 400
     
-    test_message = "🧪 Test notification from BrickBox IPMI Monitor\n\nIf you see this, notifications are working correctly!"
+    test_message = f"🧪 Test notification from {APP_NAME}\n\nIf you see this, notifications are working correctly!"
     
     success = False
     if channel_type == 'telegram':

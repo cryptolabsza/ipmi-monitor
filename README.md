@@ -1,8 +1,8 @@
-# BrickBox IPMI Monitor
+# IPMI Monitor
 
 [![Docker Build](https://github.com/jjziets/ipmi-monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/jjziets/ipmi-monitor/actions/workflows/docker-build.yml)
 
-A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs (SEL) across all BrickBox servers. Features admin authentication, sensor monitoring, ECC memory identification, and Prometheus/Grafana integration.
+A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs (SEL) across your server fleet. Features admin authentication, sensor monitoring, ECC memory identification, alerting, and Prometheus/Grafana integration.
 
 ## Features
 
@@ -101,7 +101,8 @@ Access the dashboard at: http://localhost:5000
 | `IPMI_PASS_NVIDIA` | BBccc321BBccc321 | Password for NVIDIA DGX/HGX (16-char required) |
 | `POLL_INTERVAL` | 300 | Seconds between automatic collections |
 | `ADMIN_USER` | admin | Dashboard admin username |
-| `ADMIN_PASS` | brickbox | Dashboard admin password (**CHANGE THIS!**) |
+| `ADMIN_PASS` | changeme | Dashboard admin password (**CHANGE THIS!**) |
+| `APP_NAME` | IPMI Monitor | Application name (customize for your org) |
 | `SECRET_KEY` | (auto) | Flask session secret key (**SET THIS!**) |
 
 ### Authentication
@@ -211,14 +212,14 @@ Import `grafana/dashboards/ipmi-monitor.json` into Grafana.
 ### Import from INI File
 
 ```ini
-[brickbox-01]
-bmc_ip = 88.0.1.0
-server_ip = 88.0.1.1
+[server-01]
+bmc_ip = 192.168.1.100
+server_ip = 192.168.1.10
 enabled = true
 
-[brickbox-02]
-bmc_ip = 88.0.2.0
-server_ip = 88.0.2.1
+[server-02]
+bmc_ip = 192.168.1.101
+server_ip = 192.168.1.11
 enabled = true
 use_nvidia_password = false
 ```
@@ -237,7 +238,7 @@ The sensor name (e.g., `CPU1_ECC1`) is looked up from the BMC's SDR (Sensor Data
 
 To view the sensor mapping for a server:
 ```
-GET /api/sensors/88.0.8.0/names
+GET /api/sensors/192.168.1.100/names
 ```
 
 ## Architecture
@@ -318,10 +319,10 @@ volumes:
 
 ```bash
 # Test connectivity manually
-ipmitool -I lanplus -H 88.0.11.0 -U admin -P YourPassword power status
+ipmitool -I lanplus -H 192.168.1.100 -U admin -P YourPassword power status
 
 # Test SEL access
-ipmitool -I lanplus -H 88.0.11.0 -U admin -P YourPassword sel list
+ipmitool -I lanplus -H 192.168.1.100 -U admin -P YourPassword sel list
 ```
 
 ### Slow BMC Responses

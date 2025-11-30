@@ -10,12 +10,22 @@ services:
     ports:
       - "5000:5000"
     environment:
+      # Application branding
+      - APP_NAME=IPMI Monitor  # Customize for your organization
+      
+      # IPMI/BMC credentials
       - IPMI_USER=admin
-      - IPMI_PASS=BBccc321
-      - IPMI_PASS_NVIDIA=BBccc321BBccc321  # NVIDIA DGX/HGX systems need 16-char
-      - POLL_INTERVAL=300  # 5 minutes
+      - IPMI_PASS=your-ipmi-password  # CHANGE THIS!
+      - IPMI_PASS_NVIDIA=your-16-char-password  # NVIDIA DGX/HGX need 16 chars
+      # - NVIDIA_BMCS=192.168.1.98,192.168.1.99  # Comma-separated NVIDIA BMC IPs (optional)
+      
+      # Collection intervals
+      - POLL_INTERVAL=300  # 5 minutes for SEL events
+      - SENSOR_POLL_MULTIPLIER=1  # Collect sensors every N cycles
+      
+      # Admin authentication - CHANGE THESE!
       - ADMIN_USER=admin
-      - ADMIN_PASS=brickbox  # CHANGE THIS!
+      - ADMIN_PASS=changeme  # IMPORTANT: Change in production!
       - SECRET_KEY=your-secret-key-change-me  # For session encryption
     volumes:
       - ipmi_data:/app/instance  # SQLite database location
@@ -36,4 +46,5 @@ volumes:
 networks:
   monitoring:
     external: true  # Use existing monitoring network
-
+    # Or create a new network:
+    # driver: bridge
