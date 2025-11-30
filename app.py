@@ -28,6 +28,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'brickbox-ipmi-monitor-secret-key-change-me')
 db = SQLAlchemy(app)
 
+# Configure logging to work with gunicorn
+import logging
+import sys
+if not app.debug:
+    # In production, log to stdout for Docker/gunicorn
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)
+    
+    # Also add a stream handler for background threads
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s')
+    handler.setFormatter(formatter)
+    app.logger.addHandler(handler)
+
 # Configuration
 IPMI_USER = os.environ.get('IPMI_USER', 'admin')
 IPMI_PASS = os.environ.get('IPMI_PASS', 'BBccc321')
@@ -2049,13 +2065,14 @@ _shutdown_event = _threading.Event()
 
 def background_collector():
     """Background thread for periodic collection with graceful shutdown"""
-    app.logger.info(f"Background collector started (SEL interval: {POLL_INTERVAL}s, sensor multiplier: {SENSOR_POLL_MULTIPLIER}x)")
+    print(f"[IPMI Monitor] Background collector started (SEL interval: {POLL_INTERVAL}s, sensor multiplier: {SENSOR_POLL_MULTIPLIER}x)", flush=True)
     
     # Track when to collect sensors
     collection_count = 0
     
     while not _shutdown_event.is_set():
         try:
+            print(f"[IPMI Monitor] Starting collection cycle...", flush=True)
             # Always collect SEL events
             collect_all_events()
             
@@ -2064,12 +2081,15 @@ def background_collector():
             if collection_count >= SENSOR_POLL_MULTIPLIER:
                 collection_count = 0
                 try:
+                    print(f"[IPMI Monitor] Starting sensor collection...", flush=True)
                     collect_all_sensors_background()
                 except Exception as e:
-                    app.logger.error(f"Error collecting sensors: {e}")
+                    print(f"[IPMI Monitor] Error collecting sensors: {e}", flush=True)
+            
+            print(f"[IPMI Monitor] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
                     
         except Exception as e:
-            app.logger.error(f"Error in background collector: {e}")
+            print(f"[IPMI Monitor] Error in background collector: {e}", flush=True)
         
         # Wait with interruptible sleep for graceful shutdown
         _shutdown_event.wait(POLL_INTERVAL)
@@ -2077,12 +2097,14 @@ def background_collector():
 def collect_all_sensors_background():
     """Collect sensors from all servers in background (parallel)"""
     with app.app_context():
-        app.logger.info("Starting background sensor collection...")
+        print(f"[IPMI Monitor] Starting background sensor collection...", flush=True)
         servers = get_servers()
         
         if not servers:
+            print(f"[IPMI Monitor] No servers configured for sensor collection", flush=True)
             return
         
+        print(f"[IPMI Monitor] Collecting sensors from {len(servers)} servers...", flush=True)
         collected = 0
         try:
             with ThreadPoolExecutor(max_workers=10) as executor:
@@ -2099,9 +2121,9 @@ def collect_all_sensors_background():
                     except Exception as e:
                         pass  # Individual server failures are logged in collect_single_server_sensors
         except Exception as e:
-            app.logger.error(f"Error in background sensor collection: {e}")
+            print(f"[IPMI Monitor] Error in background sensor collection: {e}", flush=True)
         
-        app.logger.info(f"Background sensor collection complete: {collected}/{len(servers)} servers")
+        print(f"[IPMI Monitor] Background sensor collection complete: {collected}/{len(servers)} servers", flush=True)
 
 # Routes
 @app.route('/')
