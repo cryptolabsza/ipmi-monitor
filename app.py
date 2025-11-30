@@ -724,9 +724,11 @@ class AlertHistory(db.Model):
     server_name = db.Column(db.String(50))
     alert_type = db.Column(db.String(50))
     severity = db.Column(db.String(20))
+    source_type = db.Column(db.String(20), default='RULE_ALERT')  # RULE_ALERT or BMC_EVENT
     message = db.Column(db.Text)
     value = db.Column(db.String(100))  # The value that triggered the alert
     threshold = db.Column(db.String(100))  # The threshold that was exceeded
+    sensor_id = db.Column(db.String(50))  # For ECC: which DIMM/sensor triggered
     notified_telegram = db.Column(db.Boolean, default=False)
     notified_email = db.Column(db.Boolean, default=False)
     notified_webhook = db.Column(db.Boolean, default=False)
@@ -736,6 +738,25 @@ class AlertHistory(db.Model):
     resolved = db.Column(db.Boolean, default=False)
     resolved_at = db.Column(db.DateTime)
     fired_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+class ECCErrorTracker(db.Model):
+    """Track ECC errors per module per machine for rate alerting"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    sensor_id = db.Column(db.String(50), nullable=False)  # e.g., "0xD1" or "CPU1_ECC1"
+    sensor_name = db.Column(db.String(100))  # Human-readable name
+    error_type = db.Column(db.String(30), default='correctable')  # correctable, uncorrectable
+    count_1h = db.Column(db.Integer, default=0)  # Errors in last hour
+    count_24h = db.Column(db.Integer, default=0)  # Errors in last 24h
+    count_total = db.Column(db.Integer, default=0)  # Total errors seen
+    last_error_at = db.Column(db.DateTime)
+    last_checked = db.Column(db.DateTime, default=datetime.utcnow)
+    alerted_at = db.Column(db.DateTime)  # When we last alerted for this module
+    
+    __table_args__ = (
+        db.UniqueConstraint('bmc_ip', 'sensor_id', 'error_type', name='unique_ecc_tracker'),
+    )
 
 class NotificationConfig(db.Model):
     """Global notification channel configuration"""
@@ -798,19 +819,19 @@ DEFAULT_ALERT_RULES = [
         'severity': 'critical',
         'cooldown_minutes': 10
     },
-    # Memory alerts
+    # Memory alerts - Rate-based tracking per module
     {
-        'name': 'ECC Correctable Errors High',
-        'description': 'High rate of correctable ECC errors - DIMM may be failing',
-        'alert_type': 'memory_ecc',
+        'name': 'ECC Error Rate High (Per Module)',
+        'description': 'High rate of correctable ECC errors on specific DIMM - indicates failing memory module. This is a RULE ALERT based on error rate analysis, not a direct BMC event.',
+        'alert_type': 'memory_ecc_rate',
         'condition': 'gt',
-        'threshold': 10,  # More than 10 in collection period
+        'threshold': 10,  # More than 10 errors per hour per module
         'severity': 'warning',
         'cooldown_minutes': 60
     },
     {
         'name': 'ECC Uncorrectable Error',
-        'description': 'Uncorrectable memory error detected - data corruption possible',
+        'description': 'Uncorrectable memory error detected - data corruption possible. This is a direct BMC event.',
         'alert_type': 'memory_ecc_uncorrectable',
         'condition': 'contains',
         'threshold_str': 'Uncorrectable',
@@ -1108,6 +1129,29 @@ def evaluate_alerts_for_event(event, bmc_ip, server_name):
     try:
         rules = AlertRule.query.filter_by(enabled=True).all()
         
+        # Check event type
+        event_desc = event.event_description.lower() if hasattr(event, 'event_description') else str(event).lower()
+        sensor_type = event.sensor_type.lower() if hasattr(event, 'sensor_type') else ''
+        sensor_id = event.sensor_number if hasattr(event, 'sensor_number') else None
+        sensor_name = None
+        
+        # Extract sensor name from event description if available (e.g., "[CPU1_ECC1]")
+        import re
+        sensor_match = re.search(r'\[([^\]]+)\]', event.event_description if hasattr(event, 'event_description') else '')
+        if sensor_match:
+            sensor_name = sensor_match.group(1)
+        
+        # Track ECC errors for rate alerting
+        if 'ecc' in event_desc and 'memory' in sensor_type:
+            error_type = 'uncorrectable' if 'uncorrectable' in event_desc else 'correctable'
+            track_ecc_error(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                sensor_id=sensor_id or 'unknown',
+                sensor_name=sensor_name,
+                error_type=error_type
+            )
+        
         for rule in rules:
             # Skip if in cooldown
             if check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
@@ -1116,17 +1160,12 @@ def evaluate_alerts_for_event(event, bmc_ip, server_name):
             triggered = False
             value_str = ''
             
-            # Check event type matches rule type
-            event_desc = event.event_description.lower() if hasattr(event, 'event_description') else str(event).lower()
-            sensor_type = event.sensor_type.lower() if hasattr(event, 'sensor_type') else ''
-            
-            if rule.alert_type == 'memory_ecc' and 'ecc' in event_desc and 'memory' in sensor_type:
-                # For ECC, we check event description
-                if rule.condition == 'contains':
-                    triggered = evaluate_alert_condition('contains', event_desc, None, rule.threshold_str)
-                value_str = event_desc
+            # Memory ECC rate alerts are handled by track_ecc_error
+            if rule.alert_type in ['memory_ecc', 'memory_ecc_rate']:
+                continue  # Rate-based alerting is handled separately
                 
-            elif rule.alert_type == 'memory_ecc_uncorrectable' and 'uncorrectable' in event_desc:
+            # Uncorrectable ECC is always critical - immediate alert
+            if rule.alert_type == 'memory_ecc_uncorrectable' and 'uncorrectable' in event_desc:
                 triggered = True
                 value_str = event_desc
                 
@@ -1143,7 +1182,7 @@ def evaluate_alerts_for_event(event, bmc_ip, server_name):
                 value_str = event_desc
             
             if triggered:
-                fire_alert(rule, bmc_ip, server_name, value_str, event_desc)
+                fire_alert(rule, bmc_ip, server_name, value_str, event_desc, sensor_id=sensor_id, source_type='BMC_EVENT')
                 
     except Exception as e:
         app.logger.error(f"Error evaluating alerts for event: {e}")
@@ -1212,8 +1251,12 @@ def evaluate_alerts_for_server(bmc_ip, server_name, is_reachable, power_status):
     except Exception as e:
         app.logger.error(f"Error evaluating alerts for server: {e}")
 
-def fire_alert(rule, bmc_ip, server_name, value, detail_message):
-    """Fire an alert and send notifications"""
+def fire_alert(rule, bmc_ip, server_name, value, detail_message, sensor_id=None, source_type='RULE_ALERT'):
+    """Fire an alert and send notifications
+    
+    source_type: 'RULE_ALERT' for alerts triggered by monitoring rules
+                 'BMC_EVENT' for alerts directly from BMC SEL
+    """
     try:
         with app.app_context():
             # Create alert history record
@@ -1224,7 +1267,9 @@ def fire_alert(rule, bmc_ip, server_name, value, detail_message):
                 server_name=server_name,
                 alert_type=rule.alert_type,
                 severity=rule.severity,
-                message=f"{rule.description}\n\n{detail_message}",
+                source_type=source_type,
+                sensor_id=sensor_id,
+                message=f"[{source_type}] {rule.description}\n\n{detail_message}",
                 value=str(value),
                 threshold=str(rule.threshold or rule.threshold_str)
             )
@@ -1239,10 +1284,127 @@ def fire_alert(rule, bmc_ip, server_name, value, detail_message):
             # Set cooldown
             set_alert_cooldown(rule.id, bmc_ip)
             
-            app.logger.warning(f"Alert fired: {rule.name} for {server_name} ({bmc_ip})")
+            app.logger.warning(f"Alert fired [{source_type}]: {rule.name} for {server_name} ({bmc_ip})")
             
     except Exception as e:
         app.logger.error(f"Error firing alert: {e}")
+        db.session.rollback()
+
+def track_ecc_error(bmc_ip, server_name, sensor_id, sensor_name=None, error_type='correctable'):
+    """Track an ECC error for a specific module and check for rate alerting"""
+    try:
+        with app.app_context():
+            # Find or create tracker
+            tracker = ECCErrorTracker.query.filter_by(
+                bmc_ip=bmc_ip,
+                sensor_id=sensor_id,
+                error_type=error_type
+            ).first()
+            
+            if not tracker:
+                tracker = ECCErrorTracker(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    sensor_id=sensor_id,
+                    sensor_name=sensor_name,
+                    error_type=error_type
+                )
+                db.session.add(tracker)
+            
+            # Update counts
+            tracker.count_total += 1
+            tracker.count_1h += 1
+            tracker.count_24h += 1
+            tracker.last_error_at = datetime.utcnow()
+            tracker.server_name = server_name  # Update in case it changed
+            if sensor_name:
+                tracker.sensor_name = sensor_name
+            
+            db.session.commit()
+            
+            # Check if rate is high enough to alert
+            check_ecc_rate_alert(tracker)
+            
+    except Exception as e:
+        app.logger.error(f"Error tracking ECC error: {e}")
+        db.session.rollback()
+
+def check_ecc_rate_alert(tracker):
+    """Check if ECC error rate warrants an alert"""
+    # Get the ECC rate alert rule
+    rule = AlertRule.query.filter(
+        AlertRule.alert_type.in_(['memory_ecc', 'memory_ecc_rate']),
+        AlertRule.enabled == True
+    ).first()
+    
+    if not rule:
+        return
+    
+    threshold = rule.threshold or 10  # Default: 10 errors in 1 hour
+    
+    # Check if we've exceeded the threshold
+    if tracker.count_1h >= threshold:
+        # Check cooldown per module
+        cooldown_key = f"ecc_{tracker.bmc_ip}_{tracker.sensor_id}"
+        if cooldown_key in _alert_cooldowns:
+            last_alert = _alert_cooldowns[cooldown_key]
+            if datetime.utcnow() - last_alert < timedelta(minutes=rule.cooldown_minutes):
+                return  # Still in cooldown
+        
+        # Fire the alert
+        sensor_display = tracker.sensor_name or tracker.sensor_id
+        detail = f"""
+⚠️ HIGH ECC ERROR RATE DETECTED
+
+Server: {tracker.server_name} ({tracker.bmc_ip})
+Memory Module: {sensor_display}
+Error Type: {tracker.error_type.upper()}
+
+Error Counts:
+  • Last 1 hour: {tracker.count_1h} errors
+  • Last 24 hours: {tracker.count_24h} errors  
+  • Total: {tracker.count_total} errors
+
+This is a RULE-GENERATED WARNING based on error rate analysis.
+It is NOT a direct BMC SEL event.
+
+Recommended Action: Schedule DIMM replacement for {sensor_display}
+"""
+        
+        fire_alert(
+            rule=rule,
+            bmc_ip=tracker.bmc_ip,
+            server_name=tracker.server_name,
+            value=f"{tracker.count_1h} errors/hour",
+            detail_message=detail,
+            sensor_id=tracker.sensor_id,
+            source_type='RULE_ALERT'
+        )
+        
+        # Set cooldown for this specific module
+        _alert_cooldowns[cooldown_key] = datetime.utcnow()
+        tracker.alerted_at = datetime.utcnow()
+        db.session.commit()
+
+def reset_hourly_ecc_counts():
+    """Reset hourly ECC counts (called periodically)"""
+    try:
+        with app.app_context():
+            ECCErrorTracker.query.update({ECCErrorTracker.count_1h: 0})
+            db.session.commit()
+    except Exception as e:
+        app.logger.error(f"Error resetting hourly ECC counts: {e}")
+        db.session.rollback()
+
+def reset_daily_ecc_counts():
+    """Reset daily ECC counts (called periodically)"""
+    try:
+        with app.app_context():
+            ECCErrorTracker.query.update({ECCErrorTracker.count_24h: 0})
+            db.session.commit()
+    except Exception as e:
+        app.logger.error(f"Error resetting daily ECC counts: {e}")
+        db.session.rollback()
         db.session.rollback()
 
 def initialize_default_alerts():
@@ -3022,6 +3184,8 @@ def api_get_alert_history():
         'server_name': a.server_name,
         'alert_type': a.alert_type,
         'severity': a.severity,
+        'source_type': a.source_type or 'RULE_ALERT',
+        'sensor_id': a.sensor_id,
         'message': a.message,
         'value': a.value,
         'threshold': a.threshold,
@@ -3168,10 +3332,81 @@ def api_alert_stats():
         'warning_24h': AlertHistory.query.filter(
             AlertHistory.fired_at >= cutoff_24h,
             AlertHistory.severity == 'warning'
-        ).count()
+        ).count(),
+        'rule_alerts': AlertHistory.query.filter_by(source_type='RULE_ALERT').count(),
+        'bmc_events': AlertHistory.query.filter_by(source_type='BMC_EVENT').count()
     }
     
     return jsonify(stats)
+
+@app.route('/api/ecc/tracking')
+def api_ecc_tracking():
+    """Get ECC error tracking data per module per machine"""
+    trackers = ECCErrorTracker.query.order_by(
+        ECCErrorTracker.count_1h.desc(),
+        ECCErrorTracker.last_error_at.desc()
+    ).all()
+    
+    return jsonify([{
+        'id': t.id,
+        'bmc_ip': t.bmc_ip,
+        'server_name': t.server_name,
+        'sensor_id': t.sensor_id,
+        'sensor_name': t.sensor_name,
+        'error_type': t.error_type,
+        'count_1h': t.count_1h,
+        'count_24h': t.count_24h,
+        'count_total': t.count_total,
+        'last_error_at': t.last_error_at.isoformat() if t.last_error_at else None,
+        'alerted_at': t.alerted_at.isoformat() if t.alerted_at else None
+    } for t in trackers])
+
+@app.route('/api/ecc/tracking/<bmc_ip>')
+def api_ecc_tracking_server(bmc_ip):
+    """Get ECC error tracking for a specific server"""
+    trackers = ECCErrorTracker.query.filter_by(bmc_ip=bmc_ip).order_by(
+        ECCErrorTracker.count_total.desc()
+    ).all()
+    
+    return jsonify([{
+        'sensor_id': t.sensor_id,
+        'sensor_name': t.sensor_name,
+        'error_type': t.error_type,
+        'count_1h': t.count_1h,
+        'count_24h': t.count_24h,
+        'count_total': t.count_total,
+        'last_error_at': t.last_error_at.isoformat() if t.last_error_at else None,
+        'alerted_at': t.alerted_at.isoformat() if t.alerted_at else None
+    } for t in trackers])
+
+@app.route('/api/ecc/reset', methods=['POST'])
+@admin_required
+def api_reset_ecc_counts():
+    """Reset ECC error counts (for testing or after maintenance)"""
+    bmc_ip = request.args.get('bmc_ip')
+    reset_type = request.args.get('type', 'hourly')  # hourly, daily, or all
+    
+    try:
+        query = ECCErrorTracker.query
+        if bmc_ip:
+            query = query.filter_by(bmc_ip=bmc_ip)
+        
+        if reset_type == 'hourly':
+            query.update({ECCErrorTracker.count_1h: 0})
+        elif reset_type == 'daily':
+            query.update({ECCErrorTracker.count_24h: 0})
+        elif reset_type == 'all':
+            query.update({
+                ECCErrorTracker.count_1h: 0,
+                ECCErrorTracker.count_24h: 0,
+                ECCErrorTracker.count_total: 0
+            })
+        
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'Reset {reset_type} ECC counts'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 # ============== Settings Page ==============
 

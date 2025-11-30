@@ -586,7 +586,25 @@
             </div>
             
             <div class="card">
+                <div class="card-title">🧠 ECC Error Tracking (Per Module)</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Tracks ECC errors per memory module per machine. High error rates trigger <strong>RULE ALERTS</strong> (not BMC events).
+                </p>
+                <div id="eccTracking" class="server-list" style="max-height: 300px; overflow-y: auto;">
+                    <div class="loading"><div class="spinner"></div> Loading ECC data...</div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <button class="btn btn-secondary" onclick="resetEccCounts('hourly')">Reset Hourly</button>
+                    <button class="btn btn-secondary" onclick="resetEccCounts('daily')">Reset Daily</button>
+                </div>
+            </div>
+            
+            <div class="card">
                 <div class="card-title">📜 Recent Alerts</div>
+                <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                    <span style="display: inline-block; padding: 2px 8px; background: var(--accent-blue)20; color: var(--accent-blue); border-radius: 4px; margin-right: 10px;">📊 RULE</span> = Rule-based alert (rate analysis)
+                    <span style="display: inline-block; padding: 2px 8px; background: var(--accent-yellow)20; color: var(--accent-yellow); border-radius: 4px;">🔔 BMC</span> = Direct BMC SEL event
+                </p>
                 <div id="alertHistory" class="server-list" style="max-height: 400px; overflow-y: auto;">
                     <div class="loading"><div class="spinner"></div> Loading history...</div>
                 </div>
@@ -879,7 +897,7 @@
             
             if (tabId === 'manage') loadManagedServers();
             if (tabId === 'import') loadExportPreview();
-            if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); }
+            if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
             if (tabId === 'notifications') loadNotificationConfigs();
         }
         
@@ -1296,6 +1314,64 @@
             }
         }
         
+        async function loadEccTracking() {
+            try {
+                const response = await fetch('/api/ecc/tracking');
+                const trackers = await response.json();
+                
+                const eccList = document.getElementById('eccTracking');
+                
+                if (trackers.length === 0) {
+                    eccList.innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">No ECC errors tracked yet. Errors will appear here as they are detected.</p>';
+                    return;
+                }
+                
+                eccList.innerHTML = trackers.map(t => {
+                    const lastError = t.last_error_at ? new Date(t.last_error_at).toLocaleString() : 'Never';
+                    const isHigh = t.count_1h >= 10;  // Matches threshold
+                    const sensorDisplay = t.sensor_name || t.sensor_id;
+                    
+                    return `
+                        <div class="server-item" style="border-left: 4px solid ${isHigh ? 'var(--accent-red)' : t.count_1h > 0 ? 'var(--accent-yellow)' : 'var(--accent-green)'};">
+                            <div class="server-info">
+                                <span class="server-name">${t.server_name} - ${sensorDisplay}</span>
+                                <span class="server-ip">
+                                    1h: <strong>${t.count_1h}</strong> | 
+                                    24h: <strong>${t.count_24h}</strong> | 
+                                    Total: <strong>${t.count_total}</strong> 
+                                    (${t.error_type}) - Last: ${lastError}
+                                </span>
+                            </div>
+                            <div class="server-badges">
+                                ${isHigh ? '<span class="badge badge-red">HIGH RATE</span>' : ''}
+                                ${t.alerted_at ? '<span class="badge badge-yellow">ALERTED</span>' : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load ECC tracking:', e);
+                document.getElementById('eccTracking').innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">Failed to load ECC data.</p>';
+            }
+        }
+        
+        async function resetEccCounts(type) {
+            if (!confirm(`Reset ${type} ECC counts for all servers?`)) return;
+            
+            try {
+                const response = await fetch(`/api/ecc/reset?type=${type}`, { method: 'POST' });
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    loadEccTracking();
+                } else {
+                    showAlert(result.error, 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to reset ECC counts', 'error');
+            }
+        }
+        
         async function loadAlertRules() {
             try {
                 const response = await fetch('/api/alerts/rules');
@@ -1341,13 +1417,18 @@
                 
                 historyList.innerHTML = alerts.map(a => {
                     const time = new Date(a.fired_at).toLocaleString();
+                    const sourceLabel = a.source_type === 'BMC_EVENT' ? '🔔 BMC' : '📊 RULE';
+                    const sourceColor = a.source_type === 'BMC_EVENT' ? 'var(--accent-yellow)' : 'var(--accent-blue)';
+                    const sensorInfo = a.sensor_id ? ` [${a.sensor_id}]` : '';
+                    
                     return `
                         <div class="server-item" style="border-left: 4px solid ${a.severity === 'critical' ? 'var(--accent-red)' : a.severity === 'warning' ? 'var(--accent-yellow)' : 'var(--accent-blue)'};">
                             <div class="server-info">
-                                <span class="server-name">${a.rule_name}</span>
+                                <span class="server-name">${a.rule_name}${sensorInfo}</span>
                                 <span class="server-ip">${a.server_name} (${a.bmc_ip}) - ${time}</span>
                             </div>
                             <div class="server-badges">
+                                <span class="badge" style="background: ${sourceColor}20; color: ${sourceColor};">${sourceLabel}</span>
                                 ${a.acknowledged ? '<span class="badge badge-green">ACK</span>' : `<button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="event.stopPropagation(); acknowledgeAlert(${a.id})">ACK</button>`}
                             </div>
                         </div>
