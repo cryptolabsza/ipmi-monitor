@@ -897,9 +897,61 @@
         <!-- Security Tab -->
         <div id="security" class="tab-content">
             <div class="card">
-                <div class="card-title">🛡️ Admin Credentials</div>
+                <div class="card-title">🌐 Access Control</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    Change your admin username and password. Default credentials are <code>admin</code> / <code>admin</code>.
+                    Control who can access the dashboard.
+                </p>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="allowAnonymous" onchange="updateAnonymousSetting()">
+                        <span>Allow anonymous read access</span>
+                    </label>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px; margin-left: 30px;">
+                        When enabled, anyone can view the dashboard without logging in. When disabled, all users must authenticate.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">👥 User Management</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Manage users with different access levels. <strong>Admin</strong> can make changes, <strong>Read-only</strong> can only view.
+                </p>
+                
+                <div id="userList" class="server-list" style="max-height: 300px; overflow-y: auto; margin-bottom: 20px;">
+                    <div class="loading"><div class="spinner"></div> Loading users...</div>
+                </div>
+                
+                <hr style="border-color: var(--border-color); margin: 20px 0;">
+                
+                <h4 style="margin-bottom: 15px;">➕ Add New User</h4>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" id="newUserUsername" placeholder="username">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="newUserPassword" placeholder="min 6 characters">
+                    </div>
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="newUserRole">
+                            <option value="readonly">Read-only</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="createUser()">➕ Add User</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🔐 My Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Change your own username and password. Default credentials are <code>admin</code> / <code>admin</code>.
                 </p>
                 
                 <div id="passwordWarning" class="warning-box" style="display: none;">
@@ -912,14 +964,14 @@
                         <input type="text" id="currentUsername" readonly style="background: var(--bg-hover);">
                     </div>
                     <div class="form-group">
-                        <label>Last Updated</label>
-                        <input type="text" id="lastPasswordUpdate" readonly style="background: var(--bg-hover);">
+                        <label>Role</label>
+                        <input type="text" id="currentRole" readonly style="background: var(--bg-hover);">
                     </div>
                 </div>
                 
                 <hr style="border-color: var(--border-color); margin: 20px 0;">
                 
-                <h4 style="margin-bottom: 15px;">Change Credentials</h4>
+                <h4 style="margin-bottom: 15px;">Change My Credentials</h4>
                 
                 <div class="form-group">
                     <label>New Username (optional, leave blank to keep current)</label>
@@ -942,7 +994,7 @@
                     </div>
                 </div>
                 
-                <button class="btn btn-primary" onclick="updateAdminCredentials()">🔐 Update Credentials</button>
+                <button class="btn btn-primary" onclick="updateAdminCredentials()">🔐 Update My Credentials</button>
             </div>
             
             <div class="card">
@@ -953,7 +1005,7 @@
                 
                 <div class="server-item">
                     <div class="server-info">
-                        <span class="server-name">Logged in as: <span id="sessionUser">-</span></span>
+                        <span class="server-name">Logged in as: <span id="sessionUser">-</span> (<span id="sessionRole">-</span>)</span>
                         <span class="server-ip">Session is active</span>
                     </div>
                     <div class="server-badges">
@@ -1226,13 +1278,12 @@
         
         async function loadAdminCredentials() {
             try {
+                // Load current user credentials
                 const response = await fetch('/api/admin/credentials');
                 const data = await response.json();
                 
                 document.getElementById('currentUsername').value = data.username || 'admin';
-                document.getElementById('lastPasswordUpdate').value = data.updated_at 
-                    ? new Date(data.updated_at).toLocaleString() 
-                    : 'Never (using defaults)';
+                document.getElementById('currentRole').value = (data.role || 'admin').toUpperCase();
                 
                 // Show warning if password not changed
                 const warning = document.getElementById('passwordWarning');
@@ -1246,9 +1297,171 @@
                 const authResponse = await fetch('/api/auth/status');
                 const auth = await authResponse.json();
                 document.getElementById('sessionUser').textContent = auth.username || 'admin';
+                document.getElementById('sessionRole').textContent = (auth.role || 'admin').toUpperCase();
+                
+                // Load anonymous setting
+                const settingsResponse = await fetch('/api/settings');
+                const settings = await settingsResponse.json();
+                document.getElementById('allowAnonymous').checked = settings.allow_anonymous_read === 'true';
+                
+                // Load users list
+                loadUserList();
                 
             } catch (e) {
-                console.error('Failed to load admin credentials:', e);
+                console.error('Failed to load security settings:', e);
+            }
+        }
+        
+        async function loadUserList() {
+            try {
+                const response = await fetch('/api/users');
+                const users = await response.json();
+                
+                const userList = document.getElementById('userList');
+                
+                if (users.length === 0) {
+                    userList.innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">No users configured.</p>';
+                    return;
+                }
+                
+                userList.innerHTML = users.map(u => {
+                    const roleColor = u.role === 'admin' ? 'var(--accent-red)' : 'var(--accent-blue)';
+                    const lastLogin = u.last_login ? new Date(u.last_login).toLocaleString() : 'Never';
+                    const statusColor = u.enabled ? 'var(--accent-green)' : 'var(--text-secondary)';
+                    
+                    return `
+                        <div class="server-item" style="border-left: 4px solid ${roleColor};">
+                            <div class="server-info">
+                                <span class="server-name">${u.username}</span>
+                                <span class="server-ip">Last login: ${lastLogin}</span>
+                            </div>
+                            <div class="server-badges">
+                                <span class="badge" style="background: ${roleColor}20; color: ${roleColor};">${u.role.toUpperCase()}</span>
+                                <span class="badge" style="background: ${statusColor}20; color: ${statusColor};">${u.enabled ? 'ENABLED' : 'DISABLED'}</span>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="editUser(${u.id}, '${u.username}', '${u.role}', ${u.enabled})">✏️ Edit</button>
+                                <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.75rem; ${u.role === 'admin' ? '' : ''}" onclick="deleteUser(${u.id}, '${u.username}')">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load users:', e);
+                document.getElementById('userList').innerHTML = '<p style="color: var(--accent-red); padding: 20px;">Failed to load users.</p>';
+            }
+        }
+        
+        async function updateAnonymousSetting() {
+            const allow = document.getElementById('allowAnonymous').checked;
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ allow_anonymous_read: allow ? 'true' : 'false' })
+                });
+                
+                if (response.ok) {
+                    showAlert(`Anonymous access ${allow ? 'enabled' : 'disabled'}`, 'success');
+                } else {
+                    showAlert('Failed to update setting', 'error');
+                    document.getElementById('allowAnonymous').checked = !allow;
+                }
+            } catch (e) {
+                showAlert('Error updating setting', 'error');
+                document.getElementById('allowAnonymous').checked = !allow;
+            }
+        }
+        
+        async function createUser() {
+            const username = document.getElementById('newUserUsername').value.trim();
+            const password = document.getElementById('newUserPassword').value;
+            const role = document.getElementById('newUserRole').value;
+            
+            if (username.length < 3) {
+                showAlert('Username must be at least 3 characters', 'error');
+                return;
+            }
+            if (password.length < 6) {
+                showAlert('Password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username, password, role })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(`User ${username} created`, 'success');
+                    document.getElementById('newUserUsername').value = '';
+                    document.getElementById('newUserPassword').value = '';
+                    document.getElementById('newUserRole').value = 'readonly';
+                    loadUserList();
+                } else {
+                    showAlert(result.error || 'Failed to create user', 'error');
+                }
+            } catch (e) {
+                showAlert('Error creating user', 'error');
+            }
+        }
+        
+        function editUser(id, username, role, enabled) {
+            const newRole = prompt(`Change role for ${username}:\nEnter 'admin' or 'readonly'`, role);
+            if (newRole === null) return;
+            
+            if (!['admin', 'readonly'].includes(newRole)) {
+                showAlert('Invalid role. Use admin or readonly.', 'error');
+                return;
+            }
+            
+            const enabledStr = prompt(`Enable or disable ${username}?\nEnter 'true' or 'false'`, enabled.toString());
+            if (enabledStr === null) return;
+            
+            const newEnabled = enabledStr.toLowerCase() === 'true';
+            
+            updateUser(id, { role: newRole, enabled: newEnabled });
+        }
+        
+        async function updateUser(id, data) {
+            try {
+                const response = await fetch(`/api/users/${id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('User updated', 'success');
+                    loadUserList();
+                } else {
+                    showAlert(result.error || 'Failed to update user', 'error');
+                }
+            } catch (e) {
+                showAlert('Error updating user', 'error');
+            }
+        }
+        
+        async function deleteUser(id, username) {
+            if (!confirm(`Delete user ${username}? This cannot be undone.`)) return;
+            
+            try {
+                const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('User deleted', 'success');
+                    loadUserList();
+                } else {
+                    showAlert(result.error || 'Failed to delete user', 'error');
+                }
+            } catch (e) {
+                showAlert('Error deleting user', 'error');
             }
         }
         

@@ -61,57 +61,87 @@ SENSOR_POLL_MULTIPLIER = int(os.environ.get('SENSOR_POLL_MULTIPLIER', 1))  # Col
 DEFAULT_ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
 DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin')  # Default: admin/admin
 
-def get_admin_credentials():
-    """Get admin credentials from database, falling back to env vars/defaults"""
+def get_user(username):
+    """Get user by username"""
     try:
-        from flask import current_app
-        with current_app.app_context():
-            admin = AdminConfig.query.first()
-            if admin:
-                return admin.username, admin.password_hash, admin.password_changed
+        return User.query.filter_by(username=username, enabled=True).first()
+    except Exception:
+        return None
+
+def verify_user_password(username, password):
+    """Verify user credentials, returns user object if valid"""
+    try:
+        user = User.query.filter_by(username=username, enabled=True).first()
+        if user and user.verify_password(password):
+            return user
+        # Fallback to defaults for first-time setup
+        if not User.query.first() and username == DEFAULT_ADMIN_USER and password == DEFAULT_ADMIN_PASS:
+            return 'default_admin'
     except Exception:
         pass
-    # Fallback to env vars/defaults (password is stored as-is for backwards compat)
-    return DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS, False
+    return None
 
-def verify_admin_password(username, password):
-    """Verify admin credentials"""
+def allow_anonymous_read():
+    """Check if anonymous read access is enabled"""
     try:
-        admin = AdminConfig.query.first()
-        if admin:
-            import hashlib
-            password_hash = hashlib.sha256(password.encode()).hexdigest()
-            return admin.username == username and admin.password_hash == password_hash
-        else:
-            # No admin config yet, use defaults
-            return username == DEFAULT_ADMIN_USER and password == DEFAULT_ADMIN_PASS
+        setting = SystemSettings.get('allow_anonymous_read', 'true')
+        return setting.lower() == 'true'
     except Exception:
-        return username == DEFAULT_ADMIN_USER and password == DEFAULT_ADMIN_PASS
+        return True  # Default to allow
 
 def admin_required(f):
     """Decorator to require admin login for a route"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not session.get('admin_logged_in'):
+        if not session.get('logged_in') or session.get('user_role') != 'admin':
             if request.is_json:
                 return jsonify({'error': 'Admin authentication required'}), 401
             return redirect(url_for('login', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
 
+def login_required(f):
+    """Decorator to require any login (admin or readonly)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            # Check if anonymous access is allowed
+            if allow_anonymous_read():
+                return f(*args, **kwargs)
+            if request.is_json:
+                return jsonify({'error': 'Authentication required'}), 401
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def is_admin():
     """Check if current user is admin"""
-    return session.get('admin_logged_in', False)
+    return session.get('logged_in') and session.get('user_role') == 'admin'
+
+def is_logged_in():
+    """Check if user is logged in (any role)"""
+    return session.get('logged_in', False)
+
+def can_view():
+    """Check if current user/visitor can view data (logged in OR anonymous allowed)"""
+    if session.get('logged_in'):
+        return True
+    return allow_anonymous_read()
 
 def needs_password_change():
-    """Check if admin needs to change default password"""
+    """Check if current user needs to change default password"""
     try:
-        admin = AdminConfig.query.first()
-        if admin:
-            return not admin.password_changed
-        return True  # No admin config = needs setup
+        username = session.get('username')
+        if username:
+            user = User.query.filter_by(username=username).first()
+            if user:
+                return not user.password_changed
+        # First-time setup
+        if not User.query.first():
+            return True
+        return False
     except Exception:
-        return True
+        return False
 
 # NVIDIA BMCs (require 16-char password) - loaded from server config or env
 # Can be set via NVIDIA_BMCS env var as comma-separated IPs, e.g.: "192.168.1.98,192.168.1.99"
@@ -793,8 +823,82 @@ class NotificationConfig(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class User(db.Model):
+    """User accounts with role-based access"""
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), nullable=False, unique=True)
+    password_hash = db.Column(db.String(64), nullable=False)  # SHA256 hash
+    role = db.Column(db.String(20), nullable=False, default='readonly')  # admin, readonly
+    enabled = db.Column(db.Boolean, default=True)
+    password_changed = db.Column(db.Boolean, default=False)  # True after first password change
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    
+    @staticmethod
+    def hash_password(password):
+        import hashlib
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    def verify_password(self, password):
+        return self.password_hash == User.hash_password(password)
+    
+    def is_admin(self):
+        return self.role == 'admin'
+    
+    @staticmethod
+    def initialize_default():
+        """Create default admin if none exists"""
+        admin = User.query.filter_by(role='admin').first()
+        if not admin:
+            admin = User(
+                username='admin',
+                password_hash=User.hash_password('admin'),
+                role='admin',
+                password_changed=False
+            )
+            db.session.add(admin)
+            db.session.commit()
+        return admin
+
+class SystemSettings(db.Model):
+    """Global system settings"""
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(50), nullable=False, unique=True)
+    value = db.Column(db.String(200))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @staticmethod
+    def get(key, default=None):
+        setting = SystemSettings.query.filter_by(key=key).first()
+        return setting.value if setting else default
+    
+    @staticmethod
+    def set(key, value):
+        setting = SystemSettings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = str(value)
+        else:
+            setting = SystemSettings(key=key, value=str(value))
+            db.session.add(setting)
+        db.session.commit()
+        return setting
+    
+    @staticmethod
+    def initialize_defaults():
+        """Initialize default settings"""
+        defaults = {
+            'allow_anonymous_read': 'true',  # Allow anonymous users to view dashboard
+            'session_timeout_hours': '24',
+        }
+        for key, value in defaults.items():
+            if not SystemSettings.query.filter_by(key=key).first():
+                db.session.add(SystemSettings(key=key, value=value))
+        db.session.commit()
+
+# Backwards compatibility alias
 class AdminConfig(db.Model):
-    """Admin user configuration - stored in database for persistence"""
+    """Deprecated - use User model instead. Kept for migration."""
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), nullable=False, default='admin')
     password_hash = db.Column(db.String(64), nullable=False)  # SHA256 hash
@@ -809,10 +913,10 @@ class AdminConfig(db.Model):
     
     @staticmethod
     def initialize_default():
-        """Create default admin if none exists"""
-        admin = AdminConfig.query.first()
+        """Create default admin if none exists - now uses User model"""
+        admin = User.query.filter_by(role='admin').first()
         if not admin:
-            admin = AdminConfig(
+            admin = User(
                 username='admin',
                 password_hash=AdminConfig.hash_password('admin'),
                 password_changed=False
@@ -3568,7 +3672,7 @@ def health_check():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """Admin login page"""
+    """User login page"""
     if request.method == 'POST':
         if request.is_json:
             data = request.get_json()
@@ -3578,21 +3682,31 @@ def login():
             username = request.form.get('username')
             password = request.form.get('password')
         
-        if verify_admin_password(username, password):
-            session['admin_logged_in'] = True
-            session['admin_user'] = username
-            
-            # Check if password change is required
-            must_change = needs_password_change()
+        user = verify_user_password(username, password)
+        if user:
+            # Handle default admin case (first-time setup)
+            if user == 'default_admin':
+                session['logged_in'] = True
+                session['username'] = 'admin'
+                session['user_role'] = 'admin'
+                must_change = True
+            else:
+                session['logged_in'] = True
+                session['username'] = user.username
+                session['user_role'] = user.role
+                user.last_login = datetime.utcnow()
+                db.session.commit()
+                must_change = not user.password_changed
             
             if request.is_json:
                 return jsonify({
                     'status': 'success', 
                     'message': 'Logged in',
+                    'role': session.get('user_role'),
                     'password_change_required': must_change
                 })
             
-            if must_change:
+            if must_change and session.get('user_role') == 'admin':
                 return redirect(url_for('change_password'))
             
             next_url = request.args.get('next', url_for('dashboard'))
@@ -3607,7 +3721,7 @@ def login():
 @app.route('/change-password', methods=['GET', 'POST'])
 def change_password():
     """Force password change page (shown after first login with default credentials)"""
-    if not session.get('admin_logged_in'):
+    if not session.get('logged_in'):
         return redirect(url_for('login'))
     
     error = None
@@ -3624,17 +3738,33 @@ def change_password():
             error = 'Passwords do not match'
         else:
             try:
-                admin = AdminConfig.query.first()
-                if not admin:
-                    admin = AdminConfig(username=new_username)
-                    db.session.add(admin)
+                current_username = session.get('username', 'admin')
+                user = User.query.filter_by(username=current_username).first()
                 
-                admin.username = new_username
-                admin.password_hash = AdminConfig.hash_password(new_password)
-                admin.password_changed = True
+                if not user:
+                    # First-time setup - create admin user
+                    user = User(
+                        username=new_username,
+                        password_hash=User.hash_password(new_password),
+                        role='admin',
+                        password_changed=True
+                    )
+                    db.session.add(user)
+                else:
+                    # Check if new username already exists (if changing)
+                    if new_username != user.username:
+                        existing = User.query.filter_by(username=new_username).first()
+                        if existing:
+                            error = 'Username already taken'
+                            return render_template('change_password.html', error=error, must_change=needs_password_change())
+                    
+                    user.username = new_username
+                    user.password_hash = User.hash_password(new_password)
+                    user.password_changed = True
+                
                 db.session.commit()
                 
-                session['admin_user'] = new_username
+                session['username'] = new_username
                 return redirect(url_for('dashboard'))
             except Exception as e:
                 db.session.rollback()
@@ -3644,33 +3774,42 @@ def change_password():
 
 @app.route('/logout')
 def logout():
-    """Logout admin"""
-    session.pop('admin_logged_in', None)
-    session.pop('admin_user', None)
+    """Logout user"""
+    session.pop('logged_in', None)
+    session.pop('username', None)
+    session.pop('user_role', None)
     return redirect(url_for('dashboard'))
 
 @app.route('/api/auth/status')
 def auth_status():
     """Check authentication status"""
     return jsonify({
+        'logged_in': is_logged_in(),
         'is_admin': is_admin(),
-        'username': session.get('admin_user'),
-        'password_change_required': needs_password_change() if is_admin() else False
+        'username': session.get('username'),
+        'role': session.get('user_role'),
+        'can_view': can_view(),
+        'anonymous_allowed': allow_anonymous_read(),
+        'password_change_required': needs_password_change() if is_logged_in() else False
     })
 
 @app.route('/api/admin/credentials', methods=['GET'])
 @admin_required
 def api_get_admin_credentials():
-    """Get admin username (not password)"""
-    admin = AdminConfig.query.first()
-    if admin:
+    """Get current user info (not password)"""
+    username = session.get('username', 'admin')
+    user = User.query.filter_by(username=username).first()
+    if user:
         return jsonify({
-            'username': admin.username,
-            'password_changed': admin.password_changed,
-            'updated_at': admin.updated_at.isoformat() if admin.updated_at else None
+            'username': user.username,
+            'role': user.role,
+            'password_changed': user.password_changed,
+            'updated_at': user.updated_at.isoformat() if user.updated_at else None,
+            'last_login': user.last_login.isoformat() if user.last_login else None
         })
     return jsonify({
         'username': 'admin',
+        'role': 'admin',
         'password_changed': False,
         'updated_at': None
     })
@@ -3678,7 +3817,7 @@ def api_get_admin_credentials():
 @app.route('/api/admin/credentials', methods=['PUT'])
 @admin_required
 def api_update_admin_credentials():
-    """Update admin credentials"""
+    """Update current user's credentials"""
     data = request.get_json()
     
     new_username = data.get('username', '').strip()
@@ -3693,34 +3832,198 @@ def api_update_admin_credentials():
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
     
     # Verify current password
-    current_user = session.get('admin_user', 'admin')
-    if not verify_admin_password(current_user, current_password):
+    current_user = session.get('username', 'admin')
+    user = verify_user_password(current_user, current_password)
+    if not user:
         return jsonify({'error': 'Current password is incorrect'}), 401
     
     try:
-        admin = AdminConfig.query.first()
-        if not admin:
-            admin = AdminConfig(username=new_username or 'admin')
-            db.session.add(admin)
+        if user == 'default_admin':
+            # Create new user from defaults
+            user = User(username=new_username or 'admin', role='admin')
+            db.session.add(user)
+        else:
+            # Check if new username already exists
+            if new_username and new_username != user.username:
+                existing = User.query.filter_by(username=new_username).first()
+                if existing:
+                    return jsonify({'error': 'Username already taken'}), 400
         
         if new_username:
-            admin.username = new_username
-            session['admin_user'] = new_username
+            user.username = new_username
+            session['username'] = new_username
         
         if new_password:
-            admin.password_hash = AdminConfig.hash_password(new_password)
-            admin.password_changed = True
+            user.password_hash = User.hash_password(new_password)
+            user.password_changed = True
         
         db.session.commit()
         
         return jsonify({
             'status': 'success',
             'message': 'Credentials updated successfully',
-            'username': admin.username
+            'username': user.username
         })
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+# ============== User Management ==============
+
+@app.route('/api/users', methods=['GET'])
+@admin_required
+def api_get_users():
+    """Get all users"""
+    users = User.query.order_by(User.role.desc(), User.username).all()
+    return jsonify([{
+        'id': u.id,
+        'username': u.username,
+        'role': u.role,
+        'enabled': u.enabled,
+        'password_changed': u.password_changed,
+        'created_at': u.created_at.isoformat() if u.created_at else None,
+        'last_login': u.last_login.isoformat() if u.last_login else None
+    } for u in users])
+
+@app.route('/api/users', methods=['POST'])
+@admin_required
+def api_create_user():
+    """Create a new user"""
+    data = request.get_json()
+    
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    role = data.get('role', 'readonly')
+    
+    if len(username) < 3:
+        return jsonify({'error': 'Username must be at least 3 characters'}), 400
+    if len(password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    if role not in ['admin', 'readonly']:
+        return jsonify({'error': 'Role must be admin or readonly'}), 400
+    
+    # Check if username exists
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': 'Username already exists'}), 400
+    
+    try:
+        user = User(
+            username=username,
+            password_hash=User.hash_password(password),
+            role=role,
+            password_changed=True,  # New users don't need to change password
+            enabled=True
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'User {username} created',
+            'id': user.id
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@admin_required
+def api_update_user(user_id):
+    """Update a user"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    data = request.get_json()
+    
+    # Prevent disabling/demoting yourself
+    if user.username == session.get('username'):
+        if data.get('enabled') == False:
+            return jsonify({'error': 'Cannot disable your own account'}), 400
+        if data.get('role') == 'readonly' and user.role == 'admin':
+            return jsonify({'error': 'Cannot demote your own account'}), 400
+    
+    try:
+        if 'username' in data and data['username']:
+            new_username = data['username'].strip()
+            if new_username != user.username:
+                if User.query.filter_by(username=new_username).first():
+                    return jsonify({'error': 'Username already exists'}), 400
+                user.username = new_username
+        
+        if 'role' in data and data['role'] in ['admin', 'readonly']:
+            user.role = data['role']
+        
+        if 'enabled' in data:
+            user.enabled = bool(data['enabled'])
+        
+        if 'password' in data and data['password']:
+            if len(data['password']) < 6:
+                return jsonify({'error': 'Password must be at least 6 characters'}), 400
+            user.password_hash = User.hash_password(data['password'])
+        
+        db.session.commit()
+        
+        return jsonify({'status': 'success', 'message': 'User updated'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@admin_required
+def api_delete_user(user_id):
+    """Delete a user"""
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    
+    # Prevent deleting yourself
+    if user.username == session.get('username'):
+        return jsonify({'error': 'Cannot delete your own account'}), 400
+    
+    # Prevent deleting the last admin
+    if user.role == 'admin':
+        admin_count = User.query.filter_by(role='admin', enabled=True).count()
+        if admin_count <= 1:
+            return jsonify({'error': 'Cannot delete the last admin user'}), 400
+    
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'User deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# ============== System Settings ==============
+
+@app.route('/api/settings', methods=['GET'])
+@admin_required
+def api_get_settings():
+    """Get system settings"""
+    settings = SystemSettings.query.all()
+    return jsonify({s.key: s.value for s in settings})
+
+@app.route('/api/settings', methods=['PUT'])
+@admin_required
+def api_update_settings():
+    """Update system settings"""
+    data = request.get_json()
+    
+    try:
+        for key, value in data.items():
+            SystemSettings.set(key, value)
+        return jsonify({'status': 'success', 'message': 'Settings updated'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/settings/anonymous', methods=['GET'])
+def api_get_anonymous_setting():
+    """Get anonymous access setting (public endpoint)"""
+    return jsonify({
+        'allow_anonymous_read': allow_anonymous_read()
+    })
 
 # Global error handlers
 @app.errorhandler(404)
@@ -3755,8 +4058,10 @@ def init_db():
         app.logger.info("Database initialized")
         # Initialize default alert rules
         initialize_default_alerts()
-        # Initialize default admin (admin/admin)
-        AdminConfig.initialize_default()
+        # Initialize default admin user (admin/admin)
+        User.initialize_default()
+        # Initialize default system settings
+        SystemSettings.initialize_defaults()
 
 # Initialize on import (for gunicorn)
 init_db()
