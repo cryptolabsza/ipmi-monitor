@@ -1288,7 +1288,12 @@ def evaluate_alerts_for_event(event, bmc_ip, server_name):
         # Check event type
         event_desc = event.event_description.lower() if hasattr(event, 'event_description') else str(event).lower()
         sensor_type = event.sensor_type.lower() if hasattr(event, 'sensor_type') else ''
-        sensor_id = event.sensor_number if hasattr(event, 'sensor_number') else None
+        sensor_number = event.sensor_number if hasattr(event, 'sensor_number') else None
+        event_data = event.event_data if hasattr(event, 'event_data') else None  # DIMM location
+        
+        # For ECC events, prefer DIMM location as identifier, fall back to sensor number
+        # DIMM location (e.g., "DIMM G1") is more actionable for replacements
+        sensor_id = event_data if event_data else sensor_number
         sensor_name = None
         
         # Extract sensor name from event description if available (e.g., "[CPU1_ECC1]")
@@ -1297,6 +1302,10 @@ def evaluate_alerts_for_event(event, bmc_ip, server_name):
         if sensor_match:
             sensor_name = sensor_match.group(1)
         
+        # For ECC errors with DIMM location, use that as the display name
+        if event_data and 'dimm' in event_data.lower():
+            sensor_name = event_data
+        
         # Track ECC errors for rate alerting
         if 'ecc' in event_desc and 'memory' in sensor_type:
             error_type = 'uncorrectable' if 'uncorrectable' in event_desc else 'correctable'
@@ -1304,7 +1313,7 @@ def evaluate_alerts_for_event(event, bmc_ip, server_name):
                 bmc_ip=bmc_ip,
                 server_name=server_name,
                 sensor_id=sensor_id or 'unknown',
-                sensor_name=sensor_name,
+                sensor_name=sensor_name or event_data,  # Use DIMM location if available
                 error_type=error_type
             )
         
@@ -1670,9 +1679,13 @@ def classify_severity(event_text):
     return 'info'
 
 def parse_sel_line(line, bmc_ip, server_name):
-    """Parse a single SEL log line with extended details for ECC events"""
-    # Format: "  abc | 12/12/23 | 03:21:32 SAST | Power Supply #0x9f | Presence detected | Asserted"
-    # Extended format may include: "Memory #0x53 | Correctable ECC | Asserted | DIMM_A1"
+    """Parse a single SEL log line with extended details for ECC events
+    
+    The elist format can vary:
+    Format 1: "37dd | 11/30/25 | 14:27:12 | Memory #0xD1 | Correctable ECC | Asserted"
+    Format 2: "37dd | 11/30/25 | 14:27:12 | Memory #0xD1 | Correctable ECC | Asserted | DIMM_G1"
+    Format 3 (verbose): "CPU1_ECC1        | 11/30/25 | 14:27:12 | Memory #0xD1 | Correctable ECC logging limit reached | Asserted | DIMM G1"
+    """
     try:
         parts = [p.strip() for p in line.split('|')]
         if len(parts) >= 5:
@@ -1714,28 +1727,56 @@ def parse_sel_line(line, bmc_ip, server_name):
                     sensor_number = sensor_id
                     app.logger.debug(f"Could not parse sensor ID {sensor_id}: {e}")
             
-            # For Memory/ECC events, try to extract DIMM info
+            # For Memory/ECC events, extract DIMM info from remaining parts
             event_direction = ''
             event_data = ''
+            dimm_location = ''
             
             for part in remaining_parts:
-                part_lower = part.lower().strip()
-                if 'asserted' in part_lower:
+                part_stripped = part.strip()
+                part_lower = part_stripped.lower()
+                
+                if 'asserted' in part_lower and 'deasserted' not in part_lower:
                     event_direction = 'Asserted'
                 elif 'deasserted' in part_lower:
                     event_direction = 'Deasserted'
-                # Look for DIMM identifiers
-                if 'dimm' in part_lower or part.startswith('DIMM') or re.match(r'^[A-Z]\d+$', part.strip()):
-                    event_data = part.strip()
+                
+                # Look for DIMM identifiers - multiple patterns
+                # Pattern 1: "DIMM_G1" or "DIMM G1" or "DIMM_A1"
+                # Pattern 2: "DIMMG1" (no separator)
+                # Pattern 3: Just "G1" or "A1" at end of parts
+                dimm_match = re.search(r'DIMM[_\s]?([A-Z]\d+|[A-Z][A-Z]?\d+)', part_stripped, re.IGNORECASE)
+                if dimm_match:
+                    dimm_location = f"DIMM {dimm_match.group(1).upper()}"
+                    event_data = dimm_location
+                # Also check for "at DIMM" pattern in verbose format
+                elif 'at dimm' in part_lower:
+                    at_match = re.search(r'at\s+DIMM\s*([A-Z]\d+|[A-Z][A-Z]?\d+)', part_stripped, re.IGNORECASE)
+                    if at_match:
+                        dimm_location = f"DIMM {at_match.group(1).upper()}"
+                        event_data = dimm_location
             
-            # Enhance event description - always show sensor ID for identification
-            enhanced_desc = event_desc
-            if sensor_id:
-                # Use the actual sensor name if available (e.g., CPU1_ECC1)
-                if sensor_name_lookup:
-                    enhanced_desc = f"{event_desc} [{sensor_name_lookup}]"
-                else:
-                    enhanced_desc = f"{event_desc} [Sensor {sensor_number}]"
+            # Build enhanced description
+            base_event = remaining_parts[0] if remaining_parts else event_desc
+            enhanced_parts = [base_event]
+            
+            # Add direction
+            if event_direction and event_direction not in base_event:
+                enhanced_parts.append(event_direction)
+            
+            # Add DIMM location prominently for ECC events
+            if dimm_location and ('ecc' in event_desc.lower() or 'memory' in sensor_type.lower()):
+                enhanced_parts.append(f"**{dimm_location}**")
+            elif dimm_location:
+                enhanced_parts.append(dimm_location)
+            
+            # Add sensor name/number for identification
+            if sensor_name_lookup:
+                enhanced_parts.append(f"[{sensor_name_lookup}]")
+            elif sensor_number:
+                enhanced_parts.append(f"[Sensor {sensor_number}]")
+            
+            enhanced_desc = ' | '.join(enhanced_parts)
             
             severity = classify_severity(event_desc)
             
@@ -1749,7 +1790,7 @@ def parse_sel_line(line, bmc_ip, server_name):
                 sensor_number=sensor_number,
                 event_description=enhanced_desc,
                 event_direction=event_direction,
-                event_data=event_data,
+                event_data=event_data,  # This now stores the DIMM location
                 severity=severity,
                 raw_entry=line
             )
