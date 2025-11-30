@@ -356,7 +356,7 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["sum"],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -369,7 +369,8 @@
         {
           "expr": "sum(ipmi_power_watts)",
           "legendFormat": "",
-          "refId": "A"
+          "refId": "A",
+          "instant": true
         }
       ],
       "title": "Total Power",
