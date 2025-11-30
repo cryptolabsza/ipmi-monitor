@@ -1933,37 +1933,205 @@ def collect_sel_redfish(bmc_ip, server_name):
         app.logger.error(f"Redfish SEL collection failed for {bmc_ip}: {e}")
         return []
 
+def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
+    """Parse a single verbose SEL record (multiple lines) into an IPMIEvent"""
+    try:
+        data = {}
+        for line in record_lines:
+            if ':' in line:
+                key, value = line.split(':', 1)
+                data[key.strip()] = value.strip()
+        
+        if not data.get('SEL Record ID'):
+            return None
+        
+        sel_id = data.get('SEL Record ID', '').strip()
+        timestamp = data.get('Timestamp', '')
+        sensor_type = data.get('Sensor Type', 'Unknown')
+        sensor_number = data.get('Sensor Number', '')
+        event_direction = data.get('Event Direction', '')
+        event_data_hex = data.get('Event Data', '')
+        description = data.get('Description', '')
+        
+        # Parse timestamp - format: "11/30/25 11/30/25" (date repeated)
+        event_date = datetime.utcnow()
+        if timestamp:
+            try:
+                date_part = timestamp.split()[0]
+                parts = date_part.split('/')
+                if len(parts) == 3:
+                    if len(parts[2]) == 2:
+                        event_date = datetime.strptime(date_part, "%m/%d/%y")
+                    else:
+                        event_date = datetime.strptime(date_part, "%m/%d/%Y")
+            except (ValueError, IndexError):
+                pass
+        
+        # Get sensor name from cache
+        sensor_name_lookup = ''
+        if sensor_number:
+            hex_id = sensor_number.upper()
+            sensor_name_lookup = get_sensor_name_from_cache(bmc_ip, hex_id)
+            # Fallback for common ECC sensors
+            if not sensor_name_lookup and 'memory' in sensor_type.lower():
+                if hex_id == 'D1':
+                    sensor_name_lookup = 'CPU1_ECC1'
+                elif hex_id == 'D2':
+                    sensor_name_lookup = 'CPU2_ECC1'
+        
+        # Decode DIMM location from Event Data for memory events
+        dimm_location = ''
+        if event_data_hex and 'memory' in sensor_type.lower():
+            dimm_location = decode_dimm_from_event_data(event_data_hex)
+        
+        # Build enhanced description
+        enhanced_parts = [description]
+        
+        if 'assertion' in event_direction.lower():
+            enhanced_parts.append('Asserted')
+        elif 'deassertion' in event_direction.lower():
+            enhanced_parts.append('Deasserted')
+        
+        # Add DIMM location prominently for ECC events
+        if dimm_location:
+            enhanced_parts.append(f'**{dimm_location}**')
+        
+        # Add sensor name
+        if sensor_name_lookup:
+            enhanced_parts.append(f'[{sensor_name_lookup}]')
+        elif sensor_number:
+            enhanced_parts.append(f'[Sensor 0x{sensor_number.upper()}]')
+        
+        enhanced_desc = ' | '.join(enhanced_parts)
+        severity = classify_severity(description)
+        
+        return IPMIEvent(
+            bmc_ip=bmc_ip,
+            server_name=server_name,
+            sel_id=sel_id,
+            event_date=event_date,
+            sensor_type=sensor_type,
+            sensor_id=f'#0x{sensor_number}' if sensor_number else '',
+            sensor_number=f'0x{sensor_number.upper()}' if sensor_number else '',
+            event_description=enhanced_desc,
+            event_direction='Asserted' if 'assertion' in event_direction.lower() else 'Deasserted' if 'deassertion' in event_direction.lower() else '',
+            event_data=dimm_location,  # Store DIMM location
+            severity=severity,
+            raw_entry='|'.join(record_lines)
+        )
+    except Exception as e:
+        app.logger.error(f"Failed to parse verbose SEL record: {e}")
+        return None
+
+def decode_dimm_from_event_data(event_data_hex):
+    """Decode DIMM slot from IPMI Memory Event Data
+    
+    Event Data format for Memory ECC (per IPMI spec):
+    - Byte 1 [7:4]: Event type indicator  
+    - Byte 1 [3:0]: Memory module/DIMM index (0-15)
+    - Byte 2: OEM data (often 0xFF)
+    - Byte 3: DIMM slot number (vendor-specific)
+    
+    Common ASUS/ASRock mappings for 8-DIMM dual-CPU systems:
+    - 0x00-0x07: CPU0 DIMMs A-H (rank 1)
+    - 0x08-0x0F: CPU0 DIMMs A-H (rank 2) 
+    - 0x10-0x17: CPU1 DIMMs A-H (rank 1)
+    - 0x18-0x1F: CPU1 DIMMs A-H (rank 2)
+    """
+    if not event_data_hex or len(event_data_hex) < 6:
+        return ''
+    
+    try:
+        event_data_hex = event_data_hex.strip().lower()
+        byte1 = int(event_data_hex[0:2], 16)
+        byte2 = int(event_data_hex[2:4], 16)
+        byte3 = int(event_data_hex[4:6], 16)
+        
+        dimm_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+        
+        # Decode based on common ASUS/ASRock dual-CPU encoding
+        slot_in_group = byte3 % 8
+        group = byte3 // 8
+        
+        if slot_in_group < len(dimm_letters):
+            dimm_letter = dimm_letters[slot_in_group]
+            
+            # Determine CPU and rank from group
+            # Groups 0,1 = CPU0; Groups 2,3 = CPU1
+            # Even groups = rank 1; Odd groups = rank 2
+            if group == 0:
+                return f'DIMM {dimm_letter}1'  # CPU0, rank 1
+            elif group == 1:
+                return f'DIMM {dimm_letter}2'  # CPU0, rank 2  
+            elif group == 2:
+                return f'DIMM {dimm_letter}1 (CPU1)'  # CPU1, rank 1
+            elif group == 3:
+                return f'DIMM {dimm_letter}2 (CPU1)'  # CPU1, rank 2
+            else:
+                # Higher groups - just show letter with slot for clarity
+                return f'DIMM {dimm_letter} (Slot {byte3})'
+        
+        return f'DIMM Slot {byte3}'
+    except (ValueError, IndexError) as e:
+        app.logger.debug(f"Could not decode DIMM from event data {event_data_hex}: {e}")
+        return ''
+
 def collect_ipmi_sel(bmc_ip, server_name):
-    """Collect IPMI SEL from a single server using extended list for more details"""
+    """Collect IPMI SEL from a single server using verbose output for DIMM details"""
     try:
         user, password = get_ipmi_credentials(bmc_ip)
         
-        # Try elist first for more details (includes sensor numbers)
+        # Use verbose list (-v) to get Event Data field for DIMM identification
         # Allow 600 seconds (10 min) for large SEL logs - some BMCs are very slow
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-             '-U', user, '-P', password, 'sel', 'elist'],
+             '-U', user, '-P', password, 'sel', 'list', '-v'],
             capture_output=True, text=True, timeout=600
         )
         
-        # Fall back to regular list if elist fails
         if result.returncode != 0:
+            # Fall back to elist if verbose fails
+            app.logger.debug(f"Verbose SEL failed for {bmc_ip}, trying elist")
             result = subprocess.run(
                 ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-                 '-U', user, '-P', password, 'sel', 'list'],
+                 '-U', user, '-P', password, 'sel', 'elist'],
                 capture_output=True, text=True, timeout=600
             )
+            if result.returncode == 0:
+                # Parse elist format
+                events = []
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        event = parse_sel_line(line, bmc_ip, server_name)
+                        if event:
+                            events.append(event)
+                return events
+            else:
+                app.logger.warning(f"IPMI command failed for {bmc_ip}: {result.stderr}")
+                return []
         
-        if result.returncode != 0:
-            app.logger.warning(f"IPMI command failed for {bmc_ip}: {result.stderr}")
-            return []
-        
+        # Parse verbose multi-line format
+        # Records are separated by blank lines, each record has multiple key: value lines
         events = []
-        for line in result.stdout.strip().split('\n'):
-            if line.strip():
-                event = parse_sel_line(line, bmc_ip, server_name)
-                if event:
-                    events.append(event)
+        current_record = []
+        
+        for line in result.stdout.split('\n'):
+            line = line.strip()
+            if not line:
+                # End of record - parse it
+                if current_record:
+                    event = parse_verbose_sel_record(current_record, bmc_ip, server_name)
+                    if event:
+                        events.append(event)
+                    current_record = []
+            else:
+                current_record.append(line)
+        
+        # Don't forget the last record
+        if current_record:
+            event = parse_verbose_sel_record(current_record, bmc_ip, server_name)
+            if event:
+                events.append(event)
         
         return events
     except subprocess.TimeoutExpired:
