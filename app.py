@@ -2473,10 +2473,11 @@ def collect_sensors(bmc_ip, server_name):
     sensors = []
     try:
         user, password = get_ipmi_credentials(bmc_ip)
+        # NVIDIA BMCs with 180+ sensors can take 40+ seconds
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
              '-U', user, '-P', password, 'sensor', 'list'],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True, timeout=120
         )
         if result.returncode != 0:
             return sensors

@@ -352,7 +352,7 @@
       "id": 10,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
@@ -370,7 +370,8 @@
           "expr": "sum(ipmi_power_watts)",
           "legendFormat": "",
           "refId": "A",
-          "instant": true
+          "instant": true,
+          "range": false
         }
       ],
       "title": "Total Power",
