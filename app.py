@@ -28,7 +28,20 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ipmi_events.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'ipmi-monitor-secret-key-change-me')
+
+# Security Configuration
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY or SECRET_KEY == 'ipmi-monitor-secret-key-change-me':
+    import secrets
+    SECRET_KEY = secrets.token_hex(32)
+    app.logger.warning("⚠️  SECRET_KEY not set! Using random key (sessions won't persist across restarts)")
+
+app.config['SECRET_KEY'] = SECRET_KEY
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent XSS access to cookies
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session timeout
+
 db = SQLAlchemy(app)
 
 # Branding - customize for your organization
@@ -1655,8 +1668,18 @@ def build_sensor_cache(bmc_ip):
 
 # Helper functions
 def validate_ip_address(ip):
-    """Validate IP address format"""
+    """Validate IP address format - SECURITY CRITICAL
+    
+    This function is used to prevent command injection attacks.
+    Any string that passes this validation will be safe to use
+    in subprocess calls as it can only contain digits and dots.
+    """
     if not ip:
+        return False
+    if not isinstance(ip, str):
+        return False
+    # Only allow digits and dots (no special chars that could be used for injection)
+    if not re.match(r'^[0-9.]+$', ip):
         return False
     parts = ip.split('.')
     if len(parts) != 4:
@@ -1665,6 +1688,50 @@ def validate_ip_address(ip):
         return all(0 <= int(part) <= 255 for part in parts)
     except (ValueError, TypeError):
         return False
+
+def require_valid_bmc_ip(f):
+    """Decorator to validate bmc_ip parameter - SECURITY CRITICAL
+    
+    Use this decorator on any route that takes bmc_ip and uses it
+    in subprocess calls or other security-sensitive operations.
+    """
+    @wraps(f)
+    def decorated_function(bmc_ip, *args, **kwargs):
+        if not validate_ip_address(bmc_ip):
+            return jsonify({'error': 'Invalid BMC IP address format'}), 400
+        return f(bmc_ip, *args, **kwargs)
+    return decorated_function
+
+def safe_error_message(e, default_msg="An error occurred"):
+    """Sanitize exception messages to prevent information leakage
+    
+    In production, we don't want to expose:
+    - File paths
+    - Database queries
+    - Internal server details
+    - Credential-related information
+    """
+    error_str = str(e).lower()
+    # List of patterns that might indicate sensitive information
+    sensitive_patterns = ['password', 'credential', 'secret', 'key', 'token', 
+                         'sqlite', 'postgresql', '/home/', '/usr/', '/etc/',
+                         'traceback', 'file not found', 'permission denied']
+    
+    for pattern in sensitive_patterns:
+        if pattern in error_str:
+            app.logger.error(f"Sanitized error (original: {e})")
+            return default_msg
+    
+    # For database errors, be more specific but safe
+    if 'sqlalchemy' in error_str or 'database' in error_str:
+        return "Database operation failed"
+    
+    # For relatively safe errors, return the message (but truncate)
+    error_msg = str(e)
+    if len(error_msg) > 200:
+        error_msg = error_msg[:200] + "..."
+    
+    return error_msg
 
 def classify_severity(event_text):
     """Classify event severity based on keywords"""
@@ -2876,11 +2943,13 @@ def check_bmc_reachable(bmc_ip):
         return False
 
 @app.route('/server/<bmc_ip>')
+@require_valid_bmc_ip
 def server_detail(bmc_ip):
     """Server detail page"""
     return render_template('server_detail.html', bmc_ip=bmc_ip)
 
 @app.route('/api/server/<bmc_ip>/events')
+@require_valid_bmc_ip
 def api_server_events(bmc_ip):
     """Get events for a specific server"""
     limit = request.args.get('limit', 500, type=int)
@@ -2900,6 +2969,7 @@ def api_server_events(bmc_ip):
 
 @app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
 @admin_required
+@require_valid_bmc_ip
 def api_clear_sel(bmc_ip):
     """Clear SEL log on a specific BMC - Admin only"""
     try:
@@ -2968,6 +3038,7 @@ def api_clear_all_sel():
 
 @app.route('/api/server/<bmc_ip>/clear_db_events', methods=['POST'])
 @admin_required
+@require_valid_bmc_ip
 def api_clear_db_events(bmc_ip):
     """Clear events from database only - Admin only"""
     try:
@@ -3146,6 +3217,7 @@ def api_add_server():
     return jsonify({'status': 'success', 'message': f'Added server {server_name} ({bmc_ip})', 'id': server.id})
 
 @app.route('/api/servers/<bmc_ip>', methods=['GET', 'PUT', 'DELETE'])
+@require_valid_bmc_ip
 def api_manage_server(bmc_ip):
     """Get, update, or delete a server (PUT/DELETE require admin)"""
     # Require admin for modifications
@@ -3384,6 +3456,7 @@ def api_config_servers():
     } for c in configs])
 
 @app.route('/api/config/server/<bmc_ip>', methods=['GET', 'POST', 'PUT'])
+@require_valid_bmc_ip
 def api_config_server(bmc_ip):
     """Get or update server configuration (POST/PUT require admin)"""
     # Require admin for modifications
@@ -3476,6 +3549,7 @@ def api_config_bulk():
 # ============== Sensor Data API ==============
 
 @app.route('/api/sensors/<bmc_ip>/names')
+@require_valid_bmc_ip
 def api_sensor_names(bmc_ip):
     """Get sensor name mapping for a BMC (sensor_id -> sensor_name)"""
     # Try to build cache if not already present
@@ -3495,6 +3569,7 @@ def api_sensor_names(bmc_ip):
         })
 
 @app.route('/api/sensors/<bmc_ip>')
+@require_valid_bmc_ip
 def api_sensors(bmc_ip):
     """Get latest sensor readings for a server"""
     hours = request.args.get('hours', 1, type=int)
@@ -3529,6 +3604,7 @@ def api_sensors(bmc_ip):
     return jsonify(list(latest.values()))
 
 @app.route('/api/sensors/<bmc_ip>/history')
+@require_valid_bmc_ip
 def api_sensors_history(bmc_ip):
     """Get sensor history for graphing"""
     hours = request.args.get('hours', 24, type=int)
@@ -3558,6 +3634,7 @@ def api_sensors_history(bmc_ip):
     } for r in readings])
 
 @app.route('/api/power/<bmc_ip>')
+@require_valid_bmc_ip
 def api_power(bmc_ip):
     """Get latest power readings for a server"""
     hours = request.args.get('hours', 24, type=int)
@@ -4000,6 +4077,7 @@ def api_ecc_tracking():
     } for t in trackers])
 
 @app.route('/api/ecc/tracking/<bmc_ip>')
+@require_valid_bmc_ip
 def api_ecc_tracking_server(bmc_ip):
     """Get ECC error tracking for a specific server"""
     trackers = ECCErrorTracker.query.filter_by(bmc_ip=bmc_ip).order_by(
@@ -4293,7 +4371,8 @@ def api_update_admin_credentials():
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error updating credentials: {e}")
+        return jsonify({'error': safe_error_message(e, "Failed to update credentials")}), 500
 
 # ============== User Management ==============
 
@@ -4351,7 +4430,8 @@ def api_create_user():
         })
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        app.logger.error(f"Error creating user: {e}")
+        return jsonify({'error': safe_error_message(e, "Failed to create user")}), 500
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 @admin_required
