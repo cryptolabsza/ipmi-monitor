@@ -1933,6 +1933,132 @@ def collect_sel_redfish(bmc_ip, server_name):
         app.logger.error(f"Redfish SEL collection failed for {bmc_ip}: {e}")
         return []
 
+def decode_threshold_event_data(event_data_hex, sensor_type, sensor_name=''):
+    """Decode threshold event data (Temperature, Voltage, Power)
+    
+    Event Data format for Threshold events:
+    - Byte 1 [7:6]: Event Data byte definitions
+        00 = unspecified, 01 = trigger in byte2/threshold in byte3
+    - Byte 1 [5:4]: Threshold type (00=LNC, 01=LC, 02=LNR, 04=UNC, 05=UC, 06=UNR)
+    - Byte 1 [3:0]: Event type offset
+    - Byte 2: Trigger reading (raw sensor value when event occurred)
+    - Byte 3: Threshold value that was crossed
+    """
+    if not event_data_hex or len(event_data_hex) < 6:
+        return ''
+    
+    try:
+        event_data_hex = event_data_hex.strip().lower()
+        byte1 = int(event_data_hex[0:2], 16)
+        byte2 = int(event_data_hex[2:4], 16)
+        byte3 = int(event_data_hex[4:6], 16)
+        
+        # Check if bytes 2&3 contain trigger/threshold (bit 6 set, bit 7 clear)
+        if (byte1 & 0xC0) != 0x40:
+            return ''
+        
+        # Decode based on sensor type
+        sensor_lower = sensor_type.lower()
+        
+        if 'temperature' in sensor_lower:
+            # Temperature sensors typically report in degrees C directly
+            return f'Reading: {byte2}°C, Threshold: {byte3}°C'
+        
+        elif 'voltage' in sensor_lower:
+            # Voltage requires conversion - depends on sensor
+            # Common ASUS formula: voltage = raw * factor + offset
+            # For 12V rail: typical factor is ~0.06V/unit
+            # For 3.3V/5V: typical factor is ~0.02V/unit
+            sensor_name_lower = sensor_name.lower() if sensor_name else ''
+            
+            if '12v' in sensor_name_lower:
+                trigger_v = byte2 * 0.06
+                thresh_v = byte3 * 0.06
+            elif '5v' in sensor_name_lower:
+                trigger_v = byte2 * 0.024
+                thresh_v = byte3 * 0.024
+            elif '3.3v' in sensor_name_lower or '3v3' in sensor_name_lower:
+                trigger_v = byte2 * 0.016
+                thresh_v = byte3 * 0.016
+            else:
+                # Unknown voltage, show raw values
+                return f'Reading: {byte2} raw, Threshold: {byte3} raw'
+            
+            return f'Reading: {trigger_v:.2f}V, Threshold: {thresh_v:.2f}V'
+        
+        elif 'power' in sensor_lower:
+            # Power supply events - values are often watts or percentage
+            return f'Reading: {byte2}W, Threshold: {byte3}W'
+        
+        return ''
+    except (ValueError, IndexError):
+        return ''
+
+def decode_psu_event(sensor_number, description, sensor_name=''):
+    """Decode Power Supply event to identify which PSU
+    
+    Common PSU sensor mappings on ASUS boards:
+    - 0x94: PSU1 AC Lost
+    - 0x95: PSU1 Slow FAN
+    - 0x97: PSU1 PWR Detect
+    - 0x9A: PSU2 Over Temp  
+    - 0x9C: PSU2 AC Lost
+    - 0x9D: PSU2 Slow FAN
+    - 0x9F: PSU2 PWR Detect
+    """
+    try:
+        sensor_num = int(sensor_number, 16) if sensor_number else 0
+        
+        # Determine PSU number from sensor
+        if sensor_name:
+            if 'psu1' in sensor_name.lower():
+                psu_num = 1
+            elif 'psu2' in sensor_name.lower():
+                psu_num = 2
+            else:
+                psu_num = None
+        elif 0x90 <= sensor_num <= 0x99:
+            psu_num = 1
+        elif 0x9A <= sensor_num <= 0x9F:
+            psu_num = 2
+        elif sensor_num in [0xE1, 0xE2]:
+            # E1 and E2 are often aggregate PSU power sensors
+            psu_num = sensor_num - 0xE0
+        else:
+            psu_num = None
+        
+        if psu_num:
+            return f'PSU{psu_num}'
+        return ''
+    except (ValueError, TypeError):
+        return ''
+
+def decode_drive_event(sensor_number, sensor_name=''):
+    """Decode Drive Slot event to identify which drive bay
+    
+    Common mappings:
+    - 0x68-0x6F: Backplane1 HD01-HD08
+    - 0x70-0x77: Backplane2 HD01-HD08 (if present)
+    """
+    try:
+        sensor_num = int(sensor_number, 16) if sensor_number else 0
+        
+        # Use sensor name if available
+        if sensor_name:
+            return sensor_name
+        
+        # Fall back to calculating from sensor number
+        if 0x68 <= sensor_num <= 0x6F:
+            drive_num = sensor_num - 0x67
+            return f'Drive Bay {drive_num}'
+        elif 0x70 <= sensor_num <= 0x77:
+            drive_num = sensor_num - 0x6F
+            return f'Drive Bay {drive_num + 8}'
+        
+        return ''
+    except (ValueError, TypeError):
+        return ''
+
 def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
     """Parse a single verbose SEL record (multiple lines) into an IPMIEvent"""
     try:
@@ -1952,6 +2078,7 @@ def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
         event_direction = data.get('Event Direction', '')
         event_data_hex = data.get('Event Data', '')
         description = data.get('Description', '')
+        event_type = data.get('Event Type', '')
         
         # Parse timestamp - format: "11/30/25 11/30/25" (date repeated)
         event_date = datetime.utcnow()
@@ -1979,27 +2106,61 @@ def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
                 elif hex_id == 'D2':
                     sensor_name_lookup = 'CPU2_ECC1'
         
-        # Decode DIMM location from Event Data for memory events
-        dimm_location = ''
-        if event_data_hex and 'memory' in sensor_type.lower():
-            dimm_location = decode_dimm_from_event_data(event_data_hex)
-        
-        # Build enhanced description
+        # Build enhanced description based on sensor type
         enhanced_parts = [description]
+        extra_info = ''
+        event_data_decoded = ''
         
-        if 'assertion' in event_direction.lower():
+        sensor_type_lower = sensor_type.lower()
+        
+        # Decode event-specific details from Event Data
+        if 'memory' in sensor_type_lower and event_data_hex:
+            # ECC/Memory events - decode DIMM location
+            dimm_location = decode_dimm_from_event_data(event_data_hex)
+            if dimm_location:
+                extra_info = f'**{dimm_location}**'
+                event_data_decoded = dimm_location
+        
+        elif ('temperature' in sensor_type_lower or 'voltage' in sensor_type_lower) and 'threshold' in event_type.lower():
+            # Threshold events - decode reading and threshold values
+            threshold_info = decode_threshold_event_data(event_data_hex, sensor_type, sensor_name_lookup)
+            if threshold_info:
+                extra_info = f'({threshold_info})'
+                event_data_decoded = threshold_info
+        
+        elif 'power supply' in sensor_type_lower:
+            # PSU events - identify which PSU
+            psu_info = decode_psu_event(sensor_number, description, sensor_name_lookup)
+            if psu_info:
+                extra_info = f'[{psu_info}]'
+                event_data_decoded = psu_info
+            # Also decode threshold if applicable
+            if 'threshold' in event_type.lower() and event_data_hex:
+                threshold_info = decode_threshold_event_data(event_data_hex, sensor_type, sensor_name_lookup)
+                if threshold_info:
+                    extra_info += f' ({threshold_info})'
+        
+        elif 'drive' in sensor_type_lower:
+            # Drive slot events - identify which drive bay
+            drive_info = decode_drive_event(sensor_number, sensor_name_lookup)
+            if drive_info:
+                extra_info = f'[{drive_info}]'
+                event_data_decoded = drive_info
+        
+        # Add direction
+        if 'assertion' in event_direction.lower() and 'deassertion' not in event_direction.lower():
             enhanced_parts.append('Asserted')
         elif 'deassertion' in event_direction.lower():
             enhanced_parts.append('Deasserted')
         
-        # Add DIMM location prominently for ECC events
-        if dimm_location:
-            enhanced_parts.append(f'**{dimm_location}**')
+        # Add extra decoded info
+        if extra_info:
+            enhanced_parts.append(extra_info)
         
-        # Add sensor name
-        if sensor_name_lookup:
+        # Add sensor name (except for PSU which already has it)
+        if sensor_name_lookup and 'power supply' not in sensor_type_lower:
             enhanced_parts.append(f'[{sensor_name_lookup}]')
-        elif sensor_number:
+        elif sensor_number and not extra_info:
             enhanced_parts.append(f'[Sensor 0x{sensor_number.upper()}]')
         
         enhanced_desc = ' | '.join(enhanced_parts)
@@ -2014,8 +2175,8 @@ def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
             sensor_id=f'#0x{sensor_number}' if sensor_number else '',
             sensor_number=f'0x{sensor_number.upper()}' if sensor_number else '',
             event_description=enhanced_desc,
-            event_direction='Asserted' if 'assertion' in event_direction.lower() else 'Deasserted' if 'deassertion' in event_direction.lower() else '',
-            event_data=dimm_location,  # Store DIMM location
+            event_direction='Asserted' if 'assertion' in event_direction.lower() and 'deassertion' not in event_direction.lower() else 'Deasserted' if 'deassertion' in event_direction.lower() else '',
+            event_data=event_data_decoded,  # Store decoded info
             severity=severity,
             raw_entry='|'.join(record_lines)
         )
