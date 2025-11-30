@@ -207,6 +207,16 @@
         .badge-red { background: rgba(255, 71, 87, 0.2); color: var(--accent-red); }
         .badge-blue { background: rgba(74, 158, 255, 0.2); color: var(--accent-blue); }
         
+        .warning-box {
+            background: rgba(234, 179, 8, 0.1);
+            border: 1px solid var(--accent-yellow);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            color: var(--accent-yellow);
+            line-height: 1.5;
+        }
+        
         .alert {
             padding: 15px 20px;
             border-radius: 8px;
@@ -295,6 +305,7 @@
             <button class="tab" onclick="showTab('alerts')">🔔 Alerts</button>
             <button class="tab" onclick="showTab('notifications')">📬 Notifications</button>
             <button class="tab" onclick="showTab('import')">📥 Import/Export</button>
+            <button class="tab" onclick="showTab('security')">🛡️ Security</button>
         </div>
         
         <!-- Manage Servers Tab -->
@@ -882,6 +893,75 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Security Tab -->
+        <div id="security" class="tab-content">
+            <div class="card">
+                <div class="card-title">🛡️ Admin Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Change your admin username and password. Default credentials are <code>admin</code> / <code>admin</code>.
+                </p>
+                
+                <div id="passwordWarning" class="warning-box" style="display: none;">
+                    ⚠️ <strong>Security Warning:</strong> You are still using the default password. Please change it for security.
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Current Username</label>
+                        <input type="text" id="currentUsername" readonly style="background: var(--bg-hover);">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Updated</label>
+                        <input type="text" id="lastPasswordUpdate" readonly style="background: var(--bg-hover);">
+                    </div>
+                </div>
+                
+                <hr style="border-color: var(--border-color); margin: 20px 0;">
+                
+                <h4 style="margin-bottom: 15px;">Change Credentials</h4>
+                
+                <div class="form-group">
+                    <label>New Username (optional, leave blank to keep current)</label>
+                    <input type="text" id="newAdminUsername" placeholder="admin">
+                </div>
+                
+                <div class="form-group">
+                    <label>Current Password (required)</label>
+                    <input type="password" id="currentPassword" placeholder="Enter current password">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>New Password (min 6 characters)</label>
+                        <input type="password" id="newAdminPassword" placeholder="New password">
+                    </div>
+                    <div class="form-group">
+                        <label>Confirm New Password</label>
+                        <input type="password" id="confirmAdminPassword" placeholder="Confirm password">
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="updateAdminCredentials()">🔐 Update Credentials</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🔑 Session Info</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Current login session information.
+                </p>
+                
+                <div class="server-item">
+                    <div class="server-info">
+                        <span class="server-name">Logged in as: <span id="sessionUser">-</span></span>
+                        <span class="server-ip">Session is active</span>
+                    </div>
+                    <div class="server-badges">
+                        <a href="/logout" class="btn btn-secondary" style="text-decoration: none;">🚪 Logout</a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -899,6 +979,7 @@
             if (tabId === 'import') loadExportPreview();
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
             if (tabId === 'notifications') loadNotificationConfigs();
+            if (tabId === 'security') loadAdminCredentials();
         }
         
         function showAlert(message, type) {
@@ -1141,7 +1222,93 @@
             }
         }
         
-        // ============== Credentials (existing) ==============
+        // ============== Admin Security ==============
+        
+        async function loadAdminCredentials() {
+            try {
+                const response = await fetch('/api/admin/credentials');
+                const data = await response.json();
+                
+                document.getElementById('currentUsername').value = data.username || 'admin';
+                document.getElementById('lastPasswordUpdate').value = data.updated_at 
+                    ? new Date(data.updated_at).toLocaleString() 
+                    : 'Never (using defaults)';
+                
+                // Show warning if password not changed
+                const warning = document.getElementById('passwordWarning');
+                if (!data.password_changed) {
+                    warning.style.display = 'block';
+                } else {
+                    warning.style.display = 'none';
+                }
+                
+                // Load session user
+                const authResponse = await fetch('/api/auth/status');
+                const auth = await authResponse.json();
+                document.getElementById('sessionUser').textContent = auth.username || 'admin';
+                
+            } catch (e) {
+                console.error('Failed to load admin credentials:', e);
+            }
+        }
+        
+        async function updateAdminCredentials() {
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newUsername = document.getElementById('newAdminUsername').value.trim();
+            const newPassword = document.getElementById('newAdminPassword').value;
+            const confirmPassword = document.getElementById('confirmAdminPassword').value;
+            
+            if (!currentPassword) {
+                showAlert('Current password is required', 'error');
+                return;
+            }
+            
+            if (newPassword && newPassword.length < 6) {
+                showAlert('New password must be at least 6 characters', 'error');
+                return;
+            }
+            
+            if (newPassword && newPassword !== confirmPassword) {
+                showAlert('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (!newUsername && !newPassword) {
+                showAlert('Enter a new username or password to update', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/admin/credentials', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        username: newUsername || null,
+                        new_password: newPassword || null
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Credentials updated successfully', 'success');
+                    // Clear form
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newAdminUsername').value = '';
+                    document.getElementById('newAdminPassword').value = '';
+                    document.getElementById('confirmAdminPassword').value = '';
+                    // Reload
+                    loadAdminCredentials();
+                } else {
+                    showAlert(result.error || 'Failed to update credentials', 'error');
+                }
+            } catch (e) {
+                showAlert('Error updating credentials', 'error');
+            }
+        }
+        
+        // ============== Credentials (IPMI) ==============
         
         async function loadServers() {
             try {

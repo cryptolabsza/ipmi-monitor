@@ -57,9 +57,36 @@ IPMI_PASS_NVIDIA = os.environ.get('IPMI_PASS_NVIDIA', 'BBccc321BBccc321')  # NVI
 POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 300))  # 5 minutes for SEL events
 SENSOR_POLL_MULTIPLIER = int(os.environ.get('SENSOR_POLL_MULTIPLIER', 1))  # Collect sensors every N collection cycles (1 = every cycle)
 
-# Admin authentication
-ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
-ADMIN_PASS = os.environ.get('ADMIN_PASS', 'changeme')  # IMPORTANT: Change this in production!
+# Admin authentication - defaults can be overridden by env vars or database
+DEFAULT_ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
+DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin')  # Default: admin/admin
+
+def get_admin_credentials():
+    """Get admin credentials from database, falling back to env vars/defaults"""
+    try:
+        from flask import current_app
+        with current_app.app_context():
+            admin = AdminConfig.query.first()
+            if admin:
+                return admin.username, admin.password_hash, admin.password_changed
+    except Exception:
+        pass
+    # Fallback to env vars/defaults (password is stored as-is for backwards compat)
+    return DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS, False
+
+def verify_admin_password(username, password):
+    """Verify admin credentials"""
+    try:
+        admin = AdminConfig.query.first()
+        if admin:
+            import hashlib
+            password_hash = hashlib.sha256(password.encode()).hexdigest()
+            return admin.username == username and admin.password_hash == password_hash
+        else:
+            # No admin config yet, use defaults
+            return username == DEFAULT_ADMIN_USER and password == DEFAULT_ADMIN_PASS
+    except Exception:
+        return username == DEFAULT_ADMIN_USER and password == DEFAULT_ADMIN_PASS
 
 def admin_required(f):
     """Decorator to require admin login for a route"""
@@ -75,6 +102,16 @@ def admin_required(f):
 def is_admin():
     """Check if current user is admin"""
     return session.get('admin_logged_in', False)
+
+def needs_password_change():
+    """Check if admin needs to change default password"""
+    try:
+        admin = AdminConfig.query.first()
+        if admin:
+            return not admin.password_changed
+        return True  # No admin config = needs setup
+    except Exception:
+        return True
 
 # NVIDIA BMCs (require 16-char password) - loaded from server config or env
 # Can be set via NVIDIA_BMCS env var as comma-separated IPs, e.g.: "192.168.1.98,192.168.1.99"
@@ -755,6 +792,34 @@ class NotificationConfig(db.Model):
     last_test = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class AdminConfig(db.Model):
+    """Admin user configuration - stored in database for persistence"""
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), nullable=False, default='admin')
+    password_hash = db.Column(db.String(64), nullable=False)  # SHA256 hash
+    password_changed = db.Column(db.Boolean, default=False)  # True after first password change
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @staticmethod
+    def hash_password(password):
+        import hashlib
+        return hashlib.sha256(password.encode()).hexdigest()
+    
+    @staticmethod
+    def initialize_default():
+        """Create default admin if none exists"""
+        admin = AdminConfig.query.first()
+        if not admin:
+            admin = AdminConfig(
+                username='admin',
+                password_hash=AdminConfig.hash_password('admin'),
+                password_changed=False
+            )
+            db.session.add(admin)
+            db.session.commit()
+        return admin
 
 # ============== Default Alert Rules ==============
 
@@ -3513,12 +3578,22 @@ def login():
             username = request.form.get('username')
             password = request.form.get('password')
         
-        if username == ADMIN_USER and password == ADMIN_PASS:
+        if verify_admin_password(username, password):
             session['admin_logged_in'] = True
             session['admin_user'] = username
             
+            # Check if password change is required
+            must_change = needs_password_change()
+            
             if request.is_json:
-                return jsonify({'status': 'success', 'message': 'Logged in'})
+                return jsonify({
+                    'status': 'success', 
+                    'message': 'Logged in',
+                    'password_change_required': must_change
+                })
+            
+            if must_change:
+                return redirect(url_for('change_password'))
             
             next_url = request.args.get('next', url_for('dashboard'))
             return redirect(next_url)
@@ -3528,6 +3603,44 @@ def login():
             return render_template('login.html', error='Invalid username or password')
     
     return render_template('login.html')
+
+@app.route('/change-password', methods=['GET', 'POST'])
+def change_password():
+    """Force password change page (shown after first login with default credentials)"""
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('login'))
+    
+    error = None
+    if request.method == 'POST':
+        new_username = request.form.get('username', '').strip()
+        new_password = request.form.get('password', '')
+        confirm_password = request.form.get('confirm_password', '')
+        
+        if len(new_username) < 3:
+            error = 'Username must be at least 3 characters'
+        elif len(new_password) < 6:
+            error = 'Password must be at least 6 characters'
+        elif new_password != confirm_password:
+            error = 'Passwords do not match'
+        else:
+            try:
+                admin = AdminConfig.query.first()
+                if not admin:
+                    admin = AdminConfig(username=new_username)
+                    db.session.add(admin)
+                
+                admin.username = new_username
+                admin.password_hash = AdminConfig.hash_password(new_password)
+                admin.password_changed = True
+                db.session.commit()
+                
+                session['admin_user'] = new_username
+                return redirect(url_for('dashboard'))
+            except Exception as e:
+                db.session.rollback()
+                error = f'Error saving credentials: {str(e)}'
+    
+    return render_template('change_password.html', error=error, must_change=needs_password_change())
 
 @app.route('/logout')
 def logout():
@@ -3541,8 +3654,73 @@ def auth_status():
     """Check authentication status"""
     return jsonify({
         'is_admin': is_admin(),
-        'username': session.get('admin_user')
+        'username': session.get('admin_user'),
+        'password_change_required': needs_password_change() if is_admin() else False
     })
+
+@app.route('/api/admin/credentials', methods=['GET'])
+@admin_required
+def api_get_admin_credentials():
+    """Get admin username (not password)"""
+    admin = AdminConfig.query.first()
+    if admin:
+        return jsonify({
+            'username': admin.username,
+            'password_changed': admin.password_changed,
+            'updated_at': admin.updated_at.isoformat() if admin.updated_at else None
+        })
+    return jsonify({
+        'username': 'admin',
+        'password_changed': False,
+        'updated_at': None
+    })
+
+@app.route('/api/admin/credentials', methods=['PUT'])
+@admin_required
+def api_update_admin_credentials():
+    """Update admin credentials"""
+    data = request.get_json()
+    
+    new_username = data.get('username', '').strip()
+    current_password = data.get('current_password', '')
+    new_password = data.get('new_password', '')
+    
+    # Validate
+    if new_username and len(new_username) < 3:
+        return jsonify({'error': 'Username must be at least 3 characters'}), 400
+    
+    if new_password and len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+    
+    # Verify current password
+    current_user = session.get('admin_user', 'admin')
+    if not verify_admin_password(current_user, current_password):
+        return jsonify({'error': 'Current password is incorrect'}), 401
+    
+    try:
+        admin = AdminConfig.query.first()
+        if not admin:
+            admin = AdminConfig(username=new_username or 'admin')
+            db.session.add(admin)
+        
+        if new_username:
+            admin.username = new_username
+            session['admin_user'] = new_username
+        
+        if new_password:
+            admin.password_hash = AdminConfig.hash_password(new_password)
+            admin.password_changed = True
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Credentials updated successfully',
+            'username': admin.username
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 # Global error handlers
 @app.errorhandler(404)
@@ -3577,6 +3755,8 @@ def init_db():
         app.logger.info("Database initialized")
         # Initialize default alert rules
         initialize_default_alerts()
+        # Initialize default admin (admin/admin)
+        AdminConfig.initialize_default()
 
 # Initialize on import (for gunicorn)
 init_db()
