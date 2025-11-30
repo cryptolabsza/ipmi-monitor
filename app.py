@@ -1678,6 +1678,45 @@ def classify_severity(event_text):
     
     return 'info'
 
+def decode_ecc_event_data(event_data_hex):
+    """Decode memory ECC Event Data to extract DIMM info
+    
+    Event Data format for Memory ECC (IPMI spec):
+    - Byte 1: Event type flags
+    - Byte 2: Memory bank/module in DIMM (0xff = unspecified)  
+    - Byte 3: DIMM number/slot
+    
+    Returns DIMM identifier if decodable, None otherwise.
+    """
+    if not event_data_hex or len(event_data_hex) < 6:
+        return None
+    
+    try:
+        # Event Data is typically 3 bytes as hex string (e.g., "a0ff18")
+        byte1 = int(event_data_hex[0:2], 16)
+        byte2 = int(event_data_hex[2:4], 16)
+        byte3 = int(event_data_hex[4:6], 16)
+        
+        # Byte 3 often contains DIMM slot number
+        # Common mappings: 0-7 = A-H, 8-15 = A1-H1, etc.
+        if byte3 < 8:
+            dimm_letter = chr(ord('A') + byte3)
+            return f"DIMM {dimm_letter}1"
+        elif byte3 < 16:
+            dimm_letter = chr(ord('A') + (byte3 - 8))
+            return f"DIMM {dimm_letter}2"
+        elif byte3 < 24:
+            dimm_letter = chr(ord('A') + (byte3 - 16))
+            return f"DIMM {dimm_letter}1"
+        elif byte3 < 32:
+            dimm_letter = chr(ord('A') + (byte3 - 24))
+            return f"DIMM {dimm_letter}2"
+        else:
+            # Return raw slot number if we can't decode
+            return f"DIMM Slot {byte3}"
+    except (ValueError, IndexError):
+        return None
+
 def parse_sel_line(line, bmc_ip, server_name):
     """Parse a single SEL log line with extended details for ECC events
     
@@ -1723,6 +1762,17 @@ def parse_sel_line(line, bmc_ip, server_name):
                     sensor_number = f"0x{hex_id}"
                     # Try to look up the actual sensor name from cache (if available)
                     sensor_name_lookup = get_sensor_name_from_cache(bmc_ip, hex_id)
+                    # Fallback: For common ECC sensors, infer name from ID
+                    # 0xD1 = CPU1_ECC1, 0xD2 = CPU2_ECC1 (common on ASUS/ASRock boards)
+                    if not sensor_name_lookup and 'memory' in sensor_type.lower():
+                        if hex_id == 'D1':
+                            sensor_name_lookup = 'CPU1_ECC1'
+                        elif hex_id == 'D2':
+                            sensor_name_lookup = 'CPU2_ECC1'
+                        elif hex_id == 'D3':
+                            sensor_name_lookup = 'CPU1_ECC2'
+                        elif hex_id == 'D4':
+                            sensor_name_lookup = 'CPU2_ECC2'
                 except (ValueError, TypeError) as e:
                     sensor_number = sensor_id
                     app.logger.debug(f"Could not parse sensor ID {sensor_id}: {e}")
