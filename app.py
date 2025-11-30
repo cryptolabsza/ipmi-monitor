@@ -32,7 +32,8 @@ db = SQLAlchemy(app)
 IPMI_USER = os.environ.get('IPMI_USER', 'admin')
 IPMI_PASS = os.environ.get('IPMI_PASS', 'BBccc321')
 IPMI_PASS_NVIDIA = os.environ.get('IPMI_PASS_NVIDIA', 'BBccc321BBccc321')  # NVIDIA BMCs need 16 chars
-POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 300))  # 5 minutes
+POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 300))  # 5 minutes for SEL events
+SENSOR_POLL_MULTIPLIER = int(os.environ.get('SENSOR_POLL_MULTIPLIER', 1))  # Collect sensors every N collection cycles (1 = every cycle)
 
 # Admin authentication
 ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
@@ -2048,15 +2049,59 @@ _shutdown_event = _threading.Event()
 
 def background_collector():
     """Background thread for periodic collection with graceful shutdown"""
-    app.logger.info(f"Background collector started (interval: {POLL_INTERVAL}s)")
+    app.logger.info(f"Background collector started (SEL interval: {POLL_INTERVAL}s, sensor multiplier: {SENSOR_POLL_MULTIPLIER}x)")
+    
+    # Track when to collect sensors
+    collection_count = 0
+    
     while not _shutdown_event.is_set():
         try:
+            # Always collect SEL events
             collect_all_events()
+            
+            # Collect sensors based on multiplier (1 = every cycle, 2 = every 2nd, etc.)
+            collection_count += 1
+            if collection_count >= SENSOR_POLL_MULTIPLIER:
+                collection_count = 0
+                try:
+                    collect_all_sensors_background()
+                except Exception as e:
+                    app.logger.error(f"Error collecting sensors: {e}")
+                    
         except Exception as e:
             app.logger.error(f"Error in background collector: {e}")
         
         # Wait with interruptible sleep for graceful shutdown
         _shutdown_event.wait(POLL_INTERVAL)
+
+def collect_all_sensors_background():
+    """Collect sensors from all servers in background (parallel)"""
+    with app.app_context():
+        app.logger.info("Starting background sensor collection...")
+        servers = get_servers()
+        
+        if not servers:
+            return
+        
+        collected = 0
+        try:
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                futures = {
+                    executor.submit(collect_single_server_sensors, bmc_ip, server_name): (bmc_ip, server_name)
+                    for bmc_ip, server_name in servers.items()
+                }
+                
+                for future in as_completed(futures):
+                    try:
+                        result = future.result(timeout=120)
+                        if result:
+                            collected += 1
+                    except Exception as e:
+                        pass  # Individual server failures are logged in collect_single_server_sensors
+        except Exception as e:
+            app.logger.error(f"Error in background sensor collection: {e}")
+        
+        app.logger.info(f"Background sensor collection complete: {collected}/{len(servers)} servers")
 
 # Routes
 @app.route('/')
