@@ -1904,12 +1904,17 @@
         }
         
         function populateDeviceSelectors() {
-            // Populate all device selectors with server list
+            // Sort servers by name for dropdown lists
+            const sortedServers = [...serversData].sort((a, b) => 
+                (a.server_name || '').localeCompare(b.server_name || '', undefined, {numeric: true})
+            );
+            
+            // Populate all device selectors with sorted server list
             const selectors = ['summaryDevices', 'tasksDevices'];
             selectors.forEach(id => {
                 const select = document.getElementById(id);
-                if (select && serversData.length > 0) {
-                    select.innerHTML = serversData.map(s => 
+                if (select && sortedServers.length > 0) {
+                    select.innerHTML = sortedServers.map(s => 
                         `<option value="${s.server_name}">${s.server_name} (${s.bmc_ip})</option>`
                     ).join('');
                 }
@@ -1917,9 +1922,9 @@
             
             // Populate RCA device dropdown
             const rcaDevice = document.getElementById('rcaDevice');
-            if (rcaDevice && serversData.length > 0) {
+            if (rcaDevice && sortedServers.length > 0) {
                 rcaDevice.innerHTML = '<option value="">Select a server...</option>' + 
-                    serversData.map(s => 
+                    sortedServers.map(s => 
                         `<option value="${s.server_name}">${s.server_name} (${s.bmc_ip})</option>`
                     ).join('');
             }
