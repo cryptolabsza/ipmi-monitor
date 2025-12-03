@@ -1075,12 +1075,29 @@ def sync_to_cloud():
             # Collect data to sync
             servers = Server.query.all()
             
-            # Get recent events (last 24 hours)
-            cutoff = datetime.utcnow() - timedelta(hours=24)
+            # Get recent events (last 72 hours for AI context)
+            cutoff = datetime.utcnow() - timedelta(hours=72)
             events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
             
-            # Get latest sensor readings
-            sensors = SensorReading.query.all()
+            # Get LATEST sensor readings only (not all historical data!)
+            # Use a subquery to get the most recent reading for each server+sensor
+            from sqlalchemy import func
+            subquery = db.session.query(
+                SensorReading.server_name,
+                SensorReading.sensor_name,
+                func.max(SensorReading.timestamp).label('max_ts')
+            ).group_by(SensorReading.server_name, SensorReading.sensor_name).subquery()
+            
+            sensors = db.session.query(SensorReading).join(
+                subquery,
+                db.and_(
+                    SensorReading.server_name == subquery.c.server_name,
+                    SensorReading.sensor_name == subquery.c.sensor_name,
+                    SensorReading.timestamp == subquery.c.max_ts
+                )
+            ).all()
+            
+            app.logger.info(f"Sync: {len(servers)} servers, {len(events)} events, {len(sensors)} sensors")
             
             payload = {
                 'servers': [{
