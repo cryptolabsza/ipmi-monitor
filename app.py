@@ -1018,7 +1018,8 @@ class CloudSync(db.Model):
             'license_key': '***' + self.license_key[-4:] if self.license_key else None,
             'sync_enabled': self.sync_enabled,
             'sync_interval': self.sync_interval,
-            'last_sync': self.last_sync.isoformat() if self.last_sync else None,
+            # Add 'Z' suffix to indicate UTC time so browser interprets correctly
+            'last_sync': (self.last_sync.isoformat() + 'Z') if self.last_sync else None,
             'last_sync_status': self.last_sync_status,
             'last_sync_message': self.last_sync_message,
             'subscription_tier': self.subscription_tier,
@@ -5056,7 +5057,8 @@ def api_ai_status():
             'subscription_valid': config.subscription_valid,
             'subscription_tier': config.subscription_tier or 'free',
             'features': config.get_features_list(),
-            'last_sync': config.last_sync.isoformat() if config.last_sync else None,
+            # Add 'Z' suffix to indicate UTC time so browser interprets correctly
+            'last_sync': (config.last_sync.isoformat() + 'Z') if config.last_sync else None,
             'last_sync_status': config.last_sync_status,
             'last_sync_message': config.last_sync_message,
             'server_count': server_count,
