@@ -2082,6 +2082,126 @@ def decode_ecc_event_data(event_data_hex):
     except (ValueError, IndexError):
         return None
 
+
+# NVIDIA BMC-specific event descriptions
+NVIDIA_SEL_DESCRIPTIONS = {
+    # SEL_NV_* events from NVIDIA BMC firmware
+    'SEL_NV_AUDIT': {
+        'name': 'Security Audit',
+        'description': 'BMC security audit event - user login/logout or configuration change',
+        'category': 'security'
+    },
+    'SEL_NV_MAXP_MAXQ': {
+        'name': 'Power Mode Change',
+        'description': 'GPU power mode changed (MaxP = Maximum Performance, MaxQ = Maximum Efficiency)',
+        'category': 'power'
+    },
+    'SEL_NV_POST_ERR': {
+        'name': 'POST Error',
+        'description': 'Power-On Self Test error detected during boot sequence',
+        'category': 'boot'
+    },
+    'SEL_NV_BIOS': {
+        'name': 'BIOS Event',
+        'description': 'BIOS/UEFI firmware event during system initialization',
+        'category': 'boot'
+    },
+    'SEL_NV_CPU': {
+        'name': 'CPU Event',
+        'description': 'CPU-related event (thermal, error, state change)',
+        'category': 'processor'
+    },
+    'SEL_NV_MEM': {
+        'name': 'Memory Event',
+        'description': 'Memory subsystem event (ECC, training, configuration)',
+        'category': 'memory'
+    },
+    'SEL_NV_GPU': {
+        'name': 'GPU Event',
+        'description': 'NVIDIA GPU subsystem event (thermal, power, error)',
+        'category': 'gpu'
+    },
+    'SEL_NV_NVL': {
+        'name': 'NVLink Event',
+        'description': 'NVLink interconnect event (link status, errors)',
+        'category': 'nvlink'
+    },
+    'SEL_NV_PWR': {
+        'name': 'Power Event',
+        'description': 'Power subsystem event (PSU, power rail)',
+        'category': 'power'
+    },
+    'SEL_NV_FAN': {
+        'name': 'Fan Event',
+        'description': 'Cooling fan event (speed, failure)',
+        'category': 'cooling'
+    },
+    'SEL_NV_TEMP': {
+        'name': 'Temperature Event',
+        'description': 'Temperature threshold event',
+        'category': 'thermal'
+    },
+    'SEL_NV_PCIE': {
+        'name': 'PCIe Event',
+        'description': 'PCIe bus event (link errors, device detection)',
+        'category': 'pcie'
+    },
+    'SEL_NV_BOOT': {
+        'name': 'Boot Event',
+        'description': 'System boot/restart event',
+        'category': 'boot'
+    },
+    'SEL_NV_WATCHDOG': {
+        'name': 'Watchdog Event',
+        'description': 'Hardware watchdog timer event (timeout, reset)',
+        'category': 'system'
+    },
+}
+
+# NVIDIA-specific sensor IDs (hex)
+NVIDIA_SENSOR_DESCRIPTIONS = {
+    '0xD2': 'NV Sensor D2 (OEM-specific diagnostic sensor)',
+    '0xD7': 'NV Sensor D7 (OEM-specific system state sensor)',
+    '0xD0': 'NV GPU Status Sensor',
+    '0xD1': 'NV GPU Thermal Sensor',
+    '0xD3': 'NV NVLink Status Sensor',
+    '0xD4': 'NV PCIe Status Sensor',
+    '0xD5': 'NV Power Status Sensor',
+    '0xD6': 'NV Memory Status Sensor',
+    '0xD8': 'NV Fan Status Sensor',
+    '0xD9': 'NV System Health Sensor',
+}
+
+
+def decode_nvidia_event(sensor_type, event_desc):
+    """Decode NVIDIA-specific BMC events to provide better descriptions"""
+    sensor_upper = sensor_type.upper() if sensor_type else ''
+    desc_upper = event_desc.upper() if event_desc else ''
+    
+    enhanced_info = []
+    category = 'system'
+    
+    # Check for SEL_NV_* patterns in sensor type
+    for key, info in NVIDIA_SEL_DESCRIPTIONS.items():
+        if key in sensor_upper or key in desc_upper:
+            enhanced_info.append(f"[{info['name']}]")
+            enhanced_info.append(info['description'])
+            category = info['category']
+            break
+    
+    # Check for sensor ID patterns
+    sensor_id_match = re.search(r'\[Sensor (0x[A-F0-9]+)\]', event_desc, re.IGNORECASE)
+    if sensor_id_match:
+        sensor_id = sensor_id_match.group(1).upper()
+        if sensor_id in NVIDIA_SENSOR_DESCRIPTIONS:
+            enhanced_info.append(f"({NVIDIA_SENSOR_DESCRIPTIONS[sensor_id]})")
+    
+    return {
+        'enhanced_desc': ' '.join(enhanced_info) if enhanced_info else None,
+        'category': category
+    }
+
+
 def parse_sel_line(line, bmc_ip, server_name):
     """Parse a single SEL log line with extended details for ECC events
     
@@ -2190,6 +2310,12 @@ def parse_sel_line(line, bmc_ip, server_name):
                 enhanced_parts.append(f"[{sensor_name_lookup}]")
             elif sensor_number:
                 enhanced_parts.append(f"[Sensor {sensor_number}]")
+            
+            # Check for NVIDIA-specific events (SEL_NV_* or Unknown sensors)
+            if 'SEL_NV' in sensor_type.upper() or 'Unknown' in sensor_type:
+                nvidia_info = decode_nvidia_event(sensor_type, event_desc)
+                if nvidia_info.get('enhanced_desc'):
+                    enhanced_parts.append(nvidia_info['enhanced_desc'])
             
             enhanced_desc = ' | '.join(enhanced_parts)
             
