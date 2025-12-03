@@ -3489,6 +3489,80 @@ def server_detail(bmc_ip):
     """Server detail page"""
     return render_template('server_detail.html', bmc_ip=bmc_ip)
 
+def enhance_event_display(sensor_type, event_description):
+    """Enhance event display for NVIDIA and other OEM events.
+    
+    Translates cryptic codes into human-readable descriptions.
+    """
+    # Already enhanced or not NVIDIA - return as-is
+    if not sensor_type:
+        return sensor_type, event_description
+    
+    sensor_upper = sensor_type.upper()
+    
+    # NVIDIA SEL_NV_* event translations
+    nvidia_translations = {
+        'SEL_NV_AUDIT': ('Security Audit', 'BMC login/logout or config change'),
+        'SEL_NV_MAXP_MAXQ': ('Power Mode', 'GPU power mode changed (MaxP/MaxQ)'),
+        'SEL_NV_POST_ERR': ('POST Error', 'Power-On Self Test error during boot'),
+        'SEL_NV_BIOS': ('BIOS Event', 'BIOS/UEFI firmware event'),
+        'SEL_NV_CPU': ('CPU Event', 'CPU thermal/error/state change'),
+        'SEL_NV_MEM': ('Memory Event', 'Memory ECC/training event'),
+        'SEL_NV_GPU': ('GPU Event', 'NVIDIA GPU subsystem event'),
+        'SEL_NV_NVL': ('NVLink Event', 'NVLink interconnect status'),
+        'SEL_NV_PWR': ('Power Event', 'Power subsystem event'),
+        'SEL_NV_FAN': ('Fan Event', 'Cooling fan status'),
+        'SEL_NV_TEMP': ('Temperature', 'Thermal threshold event'),
+        'SEL_NV_PCIE': ('PCIe Event', 'PCIe bus/device event'),
+        'SEL_NV_BOOT': ('Boot Event', 'System boot/restart'),
+        'SEL_NV_WATCHDOG': ('Watchdog', 'Hardware watchdog event'),
+    }
+    
+    # NVIDIA OEM Sensor ID translations
+    nvidia_sensors = {
+        '0xD2': 'NV Power Sensor',
+        '0xD7': 'NV GPU Status',
+        '0xD8': 'NV NVLink Status',
+        '0xD9': 'NV Memory',
+        '0xDA': 'NV Boot Progress',
+        '0xDB': 'NV Temperature',
+        '0xDC': 'NV Fan Control',
+    }
+    
+    enhanced_type = sensor_type
+    enhanced_desc = event_description
+    
+    # Check for SEL_NV_* in sensor type
+    for key, (friendly_name, description) in nvidia_translations.items():
+        if key in sensor_upper:
+            enhanced_type = friendly_name
+            # Improve description
+            if '| Asserted' in enhanced_desc or enhanced_desc.strip() == '| Asserted':
+                enhanced_desc = f"{description} | Asserted"
+            break
+    
+    # Handle "Unknown" sensor types with SEL_NV_* in description
+    if 'UNKNOWN' in sensor_upper:
+        for key, (friendly_name, description) in nvidia_translations.items():
+            if key in (event_description or '').upper():
+                enhanced_type = friendly_name
+                enhanced_desc = f"{description} | Asserted"
+                break
+    
+    # Enhance sensor IDs like [Sensor 0xD2]
+    import re
+    sensor_match = re.search(r'\[Sensor\s*(0x[A-Fa-f0-9]+)\]', enhanced_desc)
+    if sensor_match:
+        sensor_id = sensor_match.group(1).upper()
+        if sensor_id in nvidia_sensors:
+            enhanced_desc = enhanced_desc.replace(
+                sensor_match.group(0), 
+                f"[{nvidia_sensors[sensor_id]}]"
+            )
+    
+    return enhanced_type, enhanced_desc
+
+
 @app.route('/api/server/<bmc_ip>/events')
 @require_valid_bmc_ip
 def api_server_events(bmc_ip):
@@ -3497,16 +3571,24 @@ def api_server_events(bmc_ip):
     events = IPMIEvent.query.filter_by(bmc_ip=bmc_ip)\
         .order_by(IPMIEvent.event_date.desc()).limit(limit).all()
     
-    return jsonify([{
-        'id': e.id,
-        'sel_id': e.sel_id,
-        'event_date': e.event_date.isoformat(),
-        'sensor_type': e.sensor_type,
-        'sensor_id': e.sensor_id,
-        'event_description': e.event_description,
-        'severity': e.severity,
-        'raw_entry': e.raw_entry
-    } for e in events])
+    result = []
+    for e in events:
+        # Enhance display for NVIDIA events
+        display_sensor_type, display_description = enhance_event_display(
+            e.sensor_type, e.event_description
+        )
+        result.append({
+            'id': e.id,
+            'sel_id': e.sel_id,
+            'event_date': e.event_date.isoformat(),
+            'sensor_type': display_sensor_type,
+            'sensor_id': e.sensor_id,
+            'event_description': display_description,
+            'severity': e.severity,
+            'raw_entry': e.raw_entry
+        })
+    
+    return jsonify(result)
 
 @app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
 @admin_required
