@@ -1910,7 +1910,7 @@
                 const select = document.getElementById(id);
                 if (select && serversData.length > 0) {
                     select.innerHTML = serversData.map(s => 
-                        `<option value="${s.name}">${s.name} (${s.bmc_ip})</option>`
+                        `<option value="${s.server_name}">${s.server_name} (${s.bmc_ip})</option>`
                     ).join('');
                 }
             });
@@ -1920,7 +1920,7 @@
             if (rcaDevice && serversData.length > 0) {
                 rcaDevice.innerHTML = '<option value="">Select a server...</option>' + 
                     serversData.map(s => 
-                        `<option value="${s.name}">${s.name} (${s.bmc_ip})</option>`
+                        `<option value="${s.server_name}">${s.server_name} (${s.bmc_ip})</option>`
                     ).join('');
             }
         }
