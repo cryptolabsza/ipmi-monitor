@@ -2189,12 +2189,15 @@ def decode_nvidia_event(sensor_type, event_desc):
             category = info['category']
             break
     
-    # Check for sensor ID patterns
-    sensor_id_match = re.search(r'\[Sensor (0x[A-F0-9]+)\]', event_desc, re.IGNORECASE)
+    # Check for sensor ID patterns - handles [Sensor 0xD2] or Sensor 0xD2
+    sensor_id_match = re.search(r'(?:\[)?Sensor\s*(0x[A-F0-9]+)(?:\])?', event_desc, re.IGNORECASE)
     if sensor_id_match:
-        sensor_id = sensor_id_match.group(1).upper()
+        sensor_id = '0x' + sensor_id_match.group(1).replace('0x', '').replace('0X', '').upper()
         if sensor_id in NVIDIA_SENSOR_DESCRIPTIONS:
             enhanced_info.append(f"({NVIDIA_SENSOR_DESCRIPTIONS[sensor_id]})")
+        else:
+            # Even if not in our list, provide some context
+            enhanced_info.append(f"(NVIDIA OEM Sensor {sensor_id})")
     
     return {
         'enhanced_desc': ' '.join(enhanced_info) if enhanced_info else None,
@@ -5342,17 +5345,48 @@ def handle_exception(e):
         return jsonify({'error': 'An unexpected error occurred'}), 500
     return render_template('login.html', error='An unexpected error occurred'), 500
 
-# Initialize database
+# Initialize database with lock to prevent race conditions
+import fcntl
+
 def init_db():
     with app.app_context():
-        db.create_all()
-        app.logger.info("Database initialized")
-        # Initialize default alert rules
-        initialize_default_alerts()
-        # Initialize default admin user (admin/admin)
-        User.initialize_default()
-        # Initialize default system settings
-        SystemSettings.initialize_defaults()
+        # Use file lock to prevent multiple workers from creating tables simultaneously
+        lock_file = os.path.join(app.config.get('DATA_DIR', '/app/data'), '.db.lock')
+        os.makedirs(os.path.dirname(lock_file), exist_ok=True)
+        
+        try:
+            with open(lock_file, 'w') as f:
+                fcntl.flock(f, fcntl.LOCK_EX)
+                try:
+                    # Check if tables exist before creating
+                    inspector = db.inspect(db.engine)
+                    existing_tables = inspector.get_table_names()
+                    
+                    if 'server' not in existing_tables:
+                        db.create_all()
+                        app.logger.info("Database tables created")
+                    else:
+                        app.logger.info("Database tables already exist")
+                    
+                    # Initialize default alert rules
+                    initialize_default_alerts()
+                    # Initialize default admin user (admin/admin)
+                    User.initialize_default()
+                    # Initialize default system settings
+                    SystemSettings.initialize_defaults()
+                    
+                    app.logger.info("Database initialized")
+                finally:
+                    fcntl.flock(f, fcntl.LOCK_UN)
+        except Exception as e:
+            app.logger.warning(f"Database init (may be concurrent): {e}")
+            # Tables likely already exist from another worker
+            try:
+                initialize_default_alerts()
+                User.initialize_default()
+                SystemSettings.initialize_defaults()
+            except:
+                pass
 
 # Initialize on import (for gunicorn)
 init_db()
