@@ -65,8 +65,14 @@ if not app.debug:
 
 # Configuration
 IPMI_USER = os.environ.get('IPMI_USER', 'admin')
-IPMI_PASS = os.environ.get('IPMI_PASS', 'BBccc321')
-IPMI_PASS_NVIDIA = os.environ.get('IPMI_PASS_NVIDIA', 'BBccc321BBccc321')  # NVIDIA BMCs need 16 chars
+IPMI_PASS = os.environ.get('IPMI_PASS', '')
+IPMI_PASS_NVIDIA = os.environ.get('IPMI_PASS_NVIDIA', '')  # NVIDIA BMCs need 16 chars
+
+# Warn if passwords not set
+if not IPMI_PASS:
+    app.logger.warning("⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.")
+if not IPMI_PASS_NVIDIA:
+    app.logger.warning("⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.")
 POLL_INTERVAL = int(os.environ.get('POLL_INTERVAL', 300))  # 5 minutes for SEL events
 SENSOR_POLL_MULTIPLIER = int(os.environ.get('SENSOR_POLL_MULTIPLIER', 1))  # Collect sensors every N collection cycles (1 = every cycle)
 
@@ -944,6 +950,248 @@ class AdminConfig(db.Model):
             db.session.add(admin)
             db.session.commit()
         return admin
+
+
+# ============== Cloud Sync (AI Features) ==============
+
+class CloudSync(db.Model):
+    """Configuration for CryptoLabs AI cloud sync"""
+    id = db.Column(db.Integer, primary_key=True)
+    license_key = db.Column(db.String(128), nullable=True)
+    sync_enabled = db.Column(db.Boolean, default=False)
+    sync_interval = db.Column(db.Integer, default=300)  # 5 minutes
+    last_sync = db.Column(db.DateTime, nullable=True)
+    last_sync_status = db.Column(db.String(50), nullable=True)  # 'success', 'error', 'pending'
+    last_sync_message = db.Column(db.Text, nullable=True)
+    subscription_tier = db.Column(db.String(50), nullable=True)  # 'free', 'starter', etc.
+    subscription_valid = db.Column(db.Boolean, default=False)
+    max_servers = db.Column(db.Integer, default=50)
+    features = db.Column(db.Text, nullable=True)  # JSON array of enabled features
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # AI Service endpoint - hardcoded for now, can be made configurable later
+    AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', '')  # Set to your AI service endpoint
+    
+    @staticmethod
+    def get_config():
+        """Get or create cloud sync configuration"""
+        config = CloudSync.query.first()
+        if not config:
+            config = CloudSync()
+            db.session.add(config)
+            db.session.commit()
+        return config
+    
+    @staticmethod
+    def is_ai_enabled():
+        """Check if AI features are enabled and valid"""
+        config = CloudSync.query.first()
+        return config and config.sync_enabled and config.subscription_valid and config.license_key
+    
+    def get_features_list(self):
+        """Get list of enabled features"""
+        if self.features:
+            try:
+                return json.loads(self.features)
+            except:
+                pass
+        return []
+    
+    def to_dict(self):
+        return {
+            'license_key': '***' + self.license_key[-4:] if self.license_key else None,
+            'sync_enabled': self.sync_enabled,
+            'sync_interval': self.sync_interval,
+            'last_sync': self.last_sync.isoformat() if self.last_sync else None,
+            'last_sync_status': self.last_sync_status,
+            'last_sync_message': self.last_sync_message,
+            'subscription_tier': self.subscription_tier,
+            'subscription_valid': self.subscription_valid,
+            'max_servers': self.max_servers,
+            'features': self.get_features_list()
+        }
+
+
+class AIResult(db.Model):
+    """Cached AI results from cloud service"""
+    id = db.Column(db.Integer, primary_key=True)
+    result_type = db.Column(db.String(50), nullable=False)  # 'summary', 'tasks', 'predictions', 'rca'
+    content = db.Column(db.Text, nullable=True)  # JSON or HTML content
+    server_name = db.Column(db.String(100), nullable=True)  # NULL for fleet-wide results
+    generated_at = db.Column(db.DateTime, nullable=True)
+    fetched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=True)
+    
+    @staticmethod
+    def get_latest(result_type, server_name=None):
+        """Get the latest result of a type"""
+        query = AIResult.query.filter_by(result_type=result_type)
+        if server_name:
+            query = query.filter_by(server_name=server_name)
+        else:
+            query = query.filter(AIResult.server_name.is_(None))
+        return query.order_by(AIResult.fetched_at.desc()).first()
+    
+    @staticmethod
+    def store_result(result_type, content, server_name=None, generated_at=None):
+        """Store an AI result"""
+        result = AIResult(
+            result_type=result_type,
+            content=json.dumps(content) if isinstance(content, (dict, list)) else content,
+            server_name=server_name,
+            generated_at=datetime.fromisoformat(generated_at) if generated_at else datetime.utcnow(),
+            fetched_at=datetime.utcnow(),
+            expires_at=datetime.utcnow() + timedelta(hours=24)
+        )
+        db.session.add(result)
+        db.session.commit()
+        return result
+
+
+def sync_to_cloud():
+    """
+    Sync data to CryptoLabs AI service.
+    Called periodically by background thread.
+    """
+    with app.app_context():
+        config = CloudSync.get_config()
+        
+        if not config.sync_enabled or not config.license_key:
+            return {'success': False, 'message': 'Sync not enabled'}
+        
+        try:
+            # Collect data to sync
+            servers = Server.query.all()
+            
+            # Get recent events (last 24 hours)
+            cutoff = datetime.utcnow() - timedelta(hours=24)
+            events = IPMIEvent.query.filter(IPMIEvent.timestamp > cutoff).all()
+            
+            # Get latest sensor readings
+            sensors = SensorReading.query.all()
+            
+            payload = {
+                'servers': [{
+                    'name': s.name,
+                    'bmc_ip': s.bmc_ip,
+                    'description': s.description
+                } for s in servers],
+                'events': [{
+                    'id': str(e.id),
+                    'server_name': e.server_name,
+                    'timestamp': e.timestamp.isoformat() if e.timestamp else None,
+                    'type': e.event_type,
+                    'description': e.description,
+                    'severity': e.severity
+                } for e in events],
+                'sensors': [{
+                    'server_name': s.server_name,
+                    'name': s.sensor_name,
+                    'type': s.sensor_type,
+                    'value': s.value,
+                    'unit': s.unit,
+                    'status': s.status
+                } for s in sensors]
+            }
+            
+            # Send to AI service
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/sync",
+                json=payload,
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=30
+            )
+            
+            if response.ok:
+                result = response.json()
+                config.last_sync = datetime.utcnow()
+                config.last_sync_status = 'success'
+                config.last_sync_message = f"Synced {len(events)} events, {len(sensors)} sensors"
+                db.session.commit()
+                
+                # Fetch AI results after sync
+                fetch_ai_results()
+                
+                return {'success': True, 'message': config.last_sync_message}
+            else:
+                config.last_sync_status = 'error'
+                config.last_sync_message = f"HTTP {response.status_code}: {response.text[:200]}"
+                db.session.commit()
+                return {'success': False, 'message': config.last_sync_message}
+                
+        except Exception as e:
+            config.last_sync_status = 'error'
+            config.last_sync_message = str(e)[:500]
+            db.session.commit()
+            app.logger.error(f"Cloud sync failed: {e}")
+            return {'success': False, 'message': str(e)}
+
+
+def fetch_ai_results():
+    """Fetch AI results from cloud service"""
+    with app.app_context():
+        config = CloudSync.get_config()
+        
+        if not config.sync_enabled or not config.license_key:
+            return None
+        
+        try:
+            response = requests.get(
+                f"{config.AI_SERVICE_URL}/api/v1/results",
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=30
+            )
+            
+            if response.ok:
+                results = response.json()
+                
+                # Store summary
+                if results.get('summary'):
+                    AIResult.store_result(
+                        'summary',
+                        results['summary'],
+                        generated_at=results['summary'].get('generated_at')
+                    )
+                
+                # Store tasks
+                if results.get('tasks'):
+                    AIResult.store_result('tasks', results['tasks'])
+                
+                # Store predictions
+                if results.get('predictions'):
+                    AIResult.store_result('predictions', results['predictions'])
+                
+                return results
+        except Exception as e:
+            app.logger.error(f"Failed to fetch AI results: {e}")
+        
+        return None
+
+
+def validate_license_key(license_key):
+    """Validate license key with AI service"""
+    try:
+        config = CloudSync.get_config()
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/validate",
+            json={'license_key': license_key},
+            timeout=10
+        )
+        
+        if response.ok:
+            result = response.json()
+            return {
+                'valid': result.get('valid', False),
+                'tier': result.get('tier', 'free'),
+                'max_servers': result.get('max_servers', 50),
+                'features': result.get('features', [])
+            }
+    except Exception as e:
+        app.logger.error(f"License validation failed: {e}")
+    
+    return {'valid': False}
+
 
 # ============== Default Alert Rules ==============
 
@@ -1925,11 +2173,17 @@ def parse_sel_line(line, bmc_ip, server_name):
 def get_ipmi_credentials(bmc_ip):
     """Get IPMI credentials for a BMC (per-server config or defaults)"""
     with app.app_context():
+        # First check for per-server custom credentials
         config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
         if config and config.ipmi_user and config.ipmi_pass:
             return config.ipmi_user, config.ipmi_pass
+        
+        # Check if server has use_nvidia_password flag set in database
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        if server and server.use_nvidia_password:
+            return IPMI_USER, IPMI_PASS_NVIDIA
     
-    # Fall back to defaults
+    # Fall back to defaults - check environment variable
     password = IPMI_PASS_NVIDIA if bmc_ip in NVIDIA_BMCS else IPMI_PASS
     return IPMI_USER, password
 
@@ -2305,61 +2559,79 @@ def decode_dimm_from_event_data(event_data_hex):
         return ''
 
 def collect_ipmi_sel(bmc_ip, server_name):
-    """Collect IPMI SEL from a single server using verbose output for DIMM details"""
+    """Collect IPMI SEL from a single server using elist for timestamps and verbose for details"""
     try:
         user, password = get_ipmi_credentials(bmc_ip)
         
-        # Use verbose list (-v) to get Event Data field for DIMM identification
+        # Use elist format first - it has proper timestamps with time
         # Allow 600 seconds (10 min) for large SEL logs - some BMCs are very slow
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-             '-U', user, '-P', password, 'sel', 'list', '-v'],
+             '-U', user, '-P', password, 'sel', 'elist'],
             capture_output=True, text=True, timeout=600
         )
         
         if result.returncode != 0:
-            # Fall back to elist if verbose fails
-            app.logger.debug(f"Verbose SEL failed for {bmc_ip}, trying elist")
-            result = subprocess.run(
-                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-                 '-U', user, '-P', password, 'sel', 'elist'],
-                capture_output=True, text=True, timeout=600
-            )
-            if result.returncode == 0:
-                # Parse elist format
-                events = []
-                for line in result.stdout.strip().split('\n'):
-                    if line.strip():
-                        event = parse_sel_line(line, bmc_ip, server_name)
-                        if event:
-                            events.append(event)
-                return events
-            else:
-                app.logger.warning(f"IPMI command failed for {bmc_ip}: {result.stderr}")
-                return []
+            app.logger.warning(f"IPMI SEL elist failed for {bmc_ip}: {result.stderr}")
+            return []
         
-        # Parse verbose multi-line format
-        # Records are separated by blank lines, each record has multiple key: value lines
+        # Parse elist format - has proper timestamps
         events = []
-        current_record = []
+        for line in result.stdout.strip().split('\n'):
+            if line.strip():
+                event = parse_sel_line(line, bmc_ip, server_name)
+                if event:
+                    events.append(event)
         
-        for line in result.stdout.split('\n'):
-            line = line.strip()
-            if not line:
-                # End of record - parse it
-                if current_record:
-                    event = parse_verbose_sel_record(current_record, bmc_ip, server_name)
-                    if event:
-                        events.append(event)
+        # For memory events without DIMM info, try to get from verbose output
+        memory_events = [e for e in events if 'memory' in e.sensor_type.lower() and not e.event_data]
+        if memory_events:
+            try:
+                # Get verbose output for DIMM details
+                verbose_result = subprocess.run(
+                    ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
+                     '-U', user, '-P', password, 'sel', 'list', '-v'],
+                    capture_output=True, text=True, timeout=300
+                )
+                if verbose_result.returncode == 0:
+                    # Parse verbose to get event data mapping by SEL ID
+                    dimm_map = {}
                     current_record = []
-            else:
-                current_record.append(line)
-        
-        # Don't forget the last record
-        if current_record:
-            event = parse_verbose_sel_record(current_record, bmc_ip, server_name)
-            if event:
-                events.append(event)
+                    for line in verbose_result.stdout.split('\n'):
+                        if line.strip():
+                            current_record.append(line.strip())
+                        elif current_record:
+                            # Parse this record for SEL ID and Event Data
+                            record_data = {}
+                            for rec_line in current_record:
+                                if ':' in rec_line:
+                                    key, value = rec_line.split(':', 1)
+                                    record_data[key.strip()] = value.strip()
+                            sel_id = record_data.get('SEL Record ID', '').strip().lower()
+                            event_data_hex = record_data.get('Event Data', '')
+                            if sel_id and event_data_hex and 'Memory' in record_data.get('Sensor Type', ''):
+                                dimm_location = decode_dimm_from_event_data(event_data_hex)
+                                if dimm_location:
+                                    dimm_map[sel_id] = dimm_location
+                            current_record = []
+                    
+                    # Update memory events with DIMM info
+                    for event in memory_events:
+                        sel_id_lower = event.sel_id.lower()
+                        if sel_id_lower in dimm_map:
+                            dimm_loc = dimm_map[sel_id_lower]
+                            event.event_data = dimm_loc
+                            # Update description to include DIMM
+                            if dimm_loc not in event.event_description:
+                                parts = event.event_description.split(' | ')
+                                # Insert DIMM info before sensor name tag
+                                if parts and parts[-1].startswith('['):
+                                    parts.insert(-1, f'**{dimm_loc}**')
+                                else:
+                                    parts.append(f'**{dimm_loc}**')
+                                event.event_description = ' | '.join(parts)
+            except Exception as e:
+                app.logger.debug(f"Could not get verbose DIMM details for {bmc_ip}: {e}")
         
         return events
     except subprocess.TimeoutExpired:
@@ -2697,12 +2969,71 @@ def collect_all_events():
 
 _shutdown_event = _threading.Event()
 
+# Data retention settings for FREE tier (self-hosted)
+# Events older than this are automatically deleted
+DATA_RETENTION_DAYS = int(os.environ.get('DATA_RETENTION_DAYS', 30))  # 30 days default
+CLEANUP_INTERVAL_HOURS = 6  # Run cleanup every 6 hours
+
+def cleanup_old_data():
+    """
+    Clean up old data to enforce retention policy.
+    FREE tier: 30 days max retention.
+    This keeps the database size manageable and ensures privacy.
+    """
+    with app.app_context():
+        try:
+            cutoff = datetime.utcnow() - timedelta(days=DATA_RETENTION_DAYS)
+            
+            # Delete old events
+            old_events = IPMIEvent.query.filter(IPMIEvent.event_date < cutoff).count()
+            if old_events > 0:
+                IPMIEvent.query.filter(IPMIEvent.event_date < cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_events} events older than {DATA_RETENTION_DAYS} days", flush=True)
+            
+            # Delete old sensor readings (keep last 7 days only for sensors)
+            sensor_cutoff = datetime.utcnow() - timedelta(days=7)
+            old_sensors = SensorReading.query.filter(SensorReading.timestamp < sensor_cutoff).count()
+            if old_sensors > 0:
+                SensorReading.query.filter(SensorReading.timestamp < sensor_cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_sensors} old sensor readings", flush=True)
+            
+            # Delete old power readings (keep last 7 days)
+            old_power = PowerReading.query.filter(PowerReading.timestamp < sensor_cutoff).count()
+            if old_power > 0:
+                PowerReading.query.filter(PowerReading.timestamp < sensor_cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_power} old power readings", flush=True)
+            
+            # Delete old alert history (keep last 30 days)
+            old_alerts = AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).count()
+            if old_alerts > 0:
+                AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_alerts} old alert history", flush=True)
+            
+            # Delete expired AI results (if any)
+            try:
+                old_ai = AIResult.query.filter(AIResult.expires_at < datetime.utcnow()).count()
+                if old_ai > 0:
+                    AIResult.query.filter(AIResult.expires_at < datetime.utcnow()).delete()
+                    print(f"[IPMI Monitor] Data cleanup: Deleted {old_ai} expired AI results", flush=True)
+            except Exception:
+                pass  # AIResult table might not exist yet
+            
+            db.session.commit()
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"[IPMI Monitor] Data cleanup error: {e}", flush=True)
+
+
 def background_collector():
     """Background thread for periodic collection with graceful shutdown"""
     print(f"[IPMI Monitor] Background collector started (SEL interval: {POLL_INTERVAL}s, sensor multiplier: {SENSOR_POLL_MULTIPLIER}x)", flush=True)
+    print(f"[IPMI Monitor] Data retention: {DATA_RETENTION_DAYS} days (FREE tier limit)", flush=True)
     
-    # Track when to collect sensors
+    # Track when to collect sensors and run cleanup
     collection_count = 0
+    cleanup_counter = 0
+    cleanup_interval_cycles = (CLEANUP_INTERVAL_HOURS * 3600) // POLL_INTERVAL  # How many cycles between cleanups
     
     while not _shutdown_event.is_set():
         try:
@@ -2719,6 +3050,15 @@ def background_collector():
                     collect_all_sensors_background()
                 except Exception as e:
                     print(f"[IPMI Monitor] Error collecting sensors: {e}", flush=True)
+            
+            # Run data cleanup periodically
+            cleanup_counter += 1
+            if cleanup_counter >= cleanup_interval_cycles:
+                cleanup_counter = 0
+                try:
+                    cleanup_old_data()
+                except Exception as e:
+                    print(f"[IPMI Monitor] Error in data cleanup: {e}", flush=True)
             
             print(f"[IPMI Monitor] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
                     
@@ -4502,6 +4842,237 @@ def api_delete_user(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+# ============== AI Cloud Features ==============
+
+@app.route('/api/ai/status')
+def api_ai_status():
+    """Get AI cloud sync status"""
+    try:
+        config = CloudSync.get_config()
+        server_count = Server.query.count()
+        
+        return jsonify({
+            'enabled': config.sync_enabled,
+            'subscription_valid': config.subscription_valid,
+            'subscription_tier': config.subscription_tier or 'free',
+            'features': config.get_features_list(),
+            'last_sync': config.last_sync.isoformat() if config.last_sync else None,
+            'last_sync_status': config.last_sync_status,
+            'last_sync_message': config.last_sync_message,
+            'server_count': server_count,
+            'max_servers': config.max_servers,
+            'has_license': bool(config.license_key)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/config', methods=['GET'])
+@admin_required
+def api_get_ai_config():
+    """Get AI cloud configuration"""
+    config = CloudSync.get_config()
+    return jsonify(config.to_dict())
+
+
+@app.route('/api/ai/config', methods=['PUT'])
+@admin_required
+def api_update_ai_config():
+    """Update AI cloud configuration"""
+    data = request.get_json()
+    
+    try:
+        config = CloudSync.get_config()
+        
+        # Update license key if provided
+        if 'license_key' in data and data['license_key']:
+            # Validate the license key
+            validation = validate_license_key(data['license_key'])
+            
+            if validation['valid']:
+                config.license_key = data['license_key']
+                config.subscription_tier = validation.get('tier', 'starter')
+                config.subscription_valid = True
+                config.max_servers = validation.get('max_servers', 50)
+                config.features = json.dumps(validation.get('features', []))
+            else:
+                return jsonify({'error': 'Invalid license key'}), 400
+        
+        # Update sync enabled
+        if 'sync_enabled' in data:
+            config.sync_enabled = data['sync_enabled']
+        
+        db.session.commit()
+        
+        # Trigger initial sync if just enabled
+        if config.sync_enabled and config.license_key:
+            threading.Thread(target=sync_to_cloud, daemon=True).start()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'AI configuration updated',
+            'config': config.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/sync', methods=['POST'])
+@admin_required
+def api_trigger_sync():
+    """Manually trigger AI cloud sync"""
+    result = sync_to_cloud()
+    return jsonify(result)
+
+
+@app.route('/api/ai/results')
+def api_get_ai_results():
+    """Get cached AI results"""
+    if not CloudSync.is_ai_enabled():
+        return jsonify({
+            'enabled': False,
+            'message': 'AI features not enabled. Upgrade to Starter plan for AI insights.',
+            'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
+        })
+    
+    try:
+        summary = AIResult.get_latest('summary')
+        tasks = AIResult.get_latest('tasks')
+        predictions = AIResult.get_latest('predictions')
+        
+        return jsonify({
+            'enabled': True,
+            'summary': json.loads(summary.content) if summary and summary.content else None,
+            'tasks': json.loads(tasks.content) if tasks and tasks.content else [],
+            'predictions': json.loads(predictions.content) if predictions and predictions.content else [],
+            'last_updated': summary.fetched_at.isoformat() if summary else None
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/summary/generate', methods=['POST'])
+@admin_required
+def api_generate_summary():
+    """Generate AI summary on demand"""
+    config = CloudSync.get_config()
+    
+    if not config.sync_enabled or not config.license_key:
+        return jsonify({'error': 'AI features not enabled'}), 400
+    
+    try:
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/summary/generate",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=60
+        )
+        
+        if response.ok:
+            result = response.json()
+            if result.get('summary'):
+                AIResult.store_result('summary', result['summary'])
+            return jsonify(result)
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/tasks/generate', methods=['POST'])
+@admin_required
+def api_generate_tasks():
+    """Generate AI maintenance tasks on demand"""
+    config = CloudSync.get_config()
+    
+    if not config.sync_enabled or not config.license_key:
+        return jsonify({'error': 'AI features not enabled'}), 400
+    
+    try:
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/tasks/generate",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=60
+        )
+        
+        if response.ok:
+            result = response.json()
+            if result.get('tasks'):
+                AIResult.store_result('tasks', result['tasks'])
+            return jsonify(result)
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/chat', methods=['POST'])
+def api_ai_chat():
+    """AI chat interface - ask questions about the fleet"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({
+            'error': 'AI features not enabled',
+            'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
+        }), 403
+    
+    data = request.get_json()
+    question = data.get('question', '')
+    
+    if not question:
+        return jsonify({'error': 'Question required'}), 400
+    
+    try:
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/chat",
+            json={'question': question},
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=60
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/rca', methods=['POST'])
+def api_ai_rca():
+    """AI Root Cause Analysis for an event"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({
+            'error': 'AI features not enabled',
+            'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
+        }), 403
+    
+    data = request.get_json()
+    
+    try:
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/rca",
+            json=data,
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=90
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 # ============== System Settings ==============
 

@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPMI Monitor - Server Fleet Monitoring Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0e14;
+            --bg-card: #111820;
+            --bg-elevated: #161f2b;
+            --accent-cyan: #00e5c7;
+            --accent-blue: #3d8bff;
+            --accent-purple: #a855f7;
+            --accent-coral: #ff6b6b;
+            --accent-amber: #ffbe0b;
+            --text-primary: #f0f4f8;
+            --text-secondary: #8b9cb3;
+            --border-subtle: rgba(255,255,255,0.06);
+            --glow-cyan: rgba(0,229,199,0.3);
+            --glow-blue: rgba(61,139,255,0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,229,199,0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(61,139,255,0.1), transparent),
+                radial-gradient(ellipse 40% 30% at 20% 80%, rgba(168,85,247,0.08), transparent);
+        }
+
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1.5rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            background: rgba(10,14,20,0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: var(--text-primary);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-cyan);
+        }
+
+        .nav-cta {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: var(--bg-deep);
+            padding: 0.75rem 1.75rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px var(--glow-cyan);
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 8rem 4rem 4rem;
+            position: relative;
+        }
+
+        .hero-content {
+            max-width: 650px;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(0,229,199,0.1);
+            border: 1px solid rgba(0,229,199,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.9rem;
+            color: var(--accent-cyan);
+            margin-bottom: 2rem;
+        }
+
+        .hero-badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-description {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 2.5rem;
+            line-height: 1.7;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: var(--bg-deep);
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px var(--glow-cyan);
+        }
+
+        .btn-secondary {
+            background: var(--bg-elevated);
+            color: var(--text-primary);
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(0,229,199,0.05);
+        }
+
+        .hero-image {
+            position: absolute;
+            right: 4rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 55%;
+            max-width: 800px;
+        }
+
+        .hero-image img {
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 
+                0 0 0 1px var(--border-subtle),
+                0 40px 80px rgba(0,0,0,0.5),
+                0 0 100px var(--glow-cyan);
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 4rem;
+            padding: 4rem;
+            background: var(--bg-card);
+            border-top: 1px solid var(--border-subtle);
+            border-bottom: 1px solid var(--border-subtle);
+            justify-content: center;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Features Section */
+        .features {
+            padding: 8rem 4rem;
+        }
+
+        .section-header {
+            text-align: center;
+            max-width: 700px;
+            margin: 0 auto 5rem;
+        }
+
+        .section-tag {
+            color: var(--accent-cyan);
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            padding: 2.5rem;
+            transition: all 0.4s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(0,229,199,0.3);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-icon.cyan { background: rgba(0,229,199,0.15); }
+        .feature-icon.blue { background: rgba(61,139,255,0.15); }
+        .feature-icon.purple { background: rgba(168,85,247,0.15); }
+        .feature-icon.coral { background: rgba(255,107,107,0.15); }
+        .feature-icon.amber { background: rgba(255,190,11,0.15); }
+
+        .feature-card h3 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Screenshot Gallery */
+        .gallery {
+            padding: 8rem 4rem;
+            background: var(--bg-card);
+        }
+
+        .gallery-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 4rem;
+        }
+
+        .gallery-tab {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            padding: 0.75rem 1.5rem;
+            border-radius: 100px;
+            cursor: pointer;
+            font-family: inherit;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .gallery-tab.active,
+        .gallery-tab:hover {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: var(--bg-deep);
+            border-color: transparent;
+        }
+
+        .gallery-showcase {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .gallery-item {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.4s;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+        }
+
+        .gallery-item img {
+            width: 100%;
+            display: block;
+        }
+
+        /* Integration Section */
+        .integrations {
+            padding: 8rem 4rem;
+        }
+
+        .integrations-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            align-items: center;
+        }
+
+        .integration-list {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .integration-item {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: var(--bg-card);
+            padding: 1.5rem 2rem;
+            border-radius: 14px;
+            border: 1px solid var(--border-subtle);
+            transition: all 0.3s;
+        }
+
+        .integration-item:hover {
+            border-color: var(--accent-cyan);
+            transform: translateX(10px);
+        }
+
+        .integration-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .integration-item h4 {
+            font-size: 1.2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .integration-item p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Hardware Support */
+        .hardware {
+            padding: 8rem 4rem;
+            background: var(--bg-card);
+        }
+
+        .hardware-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 3rem auto 0;
+        }
+
+        .hardware-item {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .hardware-item:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-5px);
+        }
+
+        .hardware-item h4 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .hardware-item p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Code Block */
+        .code-section {
+            padding: 8rem 4rem;
+        }
+
+        .code-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-elevated);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red { background: #ff5f56; }
+        .code-dot.yellow { background: #ffbd2e; }
+        .code-dot.green { background: #27ca40; }
+
+        .code-body {
+            padding: 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            overflow-x: auto;
+        }
+
+        .code-body .comment { color: #636e7b; }
+        .code-body .keyword { color: var(--accent-purple); }
+        .code-body .string { color: var(--accent-cyan); }
+        .code-body .flag { color: var(--accent-amber); }
+
+        /* CTA Section */
+        .cta {
+            padding: 8rem 4rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .cta::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, var(--glow-cyan), transparent 70%);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .cta-content {
+            position: relative;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .cta h2 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .cta p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Footer */
+        footer {
+            padding: 4rem;
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-cyan);
+        }
+
+        .footer-copy {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .hero-image {
+                position: relative;
+                right: auto;
+                top: auto;
+                transform: none;
+                width: 100%;
+                margin-top: 4rem;
+            }
+
+            .hero {
+                flex-direction: column;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .integrations-content {
+                grid-template-columns: 1fr;
+            }
+
+            .hardware-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 1rem 2rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 6rem 2rem 2rem;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .gallery-showcase {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-bar {
+                flex-wrap: wrap;
+                gap: 2rem;
+            }
+
+            .hardware-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="grid-overlay"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">
+            <div class="logo-icon">IP</div>
+            IPMI Monitor
+        </div>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#screenshots">Screenshots</a></li>
+            <li><a href="#integrations">Integrations</a></li>
+            <li><a href="https://github.com/jjziets/ipmi-monitor">GitHub</a></li>
+        </ul>
+        <a href="#get-started" class="nav-cta">Get Started</a>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">Production Ready • Open Source</div>
+            <h1>Monitor Your Entire <span>Server Fleet</span> From One Dashboard</h1>
+            <p class="hero-description">
+                A production-ready web dashboard for monitoring IPMI/BMC System Event Logs across your datacenter. 
+                Track hardware health, ECC memory errors, temperature sensors, and critical events in real-time.
+            </p>
+            <div class="hero-buttons">
+                <a href="#get-started" class="btn-primary">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    Deploy Now
+                </a>
+                <a href="https://github.com/jjziets/ipmi-monitor" class="btn-secondary">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+        <div class="hero-image">
+            <img src="screenshots/01-dashboard-dark.png" alt="IPMI Monitor Dashboard">
+        </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-number">37+</div>
+            <div class="stat-label">Servers Monitored</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">10</div>
+            <div class="stat-label">Parallel Workers</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">24/7</div>
+            <div class="stat-label">Real-time Monitoring</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">&lt;5min</div>
+            <div class="stat-label">Deploy Time</div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="section-header">
+            <div class="section-tag">Powerful Features</div>
+            <h2 class="section-title">Everything You Need to Monitor Hardware Health</h2>
+            <p class="section-subtitle">
+                Built for datacenter operators and colocation providers who need visibility into server hardware status at scale.
+            </p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon cyan">🔍</div>
+                <h3>Event Collection</h3>
+                <p>Automatically collect IPMI SEL logs from all servers using parallel workers. Process your entire fleet in minutes, not hours.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon blue">📊</div>
+                <h3>Real-time Dashboard</h3>
+                <p>Auto-refreshing dashboard with countdown timer. See server status at a glance with event counts and severity indicators.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon purple">🌡️</div>
+                <h3>Sensor Monitoring</h3>
+                <p>Live temperature, fan speed, voltage, and power readings. Track thermal status and prevent overheating issues.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon coral">💾</div>
+                <h3>ECC Memory Tracking</h3>
+                <p>Identify exactly which DIMM has ECC errors with sensor mapping. Know which memory module to replace before failure.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon amber">🚨</div>
+                <h3>Severity Classification</h3>
+                <p>Automatic classification into Critical, Warning, and Info levels. Focus on what matters most with smart filtering.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon cyan">🔐</div>
+                <h3>Admin Authentication</h3>
+                <p>Protected admin interface for sensitive operations. Read-only dashboard for operators, full access for admins.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon blue">➕</div>
+                <h3>Server Management</h3>
+                <p>Add, edit, and delete servers via the web UI. Import entire server lists from INI files in seconds.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon purple">📈</div>
+                <h3>Prometheus Metrics</h3>
+                <p>Native /metrics endpoint for Grafana integration. Build custom dashboards and alerting rules with your existing stack.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon coral">🐳</div>
+                <h3>Docker Ready</h3>
+                <p>Multi-arch images (amd64/arm64) with automated builds. Deploy anywhere with a single docker-compose command.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Screenshot Gallery -->
+    <section class="gallery" id="screenshots">
+        <div class="section-header">
+            <div class="section-tag">Interface</div>
+            <h2 class="section-title">Beautiful, Functional Design</h2>
+            <p class="section-subtitle">
+                Dark and light themes. Built for operators who live in their monitoring dashboards.
+            </p>
+        </div>
+        <div class="gallery-tabs">
+            <button class="gallery-tab active">Dashboard</button>
+            <button class="gallery-tab">Server Detail</button>
+            <button class="gallery-tab">Sensors</button>
+            <button class="gallery-tab">Settings</button>
+        </div>
+        <div class="gallery-showcase">
+            <div class="gallery-item">
+                <img src="screenshots/01-dashboard-dark.png" alt="Dashboard Dark Theme">
+            </div>
+            <div class="gallery-item">
+                <img src="screenshots/02-dashboard-light.png" alt="Dashboard Light Theme">
+            </div>
+            <div class="gallery-item">
+                <img src="screenshots/03-server-detail-events.png" alt="Server Detail Events">
+            </div>
+            <div class="gallery-item">
+                <img src="screenshots/04-server-detail-sensors.png" alt="Server Detail Sensors">
+            </div>
+        </div>
+    </section>
+
+    <!-- Integrations -->
+    <section class="integrations" id="integrations">
+        <div class="integrations-content">
+            <div>
+                <div class="section-tag">Integrations</div>
+                <h2 class="section-title" style="text-align: left;">Works With Your Existing Stack</h2>
+                <p class="section-subtitle" style="text-align: left; margin-bottom: 3rem;">
+                    IPMI Monitor integrates seamlessly with popular monitoring and orchestration tools.
+                </p>
+                <div class="integration-list">
+                    <div class="integration-item">
+                        <div class="integration-icon">📊</div>
+                        <div>
+                            <h4>Prometheus</h4>
+                            <p>Native /metrics endpoint for scraping</p>
+                        </div>
+                    </div>
+                    <div class="integration-item">
+                        <div class="integration-icon">📈</div>
+                        <div>
+                            <h4>Grafana</h4>
+                            <p>Pre-built dashboard JSON included</p>
+                        </div>
+                    </div>
+                    <div class="integration-item">
+                        <div class="integration-icon">🐳</div>
+                        <div>
+                            <h4>Docker</h4>
+                            <p>Multi-arch images via GitHub Actions</p>
+                        </div>
+                    </div>
+                    <div class="integration-item">
+                        <div class="integration-icon">☸️</div>
+                        <div>
+                            <h4>Kubernetes</h4>
+                            <p>Health checks and graceful shutdown</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="code-container">
+                <div class="code-header">
+                    <span class="code-dot red"></span>
+                    <span class="code-dot yellow"></span>
+                    <span class="code-dot green"></span>
+                </div>
+                <div class="code-body">
+<span class="comment"># Quick Start with Docker</span>
+docker run <span class="flag">-d</span> \
+  <span class="flag">--name</span> ipmi-monitor \
+  <span class="flag">-p</span> <span class="string">5001:5000</span> \
+  <span class="flag">-e</span> IPMI_USER=<span class="string">admin</span> \
+  <span class="flag">-e</span> IPMI_PASS=<span class="string">YourPassword</span> \
+  <span class="flag">-e</span> ADMIN_USER=<span class="string">admin</span> \
+  <span class="flag">-e</span> ADMIN_PASS=<span class="string">SecurePass</span> \
+  <span class="flag">-v</span> ipmi_data:<span class="string">/app/instance</span> \
+  ghcr.io/jjziets/ipmi-monitor:latest
+
+<span class="comment"># Access at http://localhost:5001</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hardware Support -->
+    <section class="hardware">
+        <div class="section-header">
+            <div class="section-tag">Compatibility</div>
+            <h2 class="section-title">Supports Major Server Vendors</h2>
+            <p class="section-subtitle">
+                Works with any IPMI 2.0 compliant BMC. Special support for NVIDIA DGX/HGX systems.
+            </p>
+        </div>
+        <div class="hardware-grid">
+            <div class="hardware-item">
+                <h4>🟢 NVIDIA</h4>
+                <p>DGX, HGX Systems</p>
+            </div>
+            <div class="hardware-item">
+                <h4>🔵 Supermicro</h4>
+                <p>All server lines</p>
+            </div>
+            <div class="hardware-item">
+                <h4>🔴 Dell EMC</h4>
+                <p>PowerEdge (iDRAC 7/8/9)</p>
+            </div>
+            <div class="hardware-item">
+                <h4>🟣 HPE</h4>
+                <p>ProLiant (iLO 4/5/6)</p>
+            </div>
+            <div class="hardware-item">
+                <h4>🔵 Lenovo</h4>
+                <p>ThinkSystem (XCC)</p>
+            </div>
+            <div class="hardware-item">
+                <h4>🟡 ASUSTek</h4>
+                <p>Server motherboards</p>
+            </div>
+            <div class="hardware-item">
+                <h4>⚪ Cisco</h4>
+                <p>UCS (CIMC)</p>
+            </div>
+            <div class="hardware-item">
+                <h4>🟠 Inspur</h4>
+                <p>Server systems</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta" id="get-started">
+        <div class="cta-content">
+            <h2>Ready to Monitor Your Fleet?</h2>
+            <p>Deploy IPMI Monitor in minutes. Open source, production-ready, and built for scale.</p>
+            <div class="hero-buttons" style="justify-content: center;">
+                <a href="https://github.com/jjziets/ipmi-monitor" class="btn-primary">
+                    <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    Clone from GitHub
+                </a>
+                <a href="#" class="btn-secondary">
+                    📖 Read Documentation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="logo">
+            <div class="logo-icon">IP</div>
+            IPMI Monitor
+        </div>
+        <div class="footer-links">
+            <a href="https://github.com/jjziets/ipmi-monitor">GitHub</a>
+            <a href="https://github.com/jjziets/ipmi-monitor/issues">Issues</a>
+            <a href="https://charlottecolo.com">Charlotte Colo</a>
+        </div>
+        <div class="footer-copy">
+            © 2025 IPMI Monitor. MIT License.
+        </div>
+    </footer>
+
+    <script>
+        // Simple tab functionality for gallery
+        document.querySelectorAll('.gallery-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.gallery-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // Smooth scroll for navigation
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

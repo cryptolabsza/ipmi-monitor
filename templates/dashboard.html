@@ -19,6 +19,22 @@
             --accent-yellow: #ffaa00;
             --accent-red: #ff4757;
             --accent-purple: #a855f7;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
         * {
@@ -47,12 +63,15 @@
             padding: 20px 0;
             border-bottom: 1px solid var(--border-color);
             margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
         }
         
         .logo {
             display: flex;
             align-items: center;
             gap: 15px;
+            flex-shrink: 0;
         }
         
         .logo-icon {
@@ -76,8 +95,76 @@
         
         .header-actions {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        
+        @media (max-width: 1400px) {
+            .header-actions {
+                gap: 8px;
+            }
+            .header-actions .btn {
+                padding: 8px 12px;
+                font-size: 0.85rem;
+            }
+        }
+        
+        @media (max-width: 900px) {
+            header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .header-actions {
+                justify-content: center;
+            }
+        }
+        
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            border-color: var(--accent-blue);
+            color: var(--text-primary);
+        }
+        
+        .theme-toggle .icon {
+            font-size: 1.2rem;
+        }
+        
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-blue);
+        }
+        
+        .theme-toggle .theme-icon {
+            font-size: 1.2rem;
         }
         
         .time-selector {
@@ -180,6 +267,596 @@
         .stat-value {
             font-size: 2rem;
             font-weight: 700;
+        }
+        
+        /* AI Panel Styles */
+        .ai-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        
+        .ai-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: linear-gradient(90deg, rgba(168, 85, 247, 0.1), rgba(74, 158, 255, 0.1));
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+        }
+        
+        .ai-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ai-icon {
+            font-size: 1.3rem;
+        }
+        
+        .ai-title h3 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .ai-badge {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: var(--accent-purple);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .ai-badge.starter {
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+        }
+        
+        .ai-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 5px;
+        }
+        
+        .ai-panel-content {
+            padding: 0;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .ai-panel-content.collapsed {
+            display: none;
+        }
+        
+        .ai-upgrade-prompt {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .ai-upgrade-prompt ul {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+            text-align: left;
+            display: inline-block;
+        }
+        
+        /* AI Tabs */
+        .ai-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            overflow-x: auto;
+        }
+        
+        .ai-tab {
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .ai-tab:hover {
+            color: var(--text-primary);
+            background: rgba(74, 158, 255, 0.1);
+        }
+        
+        .ai-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+            background: rgba(74, 158, 255, 0.05);
+        }
+        
+        .ai-tab-content {
+            display: none;
+            padding: 20px;
+        }
+        
+        .ai-tab-content.active {
+            display: block;
+        }
+        
+        /* AI Options */
+        .ai-options {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .ai-options-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        
+        .ai-option-group {
+            margin-bottom: 15px;
+        }
+        
+        .ai-option-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .ai-option-label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        .ai-radio-group, .ai-checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .ai-radio-item, .ai-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+        
+        .ai-radio-item:hover, .ai-checkbox-item:hover {
+            border-color: var(--accent-blue);
+        }
+        
+        .ai-radio-item input, .ai-checkbox-item input {
+            margin: 0;
+        }
+        
+        .ai-generate-btn {
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        
+        .ai-generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.4);
+        }
+        
+        .ai-generate-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        /* AI Output */
+        .ai-output {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            min-height: 100px;
+        }
+        
+        .ai-output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .ai-output-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .ai-output-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Task cards */
+        .ai-task-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--accent-yellow);
+        }
+        
+        .ai-task-card.critical { border-left-color: var(--accent-red); }
+        .ai-task-card.high { border-left-color: #ff6b35; }
+        .ai-task-card.medium { border-left-color: var(--accent-yellow); }
+        .ai-task-card.low { border-left-color: var(--accent-green); }
+        
+        .ai-task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        
+        .ai-task-title {
+            font-weight: 600;
+        }
+        
+        .ai-task-priority {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        
+        .ai-task-priority.critical { background: var(--accent-red); color: white; }
+        .ai-task-priority.high { background: #ff6b35; color: white; }
+        .ai-task-priority.medium { background: var(--accent-yellow); color: black; }
+        .ai-task-priority.low { background: var(--accent-green); color: white; }
+        
+        .ai-task-meta {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .ai-task-reason {
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .ai-task-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .ai-task-btn {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+        
+        .ai-task-btn:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        /* RCA Event Selector */
+        .ai-event-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .ai-event-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .ai-event-item:last-child {
+            border-bottom: none;
+        }
+        
+        .ai-event-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .ai-event-item.selected {
+            background: rgba(74, 158, 255, 0.15);
+            border-color: var(--accent-blue);
+        }
+        
+        .ai-event-severity {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        
+        .ai-event-severity.critical { background: var(--accent-red); }
+        .ai-event-severity.warning { background: var(--accent-yellow); }
+        .ai-event-severity.info { background: var(--accent-blue); }
+        
+        .ai-event-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .ai-event-server {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .ai-event-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .ai-event-time {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        
+        /* Chat styles */
+        .ai-chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 350px;
+        }
+        
+        .ai-chat-examples {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .ai-chat-examples-title {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .ai-chat-example {
+            display: inline-block;
+            padding: 6px 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .ai-chat-example:hover {
+            border-color: var(--accent-blue);
+            background: rgba(74, 158, 255, 0.1);
+        }
+        
+        .ai-chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .ai-chat-message {
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            max-width: 85%;
+        }
+        
+        .ai-chat-message.user {
+            background: var(--accent-blue);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .ai-chat-message.assistant {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 4px;
+        }
+        
+        .ai-chat-input-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .ai-chat-input-container input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 25px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        
+        .ai-chat-input-container input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        .ai-chat-send-btn {
+            padding: 12px 20px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        /* Sync status */
+        .ai-sync-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px 15px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+        
+        .ai-sync-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .ai-sync-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .ai-sync-dot.error { background: var(--accent-red); animation: none; }
+        .ai-sync-dot.syncing { background: var(--accent-blue); }
+        
+        .ai-upgrade-prompt li {
+            margin: 8px 0;
+            color: var(--text-secondary);
+        }
+        
+        .ai-upgrade-btn {
+            display: inline-block;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .ai-upgrade-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+        }
+        
+        .ai-results {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .ai-summary, .ai-tasks, .ai-chat {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .ai-summary h4, .ai-tasks h4, .ai-chat h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.9rem;
+            color: var(--accent-purple);
+        }
+        
+        .ai-chat-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .ai-chat-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+        
+        .ai-chat-input button {
+            padding: 10px 20px;
+            background: var(--accent-purple);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        #aiChatResponse {
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+        
+        .ai-task-item {
+            background: var(--bg-card);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid var(--accent-yellow);
+        }
+        
+        .ai-task-item.high {
+            border-left-color: var(--accent-red);
+        }
+        
+        .ai-task-item.medium {
+            border-left-color: var(--accent-yellow);
+        }
+        
+        .ai-task-item.low {
+            border-left-color: var(--accent-green);
             font-family: 'JetBrains Mono', monospace;
         }
         
@@ -441,17 +1118,27 @@
         .refresh-timer {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 8px 15px;
-            margin-right: 15px;
+            padding: 6px 12px;
+            flex-shrink: 0;
         }
         
         .timer-label {
             font-size: 0.8rem;
             color: var(--text-secondary);
+        }
+        
+        @media (max-width: 1400px) {
+            .refresh-timer {
+                padding: 5px 10px;
+                gap: 6px;
+            }
+            .time-selector {
+                padding: 4px 10px;
+            }
         }
         
         .timer-value {
@@ -635,6 +1322,9 @@
                     <a href="/login" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
                     <a href="/logout" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
                 </span>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span class="icon" id="themeIcon">🌙</span>
+                </button>
             </div>
         </header>
         
@@ -654,6 +1344,197 @@
             <div class="stat-card yellow">
                 <div class="stat-label" id="warningLabel">Warnings (24h)</div>
                 <div class="stat-value" id="warningEvents">-</div>
+            </div>
+        </div>
+        
+        <!-- AI Insights Panel -->
+        <div class="ai-panel" id="aiPanel">
+            <div class="ai-panel-header" onclick="toggleAiPanel()">
+                <div class="ai-title">
+                    <span class="ai-icon">🤖</span>
+                    <h3>AI Insights</h3>
+                    <span class="ai-badge" id="aiBadge">FREE</span>
+                </div>
+                <div class="ai-actions">
+                    <button class="ai-btn" title="Toggle AI Panel">
+                        <span id="aiToggleIcon">▼</span>
+                    </button>
+                </div>
+            </div>
+            <div class="ai-panel-content" id="aiPanelContent">
+                <!-- Upgrade Prompt for Free Users -->
+                <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 30px;">
+                    <p style="font-size: 1.1rem;">🚀 <strong>Upgrade to Starter</strong> to unlock AI-powered features:</p>
+                    <ul>
+                        <li>📊 Daily fleet health summaries</li>
+                        <li>🔧 AI-generated maintenance tasks</li>
+                        <li>🔮 Predictive failure analytics</li>
+                        <li>🔍 Root cause analysis</li>
+                        <li>💬 AI chat assistant</li>
+                    </ul>
+                    <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 15px;">
+                        Upgrade Now - $29/month
+                    </a>
+                    <div class="ai-license-input" style="margin-top: 20px;">
+                        <input type="text" id="licenseKeyInput" placeholder="Enter license key..." style="padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 220px;">
+                        <button onclick="activateLicense()" style="padding: 10px 20px; background: var(--accent-green); color: white; border: none; border-radius: 8px; cursor: pointer; margin-left: 8px;">Activate</button>
+                    </div>
+                </div>
+                
+                <!-- AI Features for Paid Users -->
+                <div class="ai-results" id="aiResults" style="display: none;">
+                    <!-- Sync Status -->
+                    <div class="ai-sync-status" id="aiSyncStatus">
+                        <div class="ai-sync-indicator">
+                            <span class="ai-sync-dot" id="aiSyncDot"></span>
+                            <span id="aiSyncText">Syncing...</span>
+                        </div>
+                        <span id="aiSyncDetails">Last sync: checking...</span>
+                        <button onclick="triggerSync()" style="margin-left: auto; padding: 4px 12px; font-size: 0.8rem; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; cursor: pointer; color: var(--text-primary);">↻ Sync Now</button>
+                    </div>
+                    
+                    <!-- AI Tabs -->
+                    <div class="ai-tabs">
+                        <button class="ai-tab active" onclick="switchAiTab('summary')">📊 Summary</button>
+                        <button class="ai-tab" onclick="switchAiTab('tasks')">🔧 Tasks</button>
+                        <button class="ai-tab" onclick="switchAiTab('predictions')">🔮 Predictions</button>
+                        <button class="ai-tab" onclick="switchAiTab('rca')">🔍 RCA</button>
+                        <button class="ai-tab" onclick="switchAiTab('chat')">💬 Chat</button>
+                    </div>
+                    
+                    <!-- Summary Tab -->
+                    <div class="ai-tab-content active" id="aiTabSummary">
+                        <div class="ai-options">
+                            <div class="ai-options-title">Summary Options</div>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Summary Type:</label>
+                                <div class="ai-radio-group">
+                                    <label class="ai-radio-item"><input type="radio" name="summaryType" value="health" checked> 🏥 Health Report</label>
+                                    <label class="ai-radio-item"><input type="radio" name="summaryType" value="critical"> 🔴 Critical Only</label>
+                                    <label class="ai-radio-item"><input type="radio" name="summaryType" value="sensors"> 🌡️ Sensor Analysis</label>
+                                    <label class="ai-radio-item"><input type="radio" name="summaryType" value="events"> 📋 Event Digest</label>
+                                </div>
+                            </div>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Time Range:</label>
+                                <div class="ai-radio-group">
+                                    <label class="ai-radio-item"><input type="radio" name="summaryRange" value="24" checked> 24 hours</label>
+                                    <label class="ai-radio-item"><input type="radio" name="summaryRange" value="168"> 7 days</label>
+                                    <label class="ai-radio-item"><input type="radio" name="summaryRange" value="720"> 30 days</label>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="ai-generate-btn" onclick="generateSummary()" id="summaryBtn">
+                            <span>🤖</span> Generate Summary
+                        </button>
+                        <div class="ai-output" id="summaryOutput" style="display: none;">
+                            <div class="ai-output-header">
+                                <span class="ai-output-title">📊 Fleet Summary</span>
+                                <span class="ai-output-time" id="summaryTime"></span>
+                            </div>
+                            <div id="aiSummaryContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tasks Tab -->
+                    <div class="ai-tab-content" id="aiTabTasks">
+                        <div class="ai-options">
+                            <div class="ai-options-title">Scan for Issues</div>
+                            <div class="ai-checkbox-group">
+                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="memory" checked> 💾 ECC/Memory</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="cooling" checked> ❄️ Cooling/Fans</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="power" checked> ⚡ Power/PSU</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="thermal" checked> 🌡️ Thermal</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="storage" checked> 💿 Storage</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="system" checked> 🖥️ System</label>
+                            </div>
+                        </div>
+                        <button class="ai-generate-btn" onclick="generateTasks()" id="tasksBtn">
+                            <span>🔧</span> Generate Tasks
+                        </button>
+                        <div class="ai-output" id="tasksOutput" style="display: none;">
+                            <div class="ai-output-header">
+                                <span class="ai-output-title">🔧 Maintenance Tasks</span>
+                                <span class="ai-output-time" id="tasksTime"></span>
+                            </div>
+                            <div id="aiTasksContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Predictions Tab -->
+                    <div class="ai-tab-content" id="aiTabPredictions">
+                        <div class="ai-options">
+                            <div class="ai-options-title">Prediction Models</div>
+                            <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 0.9rem;">
+                                AI analyzes historical trends to predict potential failures before they happen.
+                            </p>
+                            <div class="ai-checkbox-group">
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="memory" checked> Memory degradation</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="fan" checked> Fan motor wear</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="thermal" checked> Thermal drift</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="psu" checked> PSU aging</label>
+                            </div>
+                        </div>
+                        <button class="ai-generate-btn" onclick="generatePredictions()" id="predictionsBtn">
+                            <span>🔮</span> Analyze & Predict
+                        </button>
+                        <div class="ai-output" id="predictionsOutput" style="display: none;">
+                            <div class="ai-output-header">
+                                <span class="ai-output-title">🔮 Failure Predictions</span>
+                                <span class="ai-output-time" id="predictionsTime"></span>
+                            </div>
+                            <div id="aiPredictionsContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- RCA Tab -->
+                    <div class="ai-tab-content" id="aiTabRca">
+                        <div class="ai-options">
+                            <div class="ai-options-title">Select an Event to Analyze</div>
+                            <div class="ai-event-list" id="rcaEventList">
+                                <div style="padding: 20px; text-align: center; color: var(--text-secondary);">
+                                    Loading recent events...
+                                </div>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <label class="ai-option-label">Or describe an incident:</label>
+                                <textarea id="rcaDescription" placeholder="e.g., Server brickbox-40 rebooted unexpectedly at 10:45am..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); min-height: 60px; resize: vertical;"></textarea>
+                            </div>
+                        </div>
+                        <button class="ai-generate-btn" onclick="generateRCA()" id="rcaBtn">
+                            <span>🔍</span> Analyze Root Cause
+                        </button>
+                        <div class="ai-output" id="rcaOutput" style="display: none;">
+                            <div class="ai-output-header">
+                                <span class="ai-output-title">🔍 Root Cause Analysis</span>
+                                <span class="ai-output-time" id="rcaTime"></span>
+                            </div>
+                            <div id="aiRcaContent"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Tab -->
+                    <div class="ai-tab-content" id="aiTabChat">
+                        <div class="ai-chat-container">
+                            <div class="ai-chat-examples">
+                                <div class="ai-chat-examples-title">Try asking:</div>
+                                <span class="ai-chat-example" onclick="setQuestion('Which servers need maintenance this week?')">Which servers need maintenance?</span>
+                                <span class="ai-chat-example" onclick="setQuestion('Show me all ECC errors from the past month')">Show ECC errors</span>
+                                <span class="ai-chat-example" onclick="setQuestion('What is the health status of my NVIDIA servers?')">NVIDIA server health</span>
+                                <span class="ai-chat-example" onclick="setQuestion('Summarize yesterday\\'s critical events')">Yesterday's critical events</span>
+                            </div>
+                            <div class="ai-chat-messages" id="aiChatMessages">
+                                <div class="ai-chat-message assistant">
+                                    👋 Hi! I'm your AI assistant. Ask me anything about your server fleet - events, sensors, maintenance, or health status.
+                                </div>
+                            </div>
+                            <div class="ai-chat-input-container">
+                                <input type="text" id="aiChatInput" placeholder="Ask about your fleet..." onkeypress="if(event.key==='Enter')askAI()">
+                                <button class="ai-chat-send-btn" onclick="askAI()">Send</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -706,6 +1587,31 @@
     </div>
     
     <script>
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+        
+        // Initialize theme immediately
+        initTheme();
+        
         let currentFilter = 'all';
         let serversData = [];  // Store servers for sorting
         let sortField = 'name';
@@ -737,6 +1643,445 @@
             loadStats();
             loadServers();
             loadEvents();
+        }
+        
+        // AI Features
+        let aiEnabled = false;
+        let selectedRcaEvent = null;
+        let recentEventsForRca = [];
+        
+        function toggleAiPanel() {
+            const content = document.getElementById('aiPanelContent');
+            const icon = document.getElementById('aiToggleIcon');
+            if (content.classList.contains('collapsed')) {
+                content.classList.remove('collapsed');
+                icon.textContent = '▼';
+            } else {
+                content.classList.add('collapsed');
+                icon.textContent = '▶';
+            }
+        }
+        
+        function switchAiTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.ai-tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.ai-tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('aiTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+            
+            // Load RCA events when switching to RCA tab
+            if (tabName === 'rca') {
+                loadEventsForRca();
+            }
+        }
+        
+        async function loadAiStatus() {
+            try {
+                const response = await fetch('/api/ai/status');
+                const data = await response.json();
+                
+                aiEnabled = data.subscription_valid && data.enabled;
+                
+                const badge = document.getElementById('aiBadge');
+                const upgradePrompt = document.getElementById('aiUpgradePrompt');
+                const results = document.getElementById('aiResults');
+                
+                if (aiEnabled) {
+                    badge.textContent = data.subscription_tier.toUpperCase();
+                    badge.classList.add('starter');
+                    upgradePrompt.style.display = 'none';
+                    results.style.display = 'block';
+                    updateSyncStatus(data);
+                    loadCachedAiResults();
+                } else {
+                    badge.textContent = 'FREE';
+                    badge.classList.remove('starter');
+                    upgradePrompt.style.display = 'block';
+                    results.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Failed to load AI status:', e);
+            }
+        }
+        
+        function updateSyncStatus(data) {
+            const dot = document.getElementById('aiSyncDot');
+            const text = document.getElementById('aiSyncText');
+            const details = document.getElementById('aiSyncDetails');
+            
+            if (data.last_sync) {
+                const syncDate = new Date(data.last_sync);
+                const ago = getTimeAgo(syncDate);
+                dot.className = 'ai-sync-dot';
+                text.textContent = 'Connected';
+                details.textContent = `Last sync: ${ago} | ${data.events_synced || 0} events`;
+            } else {
+                dot.className = 'ai-sync-dot error';
+                text.textContent = 'Not synced';
+                details.textContent = 'Click "Sync Now" to start';
+            }
+        }
+        
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'just now';
+            if (seconds < 3600) return Math.floor(seconds / 60) + ' min ago';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + ' hours ago';
+            return Math.floor(seconds / 86400) + ' days ago';
+        }
+        
+        async function triggerSync() {
+            const dot = document.getElementById('aiSyncDot');
+            const text = document.getElementById('aiSyncText');
+            dot.className = 'ai-sync-dot syncing';
+            text.textContent = 'Syncing...';
+            
+            try {
+                const response = await fetch('/api/ai/sync', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    text.textContent = 'Synced!';
+                    dot.className = 'ai-sync-dot';
+                    setTimeout(() => loadAiStatus(), 1000);
+                } else {
+                    text.textContent = 'Sync failed';
+                    dot.className = 'ai-sync-dot error';
+                }
+            } catch (e) {
+                text.textContent = 'Sync error';
+                dot.className = 'ai-sync-dot error';
+            }
+        }
+        
+        async function loadCachedAiResults() {
+            if (!aiEnabled) return;
+            
+            try {
+                const response = await fetch('/api/ai/results');
+                const data = await response.json();
+                
+                // Show cached summary if available
+                if (data.summary && data.summary.content) {
+                    document.getElementById('summaryOutput').style.display = 'block';
+                    document.getElementById('aiSummaryContent').innerHTML = formatAiContent(data.summary.content);
+                    document.getElementById('summaryTime').textContent = data.summary.generated_at ? 
+                        'Generated: ' + new Date(data.summary.generated_at).toLocaleString() : '';
+                }
+                
+                // Show cached tasks if available
+                if (data.tasks && data.tasks.content) {
+                    document.getElementById('tasksOutput').style.display = 'block';
+                    const tasks = JSON.parse(data.tasks.content);
+                    renderTasks(tasks);
+                    document.getElementById('tasksTime').textContent = data.tasks.generated_at ?
+                        'Generated: ' + new Date(data.tasks.generated_at).toLocaleString() : '';
+                }
+                
+                // Show cached predictions if available
+                if (data.predictions && data.predictions.content) {
+                    document.getElementById('predictionsOutput').style.display = 'block';
+                    const predictions = JSON.parse(data.predictions.content);
+                    renderPredictions(predictions);
+                    document.getElementById('predictionsTime').textContent = data.predictions.generated_at ?
+                        'Generated: ' + new Date(data.predictions.generated_at).toLocaleString() : '';
+                }
+            } catch (e) {
+                console.error('Failed to load cached AI results:', e);
+            }
+        }
+        
+        function formatAiContent(content) {
+            // Convert markdown-like content to HTML
+            return content
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>')
+                .replace(/^- /gm, '• ');
+        }
+        
+        function renderTasks(tasks) {
+            if (!tasks || tasks.length === 0) {
+                document.getElementById('aiTasksContent').innerHTML = '<p style="color: var(--text-secondary)">No maintenance tasks identified. Your fleet is healthy! ✅</p>';
+                return;
+            }
+            
+            document.getElementById('aiTasksContent').innerHTML = tasks.map(t => `
+                <div class="ai-task-card ${t.priority || 'medium'}">
+                    <div class="ai-task-header">
+                        <span class="ai-task-title">${t.title}</span>
+                        <span class="ai-task-priority ${t.priority || 'medium'}">${t.priority || 'medium'}</span>
+                    </div>
+                    <div class="ai-task-meta">
+                        ${t.server ? `<strong>Server:</strong> ${t.server}` : ''}
+                        ${t.component ? ` | <strong>Component:</strong> ${t.component}` : ''}
+                    </div>
+                    <div class="ai-task-reason">${t.reason || t.description || ''}</div>
+                    ${t.suggested_action ? `<div style="font-size: 0.85rem; color: var(--accent-green);">💡 ${t.suggested_action}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function renderPredictions(predictions) {
+            if (!predictions || predictions.length === 0) {
+                document.getElementById('aiPredictionsContent').innerHTML = '<p style="color: var(--text-secondary)">No potential failures predicted. Your fleet looks stable! ✅</p>';
+                return;
+            }
+            
+            document.getElementById('aiPredictionsContent').innerHTML = predictions.map(p => `
+                <div class="ai-task-card ${p.confidence > 80 ? 'high' : p.confidence > 50 ? 'medium' : 'low'}">
+                    <div class="ai-task-header">
+                        <span class="ai-task-title">⚠️ ${p.component || 'Component'} on ${p.server || 'Unknown'}</span>
+                        <span class="ai-task-priority medium">${p.confidence || 50}% confidence</span>
+                    </div>
+                    <div class="ai-task-reason">${p.prediction || p.description || ''}</div>
+                    ${p.timeframe ? `<div style="font-size: 0.85rem;"><strong>Timeframe:</strong> ${p.timeframe} days</div>` : ''}
+                    ${p.warning_signs ? `<div style="font-size: 0.85rem; color: var(--accent-yellow);">👁️ Watch for: ${p.warning_signs}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        async function generateSummary() {
+            const btn = document.getElementById('summaryBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Generating...';
+            
+            const summaryType = document.querySelector('input[name="summaryType"]:checked').value;
+            const timeRange = document.querySelector('input[name="summaryRange"]:checked').value;
+            
+            try {
+                const response = await fetch('/api/ai/summary/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: summaryType, hours: parseInt(timeRange) })
+                });
+                const data = await response.json();
+                
+                document.getElementById('summaryOutput').style.display = 'block';
+                if (data.summary && (data.summary.html || data.summary.content)) {
+                    document.getElementById('aiSummaryContent').innerHTML = data.summary.html || formatAiContent(data.summary.content);
+                    document.getElementById('summaryTime').textContent = 'Generated: ' + new Date().toLocaleString();
+                } else if (data.error) {
+                    document.getElementById('aiSummaryContent').innerHTML = `<p style="color: var(--accent-red)">${data.error}</p>`;
+                }
+            } catch (e) {
+                document.getElementById('summaryOutput').style.display = 'block';
+                document.getElementById('aiSummaryContent').innerHTML = '<p style="color: var(--accent-red)">Error generating summary. Please try again.</p>';
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<span>🤖</span> Generate Summary';
+        }
+        
+        async function generateTasks() {
+            const btn = document.getElementById('tasksBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Generating...';
+            
+            const issues = Array.from(document.querySelectorAll('input[name="taskIssue"]:checked')).map(cb => cb.value);
+            
+            try {
+                const response = await fetch('/api/ai/tasks/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ issues })
+                });
+                const data = await response.json();
+                
+                document.getElementById('tasksOutput').style.display = 'block';
+                if (data.tasks) {
+                    renderTasks(data.tasks);
+                    document.getElementById('tasksTime').textContent = 'Generated: ' + new Date().toLocaleString();
+                } else if (data.error) {
+                    document.getElementById('aiTasksContent').innerHTML = `<p style="color: var(--accent-red)">${data.error}</p>`;
+                }
+            } catch (e) {
+                document.getElementById('tasksOutput').style.display = 'block';
+                document.getElementById('aiTasksContent').innerHTML = '<p style="color: var(--accent-red)">Error generating tasks. Please try again.</p>';
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<span>🔧</span> Generate Tasks';
+        }
+        
+        async function generatePredictions() {
+            const btn = document.getElementById('predictionsBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Analyzing...';
+            
+            try {
+                const response = await fetch('/api/ai/predictions', { method: 'POST' });
+                const data = await response.json();
+                
+                document.getElementById('predictionsOutput').style.display = 'block';
+                if (data.predictions) {
+                    renderPredictions(data.predictions);
+                    document.getElementById('predictionsTime').textContent = 'Generated: ' + new Date().toLocaleString();
+                } else if (data.error) {
+                    document.getElementById('aiPredictionsContent').innerHTML = `<p style="color: var(--accent-red)">${data.error}</p>`;
+                }
+            } catch (e) {
+                document.getElementById('predictionsOutput').style.display = 'block';
+                document.getElementById('aiPredictionsContent').innerHTML = '<p style="color: var(--accent-red)">Error generating predictions. Please try again.</p>';
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<span>🔮</span> Analyze & Predict';
+        }
+        
+        async function loadEventsForRca() {
+            try {
+                const response = await fetch(`/api/events?hours=72&limit=20`);
+                const data = await response.json();
+                recentEventsForRca = data.events || [];
+                
+                const list = document.getElementById('rcaEventList');
+                if (recentEventsForRca.length === 0) {
+                    list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No recent events to analyze.</div>';
+                    return;
+                }
+                
+                list.innerHTML = recentEventsForRca.map((e, i) => `
+                    <div class="ai-event-item" onclick="selectRcaEvent(${i})" id="rcaEvent${i}">
+                        <span class="ai-event-severity ${e.severity}"></span>
+                        <div class="ai-event-info">
+                            <div class="ai-event-server">${e.server_name}</div>
+                            <div class="ai-event-desc">${e.description}</div>
+                        </div>
+                        <div class="ai-event-time">${new Date(e.timestamp).toLocaleString()}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('rcaEventList').innerHTML = '<div style="padding: 20px; text-align: center; color: var(--accent-red);">Error loading events.</div>';
+            }
+        }
+        
+        function selectRcaEvent(index) {
+            // Clear previous selection
+            document.querySelectorAll('.ai-event-item').forEach(el => el.classList.remove('selected'));
+            
+            // Select new event
+            document.getElementById('rcaEvent' + index).classList.add('selected');
+            selectedRcaEvent = recentEventsForRca[index];
+            
+            // Clear manual description if event selected
+            document.getElementById('rcaDescription').value = '';
+        }
+        
+        async function generateRCA() {
+            const btn = document.getElementById('rcaBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Analyzing...';
+            
+            const description = document.getElementById('rcaDescription').value.trim();
+            
+            if (!selectedRcaEvent && !description) {
+                alert('Please select an event or describe an incident to analyze.');
+                btn.disabled = false;
+                btn.innerHTML = '<span>🔍</span> Analyze Root Cause';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ai/rca', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event_id: selectedRcaEvent ? selectedRcaEvent.id : null,
+                        description: description || (selectedRcaEvent ? selectedRcaEvent.description : '')
+                    })
+                });
+                const data = await response.json();
+                
+                document.getElementById('rcaOutput').style.display = 'block';
+                if (data.analysis) {
+                    document.getElementById('aiRcaContent').innerHTML = formatAiContent(data.analysis);
+                    document.getElementById('rcaTime').textContent = 'Generated: ' + new Date().toLocaleString();
+                } else if (data.error) {
+                    document.getElementById('aiRcaContent').innerHTML = `<p style="color: var(--accent-red)">${data.error}</p>`;
+                }
+            } catch (e) {
+                document.getElementById('rcaOutput').style.display = 'block';
+                document.getElementById('aiRcaContent').innerHTML = '<p style="color: var(--accent-red)">Error performing analysis. Please try again.</p>';
+            }
+            
+            btn.disabled = false;
+            btn.innerHTML = '<span>🔍</span> Analyze Root Cause';
+        }
+        
+        function setQuestion(q) {
+            document.getElementById('aiChatInput').value = q;
+            document.getElementById('aiChatInput').focus();
+        }
+        
+        async function askAI() {
+            const input = document.getElementById('aiChatInput');
+            const question = input.value.trim();
+            if (!question) return;
+            
+            const messagesDiv = document.getElementById('aiChatMessages');
+            
+            // Add user message
+            messagesDiv.innerHTML += `<div class="ai-chat-message user">${escapeHtml(question)}</div>`;
+            messagesDiv.innerHTML += `<div class="ai-chat-message assistant" id="aiThinking"><div class="spinner" style="width: 16px; height: 16px;"></div> Thinking...</div>`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            input.value = '';
+            
+            try {
+                const response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+                const data = await response.json();
+                
+                const thinking = document.getElementById('aiThinking');
+                if (data.answer) {
+                    thinking.innerHTML = formatAiContent(data.answer);
+                } else if (data.error) {
+                    thinking.innerHTML = `<span style="color: var(--accent-red)">${data.error}</span>`;
+                }
+                thinking.id = '';
+            } catch (e) {
+                const thinking = document.getElementById('aiThinking');
+                thinking.innerHTML = '<span style="color: var(--accent-red)">Error contacting AI service</span>';
+                thinking.id = '';
+            }
+            
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        async function activateLicense() {
+            const input = document.getElementById('licenseKeyInput');
+            const key = input.value.trim();
+            if (!key) {
+                alert('Please enter a license key');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ai/config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ license_key: key, sync_enabled: true })
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert('License activated! AI features are now enabled.');
+                    loadAiStatus();
+                } else {
+                    alert(data.error || 'Failed to activate license');
+                }
+            } catch (e) {
+                alert('Error activating license: ' + e.message);
+            }
         }
         
         async function loadStats() {
@@ -968,6 +2313,7 @@
             loadStats();
             loadServers();
             loadEvents();
+            loadAiStatus();
             document.getElementById('lastUpdated').textContent = 
                 'Last updated: ' + new Date().toLocaleTimeString();
         }

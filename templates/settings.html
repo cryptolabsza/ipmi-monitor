@@ -18,6 +18,23 @@
             --accent-green: #00d68f;
             --accent-yellow: #ffaa00;
             --accent-red: #ff4757;
+            --accent-purple: #a855f7;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -285,6 +302,31 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.85rem;
         }
+        
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-blue);
+        }
     </style>
 </head>
 <body>
@@ -294,6 +336,11 @@
                 <a href="/">← Dashboard</a>
                 <span>/</span>
                 <h1>Settings</h1>
+            </div>
+            <div class="header-actions">
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="themeIcon">🌙</span>
+                </button>
             </div>
         </header>
         
@@ -307,6 +354,7 @@
             <button class="tab" onclick="showTab('notifications')">📬 Notifications</button>
             <button class="tab" onclick="showTab('import')">📥 Import/Export</button>
             <button class="tab" onclick="showTab('security')">🛡️ Security</button>
+            <button class="tab" onclick="showTab('ai')">🤖 AI Features</button>
         </div>
         
         <!-- Manage Servers Tab -->
@@ -1015,9 +1063,109 @@
                 </div>
             </div>
         </div>
+        
+        <!-- AI Features Tab -->
+        <div id="ai" class="tab-content">
+            <div class="card">
+                <div class="card-title">🤖 CryptoLabs AI Features</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Connect to CryptoLabs cloud for AI-powered insights, predictions, and automation.
+                </p>
+                
+                <div id="aiStatusSection">
+                    <h4 style="margin-bottom: 15px;">Subscription Status</h4>
+                    <div class="server-item" id="aiStatusDisplay">
+                        <div class="server-info">
+                            <span class="server-name" id="aiTierDisplay">FREE</span>
+                            <span class="server-ip" id="aiStatusMessage">Not connected to CryptoLabs AI</span>
+                        </div>
+                        <div class="server-badges">
+                            <span id="aiSyncStatus" class="status-badge status-badge-warning">Not syncing</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-row" style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>License Key</label>
+                        <input type="text" id="aiLicenseKey" placeholder="sk-xxxxxxxxx...">
+                        <small style="color: var(--text-secondary);">Get your key at <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank">cryptolabs.co.za</a></small>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="aiSyncEnabled" style="margin-right: 8px;">
+                            Enable cloud sync (required for AI features)
+                        </label>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveAiConfig()">💾 Save AI Configuration</button>
+                <button class="btn btn-secondary" onclick="triggerAiSync()" style="margin-left: 10px;">🔄 Sync Now</button>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">✨ AI Features (Starter Plan)</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Upgrade to unlock powerful AI capabilities:
+                </p>
+                
+                <ul style="list-style: none; padding: 0; color: var(--text-secondary);">
+                    <li style="padding: 8px 0;">📊 <strong>Daily/Weekly Summaries</strong> - AI-generated fleet health reports</li>
+                    <li style="padding: 8px 0;">🔧 <strong>Maintenance Tasks</strong> - Automatic task creation from events</li>
+                    <li style="padding: 8px 0;">📈 <strong>Predictive Analytics</strong> - Failure predictions before they happen</li>
+                    <li style="padding: 8px 0;">🔍 <strong>Root Cause Analysis</strong> - AI explains why incidents occurred</li>
+                    <li style="padding: 8px 0;">💬 <strong>AI Chat</strong> - Ask questions about your fleet</li>
+                    <li style="padding: 8px 0;">📱 <strong>Advanced Alerting</strong> - Slack, Teams, Discord, Webhooks</li>
+                </ul>
+                
+                <div style="margin-top: 20px; text-align: center;">
+                    <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-block; background: linear-gradient(90deg, #4a9eff, #a855f7);">
+                        🚀 Upgrade to Starter - $29/month
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card" id="aiLastSyncCard" style="display: none;">
+                <div class="card-title">📡 Sync Status</div>
+                <div class="server-item">
+                    <div class="server-info">
+                        <span class="server-name">Last Sync: <span id="aiLastSyncTime">-</span></span>
+                        <span class="server-ip" id="aiLastSyncResult">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+        
+        // Initialize theme immediately
+        initTheme();
+        
         const SERVERS = {};
         let MANAGED_SERVERS = [];
         
@@ -1033,7 +1181,91 @@
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
             if (tabId === 'notifications') loadNotificationConfigs();
             if (tabId === 'security') loadAdminCredentials();
+            if (tabId === 'ai') loadAiConfig();
         }
+        
+        // ============== AI Configuration ==============
+        
+        async function loadAiConfig() {
+            try {
+                const response = await fetch('/api/ai/config');
+                if (!response.ok) {
+                    document.getElementById('aiStatusMessage').textContent = 'Login required to configure AI features';
+                    return;
+                }
+                
+                const config = await response.json();
+                
+                // Update display
+                if (config.subscription_valid) {
+                    document.getElementById('aiTierDisplay').textContent = (config.subscription_tier || 'STARTER').toUpperCase();
+                    document.getElementById('aiStatusMessage').textContent = `Connected - ${config.max_servers} servers max`;
+                    document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
+                    document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
+                } else {
+                    document.getElementById('aiTierDisplay').textContent = 'FREE';
+                    document.getElementById('aiStatusMessage').textContent = config.license_key ? 'Invalid license' : 'No license key';
+                    document.getElementById('aiSyncStatus').textContent = 'Not active';
+                    document.getElementById('aiSyncStatus').className = 'status-badge status-badge-warning';
+                }
+                
+                // Fill form
+                document.getElementById('aiSyncEnabled').checked = config.sync_enabled;
+                
+                // Show last sync if available
+                if (config.last_sync) {
+                    document.getElementById('aiLastSyncCard').style.display = 'block';
+                    document.getElementById('aiLastSyncTime').textContent = new Date(config.last_sync).toLocaleString();
+                    document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status;
+                }
+                
+            } catch (e) {
+                console.error('Failed to load AI config:', e);
+            }
+        }
+        
+        async function saveAiConfig() {
+            const licenseKey = document.getElementById('aiLicenseKey').value.trim();
+            const syncEnabled = document.getElementById('aiSyncEnabled').checked;
+            
+            try {
+                const response = await fetch('/api/ai/config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        license_key: licenseKey || undefined,
+                        sync_enabled: syncEnabled
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'success') {
+                    showAlert('AI configuration saved successfully!', 'success');
+                    loadAiConfig();
+                } else {
+                    showAlert(data.error || 'Failed to save configuration', 'error');
+                }
+            } catch (e) {
+                showAlert('Error saving configuration: ' + e.message, 'error');
+            }
+        }
+        
+        async function triggerAiSync() {
+            try {
+                const response = await fetch('/api/ai/sync', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Sync completed: ' + data.message, 'success');
+                } else {
+                    showAlert('Sync failed: ' + data.message, 'error');
+                }
+                
+                loadAiConfig();
+            } catch (e) {
+                showAlert('Sync error: ' + e.message, 'error');
+            }
         
         function showAlert(message, type) {
             const alertBox = document.getElementById('alertBox');

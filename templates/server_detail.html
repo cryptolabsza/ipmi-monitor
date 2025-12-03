@@ -19,6 +19,22 @@
             --accent-yellow: #ffaa00;
             --accent-red: #ff4757;
             --accent-purple: #a855f7;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -96,6 +112,26 @@
         .btn-group {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+        
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-blue);
         }
         
         .card {
@@ -370,6 +406,9 @@
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
                 <button class="btn btn-warning admin-only" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
                 <button class="btn btn-danger admin-only" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="themeIcon">🌙</span>
+                </button>
             </div>
         </header>
         
@@ -447,6 +486,31 @@
     </div>
     
     <script>
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+        
+        // Initialize theme immediately
+        initTheme();
+        
         const bmcIp = '{{ bmc_ip }}';
         let allEvents = [];
         

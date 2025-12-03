@@ -1,0 +1,266 @@
+<!-- 
+    IPMI Monitor - WordPress Blog Post
+    ===================================
+    
+    HOW TO USE:
+    1. In WordPress, create a new Post or Page
+    2. Switch to the "Code Editor" or "HTML" view
+    3. Paste this content
+    4. Upload images to Media Library and update the image URLs
+    5. Publish!
+    
+    This is designed for the WordPress block editor (Gutenberg) 
+    or Classic Editor in HTML mode.
+-->
+
+<p style="font-size: 1.2em; color: #555; margin-bottom: 2em;">Introducing <strong>IPMI Monitor</strong> — a production-ready, open-source web dashboard for monitoring IPMI/BMC System Event Logs across your entire server fleet. Track hardware health, ECC memory errors, temperature sensors, and critical events in real-time.</p>
+
+<!-- Hero Image -->
+<figure style="margin: 2em 0;">
+<img src="YOUR_MEDIA_URL/01-dashboard-dark.png" alt="IPMI Monitor Dashboard" style="width: 100%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);" />
+<figcaption style="text-align: center; color: #666; font-size: 0.9em; margin-top: 0.5em;">IPMI Monitor Dashboard - Monitor your entire server fleet from one place</figcaption>
+</figure>
+
+<h2>Why We Built This</h2>
+
+<p>Managing a datacenter or colocation facility means keeping track of dozens—sometimes hundreds—of servers. When hardware issues occur, you need to know immediately. Traditional IPMI tools require logging into each server's BMC individually, which doesn't scale.</p>
+
+<p><strong>IPMI Monitor</strong> solves this by providing a centralized dashboard that:</p>
+
+<ul>
+<li>Collects IPMI System Event Logs (SEL) from all servers automatically</li>
+<li>Shows real-time sensor data (temperature, fans, voltage, power)</li>
+<li>Identifies exactly which DIMM has ECC memory errors</li>
+<li>Classifies events by severity (Critical, Warning, Info)</li>
+<li>Integrates with Prometheus and Grafana for alerting</li>
+</ul>
+
+<h2>Key Features</h2>
+
+<h3>🔍 Automated Event Collection</h3>
+<p>IPMI Monitor uses 10 parallel workers to collect SEL logs from your entire fleet in minutes, not hours. Set it and forget it—events are collected automatically every 5 minutes (configurable).</p>
+
+<h3>📊 Real-Time Dashboard</h3>
+<p>The auto-refreshing dashboard shows server status at a glance. See which servers have critical events, warnings, or are running smoothly. Filter by time range from 1 hour to 30 days.</p>
+
+<!-- Dashboard Light Screenshot -->
+<figure style="margin: 2em 0;">
+<img src="YOUR_MEDIA_URL/02-dashboard-light.png" alt="IPMI Monitor Light Theme" style="width: 100%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15);" />
+<figcaption style="text-align: center; color: #666; font-size: 0.9em; margin-top: 0.5em;">Light theme available for daytime viewing</figcaption>
+</figure>
+
+<h3>🌡️ Live Sensor Monitoring</h3>
+<p>View real-time temperature, fan speed, voltage, and power readings for each server. Spot thermal issues before they cause downtime.</p>
+
+<!-- Sensors Screenshot -->
+<figure style="margin: 2em 0;">
+<img src="YOUR_MEDIA_URL/04-server-detail-sensors.png" alt="Server Sensor Monitoring" style="width: 100%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);" />
+<figcaption style="text-align: center; color: #666; font-size: 0.9em; margin-top: 0.5em;">Live sensor readings including temperature, fans, and voltage</figcaption>
+</figure>
+
+<h3>💾 ECC Memory Error Tracking</h3>
+<p>When ECC errors occur, IPMI Monitor tells you exactly which memory sensor detected them (e.g., CPU1_ECC1). Know which DIMM to replace before it fails completely.</p>
+
+<!-- Events Screenshot -->
+<figure style="margin: 2em 0;">
+<img src="YOUR_MEDIA_URL/03-server-detail-events.png" alt="Event Log with ECC Tracking" style="width: 100%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);" />
+<figcaption style="text-align: center; color: #666; font-size: 0.9em; margin-top: 0.5em;">Event log with ECC memory sensor identification</figcaption>
+</figure>
+
+<h3>🔐 Admin Authentication</h3>
+<p>Two access levels: read-only for operators (view dashboard, export CSV) and admin access for sensitive operations (add/delete servers, clear SEL logs, manage credentials).</p>
+
+<h3>📈 Prometheus & Grafana Integration</h3>
+<p>Native <code>/metrics</code> endpoint for Prometheus scraping. We include a pre-built Grafana dashboard JSON file so you can set up alerting in minutes.</p>
+
+<h2>Supported Hardware</h2>
+
+<p>IPMI Monitor works with any IPMI 2.0 compliant BMC. We've tested and optimized for:</p>
+
+<table style="width: 100%; border-collapse: collapse; margin: 2em 0;">
+<thead>
+<tr style="background: #f5f5f5;">
+<th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Vendor</th>
+<th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Products</th>
+<th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>NVIDIA</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">DGX, HGX Systems</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">16-character password support</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>Supermicro</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">All server lines</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">Full sensor support</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>Dell EMC</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">PowerEdge (iDRAC)</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">iDRAC 7/8/9 supported</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>HPE</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">ProLiant (iLO)</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">iLO 4/5/6 supported</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>Lenovo</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">ThinkSystem (XCC)</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">XClarity Controller supported</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>ASUSTek</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">Server motherboards</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">Standard IPMI config</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>Cisco</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">UCS (CIMC)</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">CIMC supported</td>
+</tr>
+<tr>
+<td style="padding: 12px; border-bottom: 1px solid #eee;"><strong>Inspur</strong></td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">Server systems</td>
+<td style="padding: 12px; border-bottom: 1px solid #eee;">Standard IPMI</td>
+</tr>
+</tbody>
+</table>
+
+<h2>Quick Start</h2>
+
+<p>Deploy IPMI Monitor in under 5 minutes with Docker:</p>
+
+<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.9em;">
+<code><span style="color: #6a9955;"># Quick Start with Docker</span>
+docker run -d \
+  --name ipmi-monitor \
+  -p 5001:5000 \
+  -e IPMI_USER=admin \
+  -e IPMI_PASS=YourIPMIPassword \
+  -e ADMIN_USER=admin \
+  -e ADMIN_PASS=YourSecurePassword \
+  -v ipmi_data:/app/instance \
+  ghcr.io/jjziets/ipmi-monitor:latest
+
+<span style="color: #6a9955;"># Access at http://localhost:5001</span></code>
+</pre>
+
+<p>Or use Docker Compose for production deployments:</p>
+
+<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.9em;">
+<code><span style="color: #6a9955;"># docker-compose.yml</span>
+<span style="color: #9cdcfe;">version</span>: <span style="color: #ce9178;">'3.8'</span>
+<span style="color: #9cdcfe;">services</span>:
+  <span style="color: #9cdcfe;">ipmi-monitor</span>:
+    <span style="color: #9cdcfe;">image</span>: ghcr.io/jjziets/ipmi-monitor:latest
+    <span style="color: #9cdcfe;">container_name</span>: ipmi-monitor
+    <span style="color: #9cdcfe;">restart</span>: unless-stopped
+    <span style="color: #9cdcfe;">ports</span>:
+      - <span style="color: #ce9178;">"5001:5000"</span>
+    <span style="color: #9cdcfe;">environment</span>:
+      - IPMI_USER=admin
+      - IPMI_PASS=${IPMI_PASS}
+      - ADMIN_USER=admin
+      - ADMIN_PASS=${ADMIN_PASS}
+      - SECRET_KEY=${SECRET_KEY}
+    <span style="color: #9cdcfe;">volumes</span>:
+      - ipmi_data:/app/instance
+
+<span style="color: #9cdcfe;">volumes</span>:
+  <span style="color: #9cdcfe;">ipmi_data</span>:</code>
+</pre>
+
+<h2>Adding Your Servers</h2>
+
+<p>Once deployed, log in as admin and add servers via the Settings page:</p>
+
+<!-- Settings Screenshot -->
+<figure style="margin: 2em 0;">
+<img src="YOUR_MEDIA_URL/06-settings.png" alt="Server Management Settings" style="width: 100%; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);" />
+<figcaption style="text-align: center; color: #666; font-size: 0.9em; margin-top: 0.5em;">Add and manage servers through the web interface</figcaption>
+</figure>
+
+<p>You can also bulk import servers from an INI file:</p>
+
+<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.9em;">
+<code><span style="color: #6a9955;"># servers.ini</span>
+[server-01]
+bmc_ip = 192.168.1.100
+server_ip = 192.168.1.10
+enabled = true
+
+[server-02]
+bmc_ip = 192.168.1.101
+server_ip = 192.168.1.11
+enabled = true
+use_nvidia_password = true  <span style="color: #6a9955;"># For DGX/HGX systems</span></code>
+</pre>
+
+<h2>Prometheus Metrics</h2>
+
+<p>IPMI Monitor exposes these metrics at <code>/metrics</code>:</p>
+
+<ul>
+<li><code>ipmi_server_reachable</code> - BMC reachability (1=yes, 0=no)</li>
+<li><code>ipmi_server_power_on</code> - Server power status</li>
+<li><code>ipmi_events_total</code> - Total events per server</li>
+<li><code>ipmi_events_critical_24h</code> - Critical events in last 24h</li>
+<li><code>ipmi_events_warning_24h</code> - Warning events in last 24h</li>
+<li><code>ipmi_total_servers</code> - Total monitored servers</li>
+<li><code>ipmi_reachable_servers</code> - Currently reachable servers</li>
+</ul>
+
+<p>Add to your Prometheus config:</p>
+
+<pre style="background: #1e1e1e; color: #d4d4d4; padding: 1.5em; border-radius: 8px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 0.9em;">
+<code><span style="color: #9cdcfe;">scrape_configs</span>:
+  - <span style="color: #9cdcfe;">job_name</span>: <span style="color: #ce9178;">'ipmi-monitor'</span>
+    <span style="color: #9cdcfe;">static_configs</span>:
+      - <span style="color: #9cdcfe;">targets</span>: [<span style="color: #ce9178;">'your-server:5001'</span>]
+    <span style="color: #9cdcfe;">scrape_interval</span>: 60s</code>
+</pre>
+
+<h2>Open Source</h2>
+
+<p>IPMI Monitor is open source under the MIT License. We welcome contributions!</p>
+
+<ul>
+<li><strong>GitHub:</strong> <a href="https://github.com/jjziets/ipmi-monitor" target="_blank">github.com/jjziets/ipmi-monitor</a></li>
+<li><strong>Docker Image:</strong> <code>ghcr.io/jjziets/ipmi-monitor:latest</code></li>
+<li><strong>Issues & Feature Requests:</strong> <a href="https://github.com/jjziets/ipmi-monitor/issues" target="_blank">GitHub Issues</a></li>
+</ul>
+
+<hr style="margin: 3em 0; border: none; border-top: 1px solid #eee;" />
+
+<p style="font-size: 1.1em;"><strong>Ready to monitor your server fleet?</strong> Deploy IPMI Monitor today and get visibility into your hardware health like never before.</p>
+
+<p style="margin-top: 2em;">
+<a href="https://github.com/jjziets/ipmi-monitor" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #00e5c7, #3d8bff); color: #000; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-right: 10px;">⬇️ Get Started on GitHub</a>
+<a href="https://github.com/jjziets/ipmi-monitor#readme" target="_blank" style="display: inline-block; background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">📖 Read Documentation</a>
+</p>
+
+<!--
+    BEFORE PUBLISHING:
+    ==================
+    1. Upload these images to WordPress Media Library:
+       - 01-dashboard-dark.png
+       - 02-dashboard-light.png  
+       - 03-server-detail-events.png
+       - 04-server-detail-sensors.png
+       - 06-settings.png
+    
+    2. Replace all "YOUR_MEDIA_URL" with actual WordPress URLs like:
+       https://yoursite.com/wp-content/uploads/2025/12/01-dashboard-dark.png
+    
+    3. Suggested post settings:
+       - Category: Products, Announcements, or Tools
+       - Tags: IPMI, server monitoring, datacenter, BMC, hardware monitoring
+       - Featured Image: 01-dashboard-dark.png
+       
+    4. SEO Meta Description (for Yoast/RankMath):
+       "IPMI Monitor is an open-source web dashboard for monitoring server hardware health via IPMI/BMC. Track SEL events, ECC memory errors, temperature, and more across your entire fleet."
+-->
+

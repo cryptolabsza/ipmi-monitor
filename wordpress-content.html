@@ -1,0 +1,684 @@
+<!-- 
+    IPMI Monitor - WordPress Marketing Page Content
+    ================================================
+    
+    HOW TO USE IN WORDPRESS:
+    
+    Option 1: Full Page (Recommended)
+    - Install "WPCode" or "Code Snippets" plugin
+    - Create a new page, use a "blank" template
+    - Add a Custom HTML block and paste this entire content
+    
+    Option 2: Elementor/Beaver Builder
+    - Add an HTML widget and paste sections as needed
+    
+    Option 3: Theme Customizer
+    - Some themes allow custom CSS in Customizer
+    - Add the <style> section to Additional CSS
+    - Add HTML to a page using Custom HTML blocks
+    
+    IMAGES:
+    - Upload screenshots to Media Library
+    - Replace image src paths with WordPress media URLs
+    - Or use: https://your-domain.com/wp-content/uploads/...
+-->
+
+<style>
+/* IPMI Monitor Marketing Page Styles */
+.ipmi-page {
+    --bg-deep: #0a0e14;
+    --bg-card: #111820;
+    --bg-elevated: #161f2b;
+    --accent-cyan: #00e5c7;
+    --accent-blue: #3d8bff;
+    --accent-purple: #a855f7;
+    --accent-coral: #ff6b6b;
+    --accent-amber: #ffbe0b;
+    --text-primary: #f0f4f8;
+    --text-secondary: #8b9cb3;
+    --border-subtle: rgba(255,255,255,0.06);
+    --glow-cyan: rgba(0,229,199,0.3);
+    
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+}
+
+.ipmi-page * { box-sizing: border-box; }
+
+/* Hero Section */
+.ipmi-hero {
+    min-height: 90vh;
+    padding: 6rem 2rem;
+    background: 
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0,229,199,0.15), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 60%, rgba(61,139,255,0.1), transparent),
+        var(--bg-deep);
+    text-align: center;
+}
+
+.ipmi-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(0,229,199,0.1);
+    border: 1px solid rgba(0,229,199,0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 100px;
+    font-size: 0.9rem;
+    color: var(--accent-cyan);
+    margin-bottom: 2rem;
+}
+
+.ipmi-hero h1 {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 800;
+    line-height: 1.1;
+    margin: 0 auto 1.5rem;
+    max-width: 900px;
+    color: var(--text-primary);
+}
+
+.ipmi-hero h1 span {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ipmi-hero-desc {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin: 0 auto 2.5rem;
+    max-width: 700px;
+    line-height: 1.7;
+}
+
+.ipmi-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 4rem;
+}
+
+.ipmi-btn-primary {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    color: var(--bg-deep) !important;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    text-decoration: none !important;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: transform 0.3s, box-shadow 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ipmi-btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 40px var(--glow-cyan);
+    color: var(--bg-deep) !important;
+}
+
+.ipmi-btn-secondary {
+    background: var(--bg-elevated);
+    color: var(--text-primary) !important;
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    text-decoration: none !important;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border: 1px solid var(--border-subtle);
+    transition: all 0.3s;
+}
+
+.ipmi-btn-secondary:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(0,229,199,0.05);
+    color: var(--text-primary) !important;
+}
+
+.ipmi-hero-image {
+    max-width: 1000px;
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 
+        0 0 0 1px var(--border-subtle),
+        0 40px 80px rgba(0,0,0,0.5),
+        0 0 100px var(--glow-cyan);
+}
+
+.ipmi-hero-image img {
+    width: 100%;
+    display: block;
+}
+
+/* Stats Section */
+.ipmi-stats {
+    display: flex;
+    gap: 3rem;
+    padding: 4rem 2rem;
+    background: var(--bg-card);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.ipmi-stat {
+    text-align: center;
+}
+
+.ipmi-stat-number {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ipmi-stat-label {
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-top: 0.5rem;
+}
+
+/* Section Header */
+.ipmi-section {
+    padding: 6rem 2rem;
+}
+
+.ipmi-section-dark {
+    background: var(--bg-card);
+}
+
+.ipmi-section-header {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto 4rem;
+}
+
+.ipmi-tag {
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.ipmi-section-header h2 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin: 0 0 1.5rem;
+    color: var(--text-primary);
+}
+
+.ipmi-section-header p {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    margin: 0;
+}
+
+/* Features Grid */
+.ipmi-features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.ipmi-feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    padding: 2.5rem;
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+}
+
+.ipmi-feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+    opacity: 0;
+    transition: opacity 0.4s;
+}
+
+.ipmi-feature-card:hover {
+    transform: translateY(-8px);
+    border-color: rgba(0,229,199,0.3);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+}
+
+.ipmi-feature-card:hover::before {
+    opacity: 1;
+}
+
+.ipmi-feature-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin-bottom: 1.5rem;
+    background: rgba(0,229,199,0.15);
+}
+
+.ipmi-feature-card h3 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0 0 1rem;
+    color: var(--text-primary);
+}
+
+.ipmi-feature-card p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin: 0;
+}
+
+/* Gallery */
+.ipmi-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.ipmi-gallery-item {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    transition: all 0.4s;
+}
+
+.ipmi-gallery-item:hover {
+    transform: scale(1.02);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+}
+
+.ipmi-gallery-item img {
+    width: 100%;
+    display: block;
+}
+
+/* Hardware Grid */
+.ipmi-hardware-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.ipmi-hardware-item {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.ipmi-hardware-item:hover {
+    border-color: var(--accent-blue);
+    transform: translateY(-5px);
+}
+
+.ipmi-hardware-item h4 {
+    font-size: 1.3rem;
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+}
+
+.ipmi-hardware-item p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Code Block */
+.ipmi-code-container {
+    max-width: 700px;
+    margin: 3rem auto 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.ipmi-code-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.ipmi-code-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.ipmi-code-dot.red { background: #ff5f56; }
+.ipmi-code-dot.yellow { background: #ffbd2e; }
+.ipmi-code-dot.green { background: #27ca40; }
+
+.ipmi-code-body {
+    padding: 2rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    overflow-x: auto;
+    color: var(--text-primary);
+}
+
+.ipmi-code-body .comment { color: #636e7b; }
+.ipmi-code-body .flag { color: var(--accent-amber); }
+.ipmi-code-body .string { color: var(--accent-cyan); }
+
+/* CTA Section */
+.ipmi-cta {
+    padding: 8rem 2rem;
+    text-align: center;
+    position: relative;
+    background: 
+        radial-gradient(circle at 50% 50%, var(--glow-cyan), transparent 50%),
+        var(--bg-deep);
+}
+
+.ipmi-cta h2 {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    margin: 0 0 1.5rem;
+    color: var(--text-primary);
+}
+
+.ipmi-cta p {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    margin: 0 auto 2.5rem;
+    max-width: 600px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .ipmi-hero { padding: 4rem 1.5rem; }
+    .ipmi-section { padding: 4rem 1.5rem; }
+    .ipmi-stats { gap: 2rem; }
+    .ipmi-gallery { grid-template-columns: 1fr; }
+}
+</style>
+
+<!-- Google Fonts - Add to WordPress Header or use @import -->
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+<div class="ipmi-page">
+
+    <!-- HERO SECTION -->
+    <section class="ipmi-hero">
+        <span class="ipmi-hero-badge">✦ Production Ready • Open Source</span>
+        <h1>Monitor Your Entire <span>Server Fleet</span> From One Dashboard</h1>
+        <p class="ipmi-hero-desc">
+            A production-ready web dashboard for monitoring IPMI/BMC System Event Logs across your datacenter. 
+            Track hardware health, ECC memory errors, temperature sensors, and critical events in real-time.
+        </p>
+        <div class="ipmi-buttons">
+            <a href="https://github.com/jjziets/ipmi-monitor" class="ipmi-btn-primary">
+                ⬇️ Deploy Now
+            </a>
+            <a href="https://github.com/jjziets/ipmi-monitor" class="ipmi-btn-secondary">
+                ⭐ View on GitHub
+            </a>
+        </div>
+        <div class="ipmi-hero-image">
+            <!-- UPDATE THIS: Replace with your WordPress media URL -->
+            <img src="screenshots/01-dashboard-dark.png" alt="IPMI Monitor Dashboard">
+        </div>
+    </section>
+
+    <!-- STATS BAR -->
+    <section class="ipmi-stats">
+        <div class="ipmi-stat">
+            <div class="ipmi-stat-number">37+</div>
+            <div class="ipmi-stat-label">Servers Monitored</div>
+        </div>
+        <div class="ipmi-stat">
+            <div class="ipmi-stat-number">10</div>
+            <div class="ipmi-stat-label">Parallel Workers</div>
+        </div>
+        <div class="ipmi-stat">
+            <div class="ipmi-stat-number">24/7</div>
+            <div class="ipmi-stat-label">Real-time Monitoring</div>
+        </div>
+        <div class="ipmi-stat">
+            <div class="ipmi-stat-number">&lt;5min</div>
+            <div class="ipmi-stat-label">Deploy Time</div>
+        </div>
+    </section>
+
+    <!-- FEATURES SECTION -->
+    <section class="ipmi-section">
+        <div class="ipmi-section-header">
+            <span class="ipmi-tag">Powerful Features</span>
+            <h2>Everything You Need to Monitor Hardware Health</h2>
+            <p>Built for datacenter operators and colocation providers who need visibility into server hardware status at scale.</p>
+        </div>
+        <div class="ipmi-features-grid">
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">🔍</div>
+                <h3>Event Collection</h3>
+                <p>Automatically collect IPMI SEL logs from all servers using parallel workers. Process your entire fleet in minutes, not hours.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">📊</div>
+                <h3>Real-time Dashboard</h3>
+                <p>Auto-refreshing dashboard with countdown timer. See server status at a glance with event counts and severity indicators.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">🌡️</div>
+                <h3>Sensor Monitoring</h3>
+                <p>Live temperature, fan speed, voltage, and power readings. Track thermal status and prevent overheating issues.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">💾</div>
+                <h3>ECC Memory Tracking</h3>
+                <p>Identify exactly which DIMM has ECC errors with sensor mapping. Know which memory module to replace before failure.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">🚨</div>
+                <h3>Severity Classification</h3>
+                <p>Automatic classification into Critical, Warning, and Info levels. Focus on what matters most with smart filtering.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">🔐</div>
+                <h3>Admin Authentication</h3>
+                <p>Protected admin interface for sensitive operations. Read-only dashboard for operators, full access for admins.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">➕</div>
+                <h3>Server Management</h3>
+                <p>Add, edit, and delete servers via the web UI. Import entire server lists from INI files in seconds.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">📈</div>
+                <h3>Prometheus Metrics</h3>
+                <p>Native /metrics endpoint for Grafana integration. Build custom dashboards and alerting rules with your existing stack.</p>
+            </div>
+            <div class="ipmi-feature-card">
+                <div class="ipmi-feature-icon">🐳</div>
+                <h3>Docker Ready</h3>
+                <p>Multi-arch images (amd64/arm64) with automated builds. Deploy anywhere with a single docker-compose command.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- SCREENSHOTS SECTION -->
+    <section class="ipmi-section ipmi-section-dark">
+        <div class="ipmi-section-header">
+            <span class="ipmi-tag">Interface</span>
+            <h2>Beautiful, Functional Design</h2>
+            <p>Dark and light themes. Built for operators who live in their monitoring dashboards.</p>
+        </div>
+        <div class="ipmi-gallery">
+            <!-- UPDATE THESE: Replace with your WordPress media URLs -->
+            <div class="ipmi-gallery-item">
+                <img src="screenshots/01-dashboard-dark.png" alt="Dashboard Dark Theme">
+            </div>
+            <div class="ipmi-gallery-item">
+                <img src="screenshots/02-dashboard-light.png" alt="Dashboard Light Theme">
+            </div>
+            <div class="ipmi-gallery-item">
+                <img src="screenshots/03-server-detail-events.png" alt="Server Detail Events">
+            </div>
+            <div class="ipmi-gallery-item">
+                <img src="screenshots/04-server-detail-sensors.png" alt="Server Detail Sensors">
+            </div>
+        </div>
+    </section>
+
+    <!-- QUICK START SECTION -->
+    <section class="ipmi-section">
+        <div class="ipmi-section-header">
+            <span class="ipmi-tag">Quick Start</span>
+            <h2>Deploy in Under 5 Minutes</h2>
+            <p>One command to get started. Works on any Docker-capable host.</p>
+        </div>
+        <div class="ipmi-code-container">
+            <div class="ipmi-code-header">
+                <span class="ipmi-code-dot red"></span>
+                <span class="ipmi-code-dot yellow"></span>
+                <span class="ipmi-code-dot green"></span>
+            </div>
+            <div class="ipmi-code-body">
+<span class="comment"># Quick Start with Docker</span>
+docker run <span class="flag">-d</span> \
+  <span class="flag">--name</span> ipmi-monitor \
+  <span class="flag">-p</span> <span class="string">5001:5000</span> \
+  <span class="flag">-e</span> IPMI_USER=<span class="string">admin</span> \
+  <span class="flag">-e</span> IPMI_PASS=<span class="string">YourPassword</span> \
+  <span class="flag">-e</span> ADMIN_USER=<span class="string">admin</span> \
+  <span class="flag">-e</span> ADMIN_PASS=<span class="string">SecurePass</span> \
+  <span class="flag">-v</span> ipmi_data:<span class="string">/app/instance</span> \
+  ghcr.io/jjziets/ipmi-monitor:latest
+
+<span class="comment"># Access at http://localhost:5001</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- HARDWARE SUPPORT SECTION -->
+    <section class="ipmi-section ipmi-section-dark">
+        <div class="ipmi-section-header">
+            <span class="ipmi-tag">Compatibility</span>
+            <h2>Supports Major Server Vendors</h2>
+            <p>Works with any IPMI 2.0 compliant BMC. Special support for NVIDIA DGX/HGX systems.</p>
+        </div>
+        <div class="ipmi-hardware-grid">
+            <div class="ipmi-hardware-item">
+                <h4>🟢 NVIDIA</h4>
+                <p>DGX, HGX Systems</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>🔵 Supermicro</h4>
+                <p>All server lines</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>🔴 Dell EMC</h4>
+                <p>PowerEdge (iDRAC)</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>🟣 HPE</h4>
+                <p>ProLiant (iLO)</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>🔵 Lenovo</h4>
+                <p>ThinkSystem (XCC)</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>🟡 ASUSTek</h4>
+                <p>Server motherboards</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>⚪ Cisco</h4>
+                <p>UCS (CIMC)</p>
+            </div>
+            <div class="ipmi-hardware-item">
+                <h4>🟠 Inspur</h4>
+                <p>Server systems</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA SECTION -->
+    <section class="ipmi-cta">
+        <h2>Ready to Monitor Your Fleet?</h2>
+        <p>Deploy IPMI Monitor in minutes. Open source, production-ready, and built for scale.</p>
+        <div class="ipmi-buttons">
+            <a href="https://github.com/jjziets/ipmi-monitor" class="ipmi-btn-primary">
+                ⭐ Clone from GitHub
+            </a>
+            <a href="https://github.com/jjziets/ipmi-monitor#readme" class="ipmi-btn-secondary">
+                📖 Read Documentation
+            </a>
+        </div>
+    </section>
+
+</div>
+
+<!--
+    WORDPRESS INTEGRATION NOTES:
+    ============================
+    
+    1. FULL PAGE SETUP (Recommended):
+       - Create new page in WordPress
+       - Select "Blank" or "Full Width" template
+       - Add a "Custom HTML" block
+       - Paste this entire content
+    
+    2. IMAGE SETUP:
+       - Upload all screenshots to Media Library
+       - Get the URLs and replace the src attributes:
+         * screenshots/01-dashboard-dark.png → https://yoursite.com/wp-content/uploads/2025/12/01-dashboard-dark.png
+         * screenshots/02-dashboard-light.png → etc.
+    
+    3. IF USING ELEMENTOR:
+       - Add an HTML widget
+       - Paste the content
+       - The styles are self-contained
+    
+    4. FONT LOADING:
+       - Add to theme's functions.php or use a plugin:
+       
+       function load_ipmi_fonts() {
+           wp_enqueue_style('google-fonts', 
+               'https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700;800&display=swap', 
+               array(), null
+           );
+       }
+       add_action('wp_enqueue_scripts', 'load_ipmi_fonts');
+    
+    5. CUSTOMIZE:
+       - Change colors in CSS :root variables
+       - Update GitHub links to your repository
+       - Modify stats numbers as needed
+       - Add your company branding
+-->
+

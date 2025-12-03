@@ -17,6 +17,22 @@
             --accent-blue: #4a9eff;
             --accent-green: #00d68f;
             --accent-red: #ff4757;
+            --accent-purple: #a855f7;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -144,6 +160,13 @@
             color: var(--accent-blue);
         }
     </style>
+    <script>
+        // Theme initialization - respect saved preference
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
 </head>
 <body>
     <div class="login-container">

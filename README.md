@@ -97,8 +97,8 @@ Access the dashboard at: http://localhost:5000
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `IPMI_USER` | admin | IPMI/BMC username |
-| `IPMI_PASS` | BBccc321 | IPMI/BMC password (8-char for most servers) |
-| `IPMI_PASS_NVIDIA` | BBccc321BBccc321 | Password for NVIDIA DGX/HGX (16-char required) |
+| `IPMI_PASS` | (required) | IPMI/BMC password (8-char for most servers) |
+| `IPMI_PASS_NVIDIA` | (required) | Password for NVIDIA DGX/HGX (16-char required) |
 | `POLL_INTERVAL` | 300 | Seconds between automatic collections |
 | `ADMIN_USER` | admin | Dashboard admin username |
 | `ADMIN_PASS` | changeme | Dashboard admin password (**CHANGE THIS!**) |
