@@ -4879,6 +4879,29 @@ def api_ai_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/ai/model', methods=['GET'])
+def api_get_ai_model_info():
+    """Get AI model information from the AI service (context window size, etc.)"""
+    config = CloudSync.get_config()
+    
+    if not config.AI_SERVICE_URL:
+        return jsonify({'error': 'AI service not configured'}), 400
+    
+    try:
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/model/info",
+            timeout=10
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': 'Could not get model info'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/ai/config', methods=['GET'])
 @admin_required
 def api_get_ai_config():
@@ -4968,17 +4991,22 @@ def api_get_ai_results():
 @app.route('/api/ai/summary/generate', methods=['POST'])
 @login_required
 def api_generate_summary():
-    """Generate AI summary on demand"""
+    """Generate AI summary on demand - forwards user selections to AI service"""
     config = CloudSync.get_config()
     
     if not config.sync_enabled or not config.license_key:
         return jsonify({'error': 'AI features not enabled'}), 400
     
+    # Forward user selections (type, hours, devices) to AI service
+    # All pre-processing and LLM calls happen on AI service
+    user_options = request.get_json() or {}
+    
     try:
         response = requests.post(
             f"{config.AI_SERVICE_URL}/api/v1/summary/generate",
+            json=user_options,  # Forward: type, hours, devices
             headers={'Authorization': f'Bearer {config.license_key}'},
-            timeout=60
+            timeout=120  # Allow time for LLM processing
         )
         
         if response.ok:
@@ -4996,17 +5024,22 @@ def api_generate_summary():
 @app.route('/api/ai/tasks/generate', methods=['POST'])
 @login_required
 def api_generate_tasks():
-    """Generate AI maintenance tasks on demand"""
+    """Generate AI maintenance tasks on demand - forwards user selections to AI service"""
     config = CloudSync.get_config()
     
     if not config.sync_enabled or not config.license_key:
         return jsonify({'error': 'AI features not enabled'}), 400
     
+    # Forward user selections (issues, hours, devices) to AI service
+    # All pre-processing and LLM calls happen on AI service
+    user_options = request.get_json() or {}
+    
     try:
         response = requests.post(
             f"{config.AI_SERVICE_URL}/api/v1/tasks/generate",
+            json=user_options,  # Forward: issues, hours, devices
             headers={'Authorization': f'Bearer {config.license_key}'},
-            timeout=60
+            timeout=120  # Allow time for LLM processing
         )
         
         if response.ok:
@@ -5024,7 +5057,7 @@ def api_generate_tasks():
 @app.route('/api/ai/chat', methods=['POST'])
 @login_required
 def api_ai_chat():
-    """AI chat interface - ask questions about the fleet"""
+    """AI chat interface - ask questions about the fleet - forwards to AI service"""
     config = CloudSync.get_config()
     
     if not CloudSync.is_ai_enabled():
@@ -5033,7 +5066,9 @@ def api_ai_chat():
             'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
         }), 403
     
-    data = request.get_json()
+    # Forward entire request to AI service (question, conversation_id)
+    # All context building and LLM calls happen on AI service
+    data = request.get_json() or {}
     question = data.get('question', '')
     
     if not question:
@@ -5042,9 +5077,9 @@ def api_ai_chat():
     try:
         response = requests.post(
             f"{config.AI_SERVICE_URL}/api/v1/chat",
-            json={'question': question},
+            json=data,  # Forward: question, conversation_id
             headers={'Authorization': f'Bearer {config.license_key}'},
-            timeout=60
+            timeout=120  # Allow time for LLM processing
         )
         
         if response.ok:
