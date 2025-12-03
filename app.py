@@ -1139,6 +1139,38 @@ def sync_to_cloud():
             return {'success': False, 'message': str(e)}
 
 
+def auto_sync_to_cloud():
+    """
+    Auto-sync to AI service if enabled.
+    Called by background collector every collection cycle.
+    Only syncs if:
+    - Sync is enabled
+    - License key is set
+    - Last sync was more than sync_interval ago
+    """
+    with app.app_context():
+        config = CloudSync.get_config()
+        
+        # Check if sync is enabled
+        if not config.sync_enabled or not config.license_key:
+            return
+        
+        # Check sync interval (default 5 minutes)
+        if config.last_sync:
+            time_since_sync = (datetime.utcnow() - config.last_sync).total_seconds()
+            if time_since_sync < config.sync_interval:
+                return  # Not time to sync yet
+        
+        # Perform sync
+        print(f"[IPMI Monitor] Auto-syncing to AI service...", flush=True)
+        result = sync_to_cloud()
+        
+        if result.get('success'):
+            print(f"[IPMI Monitor] Auto-sync complete: {result.get('message')}", flush=True)
+        else:
+            print(f"[IPMI Monitor] Auto-sync failed: {result.get('message')}", flush=True)
+
+
 def fetch_ai_results():
     """Fetch AI results from cloud service"""
     with app.app_context():
@@ -3070,6 +3102,12 @@ def background_collector():
                     cleanup_old_data()
                 except Exception as e:
                     print(f"[IPMI Monitor] Error in data cleanup: {e}", flush=True)
+            
+            # Auto-sync to AI service if enabled (every collection cycle)
+            try:
+                auto_sync_to_cloud()
+            except Exception as e:
+                print(f"[IPMI Monitor] Auto-sync error: {e}", flush=True)
             
             print(f"[IPMI Monitor] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
                     

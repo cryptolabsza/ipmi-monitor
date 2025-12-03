@@ -1373,7 +1373,7 @@
                         <li>💬 AI chat assistant</li>
                     </ul>
                     <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 15px;">
-                        Upgrade Now - $29/month
+                        Upgrade Now - $100/month
                     </a>
                     <div class="ai-license-input" style="margin-top: 20px;">
                         <input type="text" id="licenseKeyInput" placeholder="Enter license key..." style="padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 220px;">
@@ -1407,7 +1407,7 @@
                     <!-- AI Tabs -->
                     <div class="ai-tabs">
                         <button class="ai-tab active" onclick="switchAiTab('summary')">📊 Summary</button>
-                        <button class="ai-tab" onclick="switchAiTab('tasks')">🔧 Tasks</button>
+                        <button class="ai-tab" onclick="switchAiTab('tasks')">🔧 Maintenance Tasks</button>
                         <button class="ai-tab" onclick="switchAiTab('predictions')">🔮 Predictions</button>
                         <button class="ai-tab" onclick="switchAiTab('rca')">🔍 RCA</button>
                         <button class="ai-tab" onclick="switchAiTab('chat')">💬 Chat</button>
@@ -1515,15 +1515,22 @@
                     <!-- Predictions Tab -->
                     <div class="ai-tab-content" id="aiTabPredictions">
                         <div class="ai-options">
-                            <div class="ai-options-title">Prediction Models</div>
-                            <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 0.9rem;">
-                                AI analyzes historical trends to predict potential failures before they happen.
-                            </p>
+                            <div class="ai-options-title">Predictive Failure Analytics</div>
+                            <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-bottom: 12px; border-left: 3px solid var(--accent-yellow);">
+                                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+                                    ⚠️ <strong>Data Requirement:</strong> Predictions require at least <strong>30 days</strong> of historical data for accuracy. 
+                                    Results improve with more data (90+ days recommended).
+                                </p>
+                                <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 8px 0 0 0;">
+                                    📊 Predictions are <strong>best-effort estimates</strong> similar to weather forecasts - use as guidelines for proactive maintenance, not guarantees.
+                                </p>
+                            </div>
                             <div class="ai-checkbox-group">
-                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="memory" checked> Memory degradation</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="fan" checked> Fan motor wear</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="thermal" checked> Thermal drift</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="psu" checked> PSU aging</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="memory" checked> 💾 Memory/DIMM degradation</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="fan" checked> 🌀 Fan motor wear</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="thermal" checked> 🌡️ Thermal drift</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="psu" checked> ⚡ PSU aging</label>
+                                <label class="ai-checkbox-item"><input type="checkbox" name="prediction" value="cmos" checked> 🔋 CMOS battery</label>
                             </div>
                         </div>
                         <button class="ai-generate-btn" onclick="generatePredictions()" id="predictionsBtn">
@@ -1534,6 +1541,7 @@
                                 <span class="ai-output-title">🔮 Failure Predictions</span>
                                 <span class="ai-output-time" id="predictionsTime"></span>
                             </div>
+                            <div id="predictionsDisclaimer" style="display: none; background: var(--bg-secondary); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-secondary);"></div>
                             <div id="aiPredictionsContent"></div>
                         </div>
                     </div>
@@ -1794,13 +1802,21 @@
             if (data.last_sync) {
                 const syncDate = new Date(data.last_sync);
                 const ago = getTimeAgo(syncDate);
-                dot.className = 'ai-sync-dot';
-                text.textContent = 'Connected';
-                details.textContent = `Last sync: ${ago} | ${data.events_synced || 0} events`;
+                
+                if (data.last_sync_status === 'success') {
+                    dot.className = 'ai-sync-dot';
+                    text.textContent = 'Connected';
+                    // Use last_sync_message which contains event count from sync
+                    details.textContent = `Last sync: ${ago} | ${data.last_sync_message || 'Synced'}`;
+                } else {
+                    dot.className = 'ai-sync-dot error';
+                    text.textContent = 'Sync issue';
+                    details.textContent = `Last sync: ${ago} | ${data.last_sync_message || 'Error'}`;
+                }
             } else {
-                dot.className = 'ai-sync-dot error';
-                text.textContent = 'Not synced';
-                details.textContent = 'Click "Sync Now" to start';
+                dot.className = 'ai-sync-dot';
+                text.textContent = 'Auto-sync enabled';
+                details.textContent = 'Will sync automatically every 5 minutes';
             }
         }
         
