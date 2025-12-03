@@ -7,7 +7,7 @@ GitHub: https://github.com/jjziets/ipmi-monitor
 License: MIT
 """
 
-from flask import Flask, render_template, jsonify, request, Response, session, redirect, url_for
+from flask import Flask, render_template, render_template_string, jsonify, request, Response, session, redirect, url_for
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -83,6 +83,14 @@ SENSOR_POLL_MULTIPLIER = int(os.environ.get('SENSOR_POLL_MULTIPLIER', 1))  # Col
 # Admin authentication - defaults can be overridden by env vars or database
 DEFAULT_ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
 DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin')  # Default: admin/admin
+
+# Server config file paths (checked on startup)
+# Mount a config file to /app/config/servers.yaml (or .json, .csv)
+CONFIG_DIR = os.environ.get('CONFIG_DIR', '/app/config')
+SERVERS_CONFIG_FILE = os.environ.get('SERVERS_CONFIG_FILE', '')  # Override specific file
+
+# Setup complete flag
+SETUP_COMPLETE_FILE = os.path.join(DATA_DIR, '.setup_complete')
 
 def get_user(username):
     """Get user by username"""
@@ -986,7 +994,7 @@ class CloudSync(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # AI Service endpoint - hardcoded for now, can be made configurable later
-    AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', '')  # Set to your AI service endpoint
+    AI_SERVICE_URL = os.environ.get('AI_SERVICE_URL', 'https://ipmi-ai.cryptolabs.co.za')  # CryptoLabs AI Service
     
     @staticmethod
     def get_config():
@@ -4039,6 +4047,371 @@ def parse_ini_servers(ini_content):
     
     return servers
 
+
+def parse_yaml_servers(yaml_content):
+    """Parse YAML format server list"""
+    servers = []
+    current_server = None
+    
+    for line in yaml_content.split('\n'):
+        trimmed = line.strip()
+        if not trimmed or trimmed.startswith('#'):
+            continue
+        
+        # Check for list item start
+        if trimmed.startswith('- name:') or trimmed.startswith('- server_name:'):
+            if current_server and current_server.get('bmc_ip'):
+                servers.append(current_server)
+            current_server = {'server_name': trimmed.split(':')[1].strip().strip('"\'').split('#')[0].strip()}
+        elif current_server and ':' in trimmed:
+            key_value = trimmed.replace('-', '').split(':', 1)
+            if len(key_value) == 2:
+                key = key_value[0].strip()
+                value = key_value[1].strip().strip('"\'').split('#')[0].strip()
+                
+                key_map = {
+                    'name': 'server_name', 'server_name': 'server_name', 'hostname': 'server_name',
+                    'bmc_ip': 'bmc_ip', 'ip': 'bmc_ip', 'bmc': 'bmc_ip',
+                    'ipmi_user': 'ipmi_user', 'username': 'ipmi_user', 'user': 'ipmi_user',
+                    'ipmi_pass': 'ipmi_pass', 'password': 'ipmi_pass', 'pass': 'ipmi_pass',
+                    'server_ip': 'server_ip', 'os_ip': 'server_ip',
+                    'nvidia': 'use_nvidia_password', 'use_nvidia_password': 'use_nvidia_password',
+                    'ssh_user': 'ssh_user', 'ssh_port': 'ssh_port', 'ssh_key': 'ssh_key',
+                    'notes': 'notes', 'description': 'notes'
+                }
+                
+                if key in key_map:
+                    mapped_key = key_map[key]
+                    if mapped_key == 'use_nvidia_password':
+                        current_server[mapped_key] = value.lower() == 'true'
+                    elif mapped_key == 'ssh_port':
+                        current_server[mapped_key] = int(value) if value.isdigit() else 22
+                    else:
+                        current_server[mapped_key] = value
+    
+    if current_server and current_server.get('bmc_ip'):
+        servers.append(current_server)
+    
+    return servers
+
+
+def parse_csv_servers(csv_content):
+    """Parse CSV format server list"""
+    servers = []
+    lines = csv_content.strip().split('\n')
+    if len(lines) < 2:
+        return servers
+    
+    headers = [h.strip().lower() for h in lines[0].split(',')]
+    
+    # Header mappings
+    header_map = {
+        'name': 'server_name', 'server_name': 'server_name', 'hostname': 'server_name',
+        'bmc_ip': 'bmc_ip', 'ip': 'bmc_ip', 'bmc': 'bmc_ip',
+        'ipmi_user': 'ipmi_user', 'username': 'ipmi_user', 'user': 'ipmi_user',
+        'ipmi_pass': 'ipmi_pass', 'password': 'ipmi_pass', 'pass': 'ipmi_pass',
+        'server_ip': 'server_ip', 'os_ip': 'server_ip',
+        'nvidia': 'use_nvidia_password',
+        'notes': 'notes', 'description': 'notes'
+    }
+    
+    for line in lines[1:]:
+        if not line.strip():
+            continue
+        values = [v.strip() for v in line.split(',')]
+        server = {}
+        
+        for idx, header in enumerate(headers):
+            if idx < len(values) and header in header_map:
+                key = header_map[header]
+                value = values[idx]
+                
+                if key == 'use_nvidia_password':
+                    server[key] = value.lower() == 'true'
+                elif value:  # Only add non-empty values
+                    server[key] = value
+        
+        if server.get('bmc_ip') and server.get('server_name'):
+            servers.append(server)
+    
+    return servers
+
+
+def load_servers_from_config_file():
+    """
+    Load servers from a config file on startup.
+    
+    Looks for:
+    1. SERVERS_CONFIG_FILE environment variable
+    2. /app/config/servers.yaml
+    3. /app/config/servers.yml
+    4. /app/config/servers.json
+    5. /app/config/servers.csv
+    6. /app/config/servers.ini
+    
+    Returns list of server dicts or empty list if no file found.
+    """
+    config_files = []
+    
+    # Check specific file first
+    if SERVERS_CONFIG_FILE and os.path.exists(SERVERS_CONFIG_FILE):
+        config_files.append(SERVERS_CONFIG_FILE)
+    
+    # Then check default locations
+    for ext in ['yaml', 'yml', 'json', 'csv', 'ini', 'txt']:
+        path = os.path.join(CONFIG_DIR, f'servers.{ext}')
+        if os.path.exists(path):
+            config_files.append(path)
+    
+    if not config_files:
+        return []
+    
+    config_file = config_files[0]
+    app.logger.info(f"📂 Loading servers from config file: {config_file}")
+    
+    try:
+        with open(config_file, 'r') as f:
+            content = f.read()
+        
+        ext = config_file.rsplit('.', 1)[-1].lower()
+        
+        if ext in ['yaml', 'yml']:
+            servers = parse_yaml_servers(content)
+        elif ext == 'json':
+            data = json.loads(content)
+            servers = data.get('servers', data) if isinstance(data, dict) else data
+        elif ext == 'csv':
+            servers = parse_csv_servers(content)
+        else:  # ini, txt
+            servers = parse_ini_servers(content)
+        
+        app.logger.info(f"✅ Loaded {len(servers)} servers from {config_file}")
+        return servers
+        
+    except Exception as e:
+        app.logger.error(f"❌ Error loading servers from {config_file}: {e}")
+        return []
+
+
+def import_servers_to_database(servers_data):
+    """
+    Import servers and their configurations to the database.
+    
+    Args:
+        servers_data: List of server dicts with keys like:
+            - server_name/name: Server display name
+            - bmc_ip: BMC IP address
+            - ipmi_user: Custom IPMI username (optional)
+            - ipmi_pass: Custom IPMI password (optional)
+            - server_ip: OS IP address (optional)
+            - use_nvidia_password: Use NVIDIA 16-char password (optional)
+            - ssh_user, ssh_port, ssh_key: SSH credentials (optional)
+    
+    Returns:
+        dict with added, updated, errors counts
+    """
+    added = 0
+    updated = 0
+    errors = []
+    
+    for server_data in servers_data:
+        bmc_ip = server_data.get('bmc_ip')
+        server_name = server_data.get('server_name') or server_data.get('name')
+        
+        if not bmc_ip or not server_name:
+            errors.append(f"Missing bmc_ip or server_name: {server_data}")
+            continue
+        
+        try:
+            # Update or create Server
+            existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            if existing:
+                existing.server_name = server_name
+                existing.server_ip = server_data.get('server_ip', bmc_ip.replace('.0', '.1'))
+                existing.enabled = server_data.get('enabled', True)
+                existing.use_nvidia_password = server_data.get('use_nvidia_password', False)
+                existing.notes = server_data.get('notes', '')
+                updated += 1
+            else:
+                server = Server(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    server_ip=server_data.get('server_ip', bmc_ip.replace('.0', '.1')),
+                    enabled=server_data.get('enabled', True),
+                    use_nvidia_password=server_data.get('use_nvidia_password', False),
+                    notes=server_data.get('notes', '')
+                )
+                db.session.add(server)
+                added += 1
+            
+            # Handle per-server credentials
+            if server_data.get('ipmi_user') or server_data.get('ipmi_pass') or server_data.get('ssh_key'):
+                config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+                if not config:
+                    config = ServerConfig(bmc_ip=bmc_ip, server_name=server_name)
+                    db.session.add(config)
+                
+                config.server_name = server_name
+                if server_data.get('server_ip'):
+                    config.server_ip = server_data['server_ip']
+                if server_data.get('ipmi_user'):
+                    config.ipmi_user = server_data['ipmi_user']
+                if server_data.get('ipmi_pass'):
+                    config.ipmi_pass = server_data['ipmi_pass']
+                if server_data.get('ssh_user'):
+                    config.ssh_user = server_data['ssh_user']
+                if server_data.get('ssh_port'):
+                    config.ssh_port = server_data['ssh_port']
+                if server_data.get('ssh_key'):
+                    config.ssh_key = server_data['ssh_key']
+                    
+        except Exception as e:
+            errors.append(f"Error processing {bmc_ip}: {str(e)}")
+    
+    db.session.commit()
+    return {'added': added, 'updated': updated, 'errors': errors}
+
+
+def is_setup_complete():
+    """Check if initial setup has been completed"""
+    # Check for setup complete file
+    if os.path.exists(SETUP_COMPLETE_FILE):
+        return True
+    
+    # Check if we have any servers configured
+    try:
+        with app.app_context():
+            if Server.query.first():
+                return True
+    except:
+        pass
+    
+    return False
+
+
+def mark_setup_complete():
+    """Mark setup as complete"""
+    try:
+        with open(SETUP_COMPLETE_FILE, 'w') as f:
+            f.write(datetime.utcnow().isoformat())
+    except Exception as e:
+        app.logger.warning(f"Could not write setup complete file: {e}")
+
+
+@app.route('/setup')
+def setup_page():
+    """First-run setup wizard"""
+    # If setup is complete, redirect to dashboard
+    if is_setup_complete():
+        return redirect(url_for('dashboard'))
+    
+    return render_template('setup.html', app_name=APP_NAME)
+
+
+@app.route('/api/setup/status')
+def api_setup_status():
+    """Check if setup is needed"""
+    return jsonify({
+        'setup_complete': is_setup_complete(),
+        'has_servers': Server.query.first() is not None,
+        'has_admin': User.query.first() is not None
+    })
+
+
+@app.route('/api/setup/complete', methods=['POST'])
+def api_complete_setup():
+    """
+    Complete the initial setup.
+    
+    Expects JSON body:
+    {
+        "admin": { "username": "admin", "password": "..." },
+        "ipmi": { "user": "admin", "pass": "...", "pass_nvidia": "...", "poll_interval": 300 },
+        "servers": [
+            { "name": "server1", "bmc_ip": "192.168.1.100", "ipmi_user": "...", "ipmi_pass": "..." },
+            ...
+        ],
+        "ai": { "api_key": "sk-...", "enabled": true }
+    }
+    """
+    data = request.get_json() or {}
+    
+    try:
+        # 1. Create/update admin user
+        admin_data = data.get('admin', {})
+        if admin_data.get('username') and admin_data.get('password'):
+            admin_user = User.query.filter_by(username=admin_data['username']).first()
+            if not admin_user:
+                admin_user = User(
+                    username=admin_data['username'],
+                    role='admin',
+                    enabled=True,
+                    password_changed=True
+                )
+                db.session.add(admin_user)
+            admin_user.set_password(admin_data['password'])
+            admin_user.password_changed = True
+        
+        # 2. Store default IPMI credentials in system settings
+        ipmi_data = data.get('ipmi', {})
+        if ipmi_data:
+            if ipmi_data.get('user'):
+                SystemSettings.set('ipmi_default_user', ipmi_data['user'])
+            if ipmi_data.get('pass'):
+                SystemSettings.set('ipmi_default_pass', ipmi_data['pass'])
+            if ipmi_data.get('pass_nvidia'):
+                SystemSettings.set('ipmi_nvidia_pass', ipmi_data['pass_nvidia'])
+            if ipmi_data.get('poll_interval'):
+                SystemSettings.set('poll_interval', str(ipmi_data['poll_interval']))
+        
+        # 3. Import servers
+        servers_data = data.get('servers', [])
+        servers_result = {'added': 0, 'updated': 0, 'errors': []}
+        if servers_data:
+            servers_result = import_servers_to_database(servers_data)
+        
+        # 4. Configure AI
+        ai_data = data.get('ai', {})
+        if ai_data.get('api_key'):
+            config = CloudSync.get_config()
+            config.license_key = ai_data['api_key']
+            config.sync_enabled = ai_data.get('enabled', True)
+            
+            # Validate the key
+            try:
+                validation = validate_license_key(ai_data['api_key'])
+                if validation.get('valid'):
+                    config.subscription_tier = validation.get('tier', 'starter')
+                    config.subscription_valid = True
+                    config.max_servers = validation.get('max_servers', 50)
+            except:
+                pass
+        
+        db.session.commit()
+        
+        # Mark setup as complete
+        mark_setup_complete()
+        
+        # Auto-login the admin user
+        if admin_data.get('username'):
+            session['logged_in'] = True
+            session['username'] = admin_data['username']
+            session['user_role'] = 'admin'
+            session.permanent = True
+        
+        app.logger.info(f"✅ Setup complete: {servers_result['added']} servers added, {servers_result['updated']} updated")
+        
+        return jsonify({
+            'status': 'success',
+            'servers': servers_result,
+            'message': 'Setup complete! Redirecting to dashboard...'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Setup error: {e}")
+        return jsonify({'status': 'error', 'error': str(e)}), 500
+
+
 @app.route('/api/servers/init-from-defaults', methods=['POST'])
 @admin_required
 def api_init_from_defaults():
@@ -5234,6 +5607,162 @@ def api_trigger_sync():
     return jsonify(result)
 
 
+@app.route('/api/ai/oauth-callback')
+@admin_required
+def api_oauth_callback():
+    """
+    OAuth callback endpoint for CryptoLabs SSO.
+    
+    Receives:
+    - api_key: The API key from CryptoLabs
+    - subscription: User's subscription tier
+    - user_email: User's email
+    - user_name: User's display name
+    - state: For CSRF protection
+    
+    Automatically configures AI features with the received API key.
+    """
+    api_key = request.args.get('api_key')
+    subscription = request.args.get('subscription', 'free')
+    user_email = request.args.get('user_email', '')
+    state = request.args.get('state', '')
+    
+    if not api_key:
+        return render_template_string('''
+            <!DOCTYPE html>
+            <html>
+            <head><title>Authentication Failed</title></head>
+            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                <h1 style="color: #ff4757;">❌ Authentication Failed</h1>
+                <p>No API key was received. Please try again.</p>
+                <button onclick="window.close()">Close</button>
+            </body>
+            </html>
+        '''), 400
+    
+    # Auto-configure AI settings
+    try:
+        config = CloudSync.get_config()
+        config.license_key = api_key
+        config.sync_enabled = True
+        config.subscription_tier = subscription
+        config.subscription_valid = True
+        config.max_servers = 50 if subscription == 'starter' else 5
+        db.session.commit()
+        
+        app.logger.info(f"OAuth callback: Configured AI with key from {user_email}, tier: {subscription}")
+        
+        # Return success page that posts message to parent window
+        return render_template_string('''
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Authentication Successful</title>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                        background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+                        color: #e8e8f0;
+                        text-align: center;
+                        padding: 50px 20px;
+                        min-height: 100vh;
+                        margin: 0;
+                    }
+                    .success-icon { font-size: 4rem; margin-bottom: 20px; }
+                    h1 { color: #00d68f; }
+                    p { color: #8888a0; }
+                    .close-btn {
+                        background: #4a9eff;
+                        color: white;
+                        border: none;
+                        padding: 12px 24px;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                        margin-top: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="success-icon">✅</div>
+                <h1>Authentication Successful!</h1>
+                <p>Connected to CryptoLabs AI as <strong>{{ user_email }}</strong></p>
+                <p>Subscription: <strong>{{ subscription|upper }}</strong></p>
+                <p>This window will close automatically...</p>
+                <button class="close-btn" onclick="window.close()">Close Window</button>
+                <script>
+                    // Send message to parent window
+                    if (window.opener) {
+                        window.opener.postMessage({
+                            type: 'cryptolabs_ipmi_auth',
+                            api_key: '{{ api_key }}',
+                            subscription: '{{ subscription }}',
+                            user_email: '{{ user_email }}',
+                            user_name: '{{ user_name }}'
+                        }, '*');
+                        
+                        // Auto-close after 2 seconds
+                        setTimeout(() => window.close(), 2000);
+                    }
+                </script>
+            </body>
+            </html>
+        ''', api_key=api_key, subscription=subscription, user_email=user_email, 
+           user_name=request.args.get('user_name', ''))
+        
+    except Exception as e:
+        app.logger.error(f"OAuth callback error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/test', methods=['POST'])
+@admin_required
+def api_test_ai_connection():
+    """
+    Test AI service connection with provided API key.
+    
+    Request body:
+    - license_key: The API key to test
+    
+    Returns:
+    - valid: Whether the key is valid
+    - tier: Subscription tier
+    - max_servers: Maximum servers allowed
+    - error: Error message if invalid
+    """
+    data = request.get_json() or {}
+    license_key = data.get('license_key')
+    
+    if not license_key:
+        return jsonify({'valid': False, 'error': 'No API key provided'}), 400
+    
+    config = CloudSync.get_config()
+    ai_service_url = config.AI_SERVICE_URL or 'https://ipmi-ai.cryptolabs.co.za'
+    
+    try:
+        response = requests.post(
+            f"{ai_service_url}/api/v1/validate",
+            json={'license_key': license_key},
+            headers={'Content-Type': 'application/json'},
+            timeout=10
+        )
+        
+        if response.ok:
+            result = response.json()
+            return jsonify(result)
+        else:
+            error_data = response.json() if response.headers.get('content-type', '').startswith('application/json') else {}
+            return jsonify({
+                'valid': False,
+                'error': error_data.get('error', f'Server returned {response.status_code}')
+            }), 401
+            
+    except requests.exceptions.Timeout:
+        return jsonify({'valid': False, 'error': 'Connection timed out. AI service may be unavailable.'}), 504
+    except requests.exceptions.RequestException as e:
+        return jsonify({'valid': False, 'error': f'Connection failed: {str(e)}'}), 500
+
+
 @app.route('/api/ai/results')
 def api_get_ai_results():
     """Get cached AI results"""
@@ -5495,6 +6024,41 @@ def init_db():
 
 # Initialize on import (for gunicorn)
 init_db()
+
+
+def auto_load_servers_config():
+    """
+    Auto-load servers from config file on startup.
+    
+    This allows users to mount a servers.yaml/json/csv file and have
+    servers automatically imported on first run.
+    """
+    with app.app_context():
+        try:
+            # Skip if we already have servers
+            if Server.query.first():
+                app.logger.info("📋 Servers already configured, skipping config file auto-load")
+                return
+            
+            # Try to load from config file
+            servers = load_servers_from_config_file()
+            
+            if servers:
+                result = import_servers_to_database(servers)
+                app.logger.info(f"✅ Auto-loaded servers: {result['added']} added, {result['updated']} updated")
+                
+                if result['errors']:
+                    for err in result['errors']:
+                        app.logger.warning(f"⚠️ Server import error: {err}")
+            else:
+                app.logger.info("📂 No servers config file found at startup")
+                
+        except Exception as e:
+            app.logger.error(f"❌ Error auto-loading servers: {e}")
+
+
+# Auto-load servers from config file
+auto_load_servers_config()
 
 # Start background collector thread
 collector_thread = threading.Thread(target=background_collector, daemon=True)

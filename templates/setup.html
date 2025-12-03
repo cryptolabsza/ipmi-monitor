@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <title>Setup - {{ app_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a25;
+            --border-color: #2a2a3a;
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a0;
+            --accent-blue: #4a9eff;
+            --accent-green: #00d68f;
+            --accent-yellow: #ffaa00;
+            --accent-red: #ff4757;
+            --accent-purple: #a855f7;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1a1a2e 50%, var(--bg-primary) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .setup-container {
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        .setup-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .setup-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .setup-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+        
+        .setup-steps {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+            gap: 20px;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+        }
+        
+        .step.active {
+            color: var(--accent-blue);
+        }
+        
+        .step.completed {
+            color: var(--accent-green);
+        }
+        
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            background: var(--bg-card);
+            border: 2px solid currentColor;
+        }
+        
+        .step.active .step-number {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+        
+        .step.completed .step-number {
+            background: var(--accent-green);
+            color: white;
+            border-color: var(--accent-green);
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+        
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%;
+            padding: 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        .form-group textarea {
+            min-height: 200px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .form-row { grid-template-columns: 1fr; }
+        }
+        
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(74, 158, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .help-text {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        
+        .format-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .format-tab {
+            padding: 10px 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .format-tab.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+        
+        .format-example {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .format-example pre {
+            white-space: pre-wrap;
+            margin: 0;
+        }
+        
+        .server-preview {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .server-preview-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .server-preview-name {
+            font-weight: 600;
+        }
+        
+        .server-preview-ip {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .server-preview-status {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .status-valid { background: rgba(0, 214, 143, 0.2); color: var(--accent-green); }
+        .status-invalid { background: rgba(255, 71, 87, 0.2); color: var(--accent-red); }
+        
+        .file-upload {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .file-upload:hover {
+            border-color: var(--accent-blue);
+            background: rgba(74, 158, 255, 0.05);
+        }
+        
+        .file-upload.dragover {
+            border-color: var(--accent-green);
+            background: rgba(0, 214, 143, 0.1);
+        }
+        
+        .file-upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: rgba(0, 214, 143, 0.1);
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+        }
+        
+        .alert-error {
+            background: rgba(255, 71, 87, 0.1);
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+        }
+        
+        .alert-info {
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        
+        .skip-link {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .skip-link a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        
+        .skip-link a:hover {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+        
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-header">
+            <h1>🖥️ {{ app_name }} Setup</h1>
+            <p>Let's get your server monitoring up and running</p>
+        </div>
+        
+        <div class="setup-steps">
+            <div class="step active" id="step-indicator-1">
+                <span class="step-number">1</span>
+                <span>Credentials</span>
+            </div>
+            <div class="step" id="step-indicator-2">
+                <span class="step-number">2</span>
+                <span>Servers</span>
+            </div>
+            <div class="step" id="step-indicator-3">
+                <span class="step-number">3</span>
+                <span>AI Features</span>
+            </div>
+        </div>
+        
+        <div id="alert-container"></div>
+        
+        <!-- Step 1: Admin & Default Credentials -->
+        <div id="step-1" class="step-content">
+            <div class="card">
+                <div class="card-title">🔐 Admin Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Set up your admin account to manage servers and configure settings.
+                </p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Admin Username</label>
+                        <input type="text" id="adminUser" value="admin" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Admin Password</label>
+                        <input type="password" id="adminPass" placeholder="Enter a strong password">
+                        <div class="help-text">Minimum 8 characters</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">⚙️ Default IPMI Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Default credentials used for BMCs that don't have custom credentials set.
+                </p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>IPMI Username</label>
+                        <input type="text" id="ipmiUser" value="admin" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>IPMI Password</label>
+                        <input type="password" id="ipmiPass" placeholder="BMC password">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>NVIDIA BMC Password (optional)</label>
+                        <input type="password" id="ipmiPassNvidia" placeholder="16-character password for DGX/HGX">
+                        <div class="help-text">NVIDIA DGX/HGX require a 16-character password</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Poll Interval (seconds)</label>
+                        <input type="number" id="pollInterval" value="300" min="60" max="3600">
+                        <div class="help-text">How often to collect events (60-3600 seconds)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="justify-content: flex-end;">
+                <button class="btn btn-primary" onclick="goToStep(2)">Next: Add Servers →</button>
+            </div>
+        </div>
+        
+        <!-- Step 2: Server List -->
+        <div id="step-2" class="step-content hidden">
+            <div class="card">
+                <div class="card-title">🖥️ Add Your Servers</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Add servers by uploading a config file, pasting a list, or entering them manually.
+                </p>
+                
+                <!-- Import Options -->
+                <div class="format-tabs">
+                    <button class="format-tab active" onclick="selectFormat('upload')">📁 Upload File</button>
+                    <button class="format-tab" onclick="selectFormat('paste')">📋 Paste List</button>
+                    <button class="format-tab" onclick="selectFormat('manual')">✏️ Manual Entry</button>
+                </div>
+                
+                <!-- Upload File -->
+                <div id="format-upload" class="format-content">
+                    <div class="file-upload" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                        <div class="file-upload-icon">📂</div>
+                        <p><strong>Drag & drop</strong> your servers file here</p>
+                        <p style="color: var(--text-secondary); margin-top: 10px;">or click to browse</p>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 10px;">
+                            Supports: JSON, YAML, CSV, INI
+                        </p>
+                    </div>
+                    <input type="file" id="fileInput" accept=".json,.yaml,.yml,.csv,.ini,.txt" style="display: none;" onchange="handleFileUpload(event)">
+                </div>
+                
+                <!-- Paste List -->
+                <div id="format-paste" class="format-content hidden">
+                    <div class="format-tabs" style="margin-bottom: 10px;">
+                        <button class="format-tab active" onclick="selectPasteFormat('yaml')">YAML</button>
+                        <button class="format-tab" onclick="selectPasteFormat('json')">JSON</button>
+                        <button class="format-tab" onclick="selectPasteFormat('csv')">CSV</button>
+                    </div>
+                    
+                    <div class="form-group">
+                        <textarea id="serverListInput" placeholder="Paste your server list here..."></textarea>
+                    </div>
+                    
+                    <div class="format-example" id="formatExample">
+                        <pre id="formatExampleContent"></pre>
+                    </div>
+                    
+                    <button class="btn btn-secondary" style="margin-top: 15px;" onclick="parseServerList()">Parse & Preview</button>
+                </div>
+                
+                <!-- Manual Entry -->
+                <div id="format-manual" class="format-content hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Server Name / Hostname</label>
+                            <input type="text" id="manualServerName" placeholder="web-server-01">
+                        </div>
+                        <div class="form-group">
+                            <label>BMC IP Address</label>
+                            <input type="text" id="manualBmcIp" placeholder="192.168.1.100">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>IPMI Username (optional)</label>
+                            <input type="text" id="manualIpmiUser" placeholder="Leave blank for default">
+                        </div>
+                        <div class="form-group">
+                            <label>IPMI Password (optional)</label>
+                            <input type="password" id="manualIpmiPass" placeholder="Leave blank for default">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Server OS IP (optional)</label>
+                            <input type="text" id="manualServerIp" placeholder="192.168.1.10">
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="manualNvidiaPass" style="margin-right: 8px;">
+                                Use NVIDIA password (16-char)
+                            </label>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" onclick="addManualServer()">➕ Add Server</button>
+                </div>
+                
+                <!-- Server Preview -->
+                <div id="serverPreview" class="server-preview hidden">
+                    <h4 style="margin-bottom: 15px;">📋 Servers to Add (<span id="serverCount">0</span>)</h4>
+                    <div id="serverPreviewList"></div>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="justify-content: space-between;">
+                <button class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
+                <button class="btn btn-primary" onclick="goToStep(3)">Next: AI Features →</button>
+            </div>
+        </div>
+        
+        <!-- Step 3: AI Features -->
+        <div id="step-3" class="step-content hidden">
+            <div class="card">
+                <div class="card-title">🤖 CryptoLabs AI Features</div>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Connect to CryptoLabs for AI-powered insights, predictions, and maintenance recommendations.
+                </p>
+                
+                <div style="text-align: center; padding: 30px 0;">
+                    <button class="btn btn-primary" onclick="loginWithCryptoLabs()" style="font-size: 1.1rem;">
+                        🚀 Login with CryptoLabs
+                    </button>
+                    <p style="color: var(--text-secondary); margin-top: 15px;">
+                        Don't have an account? <a href="https://cryptolabs.co.za/register/" target="_blank" style="color: var(--accent-blue);">Register free</a>
+                    </p>
+                </div>
+                
+                <div style="display: flex; align-items: center; margin: 30px 0;">
+                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
+                    <span style="padding: 0 15px; color: var(--text-secondary);">or enter API key manually</span>
+                    <hr style="flex: 1; border: none; border-top: 1px solid var(--border-color);">
+                </div>
+                
+                <div class="form-group">
+                    <label>CryptoLabs API Key</label>
+                    <input type="password" id="aiApiKey" placeholder="sk-ipmi-xxxxxxxxxxxx">
+                    <div class="help-text">Get your API key from the <a href="https://cryptolabs.co.za/ai-console/" target="_blank" style="color: var(--accent-blue);">AI Console</a></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="enableAiSync" checked style="margin-right: 8px;">
+                        Enable AI features (cloud sync required)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="btn-group" style="justify-content: space-between;">
+                <button class="btn btn-secondary" onclick="goToStep(2)">← Back</button>
+                <button class="btn btn-primary" onclick="completeSetup()">✅ Complete Setup</button>
+            </div>
+        </div>
+        
+        <div class="skip-link">
+            <a href="/">Skip setup and configure later →</a>
+        </div>
+    </div>
+    
+    <script>
+        // State
+        let currentStep = 1;
+        let serversList = [];
+        let currentPasteFormat = 'yaml';
+        
+        // Format examples
+        const formatExamples = {
+            yaml: `servers:
+  - name: web-server-01
+    bmc_ip: 192.168.1.100
+    ipmi_user: admin      # optional - uses default if not set
+    ipmi_pass: secret     # optional
+    server_ip: 192.168.1.10  # optional - OS IP
+    nvidia: false         # optional - use 16-char password
+
+  - name: gpu-server-01
+    bmc_ip: 192.168.1.101
+    ipmi_user: root
+    ipmi_pass: nvidia16char
+    nvidia: true
+
+  - name: storage-server
+    bmc_ip: 192.168.1.102
+    # Uses default credentials`,
+            
+            json: `{
+  "servers": [
+    {
+      "name": "web-server-01",
+      "bmc_ip": "192.168.1.100",
+      "ipmi_user": "admin",
+      "ipmi_pass": "secret",
+      "server_ip": "192.168.1.10"
+    },
+    {
+      "name": "gpu-server-01",
+      "bmc_ip": "192.168.1.101",
+      "nvidia": true
+    }
+  ]
+}`,
+            
+            csv: `name,bmc_ip,ipmi_user,ipmi_pass,server_ip,nvidia
+web-server-01,192.168.1.100,admin,secret,192.168.1.10,false
+gpu-server-01,192.168.1.101,root,nvidia16char,,true
+storage-server,192.168.1.102,,,,false`
+        };
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateFormatExample();
+            setupDragDrop();
+        });
+        
+        function goToStep(step) {
+            // Validate current step
+            if (step > currentStep && !validateStep(currentStep)) {
+                return;
+            }
+            
+            // Update step indicators
+            for (let i = 1; i <= 3; i++) {
+                const indicator = document.getElementById(`step-indicator-${i}`);
+                indicator.classList.remove('active', 'completed');
+                if (i < step) indicator.classList.add('completed');
+                if (i === step) indicator.classList.add('active');
+            }
+            
+            // Show/hide step content
+            document.querySelectorAll('.step-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+            
+            currentStep = step;
+        }
+        
+        function validateStep(step) {
+            if (step === 1) {
+                const adminPass = document.getElementById('adminPass').value;
+                const ipmiPass = document.getElementById('ipmiPass').value;
+                
+                if (adminPass.length < 8) {
+                    showAlert('Admin password must be at least 8 characters', 'error');
+                    return false;
+                }
+                if (!ipmiPass) {
+                    showAlert('Default IPMI password is required', 'error');
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        function selectFormat(format) {
+            document.querySelectorAll('.format-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            document.querySelectorAll('.format-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`format-${format}`).classList.remove('hidden');
+        }
+        
+        function selectPasteFormat(format) {
+            currentPasteFormat = format;
+            document.querySelectorAll('#format-paste .format-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            updateFormatExample();
+        }
+        
+        function updateFormatExample() {
+            document.getElementById('formatExampleContent').textContent = formatExamples[currentPasteFormat];
+        }
+        
+        function setupDragDrop() {
+            const dropZone = document.getElementById('dropZone');
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+            
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                
+                const file = e.dataTransfer.files[0];
+                if (file) processFile(file);
+            });
+        }
+        
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) processFile(file);
+        }
+        
+        async function processFile(file) {
+            const text = await file.text();
+            const ext = file.name.split('.').pop().toLowerCase();
+            
+            try {
+                let servers = [];
+                
+                if (ext === 'json') {
+                    const data = JSON.parse(text);
+                    servers = data.servers || data;
+                } else if (ext === 'yaml' || ext === 'yml') {
+                    // Simple YAML parser (for common cases)
+                    servers = parseSimpleYaml(text);
+                } else if (ext === 'csv') {
+                    servers = parseCSV(text);
+                } else if (ext === 'ini' || ext === 'txt') {
+                    servers = parseINI(text);
+                }
+                
+                if (servers.length > 0) {
+                    serversList = servers;
+                    updateServerPreview();
+                    showAlert(`Successfully parsed ${servers.length} servers from ${file.name}`, 'success');
+                } else {
+                    showAlert('No servers found in file', 'error');
+                }
+            } catch (e) {
+                showAlert(`Error parsing file: ${e.message}`, 'error');
+            }
+        }
+        
+        function parseServerList() {
+            const text = document.getElementById('serverListInput').value;
+            
+            try {
+                let servers = [];
+                
+                if (currentPasteFormat === 'json') {
+                    const data = JSON.parse(text);
+                    servers = data.servers || data;
+                } else if (currentPasteFormat === 'yaml') {
+                    servers = parseSimpleYaml(text);
+                } else if (currentPasteFormat === 'csv') {
+                    servers = parseCSV(text);
+                }
+                
+                if (servers.length > 0) {
+                    serversList = servers;
+                    updateServerPreview();
+                    showAlert(`Parsed ${servers.length} servers`, 'success');
+                } else {
+                    showAlert('No servers found', 'error');
+                }
+            } catch (e) {
+                showAlert(`Error parsing: ${e.message}`, 'error');
+            }
+        }
+        
+        // Simple YAML parser for server lists
+        function parseSimpleYaml(text) {
+            const servers = [];
+            let currentServer = null;
+            
+            for (const line of text.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+                
+                // Check for list item start
+                if (trimmed.startsWith('- name:') || trimmed.startsWith('- server_name:')) {
+                    if (currentServer) servers.push(currentServer);
+                    currentServer = { name: trimmed.split(':')[1].trim() };
+                } else if (currentServer && trimmed.includes(':')) {
+                    const [key, ...valueParts] = trimmed.replace('-', '').split(':');
+                    let value = valueParts.join(':').trim().replace(/^["']|["']$/g, '');
+                    if (value.includes('#')) value = value.split('#')[0].trim();
+                    
+                    const keyClean = key.trim();
+                    if (keyClean === 'name' || keyClean === 'server_name') {
+                        currentServer.name = value;
+                    } else if (keyClean === 'bmc_ip' || keyClean === 'ip') {
+                        currentServer.bmc_ip = value;
+                    } else if (keyClean === 'ipmi_user' || keyClean === 'username' || keyClean === 'user') {
+                        currentServer.ipmi_user = value;
+                    } else if (keyClean === 'ipmi_pass' || keyClean === 'password' || keyClean === 'pass') {
+                        currentServer.ipmi_pass = value;
+                    } else if (keyClean === 'server_ip' || keyClean === 'os_ip') {
+                        currentServer.server_ip = value;
+                    } else if (keyClean === 'nvidia' || keyClean === 'use_nvidia_password') {
+                        currentServer.nvidia = value.toLowerCase() === 'true';
+                    }
+                }
+            }
+            
+            if (currentServer && currentServer.bmc_ip) servers.push(currentServer);
+            return servers;
+        }
+        
+        // CSV parser
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            if (lines.length < 2) return [];
+            
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const servers = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim());
+                const server = {};
+                
+                headers.forEach((header, idx) => {
+                    if (header === 'name' || header === 'server_name' || header === 'hostname') {
+                        server.name = values[idx];
+                    } else if (header === 'bmc_ip' || header === 'ip' || header === 'bmc') {
+                        server.bmc_ip = values[idx];
+                    } else if (header === 'ipmi_user' || header === 'username' || header === 'user') {
+                        server.ipmi_user = values[idx];
+                    } else if (header === 'ipmi_pass' || header === 'password' || header === 'pass') {
+                        server.ipmi_pass = values[idx];
+                    } else if (header === 'server_ip' || header === 'os_ip') {
+                        server.server_ip = values[idx];
+                    } else if (header === 'nvidia') {
+                        server.nvidia = values[idx]?.toLowerCase() === 'true';
+                    }
+                });
+                
+                if (server.bmc_ip && server.name) servers.push(server);
+            }
+            
+            return servers;
+        }
+        
+        // INI parser
+        function parseINI(text) {
+            const servers = [];
+            
+            for (const line of text.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('[')) continue;
+                
+                const match = trimmed.match(/^([0-9.]+)\s*=\s*(\S+)/);
+                if (match) {
+                    servers.push({
+                        bmc_ip: match[1],
+                        name: match[2],
+                        nvidia: trimmed.toLowerCase().includes('nvidia')
+                    });
+                }
+            }
+            
+            return servers;
+        }
+        
+        function addManualServer() {
+            const name = document.getElementById('manualServerName').value.trim();
+            const bmcIp = document.getElementById('manualBmcIp').value.trim();
+            
+            if (!name || !bmcIp) {
+                showAlert('Server name and BMC IP are required', 'error');
+                return;
+            }
+            
+            serversList.push({
+                name: name,
+                bmc_ip: bmcIp,
+                ipmi_user: document.getElementById('manualIpmiUser').value.trim() || null,
+                ipmi_pass: document.getElementById('manualIpmiPass').value.trim() || null,
+                server_ip: document.getElementById('manualServerIp').value.trim() || null,
+                nvidia: document.getElementById('manualNvidiaPass').checked
+            });
+            
+            // Clear form
+            document.getElementById('manualServerName').value = '';
+            document.getElementById('manualBmcIp').value = '';
+            document.getElementById('manualIpmiUser').value = '';
+            document.getElementById('manualIpmiPass').value = '';
+            document.getElementById('manualServerIp').value = '';
+            document.getElementById('manualNvidiaPass').checked = false;
+            
+            updateServerPreview();
+            showAlert('Server added', 'success');
+        }
+        
+        function updateServerPreview() {
+            const preview = document.getElementById('serverPreview');
+            const list = document.getElementById('serverPreviewList');
+            const count = document.getElementById('serverCount');
+            
+            if (serversList.length === 0) {
+                preview.classList.add('hidden');
+                return;
+            }
+            
+            preview.classList.remove('hidden');
+            count.textContent = serversList.length;
+            
+            list.innerHTML = serversList.map((s, idx) => `
+                <div class="server-preview-item">
+                    <div>
+                        <span class="server-preview-name">${s.name}</span>
+                        <span class="server-preview-ip">${s.bmc_ip}</span>
+                        ${s.ipmi_user ? `<span style="color: var(--accent-green); font-size: 0.8rem; margin-left: 10px;">🔑 Custom creds</span>` : ''}
+                        ${s.nvidia ? `<span style="color: var(--accent-purple); font-size: 0.8rem; margin-left: 10px;">🎮 NVIDIA</span>` : ''}
+                    </div>
+                    <button onclick="removeServer(${idx})" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 1.2rem;">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        function removeServer(idx) {
+            serversList.splice(idx, 1);
+            updateServerPreview();
+        }
+        
+        function showAlert(message, type) {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => container.innerHTML = '', 5000);
+        }
+        
+        // CryptoLabs SSO
+        function loginWithCryptoLabs() {
+            const width = 550, height = 650;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            const popup = window.open(
+                'https://cryptolabs.co.za/oauth/ipmi-authorize?redirect_uri=' + encodeURIComponent(window.location.origin + '/api/ai/oauth-callback'),
+                'CryptoLabs Login',
+                `width=${width},height=${height},left=${left},top=${top}`
+            );
+            
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'cryptolabs_ipmi_auth') {
+                    document.getElementById('aiApiKey').value = event.data.api_key;
+                    showAlert(`Connected to CryptoLabs as ${event.data.user_email}`, 'success');
+                    popup.close();
+                }
+            });
+        }
+        
+        // Complete setup
+        async function completeSetup() {
+            const setupData = {
+                admin: {
+                    username: document.getElementById('adminUser').value,
+                    password: document.getElementById('adminPass').value
+                },
+                ipmi: {
+                    user: document.getElementById('ipmiUser').value,
+                    pass: document.getElementById('ipmiPass').value,
+                    pass_nvidia: document.getElementById('ipmiPassNvidia').value,
+                    poll_interval: parseInt(document.getElementById('pollInterval').value)
+                },
+                servers: serversList,
+                ai: {
+                    api_key: document.getElementById('aiApiKey').value,
+                    enabled: document.getElementById('enableAiSync').checked
+                }
+            };
+            
+            try {
+                const response = await fetch('/api/setup/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(setupData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    showAlert('Setup complete! Redirecting to dashboard...', 'success');
+                    setTimeout(() => window.location.href = '/', 2000);
+                } else {
+                    showAlert(result.error || 'Setup failed', 'error');
+                }
+            } catch (e) {
+                showAlert('Error completing setup: ' + e.message, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
+

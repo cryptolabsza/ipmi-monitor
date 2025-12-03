@@ -1,0 +1,6 @@
+name,bmc_ip,ipmi_user,ipmi_pass,server_ip,nvidia,notes
+web-server-01,192.168.1.100,,,192.168.1.10,false,Web server
+database-server,192.168.1.101,dbadmin,custompass,192.168.1.11,false,Primary database
+gpu-server-01,192.168.1.102,,,192.168.1.12,true,NVIDIA DGX
+storage-server,192.168.1.103,,,192.168.1.13,false,NAS storage
+

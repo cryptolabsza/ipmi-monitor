@@ -1,0 +1,48 @@
+# IPMI Monitor - Server Configuration
+# =====================================
+#
+# Copy this file to servers.yaml and configure your servers.
+# Mount to /app/config/servers.yaml in Docker.
+#
+# Supported fields:
+# - name: Display name (required)
+# - bmc_ip: BMC/IPMI IP address (required)
+# - ipmi_user: IPMI username (optional - uses default if not set)
+# - ipmi_pass: IPMI password (optional - uses default if not set)
+# - server_ip: OS IP address (optional)
+# - nvidia: true if this is an NVIDIA DGX/HGX (uses 16-char password)
+# - notes: Any notes about this server
+#
+# Also supports: ssh_user, ssh_port, ssh_key for SSH access
+
+servers:
+  # Example: Standard server with default credentials
+  - name: web-server-01
+    bmc_ip: 192.168.1.100
+    server_ip: 192.168.1.10
+
+  # Example: Server with custom IPMI credentials
+  - name: database-server
+    bmc_ip: 192.168.1.101
+    ipmi_user: dbadmin
+    ipmi_pass: custompassword
+    server_ip: 192.168.1.11
+    notes: Primary database server
+
+  # Example: NVIDIA DGX/HGX (requires 16-char password)
+  - name: gpu-server-01
+    bmc_ip: 192.168.1.102
+    nvidia: true
+    notes: ML training server
+
+  # Example: Server with SSH access configured
+  - name: storage-server
+    bmc_ip: 192.168.1.103
+    server_ip: 192.168.1.13
+    ssh_user: root
+    ssh_port: 22
+
+  # You can also use 'hostname' instead of 'name':
+  # - hostname: my-server
+  #   bmc_ip: 192.168.1.104
+

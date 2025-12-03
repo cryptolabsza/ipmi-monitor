@@ -2,9 +2,9 @@
 
 [![Docker Build](https://github.com/jjziets/ipmi-monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/jjziets/ipmi-monitor/actions/workflows/docker-build.yml)
 
-A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs (SEL) across your server fleet. Features admin authentication, sensor monitoring, ECC memory identification, alerting, and Prometheus/Grafana integration.
+A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs (SEL) across your server fleet. Features admin authentication, sensor monitoring, ECC memory identification, alerting, AI-powered insights, and Prometheus/Grafana integration.
 
-## Features
+## ✨ Features
 
 - 🔍 **Event Collection**: Automatically collects IPMI SEL logs from all servers (parallel, 10 workers)
 - 📊 **Real-time Dashboard**: Auto-refreshing dashboard with countdown timer
@@ -12,11 +12,188 @@ A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs
 - 💾 **ECC Memory Tracking**: Identifies which memory sensor (e.g., CPU1_ECC1) has errors
 - 🚨 **Severity Classification**: Automatic classification (Critical/Warning/Info)
 - 🔐 **Admin Authentication**: Protected settings, SEL clearing, server management
-- ➕ **Server Management**: Add/edit/delete servers via UI or INI import
+- ➕ **Server Management**: Add/edit/delete servers via UI, config file, or import
 - 📈 **Prometheus Metrics**: Native `/metrics` endpoint for Grafana
+- 🤖 **AI Features**: Optional AI-powered summaries, predictions, and root cause analysis
 - 📥 **Export**: CSV export of event logs
 - 🐳 **Docker Ready**: Multi-arch images (amd64/arm64) via GitHub Actions
 - 🏥 **Production Health Checks**: Database, thread monitoring, graceful shutdown
+
+## 🚀 Quick Start
+
+### Option 1: Pre-configured Server List (Easiest)
+
+**Step 1:** Create a `servers.yaml` file with your servers:
+
+```yaml
+# servers.yaml - Your server configuration
+servers:
+  - name: web-server-01
+    bmc_ip: 192.168.1.100
+    # Uses default IPMI credentials
+    
+  - name: database-server
+    bmc_ip: 192.168.1.101
+    ipmi_user: dbadmin        # Custom username
+    ipmi_pass: custompass     # Custom password
+    
+  - name: gpu-server-01
+    bmc_ip: 192.168.1.102
+    nvidia: true              # Uses NVIDIA 16-char password
+```
+
+**Step 2:** Create a `.env` file:
+
+```env
+IPMI_PASS=YourDefaultIPMIPassword
+IPMI_PASS_NVIDIA=YourNvidia16CharPass
+ADMIN_PASS=YourSecureAdminPassword
+SECRET_KEY=your-random-secret-key-here
+```
+
+**Step 3:** Run with Docker Compose:
+
+```bash
+docker-compose up -d
+```
+
+Access the dashboard at: http://localhost:5000
+
+---
+
+### Option 2: Setup Wizard
+
+If you don't have a `servers.yaml` file, the first-run **Setup Wizard** will guide you through:
+
+1. Setting admin credentials
+2. Configuring default IPMI credentials
+3. Adding servers (paste a list, upload file, or enter manually)
+4. Optionally connecting to CryptoLabs AI
+
+```bash
+docker run -d \
+  --name ipmi-monitor \
+  -p 5000:5000 \
+  -v ipmi_data:/app/data \
+  ghcr.io/jjziets/ipmi-monitor:latest
+```
+
+Then visit http://localhost:5000/setup
+
+---
+
+### Option 3: Docker with Environment Variables
+
+```bash
+docker run -d \
+  --name ipmi-monitor \
+  -p 5000:5000 \
+  -e IPMI_USER=admin \
+  -e IPMI_PASS=YourIPMIPassword \
+  -e ADMIN_USER=admin \
+  -e ADMIN_PASS=YourSecurePassword \
+  -e SECRET_KEY=your-random-secret-key \
+  -v ipmi_data:/app/data \
+  ghcr.io/jjziets/ipmi-monitor:latest
+```
+
+Then add servers via the web UI at Settings → Server List.
+
+---
+
+### Option 4: Local Development
+
+```bash
+pip install -r requirements.txt
+export IPMI_USER=admin
+export IPMI_PASS=YourIPMIPassword
+export ADMIN_USER=admin
+export ADMIN_PASS=YourSecurePassword
+python app.py
+```
+
+## 📋 Server Configuration Formats
+
+IPMI Monitor supports multiple formats for bulk server import:
+
+### YAML (Recommended)
+
+```yaml
+servers:
+  - name: server-01
+    bmc_ip: 192.168.1.100
+    ipmi_user: admin          # Optional
+    ipmi_pass: password       # Optional
+    server_ip: 192.168.1.10   # Optional - OS IP
+    nvidia: false             # Optional - use NVIDIA password
+    notes: Web server         # Optional
+```
+
+### CSV
+
+```csv
+name,bmc_ip,ipmi_user,ipmi_pass,server_ip,nvidia,notes
+server-01,192.168.1.100,admin,password,192.168.1.10,false,Web server
+server-02,192.168.1.101,,,192.168.1.11,true,GPU server
+```
+
+### JSON
+
+```json
+{
+  "servers": [
+    {
+      "name": "server-01",
+      "bmc_ip": "192.168.1.100",
+      "ipmi_user": "admin",
+      "ipmi_pass": "password"
+    }
+  ]
+}
+```
+
+### INI (Legacy)
+
+```ini
+[servers]
+192.168.1.100 = server-01
+192.168.1.101 = server-02  # nvidia
+```
+
+## 🤖 AI Features (Optional)
+
+Connect to CryptoLabs for AI-powered server monitoring:
+
+| Feature | Description |
+|---------|-------------|
+| 📊 **Daily Summaries** | AI-generated fleet health reports |
+| 🔧 **Maintenance Tasks** | Automatic task creation from events |
+| 📈 **Predictions** | Failure predictions before they happen |
+| 🔍 **Root Cause Analysis** | AI explains why incidents occurred |
+| 💬 **AI Chat** | Ask questions about your fleet |
+
+### Enable AI Features
+
+**Option 1: Login with CryptoLabs (Easiest)**
+
+1. Go to Settings → AI Features
+2. Click "Login with CryptoLabs"
+3. Sign in or create a free account
+4. AI features are automatically configured!
+
+**Option 2: Manual API Key**
+
+1. Register at [cryptolabs.co.za](https://cryptolabs.co.za/register/)
+2. Get your API key from the [AI Console](https://cryptolabs.co.za/ai-console/)
+3. Enter the key in Settings → AI Features
+
+### Pricing
+
+| Tier | Price | Servers | Features |
+|------|-------|---------|----------|
+| **Free** | $0 | 5 | Basic monitoring only |
+| **Starter** | $100/month | 50 | All AI features, 1-year retention |
+| **Starter+** | +$1/server | 51+ | Same as Starter |
 
 ## Screenshots
 
@@ -29,66 +206,6 @@ A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs
 ### Server Detail
 - Events tab with filtering
 - Sensors tab with live readings (temperature, fans, voltage)
-
-## Quick Start
-
-### Option 1: Docker (Recommended)
-
-```bash
-docker run -d \
-  --name ipmi-monitor \
-  -p 5001:5000 \
-  -e IPMI_USER=admin \
-  -e IPMI_PASS=YourIPMIPassword \
-  -e ADMIN_USER=admin \
-  -e ADMIN_PASS=YourSecurePassword \
-  -e SECRET_KEY=your-random-secret-key \
-  -v ipmi_data:/app/instance \
-  ghcr.io/jjziets/ipmi-monitor:latest
-```
-
-### Option 2: Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  ipmi-monitor:
-    image: ghcr.io/jjziets/ipmi-monitor:latest
-    container_name: ipmi-monitor
-    restart: unless-stopped
-    ports:
-      - "5001:5000"
-    environment:
-      - IPMI_USER=admin
-      - IPMI_PASS=YourIPMIPassword
-      - IPMI_PASS_NVIDIA=YourNvidia16CharPass  # For NVIDIA DGX/HGX
-      - POLL_INTERVAL=300
-      - ADMIN_USER=admin
-      - ADMIN_PASS=YourSecurePassword
-      - SECRET_KEY=your-random-secret-key
-    volumes:
-      - ipmi_data:/app/instance
-
-volumes:
-  ipmi_data:
-```
-
-```bash
-docker-compose up -d
-```
-
-### Option 3: Local Development
-
-```bash
-pip install -r requirements.txt
-export IPMI_USER=admin
-export IPMI_PASS=YourIPMIPassword
-export ADMIN_USER=admin
-export ADMIN_PASS=YourSecurePassword
-python app.py
-```
-
-Access the dashboard at: http://localhost:5000
 
 ## Configuration
 

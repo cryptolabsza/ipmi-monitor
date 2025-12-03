@@ -1,8 +1,19 @@
 version: '3.8'
 
+# =============================================================================
+# IPMI Monitor - Docker Compose Configuration
+# =============================================================================
+#
+# Quick Start:
+#   1. Copy servers.yaml.example to servers.yaml and add your servers
+#   2. Set your passwords below
+#   3. Run: docker-compose up -d
+#
+# For more options, see README.md
+
 services:
   ipmi-monitor:
-    image: ipmi-monitor:latest
+    image: ghcr.io/jjziets/ipmi-monitor:latest
     # Or build locally:
     # build: .
     container_name: ipmi-monitor
@@ -10,25 +21,49 @@ services:
     ports:
       - "5000:5000"
     environment:
-      # Application branding
-      - APP_NAME=IPMI Monitor  # Customize for your organization
+      # ========================================
+      # APPLICATION SETTINGS
+      # ========================================
+      - APP_NAME=IPMI Monitor          # Customize for your organization
       
-      # IPMI/BMC credentials
+      # ========================================
+      # DEFAULT IPMI CREDENTIALS
+      # Used for servers without custom creds
+      # ========================================
       - IPMI_USER=admin
-      - IPMI_PASS=your-ipmi-password  # CHANGE THIS!
-      - IPMI_PASS_NVIDIA=your-16-char-password  # NVIDIA DGX/HGX need 16 chars
-      # - NVIDIA_BMCS=192.168.1.98,192.168.1.99  # Comma-separated NVIDIA BMC IPs (optional)
+      - IPMI_PASS=${IPMI_PASS}         # REQUIRED: Set in .env or export
+      - IPMI_PASS_NVIDIA=${IPMI_PASS_NVIDIA}  # For NVIDIA DGX/HGX (16 chars)
       
-      # Collection intervals
-      - POLL_INTERVAL=300  # 5 minutes for SEL events
-      - SENSOR_POLL_MULTIPLIER=1  # Collect sensors every N cycles
-      
-      # Admin authentication - CHANGE THESE!
+      # ========================================
+      # ADMIN AUTHENTICATION
+      # ========================================
       - ADMIN_USER=admin
-      - ADMIN_PASS=changeme  # IMPORTANT: Change in production!
-      - SECRET_KEY=your-secret-key-change-me  # For session encryption
+      - ADMIN_PASS=${ADMIN_PASS:-changeme}    # CHANGE THIS!
+      - SECRET_KEY=${SECRET_KEY}              # For session encryption
+      
+      # ========================================
+      # COLLECTION SETTINGS
+      # ========================================
+      - POLL_INTERVAL=300              # Seconds between collections (5 min)
+      - SENSOR_POLL_MULTIPLIER=1       # Collect sensors every N cycles
+      
+      # ========================================
+      # AI FEATURES (Optional)
+      # ========================================
+      - AI_SERVICE_URL=https://ipmi-ai.cryptolabs.co.za
+      # API key is configured via web UI or setup wizard
+      
     volumes:
-      - ipmi_data:/app/instance  # SQLite database location
+      # Database storage (persistent)
+      - ipmi_data:/app/data
+      
+      # Server configuration file (optional - auto-loads on startup)
+      # Create servers.yaml from servers.yaml.example
+      - ./config/servers.yaml:/app/config/servers.yaml:ro
+      
+      # Alternative: Mount entire config directory
+      # - ./config:/app/config:ro
+      
     networks:
       - monitoring
     healthcheck:
@@ -36,15 +71,36 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    # For IPMI access, need host network or proper routing
-    # Uncomment below if BMC IPs are not directly accessible
-    # network_mode: host
+      start_period: 10s
 
 volumes:
   ipmi_data:
 
 networks:
   monitoring:
-    external: true  # Use existing monitoring network
-    # Or create a new network:
-    # driver: bridge
+    driver: bridge
+
+# =============================================================================
+# ALTERNATIVE CONFIGURATIONS
+# =============================================================================
+
+# --- Option A: Host Network Mode ---
+# Use this if BMC IPs are not accessible from Docker bridge network
+#
+#   ipmi-monitor:
+#     network_mode: host
+#     ports: []  # Not needed with host network
+
+# --- Option B: Pre-configured Servers via Environment ---
+# Instead of servers.yaml, you can set servers via environment:
+#
+#   environment:
+#     - SERVERS_CONFIG_FILE=/app/config/servers.json
+
+# --- Option C: Production with HTTPS ---
+# Put behind a reverse proxy (nginx, caddy) for HTTPS:
+#
+#   ports:
+#     - "127.0.0.1:5000:5000"  # Only listen on localhost
+#   environment:
+#     - SESSION_COOKIE_SECURE=true

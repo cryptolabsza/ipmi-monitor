@@ -1066,30 +1066,72 @@
         
         <!-- AI Features Tab -->
         <div id="ai" class="tab-content">
-            <div class="card">
+            <!-- Free Trial Banner (shown when not connected) -->
+            <div class="card" id="aiTrialBanner" style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); border: 2px solid var(--accent-blue);">
+                <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div style="font-size: 4rem;">🤖</div>
+                    <div style="flex: 1; min-width: 280px;">
+                        <h2 style="margin: 0 0 8px 0; color: white; font-size: 1.6rem;">
+                            AI-Powered Server Monitoring
+                        </h2>
+                        <p style="color: var(--text-secondary); margin: 0 0 15px 0; font-size: 1rem; line-height: 1.5;">
+                            Let AI analyze your server events, predict failures before they happen, 
+                            and tell you exactly what needs attention. No more manual log analysis.
+                        </p>
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <span style="background: rgba(0, 214, 143, 0.2); color: var(--accent-green); padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.9rem;">
+                                🎁 1 MONTH FREE TRIAL
+                            </span>
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">
+                                No credit card required
+                            </span>
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <a href="https://cryptolabs.co.za/ipmi-ai-trial/" target="_blank" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 16px 32px; font-size: 1.1rem; text-decoration: none; display: inline-block; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 214, 143, 0.3);">
+                            Start Free Trial →
+                        </a>
+                        <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 10px;">
+                            Then $100/month for up to 50 servers
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status Section (shown when connected) -->
+            <div class="card" id="aiConnectedSection" style="display: none;">
                 <div class="card-title">🤖 CryptoLabs AI Features</div>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                    Connect to CryptoLabs cloud for AI-powered insights, predictions, and automation.
-                </p>
                 
                 <div id="aiStatusSection">
-                    <h4 style="margin-bottom: 15px;">Subscription Status</h4>
                     <div class="server-item" id="aiStatusDisplay">
                         <div class="server-info">
-                            <span class="server-name" id="aiTierDisplay">FREE</span>
-                            <span class="server-ip" id="aiStatusMessage">Not connected to CryptoLabs AI</span>
+                            <span class="server-name" id="aiTierDisplay">STARTER</span>
+                            <span class="server-ip" id="aiStatusMessage">Connected to CryptoLabs AI</span>
                         </div>
                         <div class="server-badges">
-                            <span id="aiSyncStatus" class="status-badge status-badge-warning">Not syncing</span>
+                            <span id="aiSyncStatus" class="status-badge status-badge-success">✅ Syncing</span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="form-row" style="margin-top: 20px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="triggerAiSync()">🔄 Sync Now</button>
+                    <button class="btn btn-secondary" onclick="showAiSettings()">⚙️ Settings</button>
+                    <a href="https://cryptolabs.co.za/ai-console/" target="_blank" class="btn btn-secondary" style="text-decoration: none;">📊 View Dashboard</a>
+                </div>
+            </div>
+            
+            <!-- AI Settings (hidden by default) -->
+            <div class="card" id="aiSettingsCard" style="display: none;">
+                <div class="card-title">⚙️ AI Configuration</div>
+                
+                <div class="form-row">
                     <div class="form-group">
-                        <label>License Key</label>
-                        <input type="text" id="aiLicenseKey" placeholder="sk-xxxxxxxxx...">
-                        <small style="color: var(--text-secondary);">Get your key at <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank">cryptolabs.co.za</a></small>
+                        <label>API Key</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="aiLicenseKey" placeholder="sk-xxxxxxxxx..." style="flex: 1;">
+                            <button class="btn btn-secondary" onclick="toggleKeyVisibility()" title="Show/Hide Key" style="padding: 12px;">👁️</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -1097,37 +1139,89 @@
                     <div class="form-group">
                         <label>
                             <input type="checkbox" id="aiSyncEnabled" style="margin-right: 8px;">
-                            Enable cloud sync (required for AI features)
+                            Enable cloud sync
                         </label>
                     </div>
                 </div>
                 
-                <button class="btn btn-primary" onclick="saveAiConfig()">💾 Save AI Configuration</button>
-                <button class="btn btn-secondary" onclick="triggerAiSync()" style="margin-left: 10px;">🔄 Sync Now</button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="saveAiConfig()">💾 Save</button>
+                    <button class="btn btn-secondary" onclick="testAiConnection()">🧪 Test Connection</button>
+                    <button class="btn btn-secondary" onclick="hideAiSettings()">✕ Close</button>
+                </div>
             </div>
             
+            <!-- Features List -->
             <div class="card">
-                <div class="card-title">✨ AI Features (Starter Plan)</div>
-                <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    Upgrade to unlock powerful AI capabilities:
-                </p>
+                <div class="card-title">✨ What You Get with AI Features</div>
                 
-                <ul style="list-style: none; padding: 0; color: var(--text-secondary);">
-                    <li style="padding: 8px 0;">📊 <strong>Daily/Weekly Summaries</strong> - AI-generated fleet health reports</li>
-                    <li style="padding: 8px 0;">🔧 <strong>Maintenance Tasks</strong> - Automatic task creation from events</li>
-                    <li style="padding: 8px 0;">📈 <strong>Predictive Analytics</strong> - Failure predictions before they happen</li>
-                    <li style="padding: 8px 0;">🔍 <strong>Root Cause Analysis</strong> - AI explains why incidents occurred</li>
-                    <li style="padding: 8px 0;">💬 <strong>AI Chat</strong> - Ask questions about your fleet</li>
-                    <li style="padding: 8px 0;">📱 <strong>Advanced Alerting</strong> - Slack, Teams, Discord, Webhooks</li>
-                </ul>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 10px;">
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border-left: 4px solid var(--accent-blue);">
+                        <h4 style="margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            📊 Daily Health Summaries
+                        </h4>
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                            Wake up to an AI-generated report of your fleet's health. Know exactly what needs attention.
+                        </p>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border-left: 4px solid var(--accent-yellow);">
+                        <h4 style="margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            📈 Failure Predictions
+                        </h4>
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                            AI spots patterns that predict failures days before they happen. Replace parts proactively.
+                        </p>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border-left: 4px solid var(--accent-green);">
+                        <h4 style="margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            🔧 Maintenance Tasks
+                        </h4>
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                            Automatic task generation from events. AI prioritizes what's urgent vs what can wait.
+                        </p>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border-left: 4px solid var(--accent-red);">
+                        <h4 style="margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            🔍 Root Cause Analysis
+                        </h4>
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                            When things go wrong, AI analyzes event history to explain why. Stop guessing.
+                        </p>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border-left: 4px solid var(--accent-purple);">
+                        <h4 style="margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            💬 AI Chat
+                        </h4>
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                            Ask questions like "Which servers had memory errors this week?" Get instant answers.
+                        </p>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; border-left: 4px solid #888;">
+                        <h4 style="margin: 0 0 8px 0; display: flex; align-items: center; gap: 8px;">
+                            📱 Smart Alerting
+                        </h4>
+                        <p style="color: var(--text-secondary); margin: 0; font-size: 0.9rem;">
+                            AI-filtered alerts to Slack, Teams, Discord. No more alert fatigue from noise.
+                        </p>
+                    </div>
+                </div>
                 
-                <div style="margin-top: 20px; text-align: center;">
-                    <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" class="btn btn-primary" style="text-decoration: none; display: inline-block; background: linear-gradient(90deg, #4a9eff, #a855f7);">
-                        🚀 Upgrade to Starter - $100/month
+                <div id="aiTrialCTA" style="margin-top: 30px; text-align: center; padding: 25px; background: var(--bg-secondary); border-radius: 12px;">
+                    <p style="color: var(--text-primary); font-size: 1.1rem; margin: 0 0 15px 0;">
+                        <strong>Ready to let AI handle your server monitoring?</strong>
+                    </p>
+                    <a href="https://cryptolabs.co.za/ipmi-ai-trial/" target="_blank" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 14px 28px; font-size: 1rem; text-decoration: none; display: inline-block; border-radius: 10px;">
+                        🎁 Start Your Free Month →
                     </a>
                 </div>
             </div>
             
+            <!-- Sync Status Card -->
             <div class="card" id="aiLastSyncCard" style="display: none;">
                 <div class="card-title">📡 Sync Status</div>
                 <div class="server-item">
@@ -1186,41 +1280,166 @@
         
         // ============== AI Configuration ==============
         
+        // CryptoLabs Configuration
+        const CRYPTOLABS_URL = 'https://cryptolabs.co.za';
+        const CRYPTOLABS_TRIAL_URL = `${CRYPTOLABS_URL}/ipmi-ai-trial/`;
+        const CRYPTOLABS_SSO_URL = CRYPTOLABS_URL;
+        const CRYPTOLABS_OAUTH_URL = `${CRYPTOLABS_SSO_URL}/oauth/ipmi-authorize`;
+        
+        // Show/hide AI settings panel
+        function showAiSettings() {
+            document.getElementById('aiSettingsCard').style.display = 'block';
+        }
+        
+        function hideAiSettings() {
+            document.getElementById('aiSettingsCard').style.display = 'none';
+        }
+        
+        // Update AI UI based on connection status
+        function updateAiUI(config) {
+            const isConnected = config && config.subscription_valid && config.license_key;
+            
+            // Show/hide appropriate sections
+            document.getElementById('aiTrialBanner').style.display = isConnected ? 'none' : 'block';
+            document.getElementById('aiConnectedSection').style.display = isConnected ? 'block' : 'none';
+            document.getElementById('aiTrialCTA').style.display = isConnected ? 'none' : 'block';
+            
+            if (isConnected) {
+                document.getElementById('aiTierDisplay').textContent = (config.subscription_tier || 'STARTER').toUpperCase();
+                document.getElementById('aiStatusMessage').textContent = `Connected - ${config.max_servers || 50} servers max`;
+                document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
+                document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
+                
+                // Show sync status if available
+                if (config.last_sync) {
+                    document.getElementById('aiLastSyncCard').style.display = 'block';
+                    document.getElementById('aiLastSyncTime').textContent = new Date(config.last_sync).toLocaleString();
+                    document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status || 'Success';
+                }
+            }
+        }
+        
+        // SSO Login with CryptoLabs (after they've signed up via the trial page)
+        function loginWithCryptoLabs() {
+            // Calculate popup position
+            const width = 550, height = 650;
+            const left = (screen.width - width) / 2;
+            const top = (screen.height - height) / 2;
+            
+            // Build OAuth URL with redirect back to this page
+            const redirectUri = `${window.location.origin}/api/ai/oauth-callback`;
+            const oauthUrl = `${CRYPTOLABS_OAUTH_URL}?redirect_uri=${encodeURIComponent(redirectUri)}&state=${Date.now()}`;
+            
+            // Open popup
+            const popup = window.open(
+                oauthUrl,
+                'CryptoLabs Login',
+                `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
+            );
+            
+            if (!popup) {
+                showAlert('Popup blocked! Please allow popups for this site.', 'error');
+                return;
+            }
+            
+            // Listen for message from popup
+            const messageHandler = async (event) => {
+                // Verify origin
+                if (!event.origin.includes('cryptolabs.co.za')) {
+                    return;
+                }
+                
+                // Check for our auth message
+                if (event.data && event.data.type === 'cryptolabs_ipmi_auth') {
+                    window.removeEventListener('message', messageHandler);
+                    
+                    const { api_key, subscription, user_email } = event.data;
+                    
+                    if (api_key) {
+                        // Auto-fill and save
+                        document.getElementById('aiLicenseKey').value = api_key;
+                        document.getElementById('aiSyncEnabled').checked = true;
+                        await saveAiConfig();
+                        
+                        showAlert(`✅ Connected to CryptoLabs AI as ${user_email}!`, 'success');
+                    }
+                    
+                    popup.close();
+                }
+            };
+            
+            window.addEventListener('message', messageHandler);
+            
+            // Poll for popup close
+            const pollTimer = setInterval(() => {
+                if (popup.closed) {
+                    clearInterval(pollTimer);
+                    window.removeEventListener('message', messageHandler);
+                    setTimeout(loadAiConfig, 500);
+                }
+            }, 500);
+            
+            // Timeout after 5 minutes
+            setTimeout(() => {
+                clearInterval(pollTimer);
+                window.removeEventListener('message', messageHandler);
+                if (!popup.closed) popup.close();
+            }, 300000);
+        }
+        
+        // Toggle API key visibility
+        function toggleKeyVisibility() {
+            const input = document.getElementById('aiLicenseKey');
+            input.type = input.type === 'password' ? 'text' : 'password';
+        }
+        
+        // Test AI connection
+        async function testAiConnection() {
+            const licenseKey = document.getElementById('aiLicenseKey').value.trim();
+            
+            if (!licenseKey) {
+                showAlert('Please enter an API key first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ai/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ license_key: licenseKey })
+                });
+                
+                const data = await response.json();
+                
+                if (data.valid) {
+                    showAlert(`✅ Connection successful! Tier: ${data.tier}, Max servers: ${data.max_servers}`, 'success');
+                } else {
+                    showAlert(`❌ Connection failed: ${data.error || 'Invalid API key'}`, 'error');
+                }
+            } catch (e) {
+                showAlert('Error testing connection: ' + e.message, 'error');
+            }
+        }
+        
         async function loadAiConfig() {
             try {
                 const response = await fetch('/api/ai/config');
                 if (!response.ok) {
-                    document.getElementById('aiStatusMessage').textContent = 'Login required to configure AI features';
+                    updateAiUI(null);
                     return;
                 }
                 
                 const config = await response.json();
                 
-                // Update display
-                if (config.subscription_valid) {
-                    document.getElementById('aiTierDisplay').textContent = (config.subscription_tier || 'STARTER').toUpperCase();
-                    document.getElementById('aiStatusMessage').textContent = `Connected - ${config.max_servers} servers max`;
-                    document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
-                    document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
-                } else {
-                    document.getElementById('aiTierDisplay').textContent = 'FREE';
-                    document.getElementById('aiStatusMessage').textContent = config.license_key ? 'Invalid license' : 'No license key';
-                    document.getElementById('aiSyncStatus').textContent = 'Not active';
-                    document.getElementById('aiSyncStatus').className = 'status-badge status-badge-warning';
-                }
+                // Update UI based on connection status
+                updateAiUI(config);
                 
-                // Fill form
-                document.getElementById('aiSyncEnabled').checked = config.sync_enabled;
-                
-                // Show last sync if available
-                if (config.last_sync) {
-                    document.getElementById('aiLastSyncCard').style.display = 'block';
-                    document.getElementById('aiLastSyncTime').textContent = new Date(config.last_sync).toLocaleString();
-                    document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status;
-                }
+                // Fill settings form
+                document.getElementById('aiSyncEnabled').checked = config.sync_enabled || false;
                 
             } catch (e) {
                 console.error('Failed to load AI config:', e);
+                updateAiUI(null);
             }
         }
         
