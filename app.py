@@ -1085,7 +1085,7 @@ def sync_to_cloud():
             subquery = db.session.query(
                 SensorReading.server_name,
                 SensorReading.sensor_name,
-                func.max(SensorReading.timestamp).label('max_ts')
+                func.max(SensorReading.collected_at).label('max_ts')
             ).group_by(SensorReading.server_name, SensorReading.sensor_name).subquery()
             
             sensors = db.session.query(SensorReading).join(
@@ -1093,7 +1093,7 @@ def sync_to_cloud():
                 db.and_(
                     SensorReading.server_name == subquery.c.server_name,
                     SensorReading.sensor_name == subquery.c.sensor_name,
-                    SensorReading.timestamp == subquery.c.max_ts
+                    SensorReading.collected_at == subquery.c.max_ts
                 )
             ).all()
             
