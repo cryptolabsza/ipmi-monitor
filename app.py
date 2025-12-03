@@ -26,7 +26,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ipmi_events.db'
+# Use absolute path for database - data volume is mounted at /app/data
+DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
+os.makedirs(DATA_DIR, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/ipmi_events.db'
+app.config['DATA_DIR'] = DATA_DIR
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Security Configuration
