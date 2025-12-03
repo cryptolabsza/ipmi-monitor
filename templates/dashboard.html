@@ -1390,7 +1390,18 @@
                             <span id="aiSyncText">Syncing...</span>
                         </div>
                         <span id="aiSyncDetails">Last sync: checking...</span>
-                        <button onclick="triggerSync()" style="margin-left: auto; padding: 4px 12px; font-size: 0.8rem; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; cursor: pointer; color: var(--text-primary);">↻ Sync Now</button>
+                        <button onclick="triggerSync()" id="syncNowBtn" style="margin-left: auto; padding: 4px 12px; font-size: 0.8rem; border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 4px; cursor: pointer; color: var(--text-primary);">↻ Sync Now</button>
+                    </div>
+                    <!-- Sync Progress Bar (hidden by default) -->
+                    <div class="ai-sync-progress" id="aiSyncProgress" style="display: none; padding: 8px 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span id="syncProgressText">Syncing data...</span>
+                            <span id="syncProgressPercent">0%</span>
+                        </div>
+                        <div style="background: var(--border-color); border-radius: 4px; height: 6px; overflow: hidden;">
+                            <div id="syncProgressBar" style="background: var(--accent-blue); height: 100%; width: 0%; transition: width 0.3s ease;"></div>
+                        </div>
+                        <div id="syncProgressDetails" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;"></div>
                     </div>
                     
                     <!-- AI Tabs -->
@@ -1407,6 +1418,21 @@
                         <div class="ai-options">
                             <div class="ai-options-title">Summary Options</div>
                             <div class="ai-option-group">
+                                <label class="ai-option-label">Devices:</label>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                    <select id="summaryDeviceMode" onchange="toggleDeviceSelector('summary')" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary);">
+                                        <option value="all">All Servers</option>
+                                        <option value="select">Select Specific...</option>
+                                    </select>
+                                    <div id="summaryDeviceSelector" style="display: none; flex: 1; min-width: 200px;">
+                                        <select id="summaryDevices" multiple style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); min-height: 80px;">
+                                            <!-- Populated by JS -->
+                                        </select>
+                                        <small style="color: var(--text-secondary);">Ctrl+click to select multiple</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ai-option-group">
                                 <label class="ai-option-label">Summary Type:</label>
                                 <div class="ai-radio-group">
                                     <label class="ai-radio-item"><input type="radio" name="summaryType" value="health" checked> 🏥 Health Report</label>
@@ -1419,6 +1445,7 @@
                                 <label class="ai-option-label">Time Range:</label>
                                 <div class="ai-radio-group">
                                     <label class="ai-radio-item"><input type="radio" name="summaryRange" value="24" checked> 24 hours</label>
+                                    <label class="ai-radio-item"><input type="radio" name="summaryRange" value="72"> 72 hours</label>
                                     <label class="ai-radio-item"><input type="radio" name="summaryRange" value="168"> 7 days</label>
                                     <label class="ai-radio-item"><input type="radio" name="summaryRange" value="720"> 30 days</label>
                                 </div>
@@ -1440,13 +1467,37 @@
                     <div class="ai-tab-content" id="aiTabTasks">
                         <div class="ai-options">
                             <div class="ai-options-title">Scan for Issues</div>
-                            <div class="ai-checkbox-group">
-                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="memory" checked> 💾 ECC/Memory</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="cooling" checked> ❄️ Cooling/Fans</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="power" checked> ⚡ Power/PSU</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="thermal" checked> 🌡️ Thermal</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="storage" checked> 💿 Storage</label>
-                                <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="system" checked> 🖥️ System</label>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Devices:</label>
+                                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                                    <select id="tasksDeviceMode" onchange="toggleDeviceSelector('tasks')" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary);">
+                                        <option value="all">All Servers</option>
+                                        <option value="select">Select Specific...</option>
+                                    </select>
+                                    <div id="tasksDeviceSelector" style="display: none; flex: 1; min-width: 200px;">
+                                        <select id="tasksDevices" multiple style="width: 100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); min-height: 80px;">
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Time Range:</label>
+                                <div class="ai-radio-group">
+                                    <label class="ai-radio-item"><input type="radio" name="tasksRange" value="24" checked> 24 hours</label>
+                                    <label class="ai-radio-item"><input type="radio" name="tasksRange" value="72"> 72 hours</label>
+                                    <label class="ai-radio-item"><input type="radio" name="tasksRange" value="168"> 7 days</label>
+                                </div>
+                            </div>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Issue Categories:</label>
+                                <div class="ai-checkbox-group">
+                                    <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="memory" checked> 💾 ECC/Memory</label>
+                                    <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="cooling" checked> ❄️ Cooling/Fans</label>
+                                    <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="power" checked> ⚡ Power/PSU</label>
+                                    <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="thermal" checked> 🌡️ Thermal</label>
+                                    <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="storage" checked> 💿 Storage</label>
+                                    <label class="ai-checkbox-item"><input type="checkbox" name="taskIssue" value="system" checked> 🖥️ System</label>
+                                </div>
                             </div>
                         </div>
                         <button class="ai-generate-btn" onclick="generateTasks()" id="tasksBtn">
@@ -1490,15 +1541,34 @@
                     <!-- RCA Tab -->
                     <div class="ai-tab-content" id="aiTabRca">
                         <div class="ai-options">
-                            <div class="ai-options-title">Select an Event to Analyze</div>
-                            <div class="ai-event-list" id="rcaEventList">
-                                <div style="padding: 20px; text-align: center; color: var(--text-secondary);">
-                                    Loading recent events...
+                            <div class="ai-options-title">Root Cause Analysis</div>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Device:</label>
+                                <select id="rcaDevice" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 100%;">
+                                    <option value="">Select a server...</option>
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Time Window:</label>
+                                <div class="ai-radio-group">
+                                    <label class="ai-radio-item"><input type="radio" name="rcaRange" value="24" checked> 24 hours</label>
+                                    <label class="ai-radio-item"><input type="radio" name="rcaRange" value="72"> 72 hours</label>
+                                    <label class="ai-radio-item"><input type="radio" name="rcaRange" value="168"> 7 days</label>
                                 </div>
                             </div>
-                            <div style="margin-top: 10px;">
+                            <div class="ai-option-group">
+                                <label class="ai-option-label">Select Event (optional):</label>
+                                <div class="ai-event-list" id="rcaEventList" style="max-height: 150px; overflow-y: auto;">
+                                    <div style="padding: 15px; text-align: center; color: var(--text-secondary);">
+                                        Select a device to see its events
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ai-option-group">
                                 <label class="ai-option-label">Or describe an incident:</label>
-                                <textarea id="rcaDescription" placeholder="e.g., Server brickbox-40 rebooted unexpectedly at 10:45am..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); min-height: 60px; resize: vertical;"></textarea>
+                                <textarea id="rcaDescription" placeholder="e.g., GPU fell off the bus requiring a reboot, or server had unexpected shutdown at 10:45am..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); min-height: 60px; resize: vertical;"></textarea>
+                                <small style="color: var(--text-secondary);">Tip: Describe issues not captured in SEL, like PCI errors or GPU issues</small>
                             </div>
                         </div>
                         <button class="ai-generate-btn" onclick="generateRCA()" id="rcaBtn">
@@ -1516,16 +1586,26 @@
                     <!-- Chat Tab -->
                     <div class="ai-tab-content" id="aiTabChat">
                         <div class="ai-chat-container">
+                            <div class="ai-chat-header" style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 10px;">
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <select id="chatHistory" onchange="loadChatHistory()" style="padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary);">
+                                        <option value="new">New Conversation</option>
+                                        <!-- History items populated by JS -->
+                                    </select>
+                                    <button onclick="startNewChat()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer;" title="New Chat">+ New</button>
+                                </div>
+                                <span id="chatConversationId" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+                            </div>
                             <div class="ai-chat-examples">
                                 <div class="ai-chat-examples-title">Try asking:</div>
                                 <span class="ai-chat-example" onclick="setQuestion('Which servers need maintenance this week?')">Which servers need maintenance?</span>
                                 <span class="ai-chat-example" onclick="setQuestion('Show me all ECC errors from the past month')">Show ECC errors</span>
                                 <span class="ai-chat-example" onclick="setQuestion('What is the health status of my NVIDIA servers?')">NVIDIA server health</span>
-                                <span class="ai-chat-example" onclick="setQuestion('Summarize yesterday\\'s critical events')">Yesterday's critical events</span>
+                                <span class="ai-chat-example" onclick="setQuestion('Explain why server brickbox-06 has memory issues')">Why memory issues on brickbox-06?</span>
                             </div>
                             <div class="ai-chat-messages" id="aiChatMessages">
                                 <div class="ai-chat-message assistant">
-                                    👋 Hi! I'm your AI assistant. Ask me anything about your server fleet - events, sensors, maintenance, or health status.
+                                    👋 Hi! I'm your AI assistant. I have full context of your server fleet (devices, IPs, 72h of events and sensors). Ask me anything about maintenance, health, or issues.
                                 </div>
                             </div>
                             <div class="ai-chat-input-container">
@@ -1735,23 +1815,211 @@
         async function triggerSync() {
             const dot = document.getElementById('aiSyncDot');
             const text = document.getElementById('aiSyncText');
+            const syncBtn = document.getElementById('syncNowBtn');
+            const progressDiv = document.getElementById('aiSyncProgress');
+            const progressBar = document.getElementById('syncProgressBar');
+            const progressText = document.getElementById('syncProgressText');
+            const progressPercent = document.getElementById('syncProgressPercent');
+            const progressDetails = document.getElementById('syncProgressDetails');
+            
+            // Show progress bar
             dot.className = 'ai-sync-dot syncing';
             text.textContent = 'Syncing...';
+            syncBtn.disabled = true;
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '10%';
+            progressText.textContent = 'Connecting to AI service...';
+            progressPercent.textContent = '10%';
             
             try {
+                // Simulate progress stages
+                progressBar.style.width = '30%';
+                progressPercent.textContent = '30%';
+                progressText.textContent = 'Gathering server data...';
+                
                 const response = await fetch('/api/ai/sync', { method: 'POST' });
+                
+                progressBar.style.width = '70%';
+                progressPercent.textContent = '70%';
+                progressText.textContent = 'Uploading to AI service...';
+                
                 const data = await response.json();
+                
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                
                 if (data.success) {
-                    text.textContent = 'Synced!';
+                    progressText.textContent = 'Sync complete!';
+                    progressDetails.textContent = data.message || 'Data synchronized successfully';
+                    text.textContent = 'Connected';
                     dot.className = 'ai-sync-dot';
-                    setTimeout(() => loadAiStatus(), 1000);
+                    setTimeout(() => {
+                        progressDiv.style.display = 'none';
+                        loadAiStatus();
+                    }, 2000);
                 } else {
+                    progressText.textContent = 'Sync failed';
+                    progressDetails.textContent = data.message || 'Please try again';
                     text.textContent = 'Sync failed';
                     dot.className = 'ai-sync-dot error';
+                    setTimeout(() => progressDiv.style.display = 'none', 3000);
                 }
             } catch (e) {
+                progressBar.style.width = '100%';
+                progressText.textContent = 'Error';
+                progressDetails.textContent = e.message;
                 text.textContent = 'Sync error';
                 dot.className = 'ai-sync-dot error';
+                setTimeout(() => progressDiv.style.display = 'none', 3000);
+            }
+            
+            syncBtn.disabled = false;
+        }
+        
+        // Device selection functions
+        let deviceList = [];
+        let currentConversationId = null;
+        let chatHistory = [];
+        
+        function toggleDeviceSelector(section) {
+            const mode = document.getElementById(section + 'DeviceMode').value;
+            const selector = document.getElementById(section + 'DeviceSelector');
+            selector.style.display = mode === 'select' ? 'block' : 'none';
+        }
+        
+        function populateDeviceSelectors() {
+            // Populate all device selectors with server list
+            const selectors = ['summaryDevices', 'tasksDevices'];
+            selectors.forEach(id => {
+                const select = document.getElementById(id);
+                if (select && serversData.length > 0) {
+                    select.innerHTML = serversData.map(s => 
+                        `<option value="${s.name}">${s.name} (${s.bmc_ip})</option>`
+                    ).join('');
+                }
+            });
+            
+            // Populate RCA device dropdown
+            const rcaDevice = document.getElementById('rcaDevice');
+            if (rcaDevice && serversData.length > 0) {
+                rcaDevice.innerHTML = '<option value="">Select a server...</option>' + 
+                    serversData.map(s => 
+                        `<option value="${s.name}">${s.name} (${s.bmc_ip})</option>`
+                    ).join('');
+            }
+        }
+        
+        function getSelectedDevices(section) {
+            const mode = document.getElementById(section + 'DeviceMode').value;
+            if (mode === 'all') return ['all'];
+            
+            const select = document.getElementById(section + 'Devices');
+            return Array.from(select.selectedOptions).map(o => o.value);
+        }
+        
+        // Load events for specific device in RCA
+        async function loadEventsForDevice() {
+            const device = document.getElementById('rcaDevice').value;
+            const list = document.getElementById('rcaEventList');
+            
+            if (!device) {
+                list.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-secondary);">Select a device to see its events</div>';
+                return;
+            }
+            
+            list.innerHTML = '<div style="padding: 15px; text-align: center;"><div class="spinner"></div> Loading events...</div>';
+            
+            try {
+                const range = document.querySelector('input[name="rcaRange"]:checked').value;
+                const response = await fetch(`/api/events?hours=${range}&server=${encodeURIComponent(device)}&limit=20`);
+                const data = await response.json();
+                
+                if (!data.events || data.events.length === 0) {
+                    list.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-secondary);">No events found for this device in the selected time range.</div>';
+                    return;
+                }
+                
+                recentEventsForRca = data.events;
+                list.innerHTML = recentEventsForRca.map((e, i) => `
+                    <div class="ai-event-item" onclick="selectRcaEvent(${i})" id="rcaEvent${i}">
+                        <span class="ai-event-severity ${e.severity}"></span>
+                        <div class="ai-event-info">
+                            <div class="ai-event-desc">${e.description}</div>
+                        </div>
+                        <div class="ai-event-time">${new Date(e.timestamp).toLocaleString()}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                list.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--accent-red);">Error loading events.</div>';
+            }
+        }
+        
+        // Chat history functions
+        function startNewChat() {
+            currentConversationId = 'chat-' + Date.now();
+            document.getElementById('aiChatMessages').innerHTML = `
+                <div class="ai-chat-message assistant">
+                    👋 Hi! I'm your AI assistant. I have full context of your server fleet. Ask me anything!
+                </div>
+            `;
+            document.getElementById('chatConversationId').textContent = 'New conversation';
+            saveChatHistory();
+        }
+        
+        function saveChatHistory() {
+            if (!currentConversationId) return;
+            
+            const messages = document.getElementById('aiChatMessages').innerHTML;
+            const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
+            
+            // Update or add current conversation
+            const existing = history.findIndex(h => h.id === currentConversationId);
+            const entry = {
+                id: currentConversationId,
+                timestamp: new Date().toISOString(),
+                preview: messages.substring(0, 200),
+                messages: messages
+            };
+            
+            if (existing >= 0) {
+                history[existing] = entry;
+            } else {
+                history.unshift(entry);
+            }
+            
+            // Keep only last 20 conversations
+            if (history.length > 20) history.pop();
+            
+            localStorage.setItem('aiChatHistory', JSON.stringify(history));
+            updateChatHistoryDropdown();
+        }
+        
+        function updateChatHistoryDropdown() {
+            const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
+            const dropdown = document.getElementById('chatHistory');
+            
+            dropdown.innerHTML = '<option value="new">New Conversation</option>' +
+                history.map(h => {
+                    const date = new Date(h.timestamp);
+                    const label = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    return `<option value="${h.id}">${label}</option>`;
+                }).join('');
+        }
+        
+        function loadChatHistory() {
+            const id = document.getElementById('chatHistory').value;
+            if (id === 'new') {
+                startNewChat();
+                return;
+            }
+            
+            const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
+            const chat = history.find(h => h.id === id);
+            
+            if (chat) {
+                currentConversationId = id;
+                document.getElementById('aiChatMessages').innerHTML = chat.messages;
+                document.getElementById('chatConversationId').textContent = new Date(chat.timestamp).toLocaleString();
             }
         }
         
@@ -1848,12 +2116,17 @@
             
             const summaryType = document.querySelector('input[name="summaryType"]:checked').value;
             const timeRange = document.querySelector('input[name="summaryRange"]:checked').value;
+            const devices = getSelectedDevices('summary');
             
             try {
                 const response = await fetch('/api/ai/summary/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: summaryType, hours: parseInt(timeRange) })
+                    body: JSON.stringify({ 
+                        type: summaryType, 
+                        hours: parseInt(timeRange),
+                        devices: devices
+                    })
                 });
                 const data = await response.json();
                 
@@ -1879,12 +2152,18 @@
             btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Generating...';
             
             const issues = Array.from(document.querySelectorAll('input[name="taskIssue"]:checked')).map(cb => cb.value);
+            const timeRange = document.querySelector('input[name="tasksRange"]:checked').value;
+            const devices = getSelectedDevices('tasks');
             
             try {
                 const response = await fetch('/api/ai/tasks/generate', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ issues })
+                    body: JSON.stringify({ 
+                        issues: issues,
+                        hours: parseInt(timeRange),
+                        devices: devices
+                    })
                 });
                 const data = await response.json();
                 
@@ -1973,10 +2252,12 @@
             btn.disabled = true;
             btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Analyzing...';
             
+            const device = document.getElementById('rcaDevice').value;
+            const timeRange = document.querySelector('input[name="rcaRange"]:checked').value;
             const description = document.getElementById('rcaDescription').value.trim();
             
-            if (!selectedRcaEvent && !description) {
-                alert('Please select an event or describe an incident to analyze.');
+            if (!device && !selectedRcaEvent && !description) {
+                alert('Please select a device, event, or describe an incident to analyze.');
                 btn.disabled = false;
                 btn.innerHTML = '<span>🔍</span> Analyze Root Cause';
                 return;
@@ -1987,6 +2268,8 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        device: device,
+                        hours: parseInt(timeRange),
                         event_id: selectedRcaEvent ? selectedRcaEvent.id : null,
                         description: description || (selectedRcaEvent ? selectedRcaEvent.description : '')
                     })
@@ -2019,6 +2302,11 @@
             const question = input.value.trim();
             if (!question) return;
             
+            // Ensure we have a conversation ID
+            if (!currentConversationId) {
+                currentConversationId = 'chat-' + Date.now();
+            }
+            
             const messagesDiv = document.getElementById('aiChatMessages');
             
             // Add user message
@@ -2031,7 +2319,10 @@
                 const response = await fetch('/api/ai/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question })
+                    body: JSON.stringify({ 
+                        question: question,
+                        conversation_id: currentConversationId
+                    })
                 });
                 const data = await response.json();
                 
@@ -2042,6 +2333,9 @@
                     thinking.innerHTML = `<span style="color: var(--accent-red)">${data.error}</span>`;
                 }
                 thinking.id = '';
+                
+                // Save chat history after successful response
+                saveChatHistory();
             } catch (e) {
                 const thinking = document.getElementById('aiThinking');
                 thinking.innerHTML = '<span style="color: var(--accent-red)">Error contacting AI service</span>';
@@ -2106,6 +2400,7 @@
                 serversData = await response.json();
                 
                 renderServers();
+                populateDeviceSelectors();  // Update AI device selectors
             } catch (e) {
                 console.error('Failed to load servers:', e);
                 document.getElementById('serverGrid').innerHTML = '<div class="loading">Failed to load servers</div>';
@@ -2314,6 +2609,11 @@
             loadServers();
             loadEvents();
             loadAiStatus();
+            updateChatHistoryDropdown();  // Load chat history from localStorage
+            
+            // Set up RCA device change handler
+            document.getElementById('rcaDevice').addEventListener('change', loadEventsForDevice);
+            
             document.getElementById('lastUpdated').textContent = 
                 'Last updated: ' + new Date().toLocaleTimeString();
         }

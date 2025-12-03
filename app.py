@@ -127,6 +127,17 @@ def admin_required(f):
     return decorated_function
 
 def login_required(f):
+    """Decorator to require any logged-in user (admin or readonly)"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('logged_in'):
+            if is_api_request():
+                return jsonify({'error': 'Authentication required'}), 401
+            return redirect(url_for('login', next=request.url))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def login_required(f):
     """Decorator to require any login (admin or readonly)"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -1066,23 +1077,23 @@ def sync_to_cloud():
             
             # Get recent events (last 24 hours)
             cutoff = datetime.utcnow() - timedelta(hours=24)
-            events = IPMIEvent.query.filter(IPMIEvent.timestamp > cutoff).all()
+            events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
             
             # Get latest sensor readings
             sensors = SensorReading.query.all()
             
             payload = {
                 'servers': [{
-                    'name': s.name,
+                    'name': s.server_name,
                     'bmc_ip': s.bmc_ip,
-                    'description': s.description
+                    'description': s.notes or ''
                 } for s in servers],
                 'events': [{
                     'id': str(e.id),
                     'server_name': e.server_name,
-                    'timestamp': e.timestamp.isoformat() if e.timestamp else None,
-                    'type': e.event_type,
-                    'description': e.description,
+                    'timestamp': e.event_date.isoformat() if e.event_date else None,
+                    'type': e.sensor_type,
+                    'description': e.event_description,
                     'severity': e.severity
                 } for e in events],
                 'sensors': [{
@@ -4955,7 +4966,7 @@ def api_get_ai_results():
 
 
 @app.route('/api/ai/summary/generate', methods=['POST'])
-@admin_required
+@login_required
 def api_generate_summary():
     """Generate AI summary on demand"""
     config = CloudSync.get_config()
@@ -4983,7 +4994,7 @@ def api_generate_summary():
 
 
 @app.route('/api/ai/tasks/generate', methods=['POST'])
-@admin_required
+@login_required
 def api_generate_tasks():
     """Generate AI maintenance tasks on demand"""
     config = CloudSync.get_config()
@@ -5011,6 +5022,7 @@ def api_generate_tasks():
 
 
 @app.route('/api/ai/chat', methods=['POST'])
+@login_required
 def api_ai_chat():
     """AI chat interface - ask questions about the fleet"""
     config = CloudSync.get_config()
@@ -5045,6 +5057,7 @@ def api_ai_chat():
 
 
 @app.route('/api/ai/rca', methods=['POST'])
+@login_required
 def api_ai_rca():
     """AI Root Cause Analysis for an event"""
     config = CloudSync.get_config()
