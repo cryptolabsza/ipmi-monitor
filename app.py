@@ -5227,9 +5227,9 @@ def api_update_ai_config():
 
 
 @app.route('/api/ai/sync', methods=['POST'])
-@admin_required
+@login_required
 def api_trigger_sync():
-    """Manually trigger AI cloud sync"""
+    """Manually trigger AI cloud sync - any logged-in user can trigger"""
     result = sync_to_cloud()
     return jsonify(result)
 
