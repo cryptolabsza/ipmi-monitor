@@ -4132,8 +4132,8 @@ def api_collect_server_inventory(bmc_ip):
     if not server:
         return jsonify({'error': 'Server not found'}), 404
     
-    # Get IPMI credentials
-    ipmi_user, ipmi_pass = get_ipmi_credentials(server)
+    # Get IPMI credentials (pass bmc_ip string, not server object)
+    ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
     
     try:
         inventory_data = collect_server_inventory(bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
@@ -4156,7 +4156,7 @@ def api_collect_all_inventory():
     
     for server in servers:
         try:
-            ipmi_user, ipmi_pass = get_ipmi_credentials(server)
+            ipmi_user, ipmi_pass = get_ipmi_credentials(server.bmc_ip)  # Pass bmc_ip string
             collect_server_inventory(server.bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
             results['success'] += 1
         except Exception as e:
@@ -4253,7 +4253,26 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
 @require_valid_bmc_ip
 def api_check_server_connectivity(bmc_ip):
     """Check both BMC and primary IP connectivity"""
-    import subprocess
+    import socket
+    
+    def check_port(ip, port, timeout=2):
+        """Check if a port is reachable"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((ip, port))
+            sock.close()
+            return result == 0
+        except:
+            return False
+    
+    def check_host(ip, timeout=2):
+        """Check if host is reachable via common ports"""
+        # Try IPMI port 623 for BMC, SSH port 22 for OS
+        for port in [623, 22, 80, 443]:
+            if check_port(ip, port, timeout):
+                return True
+        return False
     
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     if not server:
@@ -4269,20 +4288,16 @@ def api_check_server_connectivity(bmc_ip):
         'checked_at': datetime.utcnow().isoformat()
     }
     
-    # Check BMC
+    # Check BMC via IPMI port (623)
     try:
-        result = subprocess.run(['ping', '-c', '1', '-W', '2', bmc_ip], 
-                               capture_output=True, timeout=5)
-        results['bmc_reachable'] = result.returncode == 0
+        results['bmc_reachable'] = check_port(bmc_ip, 623, timeout=3)
     except:
         pass
     
-    # Check primary IP
+    # Check primary IP via SSH port (22)
     if server.server_ip:
         try:
-            result = subprocess.run(['ping', '-c', '1', '-W', '2', server.server_ip], 
-                                   capture_output=True, timeout=5)
-            results['primary_ip_reachable'] = result.returncode == 0
+            results['primary_ip_reachable'] = check_port(server.server_ip, 22, timeout=3)
         except:
             pass
     
