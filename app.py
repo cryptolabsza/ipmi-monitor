@@ -5100,6 +5100,23 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 except Exception as e:
                     app.logger.debug(f"SSH memory collection failed for {bmc_ip}: {e}")
                 
+                # Memory slots via dmidecode
+                try:
+                    cmd = build_ssh_cmd('dmidecode -t memory 2>/dev/null | grep -E "Number Of Devices|Size:" | head -30')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        # Parse: Number Of Devices: 8
+                        match = re.search(r'Number Of Devices:\s+(\d+)', result.stdout)
+                        if match:
+                            inventory.memory_slots_total = int(match.group(1))
+                        # Count populated slots (Size: XX GB, not "No Module Installed")
+                        populated = len(re.findall(r'Size:\s+\d+\s*(GB|MB)', result.stdout, re.IGNORECASE))
+                        if populated > 0:
+                            inventory.memory_slots_used = populated
+                        app.logger.info(f"SSH Memory slots for {bmc_ip}: {inventory.memory_slots_used}/{inventory.memory_slots_total}")
+                except Exception as e:
+                    app.logger.debug(f"SSH memory slots collection failed for {bmc_ip}: {e}")
+                
                 # Storage info via lsblk
                 try:
                     cmd = build_ssh_cmd('lsblk -J -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')

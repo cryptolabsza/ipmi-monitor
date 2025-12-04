@@ -923,6 +923,28 @@
                         </div>
                     </div>
                     ` : ''}
+                    
+                    <!-- Storage Info -->
+                    ${inv.storage_info && inv.storage_info.length > 0 ? `
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; grid-column: span 2;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-purple);">💿 Storage</h3>
+                        <div style="display: grid; gap: 10px;">
+                            ${inv.storage_info.map(drive => `
+                                <div style="display: flex; align-items: center; gap: 15px; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                                    <span style="font-size: 1.5rem;">${drive.name && drive.name.startsWith('nvme') ? '⚡' : '💾'}</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">/dev/${drive.name}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">${drive.model || 'Unknown model'}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight: 600; color: var(--accent-green);">${drive.size}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${drive.type || 'disk'}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
                 
                 <div style="margin-top: 15px; color: var(--text-secondary); font-size: 0.85rem;">
