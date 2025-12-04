@@ -409,10 +409,10 @@
             </div>
             <div class="btn-group">
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
-                <button class="btn btn-warning admin-only" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
+                <button class="btn btn-warning write-required" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
                 <button class="btn btn-danger admin-only" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
                 
-                <!-- Power Management Dropdown -->
+                <!-- Power Management Dropdown - Admin Only -->
                 <div class="power-dropdown admin-only" style="display: none; position: relative;">
                     <button class="btn" onclick="togglePowerMenu()" id="powerMenuBtn" style="background: var(--accent-purple);">
                         ⚡ Power <span id="powerStatusBadge" style="margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">...</span>
@@ -951,8 +951,15 @@
                 const response = await fetch('/api/auth/status');
                 const data = await response.json();
                 
+                // Show write-required buttons for admin and readwrite users
+                if (data.logged_in && (data.role === 'admin' || data.role === 'readwrite')) {
+                    document.querySelectorAll('.write-required').forEach(el => {
+                        el.style.display = '';
+                    });
+                }
+                
+                // Show admin-only buttons (power control, clear SEL) only for admins
                 if (data.logged_in && data.role === 'admin') {
-                    // Show admin-only buttons
                     document.querySelectorAll('.admin-only').forEach(el => {
                         el.style.display = '';
                     });

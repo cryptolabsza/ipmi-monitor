@@ -1012,8 +1012,9 @@
                     <div class="form-group">
                         <label>Role</label>
                         <select id="newUserRole">
-                            <option value="readonly">Read-only</option>
-                            <option value="admin">Admin</option>
+                            <option value="readonly">Read-only (view only)</option>
+                            <option value="readwrite">Read-write (can modify servers/events)</option>
+                            <option value="admin">Admin (full access including power control)</option>
                         </select>
                     </div>
                 </div>
@@ -1957,7 +1958,12 @@
                 }
                 
                 userList.innerHTML = users.map(u => {
-                    const roleColor = u.role === 'admin' ? 'var(--accent-red)' : 'var(--accent-blue)';
+                    const roleColors = {
+                        'admin': 'var(--accent-red)',
+                        'readwrite': 'var(--accent-purple)',
+                        'readonly': 'var(--accent-blue)'
+                    };
+                    const roleColor = roleColors[u.role] || 'var(--accent-blue)';
                     const lastLogin = u.last_login ? new Date(u.last_login).toLocaleString() : 'Never';
                     const statusColor = u.enabled ? 'var(--accent-green)' : 'var(--text-secondary)';
                     
@@ -2044,11 +2050,11 @@
         }
         
         function editUser(id, username, role, enabled) {
-            const newRole = prompt(`Change role for ${username}:\nEnter 'admin' or 'readonly'`, role);
+            const newRole = prompt(`Change role for ${username}:\nEnter 'admin', 'readwrite', or 'readonly'`, role);
             if (newRole === null) return;
             
-            if (!['admin', 'readonly'].includes(newRole)) {
-                showAlert('Invalid role. Use admin or readonly.', 'error');
+            if (!['admin', 'readwrite', 'readonly'].includes(newRole)) {
+                showAlert('Invalid role. Use admin, readwrite, or readonly.', 'error');
                 return;
             }
             

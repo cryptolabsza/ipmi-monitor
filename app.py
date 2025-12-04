@@ -138,8 +138,22 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def view_required(f):
+    """Decorator for read-only endpoints - allows anonymous if enabled, otherwise requires login"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('logged_in'):
+            return f(*args, **kwargs)
+        # Check if anonymous access is allowed
+        if allow_anonymous_read():
+            return f(*args, **kwargs)
+        if is_api_request():
+            return jsonify({'error': 'Authentication required'}), 401
+        return redirect(url_for('login', next=request.url))
+    return decorated_function
+
 def login_required(f):
-    """Decorator to require any logged-in user (admin or readonly)"""
+    """Decorator to require any logged-in user (admin, readwrite, or readonly) - no anonymous"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
@@ -149,23 +163,30 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-def login_required(f):
-    """Decorator to require any login (admin or readonly)"""
+def write_required(f):
+    """Decorator for write operations - requires admin or readwrite role"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('logged_in'):
-            # Check if anonymous access is allowed
-            if allow_anonymous_read():
-                return f(*args, **kwargs)
             if is_api_request():
                 return jsonify({'error': 'Authentication required'}), 401
             return redirect(url_for('login', next=request.url))
+        
+        role = session.get('user_role', 'readonly')
+        if role not in ['admin', 'readwrite']:
+            if is_api_request():
+                return jsonify({'error': 'Write access required. Your role: ' + role}), 403
+            return render_template('login.html', error='Write access required'), 403
         return f(*args, **kwargs)
     return decorated_function
 
 def is_admin():
     """Check if current user is admin"""
     return session.get('logged_in') and session.get('user_role') == 'admin'
+
+def is_readwrite():
+    """Check if current user has write access (admin or readwrite)"""
+    return session.get('logged_in') and session.get('user_role') in ['admin', 'readwrite']
 
 def is_logged_in():
     """Check if user is logged in (any role)"""
@@ -176,6 +197,12 @@ def can_view():
     if session.get('logged_in'):
         return True
     return allow_anonymous_read()
+
+def get_user_role():
+    """Get current user's role or 'anonymous' if not logged in"""
+    if session.get('logged_in'):
+        return session.get('user_role', 'readonly')
+    return 'anonymous'
 
 def needs_password_change():
     """Check if current user needs to change default password"""
@@ -1119,11 +1146,17 @@ class NotificationConfig(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class User(db.Model):
-    """User accounts with role-based access"""
+    """User accounts with role-based access
+    
+    Roles:
+        - admin: Full access (settings, power control, user management, etc.)
+        - readwrite: Can add/edit servers, clear events, but no power control or user management
+        - readonly: View-only access (same as anonymous when anonymous is enabled)
+    """
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), nullable=False, unique=True)
     password_hash = db.Column(db.String(64), nullable=False)  # SHA256 hash
-    role = db.Column(db.String(20), nullable=False, default='readonly')  # admin, readonly
+    role = db.Column(db.String(20), nullable=False, default='readonly')  # admin, readwrite, readonly
     enabled = db.Column(db.Boolean, default=True)
     password_changed = db.Column(db.Boolean, default=False)  # True after first password change
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -4038,11 +4071,13 @@ def inject_app_name():
 
 # Routes
 @app.route('/')
+@view_required
 def dashboard():
-    """Main dashboard"""
+    """Main dashboard - requires login or anonymous access enabled"""
     return render_template('dashboard.html')
 
 @app.route('/api/servers')
+@view_required
 def api_servers():
     """Get all server statuses with configurable time range"""
     hours = request.args.get('hours', 24, type=int)
@@ -4089,6 +4124,7 @@ def api_servers():
     return jsonify(result)
 
 @app.route('/api/events')
+@view_required
 def api_events():
     """Get events with filtering"""
     severity = request.args.get('severity')
@@ -4120,6 +4156,7 @@ def api_events():
     } for e in events])
 
 @app.route('/api/stats')
+@view_required
 def api_stats():
     """Get dashboard statistics with configurable time range"""
     hours = request.args.get('hours', 24, type=int)
@@ -4216,9 +4253,10 @@ def check_bmc_reachable(bmc_ip):
         return False
 
 @app.route('/server/<bmc_ip>')
+@view_required
 @require_valid_bmc_ip
 def server_detail(bmc_ip):
-    """Server detail page"""
+    """Server detail page - requires login or anonymous access enabled"""
     return render_template('server_detail.html', bmc_ip=bmc_ip)
 
 def enhance_event_display(sensor_type, event_description):
@@ -4296,6 +4334,7 @@ def enhance_event_display(sensor_type, event_description):
 
 
 @app.route('/api/server/<bmc_ip>/events')
+@view_required
 @require_valid_bmc_ip
 def api_server_events(bmc_ip):
     """Get events for a specific server"""
@@ -6087,6 +6126,7 @@ def api_config_bulk():
 # ============== Sensor Data API ==============
 
 @app.route('/api/sensors/<bmc_ip>/names')
+@view_required
 @require_valid_bmc_ip
 def api_sensor_names(bmc_ip):
     """Get sensor name mapping for a BMC (sensor_id -> sensor_name)"""
@@ -6107,6 +6147,7 @@ def api_sensor_names(bmc_ip):
         })
 
 @app.route('/api/sensors/<bmc_ip>')
+@view_required
 @require_valid_bmc_ip
 def api_sensors(bmc_ip):
     """Get latest sensor readings for a server"""
@@ -6142,6 +6183,7 @@ def api_sensors(bmc_ip):
     return jsonify(list(latest.values()))
 
 @app.route('/api/sensors/<bmc_ip>/history')
+@view_required
 @require_valid_bmc_ip
 def api_sensors_history(bmc_ip):
     """Get sensor history for graphing"""
@@ -6927,12 +6969,14 @@ def logout():
 
 @app.route('/api/auth/status')
 def auth_status():
-    """Check authentication status"""
+    """Check authentication status and permissions"""
+    role = get_user_role()
     return jsonify({
         'logged_in': is_logged_in(),
         'is_admin': is_admin(),
+        'can_write': is_readwrite(),  # admin or readwrite
         'username': session.get('username'),
-        'role': session.get('user_role'),
+        'role': role,
         'can_view': can_view(),
         'anonymous_allowed': allow_anonymous_read(),
         'password_change_required': needs_password_change() if is_logged_in() else False
