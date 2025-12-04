@@ -1547,11 +1547,23 @@ def check_and_report_connectivity_changes():
     """
     Check all servers for connectivity changes and report to AI service.
     Called periodically by background collector.
+    
+    Severity Matrix:
+    ┌──────────┬────────────┬──────────┬─────────────────────┐
+    │ BMC/IPMI │ Primary IP │ Severity │ Alert Type          │
+    ├──────────┼────────────┼──────────┼─────────────────────┤
+    │    ❌    │     ❌     │ CRITICAL │ System Dark         │
+    │    ✅    │     ❌     │ WARNING  │ OS Down/Reboot      │
+    │    ❌    │     ✅     │ WARNING  │ BMC Unreachable     │
+    │    ✅    │     ✅     │   OK     │ All Online          │
+    └──────────┴────────────┴──────────┴─────────────────────┘
     """
     global _connectivity_states
     import socket
     
     def check_port(ip, port, timeout=2):
+        if not ip:
+            return False
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
@@ -1569,61 +1581,107 @@ def check_and_report_connectivity_changes():
                 # Check BMC connectivity (IPMI port 623)
                 bmc_reachable = check_port(server.bmc_ip, 623, timeout=2)
                 
-                # Get previous state
-                key = f"{server.bmc_ip}"
-                previous_state = _connectivity_states.get(key)
+                # Check Primary/OS IP (SSH port 22)
+                primary_ip = server.server_ip
+                primary_reachable = check_port(primary_ip, 22, timeout=2) if primary_ip else None
                 
-                # Detect changes
-                if previous_state is not None:
-                    if previous_state and not bmc_reachable:
-                        # Server went offline
-                        app.logger.warning(f"Server {server.server_name} ({server.bmc_ip}) went OFFLINE")
-                        report_connectivity_to_ai(
-                            server.server_name, server.bmc_ip, 'offline'
-                        )
+                # Get previous states
+                bmc_key = f"{server.bmc_ip}_bmc"
+                primary_key = f"{server.bmc_ip}_primary"
+                prev_bmc = _connectivity_states.get(bmc_key)
+                prev_primary = _connectivity_states.get(primary_key)
+                
+                # Determine current status and severity
+                if not bmc_reachable and not primary_reachable:
+                    current_status = 'system_dark'
+                    severity = 'critical'
+                elif bmc_reachable and not primary_reachable and primary_ip:
+                    current_status = 'os_down'
+                    severity = 'warning'
+                elif not bmc_reachable and primary_reachable:
+                    current_status = 'bmc_down'
+                    severity = 'warning'
+                else:
+                    current_status = 'online'
+                    severity = 'info'
+                
+                # Get previous combined status
+                prev_status = _connectivity_states.get(f"{server.bmc_ip}_status")
+                
+                # Detect status changes
+                if prev_status is not None and prev_status != current_status:
+                    # Status changed - log event
+                    if current_status == 'system_dark':
+                        description = "🚨 SYSTEM DARK - Both BMC and OS unreachable"
+                        app.logger.critical(f"CRITICAL: {server.server_name} ({server.bmc_ip}) - SYSTEM DARK")
+                        report_connectivity_to_ai(server.server_name, server.bmc_ip, 'system_dark')
                         
-                        # Log an event in the database
-                        event = IPMIEvent(
-                            bmc_ip=server.bmc_ip,
-                            server_name=server.server_name,
-                            event_date=datetime.utcnow(),
-                            event_description="BMC became unreachable",
-                            sensor_type="Connectivity",
-                            severity="warning"
-                        )
-                        db.session.add(event)
-                        db.session.commit()
+                    elif current_status == 'os_down':
+                        description = "⚠️ OS/Primary IP unreachable (BMC still responding)"
+                        app.logger.warning(f"WARNING: {server.server_name} - OS down, BMC up")
+                        report_connectivity_to_ai(server.server_name, server.bmc_ip, 'os_down')
                         
-                    elif not previous_state and bmc_reachable:
-                        # Server came back online
-                        offline_start = _connectivity_states.get(f"{key}_offline_time")
+                    elif current_status == 'bmc_down':
+                        description = "⚠️ BMC/IPMI unreachable (OS still responding)"
+                        app.logger.warning(f"WARNING: {server.server_name} - BMC down, OS up")
+                        report_connectivity_to_ai(server.server_name, server.bmc_ip, 'bmc_down')
+                        
+                    elif current_status == 'online':
+                        # Recovered - calculate duration
+                        offline_start = _connectivity_states.get(f"{server.bmc_ip}_offline_time")
                         duration = None
                         if offline_start:
                             duration = int((datetime.utcnow() - offline_start).total_seconds() / 60)
                         
-                        app.logger.info(f"Server {server.server_name} ({server.bmc_ip}) back ONLINE")
-                        report_connectivity_to_ai(
-                            server.server_name, server.bmc_ip, 'online', duration=duration
-                        )
+                        if prev_status == 'system_dark':
+                            description = f"✅ System recovered from DARK state (offline {duration or '?'} min)"
+                            severity = 'info'
+                        elif prev_status == 'os_down':
+                            description = f"✅ OS/Primary IP back online (was down {duration or '?'} min)"
+                            severity = 'info'
+                        elif prev_status == 'bmc_down':
+                            description = f"✅ BMC back online (was down {duration or '?'} min)"
+                            severity = 'info'
+                        else:
+                            description = f"✅ System fully online"
+                            severity = 'info'
                         
-                        # Log an event
-                        event = IPMIEvent(
-                            bmc_ip=server.bmc_ip,
-                            server_name=server.server_name,
-                            event_date=datetime.utcnow(),
-                            event_description=f"BMC back online (was offline {duration or '?'} min)",
-                            sensor_type="Connectivity",
-                            severity="info"
+                        app.logger.info(f"RECOVERED: {server.server_name} - {description}")
+                        report_connectivity_to_ai(server.server_name, server.bmc_ip, 'online', duration=duration)
+                        _connectivity_states.pop(f"{server.bmc_ip}_offline_time", None)
+                    
+                    # Log the event
+                    event = IPMIEvent(
+                        bmc_ip=server.bmc_ip,
+                        server_name=server.server_name,
+                        event_date=datetime.utcnow(),
+                        event_description=description,
+                        sensor_type="Connectivity",
+                        severity=severity
+                    )
+                    db.session.add(event)
+                    db.session.commit()
+                    
+                    # Evaluate alert rules for this connectivity change
+                    try:
+                        is_reachable = current_status == 'online'
+                        evaluate_alerts_for_server(
+                            server.bmc_ip, 
+                            server.server_name, 
+                            is_reachable, 
+                            'Online' if bmc_reachable else 'Unreachable'
                         )
-                        db.session.add(event)
-                        db.session.commit()
+                    except Exception as e:
+                        app.logger.debug(f"Alert evaluation failed: {e}")
                 
-                # Update state
-                _connectivity_states[key] = bmc_reachable
-                if not bmc_reachable and previous_state is not False:
-                    _connectivity_states[f"{key}_offline_time"] = datetime.utcnow()
-                elif bmc_reachable:
-                    _connectivity_states.pop(f"{key}_offline_time", None)
+                # Update states
+                _connectivity_states[bmc_key] = bmc_reachable
+                _connectivity_states[primary_key] = primary_reachable
+                _connectivity_states[f"{server.bmc_ip}_status"] = current_status
+                
+                # Track offline start time
+                if current_status != 'online' and prev_status == 'online':
+                    _connectivity_states[f"{server.bmc_ip}_offline_time"] = datetime.utcnow()
                     
             except Exception as e:
                 app.logger.debug(f"Connectivity check failed for {server.bmc_ip}: {e}")
@@ -7529,6 +7587,21 @@ def init_db():
                     SystemSettings.initialize_defaults()
                     
                     app.logger.info("Database initialized")
+                    
+                    # Check if this is a fresh database (no servers)
+                    server_count = Server.query.count()
+                    if server_count == 0:
+                        print("=" * 60, flush=True)
+                        print("⚠️  WARNING: No servers configured!", flush=True)
+                        print("   If you expected existing data, check your volume mounts.", flush=True)
+                        print("   ", flush=True)
+                        print("   Recommended: Use docker-compose with named volumes:", flush=True)
+                        print("     volumes:", flush=True)
+                        print("       - ipmi_data:/app/data", flush=True)
+                        print("   ", flush=True)
+                        print("   Or with docker run:", flush=True)
+                        print("     -v ipmi_data:/app/data", flush=True)
+                        print("=" * 60, flush=True)
                 finally:
                     fcntl.flock(f, fcntl.LOCK_UN)
         except Exception as e:
