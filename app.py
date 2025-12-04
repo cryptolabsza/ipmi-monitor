@@ -552,6 +552,159 @@ class RedfishClient:
         except Exception as e:
             app.logger.error(f"Redfish clear SEL failed for {self.host}: {e}")
             return False
+    
+    def get_processors(self):
+        """Get processor (CPU) information via Redfish"""
+        processors = []
+        try:
+            systems_uri = self.get_systems_uri()
+            if not systems_uri:
+                return processors
+            
+            systems = self._get(systems_uri)
+            if not systems or 'Members' not in systems or not systems['Members']:
+                return processors
+            
+            system_uri = systems['Members'][0].get('@odata.id')
+            system = self._get(system_uri)
+            
+            if not system:
+                return processors
+            
+            # Get Processors collection
+            if 'Processors' in system:
+                proc_uri = system['Processors'].get('@odata.id')
+                proc_coll = self._get(proc_uri)
+                
+                if proc_coll and 'Members' in proc_coll:
+                    for member in proc_coll['Members']:
+                        proc = self._get(member.get('@odata.id'))
+                        if proc:
+                            processors.append({
+                                'Id': proc.get('Id'),
+                                'Model': proc.get('Model', ''),
+                                'Manufacturer': proc.get('Manufacturer', ''),
+                                'TotalCores': proc.get('TotalCores'),
+                                'TotalThreads': proc.get('TotalThreads'),
+                                'MaxSpeedMHz': proc.get('MaxSpeedMHz'),
+                                'ProcessorType': proc.get('ProcessorType'),
+                                'Status': proc.get('Status', {}).get('Health', 'OK')
+                            })
+            
+            return processors
+        except Exception as e:
+            app.logger.debug(f"Redfish processors failed for {self.host}: {e}")
+            return processors
+    
+    def get_memory(self):
+        """Get memory (DIMM) information via Redfish"""
+        memory = []
+        try:
+            systems_uri = self.get_systems_uri()
+            if not systems_uri:
+                return memory
+            
+            systems = self._get(systems_uri)
+            if not systems or 'Members' not in systems or not systems['Members']:
+                return memory
+            
+            system_uri = systems['Members'][0].get('@odata.id')
+            system = self._get(system_uri)
+            
+            if not system:
+                return memory
+            
+            # Get Memory collection
+            if 'Memory' in system:
+                mem_uri = system['Memory'].get('@odata.id')
+                mem_coll = self._get(mem_uri)
+                
+                if mem_coll and 'Members' in mem_coll:
+                    for member in mem_coll['Members']:
+                        dimm = self._get(member.get('@odata.id'))
+                        if dimm:
+                            memory.append({
+                                'Id': dimm.get('Id'),
+                                'Name': dimm.get('Name', ''),
+                                'CapacityMiB': dimm.get('CapacityMiB', 0),
+                                'Manufacturer': dimm.get('Manufacturer', ''),
+                                'PartNumber': dimm.get('PartNumber', ''),
+                                'SerialNumber': dimm.get('SerialNumber', ''),
+                                'MemoryType': dimm.get('MemoryDeviceType', dimm.get('MemoryType', '')),
+                                'OperatingSpeedMhz': dimm.get('OperatingSpeedMhz'),
+                                'Status': dimm.get('Status', {}).get('Health', 'OK')
+                            })
+            
+            return memory
+        except Exception as e:
+            app.logger.debug(f"Redfish memory failed for {self.host}: {e}")
+            return memory
+    
+    def get_storage(self):
+        """Get storage (drives) information via Redfish"""
+        drives = []
+        try:
+            systems_uri = self.get_systems_uri()
+            if not systems_uri:
+                return drives
+            
+            systems = self._get(systems_uri)
+            if not systems or 'Members' not in systems or not systems['Members']:
+                return drives
+            
+            system_uri = systems['Members'][0].get('@odata.id')
+            system = self._get(system_uri)
+            
+            if not system:
+                return drives
+            
+            # Get Storage collection
+            if 'Storage' in system:
+                storage_uri = system['Storage'].get('@odata.id')
+                storage_coll = self._get(storage_uri)
+                
+                if storage_coll and 'Members' in storage_coll:
+                    for member in storage_coll['Members']:
+                        controller = self._get(member.get('@odata.id'))
+                        if controller and 'Drives' in controller:
+                            # Get drives from this controller
+                            for drive_ref in controller.get('Drives', []):
+                                drive = self._get(drive_ref.get('@odata.id'))
+                                if drive:
+                                    drives.append({
+                                        'Id': drive.get('Id'),
+                                        'Name': drive.get('Name', ''),
+                                        'Model': drive.get('Model', ''),
+                                        'Manufacturer': drive.get('Manufacturer', ''),
+                                        'SerialNumber': drive.get('SerialNumber', ''),
+                                        'CapacityBytes': drive.get('CapacityBytes'),
+                                        'MediaType': drive.get('MediaType', ''),  # HDD, SSD, etc.
+                                        'Protocol': drive.get('Protocol', ''),  # SATA, SAS, NVMe
+                                        'Status': drive.get('Status', {}).get('Health', 'OK')
+                                    })
+            
+            # Also try SimpleStorage (older Redfish)
+            if 'SimpleStorage' in system and not drives:
+                simple_uri = system['SimpleStorage'].get('@odata.id')
+                simple_coll = self._get(simple_uri)
+                
+                if simple_coll and 'Members' in simple_coll:
+                    for member in simple_coll['Members']:
+                        controller = self._get(member.get('@odata.id'))
+                        if controller and 'Devices' in controller:
+                            for device in controller.get('Devices', []):
+                                drives.append({
+                                    'Name': device.get('Name', ''),
+                                    'Model': device.get('Model', ''),
+                                    'Manufacturer': device.get('Manufacturer', ''),
+                                    'CapacityBytes': device.get('CapacityBytes'),
+                                    'Status': device.get('Status', {}).get('Health', 'OK')
+                                })
+            
+            return drives
+        except Exception as e:
+            app.logger.debug(f"Redfish storage failed for {self.host}: {e}")
+            return drives
 
 
 def check_redfish_available(bmc_ip):
@@ -4581,8 +4734,9 @@ def api_collect_all_inventory():
 
 
 def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip=None):
-    """Collect hardware inventory from a server via IPMI FRU"""
+    """Collect hardware inventory from a server via IPMI FRU, Redfish, and SDR"""
     import subprocess
+    import json
     
     inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
     if not inventory:
@@ -4595,7 +4749,7 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
     # Collect FRU data
     try:
         cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         fru_output = result.stdout
         inventory.fru_data = fru_output
         
@@ -4646,12 +4800,172 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
     except Exception as e:
         app.logger.warning(f"BMC firmware version collection failed for {bmc_ip}: {e}")
     
-    # Check primary IP reachability
+    # ========== CPU/Memory/Storage from Redfish ==========
+    try:
+        if should_use_redfish(bmc_ip):
+            client = get_redfish_client(bmc_ip)
+            
+            # Get CPU info from Redfish
+            try:
+                cpu_info = client.get_processors()
+                if cpu_info:
+                    inventory.cpu_count = len(cpu_info)
+                    if cpu_info:
+                        first_cpu = cpu_info[0]
+                        inventory.cpu_model = first_cpu.get('Model', first_cpu.get('ProcessorId', {}).get('VendorId', ''))
+                        inventory.cpu_cores = first_cpu.get('TotalCores', 0)
+                        app.logger.info(f"Redfish CPU for {bmc_ip}: {inventory.cpu_model}, {inventory.cpu_count} CPUs, {inventory.cpu_cores} cores")
+            except Exception as e:
+                app.logger.debug(f"Redfish CPU collection failed for {bmc_ip}: {e}")
+            
+            # Get Memory info from Redfish
+            try:
+                memory_info = client.get_memory()
+                if memory_info:
+                    total_gb = sum(m.get('CapacityMiB', 0) for m in memory_info) / 1024
+                    slots_used = len([m for m in memory_info if m.get('CapacityMiB', 0) > 0])
+                    inventory.memory_total_gb = round(total_gb, 1)
+                    inventory.memory_slots_used = slots_used
+                    inventory.memory_slots_total = len(memory_info)
+                    app.logger.info(f"Redfish Memory for {bmc_ip}: {inventory.memory_total_gb}GB, {slots_used}/{len(memory_info)} slots")
+            except Exception as e:
+                app.logger.debug(f"Redfish memory collection failed for {bmc_ip}: {e}")
+            
+            # Get Storage info from Redfish
+            try:
+                storage_info = client.get_storage()
+                if storage_info:
+                    inventory.storage_info = json.dumps(storage_info)
+                    app.logger.info(f"Redfish Storage for {bmc_ip}: {len(storage_info)} drives")
+            except Exception as e:
+                app.logger.debug(f"Redfish storage collection failed for {bmc_ip}: {e}")
+                
+    except Exception as e:
+        app.logger.debug(f"Redfish inventory collection failed for {bmc_ip}: {e}")
+    
+    # ========== CPU/Memory from IPMI SDR (fallback) ==========
+    if not inventory.cpu_model or not inventory.memory_total_gb:
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'sdr', 'elist', 'full']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            
+            cpu_count = 0
+            dimm_count = 0
+            
+            for line in result.stdout.split('\n'):
+                line_lower = line.lower()
+                # Count CPUs from temperature sensors
+                if ('cpu' in line_lower or 'processor' in line_lower) and 'temp' in line_lower:
+                    cpu_count += 1
+                # Count DIMMs from temperature sensors
+                if 'dimm' in line_lower and 'temp' in line_lower:
+                    dimm_count += 1
+            
+            if cpu_count > 0 and not inventory.cpu_count:
+                inventory.cpu_count = cpu_count
+                app.logger.info(f"SDR found {cpu_count} CPUs for {bmc_ip}")
+            
+            if dimm_count > 0 and not inventory.memory_slots_used:
+                inventory.memory_slots_used = dimm_count
+                app.logger.info(f"SDR found {dimm_count} DIMMs for {bmc_ip}")
+                
+        except Exception as e:
+            app.logger.debug(f"SDR inventory collection failed for {bmc_ip}: {e}")
+    
+    # ========== CPU/Memory/Storage from SSH to OS (if reachable) ==========
+    if server_ip and (not inventory.cpu_model or not inventory.memory_total_gb):
+        try:
+            # Check if SSH port is open
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            ssh_available = sock.connect_ex((server_ip, 22)) == 0
+            sock.close()
+            
+            if ssh_available:
+                app.logger.info(f"SSH available for {bmc_ip} ({server_ip}), collecting detailed inventory")
+                
+                # CPU info via /proc/cpuinfo
+                try:
+                    cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no', 
+                           f'root@{server_ip}', 'cat /proc/cpuinfo | grep -E "model name|physical id" | head -20']
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        # Parse CPU info
+                        physical_ids = set()
+                        cpu_model = None
+                        for line in result.stdout.split('\n'):
+                            if 'model name' in line and not cpu_model:
+                                cpu_model = line.split(':')[1].strip() if ':' in line else None
+                            if 'physical id' in line:
+                                physical_ids.add(line.split(':')[1].strip() if ':' in line else '0')
+                        
+                        if cpu_model:
+                            inventory.cpu_model = cpu_model
+                        if physical_ids:
+                            inventory.cpu_count = len(physical_ids)
+                        
+                        app.logger.info(f"SSH CPU for {bmc_ip}: {inventory.cpu_model}")
+                except Exception as e:
+                    app.logger.debug(f"SSH CPU collection failed for {bmc_ip}: {e}")
+                
+                # Memory info via /proc/meminfo
+                try:
+                    cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no',
+                           f'root@{server_ip}', 'cat /proc/meminfo | grep MemTotal']
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        # Parse: MemTotal:       32780132 kB
+                        match = re.search(r'MemTotal:\s+(\d+)', result.stdout)
+                        if match:
+                            mem_kb = int(match.group(1))
+                            inventory.memory_total_gb = round(mem_kb / 1024 / 1024, 1)
+                            app.logger.info(f"SSH Memory for {bmc_ip}: {inventory.memory_total_gb}GB")
+                except Exception as e:
+                    app.logger.debug(f"SSH memory collection failed for {bmc_ip}: {e}")
+                
+                # Storage info via lsblk
+                try:
+                    cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no',
+                           f'root@{server_ip}', 'lsblk -J -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE']
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        try:
+                            # Try JSON output first
+                            storage_data = json.loads(result.stdout)
+                            drives = [d for d in storage_data.get('blockdevices', []) if d.get('type') == 'disk']
+                            if drives:
+                                inventory.storage_info = json.dumps(drives)
+                                app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
+                        except json.JSONDecodeError:
+                            # Parse text output
+                            drives = []
+                            for line in result.stdout.strip().split('\n')[1:]:  # Skip header
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    drives.append({
+                                        'name': parts[0],
+                                        'size': parts[1] if len(parts) > 1 else 'Unknown',
+                                        'model': ' '.join(parts[2:-1]) if len(parts) > 3 else 'Unknown'
+                                    })
+                            if drives:
+                                inventory.storage_info = json.dumps(drives)
+                                app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
+                except Exception as e:
+                    app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
+                    
+        except Exception as e:
+            app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
+    
+    # Check primary IP reachability (use socket instead of ping)
     if server_ip:
         try:
-            result = subprocess.run(['ping', '-c', '1', '-W', '2', server_ip], 
-                                   capture_output=True, timeout=5)
-            inventory.primary_ip_reachable = result.returncode == 0
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex((server_ip, 22))
+            sock.close()
+            inventory.primary_ip_reachable = result == 0
             inventory.primary_ip_last_check = datetime.utcnow()
         except:
             inventory.primary_ip_reachable = False
