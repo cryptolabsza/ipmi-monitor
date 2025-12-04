@@ -435,6 +435,7 @@
         <div class="tabs">
             <button class="tab-btn active" onclick="switchTab('events')">📋 Events</button>
             <button class="tab-btn" onclick="switchTab('sensors')">🌡️ Sensors</button>
+            <button class="tab-btn" onclick="switchTab('inventory')">🔧 Inventory</button>
         </div>
         
         <!-- Events Tab -->
@@ -479,6 +480,49 @@
                     <div class="loading">
                         <div class="spinner"></div>
                         Loading sensors...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inventory Tab -->
+        <div id="inventoryTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Hardware Inventory</h2>
+                    <button class="btn" onclick="collectInventory()" id="collectInventoryBtn">🔄 Collect Inventory</button>
+                </div>
+                
+                <div id="inventoryContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading inventory...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Connectivity Status -->
+            <div class="card" style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Connectivity Status</h2>
+                    <button class="btn btn-secondary" onclick="checkConnectivity()">🔍 Check Now</button>
+                </div>
+                <div id="connectivityStatus">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">BMC IP</div>
+                            <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="invBmcIp">{{ bmc_ip }}</div>
+                            <div id="bmcStatus" style="margin-top: 5px;">-</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">Primary/OS IP</div>
+                            <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="invPrimaryIp">-</div>
+                            <div id="primaryIpStatus" style="margin-top: 5px;">-</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">Overall Status</div>
+                            <div id="overallStatus" style="font-weight: 600; font-size: 1.1rem; margin-top: 5px;">-</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -683,6 +727,9 @@
             // Load data for the tab
             if (tabName === 'sensors') {
                 loadSensors();
+            } else if (tabName === 'inventory') {
+                loadInventory();
+                checkConnectivity();
             }
         }
         
@@ -778,6 +825,167 @@
                 }
             } catch (e) {
                 console.error('Failed to check auth status:', e);
+            }
+        }
+        
+        // Load inventory data
+        async function loadInventory() {
+            const container = document.getElementById('inventoryContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading inventory...</div>';
+            
+            try {
+                const response = await fetch(`/api/servers/${bmcIp}/inventory`);
+                const data = await response.json();
+                
+                if (data.status === 'not_collected') {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">📦</div>
+                            <p>Hardware inventory has not been collected yet.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">Click "Collect Inventory" to gather hardware details via IPMI.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Update primary IP display
+                if (data.primary_ip) {
+                    document.getElementById('invPrimaryIp').textContent = data.primary_ip;
+                }
+                
+                container.innerHTML = renderInventory(data);
+            } catch (e) {
+                console.error('Failed to load inventory:', e);
+                container.innerHTML = '<div class="loading">Failed to load inventory</div>';
+            }
+        }
+        
+        function renderInventory(inv) {
+            return `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- System Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-blue);">🖥️ System</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Manufacturer:</span> <strong>${inv.manufacturer || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Product:</span> <strong>${inv.product_name || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Serial:</span> <code style="font-family: 'JetBrains Mono', monospace;">${inv.serial_number || '-'}</code></div>
+                            <div><span style="color: var(--text-secondary);">Part Number:</span> <code>${inv.part_number || '-'}</code></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Board Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-green);">🔌 Motherboard</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Manufacturer:</span> <strong>${inv.board_manufacturer || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Product:</span> <strong>${inv.board_product || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Serial:</span> <code>${inv.board_serial || '-'}</code></div>
+                        </div>
+                    </div>
+                    
+                    <!-- BMC Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-yellow);">📡 BMC</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">MAC Address:</span> <code>${inv.bmc_mac_address || '-'}</code></div>
+                            <div><span style="color: var(--text-secondary);">Firmware:</span> <strong>${inv.bmc_firmware || '-'}</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- CPU Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-purple);">⚡ CPU</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Model:</span> <strong>${inv.cpu_model || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Count:</span> <strong>${inv.cpu_count || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Cores:</span> <strong>${inv.cpu_cores || '-'}</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Memory Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-red);">💾 Memory</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Total:</span> <strong>${inv.memory_total_gb ? inv.memory_total_gb + ' GB' : '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Slots:</span> <strong>${inv.memory_slots_used || '-'} / ${inv.memory_slots_total || '-'}</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Network MACs -->
+                    ${inv.network_macs && inv.network_macs.length > 0 ? `
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-blue);">🌐 Network</h3>
+                        <div style="display: grid; gap: 8px;">
+                            ${inv.network_macs.map(n => `
+                                <div><span style="color: var(--text-secondary);">${n.interface}:</span> <code>${n.mac}</code></div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div style="margin-top: 15px; color: var(--text-secondary); font-size: 0.85rem;">
+                    Last collected: ${inv.collected_at ? new Date(inv.collected_at).toLocaleString() : 'Never'}
+                </div>
+            `;
+        }
+        
+        async function collectInventory() {
+            const btn = document.getElementById('collectInventoryBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Collecting...';
+            
+            try {
+                const response = await fetch(`/api/servers/${bmcIp}/inventory`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    loadInventory();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to collect inventory'));
+                }
+            } catch (e) {
+                alert('Failed to collect inventory: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Collect Inventory';
+            }
+        }
+        
+        async function checkConnectivity() {
+            try {
+                const response = await fetch(`/api/servers/${bmcIp}/check-connectivity`, { method: 'POST' });
+                const data = await response.json();
+                
+                // Update BMC status
+                const bmcStatus = document.getElementById('bmcStatus');
+                bmcStatus.innerHTML = data.bmc_reachable 
+                    ? '<span style="color: var(--accent-green);">✅ Online</span>'
+                    : '<span style="color: var(--accent-red);">❌ Offline</span>';
+                
+                // Update primary IP
+                if (data.primary_ip) {
+                    document.getElementById('invPrimaryIp').textContent = data.primary_ip;
+                }
+                const primaryStatus = document.getElementById('primaryIpStatus');
+                primaryStatus.innerHTML = data.primary_ip_reachable
+                    ? '<span style="color: var(--accent-green);">✅ Online</span>'
+                    : '<span style="color: var(--accent-red);">❌ Offline</span>';
+                
+                // Update overall status
+                const overallStatus = document.getElementById('overallStatus');
+                const statusMap = {
+                    'online': { text: '✅ All Online', color: 'var(--accent-green)' },
+                    'os_offline': { text: '⚠️ OS Offline (BMC OK)', color: 'var(--accent-yellow)' },
+                    'bmc_offline': { text: '⚠️ BMC Offline (OS OK)', color: 'var(--accent-yellow)' },
+                    'offline': { text: '❌ Fully Offline', color: 'var(--accent-red)' }
+                };
+                const status = statusMap[data.status] || { text: data.status, color: 'var(--text-secondary)' };
+                overallStatus.innerHTML = `<span style="color: ${status.color};">${status.text}</span>`;
+                
+            } catch (e) {
+                console.error('Failed to check connectivity:', e);
             }
         }
         

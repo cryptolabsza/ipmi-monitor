@@ -1077,6 +1077,74 @@ class AIResult(db.Model):
         return result
 
 
+class ServerInventory(db.Model):
+    """Hardware inventory collected via IPMI FRU data"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, unique=True, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    # System info
+    manufacturer = db.Column(db.String(100))
+    product_name = db.Column(db.String(100))
+    serial_number = db.Column(db.String(100))
+    part_number = db.Column(db.String(100))
+    # BMC info
+    bmc_mac_address = db.Column(db.String(20))
+    bmc_firmware = db.Column(db.String(50))
+    # Board info
+    board_manufacturer = db.Column(db.String(100))
+    board_product = db.Column(db.String(100))
+    board_serial = db.Column(db.String(100))
+    # CPU info (from dmidecode via SSH if available)
+    cpu_model = db.Column(db.String(150))
+    cpu_count = db.Column(db.Integer)
+    cpu_cores = db.Column(db.Integer)
+    # Memory info
+    memory_total_gb = db.Column(db.Float)
+    memory_slots_used = db.Column(db.Integer)
+    memory_slots_total = db.Column(db.Integer)
+    # Network MACs (JSON list)
+    network_macs = db.Column(db.Text)  # JSON: [{"interface": "eth0", "mac": "aa:bb:cc:dd:ee:ff"}]
+    # Storage info (JSON)
+    storage_info = db.Column(db.Text)  # JSON: [{"device": "/dev/sda", "size": "1TB", "model": "..."}]
+    # IP addresses
+    primary_ip = db.Column(db.String(20))  # OS IP (e.g., 88.0.x.1)
+    primary_ip_reachable = db.Column(db.Boolean, default=True)
+    primary_ip_last_check = db.Column(db.DateTime)
+    # Raw FRU data
+    fru_data = db.Column(db.Text)  # Full FRU output for reference
+    # Timestamps
+    collected_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'bmc_ip': self.bmc_ip,
+            'server_name': self.server_name,
+            'manufacturer': self.manufacturer,
+            'product_name': self.product_name,
+            'serial_number': self.serial_number,
+            'part_number': self.part_number,
+            'bmc_mac_address': self.bmc_mac_address,
+            'bmc_firmware': self.bmc_firmware,
+            'board_manufacturer': self.board_manufacturer,
+            'board_product': self.board_product,
+            'board_serial': self.board_serial,
+            'cpu_model': self.cpu_model,
+            'cpu_count': self.cpu_count,
+            'cpu_cores': self.cpu_cores,
+            'memory_total_gb': self.memory_total_gb,
+            'memory_slots_used': self.memory_slots_used,
+            'memory_slots_total': self.memory_slots_total,
+            'network_macs': json.loads(self.network_macs) if self.network_macs else [],
+            'storage_info': json.loads(self.storage_info) if self.storage_info else [],
+            'primary_ip': self.primary_ip,
+            'primary_ip_reachable': self.primary_ip_reachable,
+            'primary_ip_last_check': self.primary_ip_last_check.isoformat() if self.primary_ip_last_check else None,
+            'collected_at': self.collected_at.isoformat() if self.collected_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 def sync_to_cloud():
     """
     Sync data to CryptoLabs AI service.
@@ -4026,6 +4094,206 @@ def api_export_servers():
         ini_lines.append(line)
     
     return Response('\n'.join(ini_lines), mimetype='text/plain')
+
+
+# ============== Server Inventory API ==============
+
+@app.route('/api/servers/<bmc_ip>/inventory')
+@require_valid_bmc_ip
+def api_get_server_inventory(bmc_ip):
+    """Get hardware inventory for a server"""
+    inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+    if not inventory:
+        return jsonify({
+            'status': 'not_collected',
+            'message': 'Inventory not yet collected. Use POST to collect.',
+            'bmc_ip': bmc_ip
+        })
+    return jsonify(inventory.to_dict())
+
+
+@app.route('/api/servers/<bmc_ip>/inventory', methods=['POST'])
+@admin_required
+@require_valid_bmc_ip
+def api_collect_server_inventory(bmc_ip):
+    """Collect hardware inventory via IPMI FRU - Admin only"""
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    # Get IPMI credentials
+    ipmi_user, ipmi_pass = get_ipmi_credentials(server)
+    
+    try:
+        inventory_data = collect_server_inventory(bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
+        return jsonify({
+            'status': 'success',
+            'message': 'Inventory collected successfully',
+            'inventory': inventory_data
+        })
+    except Exception as e:
+        app.logger.error(f"Failed to collect inventory for {bmc_ip}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/inventory/collect-all', methods=['POST'])
+@admin_required
+def api_collect_all_inventory():
+    """Collect inventory for all servers - Admin only"""
+    servers = Server.query.filter_by(enabled=True).all()
+    results = {'success': 0, 'failed': 0, 'errors': []}
+    
+    for server in servers:
+        try:
+            ipmi_user, ipmi_pass = get_ipmi_credentials(server)
+            collect_server_inventory(server.bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
+            results['success'] += 1
+        except Exception as e:
+            results['failed'] += 1
+            results['errors'].append({'bmc_ip': server.bmc_ip, 'error': str(e)})
+    
+    return jsonify(results)
+
+
+def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip=None):
+    """Collect hardware inventory from a server via IPMI FRU"""
+    import subprocess
+    
+    inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+    if not inventory:
+        inventory = ServerInventory(bmc_ip=bmc_ip, server_name=server_name)
+        db.session.add(inventory)
+    
+    inventory.server_name = server_name
+    inventory.primary_ip = server_ip
+    
+    # Collect FRU data
+    try:
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print']
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        fru_output = result.stdout
+        inventory.fru_data = fru_output
+        
+        # Parse FRU data
+        for line in fru_output.split('\n'):
+            line = line.strip()
+            if ':' in line:
+                key, _, value = line.partition(':')
+                key = key.strip().lower()
+                value = value.strip()
+                
+                if 'product manufacturer' in key:
+                    inventory.manufacturer = value
+                elif 'product name' in key:
+                    inventory.product_name = value
+                elif 'product serial' in key:
+                    inventory.serial_number = value
+                elif 'product part' in key:
+                    inventory.part_number = value
+                elif 'board mfg' in key and 'date' not in key:
+                    inventory.board_manufacturer = value
+                elif 'board product' in key:
+                    inventory.board_product = value
+                elif 'board serial' in key:
+                    inventory.board_serial = value
+    except Exception as e:
+        app.logger.warning(f"FRU collection failed for {bmc_ip}: {e}")
+    
+    # Get BMC MAC address
+    try:
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'lan', 'print', '1']
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        for line in result.stdout.split('\n'):
+            if 'MAC Address' in line and ':' in line:
+                inventory.bmc_mac_address = line.split(':',1)[1].strip()
+                break
+    except Exception as e:
+        app.logger.warning(f"BMC MAC collection failed for {bmc_ip}: {e}")
+    
+    # Get BMC firmware version
+    try:
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'mc', 'info']
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        for line in result.stdout.split('\n'):
+            if 'Firmware Revision' in line and ':' in line:
+                inventory.bmc_firmware = line.split(':',1)[1].strip()
+                break
+    except Exception as e:
+        app.logger.warning(f"BMC firmware version collection failed for {bmc_ip}: {e}")
+    
+    # Check primary IP reachability
+    if server_ip:
+        try:
+            result = subprocess.run(['ping', '-c', '1', '-W', '2', server_ip], 
+                                   capture_output=True, timeout=5)
+            inventory.primary_ip_reachable = result.returncode == 0
+            inventory.primary_ip_last_check = datetime.utcnow()
+        except:
+            inventory.primary_ip_reachable = False
+            inventory.primary_ip_last_check = datetime.utcnow()
+    
+    inventory.collected_at = datetime.utcnow()
+    db.session.commit()
+    
+    return inventory.to_dict()
+
+
+@app.route('/api/servers/<bmc_ip>/check-connectivity', methods=['POST'])
+@require_valid_bmc_ip
+def api_check_server_connectivity(bmc_ip):
+    """Check both BMC and primary IP connectivity"""
+    import subprocess
+    
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    results = {
+        'bmc_ip': bmc_ip,
+        'server_name': server.server_name,
+        'bmc_reachable': False,
+        'primary_ip': server.server_ip,
+        'primary_ip_reachable': False,
+        'status': 'unknown',
+        'checked_at': datetime.utcnow().isoformat()
+    }
+    
+    # Check BMC
+    try:
+        result = subprocess.run(['ping', '-c', '1', '-W', '2', bmc_ip], 
+                               capture_output=True, timeout=5)
+        results['bmc_reachable'] = result.returncode == 0
+    except:
+        pass
+    
+    # Check primary IP
+    if server.server_ip:
+        try:
+            result = subprocess.run(['ping', '-c', '1', '-W', '2', server.server_ip], 
+                                   capture_output=True, timeout=5)
+            results['primary_ip_reachable'] = result.returncode == 0
+        except:
+            pass
+    
+    # Determine status
+    if results['bmc_reachable'] and results['primary_ip_reachable']:
+        results['status'] = 'online'
+    elif results['bmc_reachable'] and not results['primary_ip_reachable']:
+        results['status'] = 'os_offline'  # BMC up, OS down - may need attention
+    elif not results['bmc_reachable'] and results['primary_ip_reachable']:
+        results['status'] = 'bmc_offline'  # Unusual - OS up but BMC down
+    else:
+        results['status'] = 'offline'  # Both down
+    
+    # Update inventory if exists
+    inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+    if inventory:
+        inventory.primary_ip_reachable = results['primary_ip_reachable']
+        inventory.primary_ip_last_check = datetime.utcnow()
+        db.session.commit()
+    
+    return jsonify(results)
+
 
 def parse_ini_servers(ini_content):
     """Parse INI format server list"""
