@@ -669,7 +669,7 @@
             }
             
             try {
-                const response = await fetch(`/api/server/${bmcIp}/clear_db_events`, { method: 'POST' });
+                const response = await fetch(`/api/server/${bmcIp}/clear_db_events`, { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 if (data.status === 'success') {
@@ -697,7 +697,7 @@
                 btn.textContent = '⏳ Clearing...';
                 btn.disabled = true;
                 
-                const response = await fetch(`/api/server/${bmcIp}/clear_sel`, { method: 'POST' });
+                const response = await fetch(`/api/server/${bmcIp}/clear_sel`, { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 btn.textContent = '⚠️ Clear BMC SEL';
@@ -937,7 +937,10 @@
             btn.textContent = '⏳ Collecting...';
             
             try {
-                const response = await fetch(`/api/servers/${bmcIp}/inventory`, { method: 'POST' });
+                const response = await fetch(`/api/servers/${bmcIp}/inventory`, { 
+                    method: 'POST',
+                    credentials: 'same-origin'  // Include session cookie
+                });
                 const data = await response.json();
                 
                 if (response.status === 401 || response.status === 403) {
@@ -962,7 +965,7 @@
         
         async function checkConnectivity() {
             try {
-                const response = await fetch(`/api/servers/${bmcIp}/check-connectivity`, { method: 'POST' });
+                const response = await fetch(`/api/servers/${bmcIp}/check-connectivity`, { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 // Update BMC status
