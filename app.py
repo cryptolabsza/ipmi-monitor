@@ -1498,6 +1498,137 @@ def sync_to_cloud(initial_sync=False):
             return {'success': False, 'message': str(e)}
 
 
+def report_connectivity_to_ai(server_name, bmc_ip, event_type, last_event=None, duration=None):
+    """
+    Report server connectivity change to AI service for tracking.
+    
+    Args:
+        server_name: Name of the server
+        bmc_ip: BMC IP address
+        event_type: 'offline', 'online', or 'unreachable'
+        last_event: Last known event timestamp before going offline
+        duration: Duration offline in minutes (for 'online' events)
+    """
+    with app.app_context():
+        config = CloudSync.get_config()
+        
+        if not config.sync_enabled or not config.license_key:
+            return  # Silently skip if not syncing
+        
+        try:
+            payload = {
+                'server_name': server_name,
+                'bmc_ip': bmc_ip,
+                'event_type': event_type,
+                'last_event': last_event,
+                'duration_minutes': duration
+            }
+            
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/log-connectivity",
+                json=payload,
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=10
+            )
+            
+            if response.ok:
+                app.logger.info(f"Reported connectivity event to AI: {server_name} -> {event_type}")
+            else:
+                app.logger.warning(f"Failed to report connectivity to AI: {response.status_code}")
+                
+        except Exception as e:
+            app.logger.debug(f"Could not report connectivity to AI: {e}")
+
+
+# Track previous connectivity states to detect changes
+_connectivity_states = {}
+
+def check_and_report_connectivity_changes():
+    """
+    Check all servers for connectivity changes and report to AI service.
+    Called periodically by background collector.
+    """
+    global _connectivity_states
+    import socket
+    
+    def check_port(ip, port, timeout=2):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((ip, port))
+            sock.close()
+            return result == 0
+        except:
+            return False
+    
+    with app.app_context():
+        servers = Server.query.filter(Server.status == 'active').all()
+        
+        for server in servers:
+            try:
+                # Check BMC connectivity (IPMI port 623)
+                bmc_reachable = check_port(server.bmc_ip, 623, timeout=2)
+                
+                # Get previous state
+                key = f"{server.bmc_ip}"
+                previous_state = _connectivity_states.get(key)
+                
+                # Detect changes
+                if previous_state is not None:
+                    if previous_state and not bmc_reachable:
+                        # Server went offline
+                        app.logger.warning(f"Server {server.server_name} ({server.bmc_ip}) went OFFLINE")
+                        report_connectivity_to_ai(
+                            server.server_name, server.bmc_ip, 'offline'
+                        )
+                        
+                        # Log an event in the database
+                        event = IPMIEvent(
+                            bmc_ip=server.bmc_ip,
+                            server_name=server.server_name,
+                            event_date=datetime.utcnow(),
+                            event_description="BMC became unreachable",
+                            sensor_type="Connectivity",
+                            severity="warning"
+                        )
+                        db.session.add(event)
+                        db.session.commit()
+                        
+                    elif not previous_state and bmc_reachable:
+                        # Server came back online
+                        offline_start = _connectivity_states.get(f"{key}_offline_time")
+                        duration = None
+                        if offline_start:
+                            duration = int((datetime.utcnow() - offline_start).total_seconds() / 60)
+                        
+                        app.logger.info(f"Server {server.server_name} ({server.bmc_ip}) back ONLINE")
+                        report_connectivity_to_ai(
+                            server.server_name, server.bmc_ip, 'online', duration=duration
+                        )
+                        
+                        # Log an event
+                        event = IPMIEvent(
+                            bmc_ip=server.bmc_ip,
+                            server_name=server.server_name,
+                            event_date=datetime.utcnow(),
+                            event_description=f"BMC back online (was offline {duration or '?'} min)",
+                            sensor_type="Connectivity",
+                            severity="info"
+                        )
+                        db.session.add(event)
+                        db.session.commit()
+                
+                # Update state
+                _connectivity_states[key] = bmc_reachable
+                if not bmc_reachable and previous_state is not False:
+                    _connectivity_states[f"{key}_offline_time"] = datetime.utcnow()
+                elif bmc_reachable:
+                    _connectivity_states.pop(f"{key}_offline_time", None)
+                    
+            except Exception as e:
+                app.logger.debug(f"Connectivity check failed for {server.bmc_ip}: {e}")
+
+
 def auto_sync_to_cloud():
     """
     Auto-sync to AI service if enabled.
@@ -3732,6 +3863,25 @@ def sync_timer():
     
     print(f"[Sync Timer] Stopped", flush=True)
 
+def connectivity_timer():
+    """Independent connectivity check timer - monitors server availability"""
+    print(f"[Connectivity Timer] Started (interval: 60s)", flush=True)
+    
+    # Initial delay to let system stabilize
+    _shutdown_event.wait(120)
+    
+    while not _shutdown_event.is_set():
+        try:
+            check_and_report_connectivity_changes()
+        except Exception as e:
+            print(f"[Connectivity Timer] Error: {e}", flush=True)
+        
+        # Check every 60 seconds
+        _shutdown_event.wait(60)
+    
+    print(f"[Connectivity Timer] Stopped", flush=True)
+
+
 def cleanup_timer():
     """Independent cleanup timer"""
     print(f"[Cleanup Timer] Started (interval: {CLEANUP_INTERVAL_HOURS}h)", flush=True)
@@ -3780,6 +3930,11 @@ def background_collector():
     cleanup_thread = threading.Thread(target=cleanup_timer, daemon=True)
     cleanup_thread.start()
     threads.append(cleanup_thread)
+    
+    # Start connectivity monitoring timer
+    connectivity_thread = threading.Thread(target=connectivity_timer, daemon=True)
+    connectivity_thread.start()
+    threads.append(connectivity_thread)
     
     print(f"[IPMI Monitor] All background threads started ({len(threads)} threads)", flush=True)
     
