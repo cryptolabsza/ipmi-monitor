@@ -411,10 +411,25 @@
                     <div class="loading">Loading servers...</div>
                 </div>
                 
-                <div style="margin-top: 20px;">
+                <div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="btn btn-secondary" onclick="initFromDefaults()">
                         🔄 Initialize from Defaults (add missing)
                     </button>
+                    <button class="btn" style="background: var(--accent-purple);" onclick="collectAllInventory()" id="collectAllBtn">
+                        📦 Collect All Inventory
+                    </button>
+                </div>
+                
+                <!-- Inventory Collection Progress -->
+                <div id="inventoryProgress" style="display: none; margin-top: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                        <span id="inventoryProgressText">Collecting inventory...</span>
+                        <span id="inventoryProgressCount">0 / 0</span>
+                    </div>
+                    <div style="background: var(--bg-card); border-radius: 4px; height: 8px; overflow: hidden;">
+                        <div id="inventoryProgressBar" style="background: var(--accent-purple); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="inventoryErrors" style="margin-top: 10px; color: var(--accent-red); font-size: 0.85rem; display: none;"></div>
                 </div>
             </div>
             
@@ -1756,6 +1771,85 @@
                 loadServers();
             } catch (e) {
                 showAlert('Failed to initialize', 'error');
+            }
+        }
+        
+        // ============== Bulk Inventory Collection ==============
+        
+        async function collectAllInventory() {
+            const btn = document.getElementById('collectAllBtn');
+            const progressDiv = document.getElementById('inventoryProgress');
+            const progressText = document.getElementById('inventoryProgressText');
+            const progressCount = document.getElementById('inventoryProgressCount');
+            const progressBar = document.getElementById('inventoryProgressBar');
+            const errorsDiv = document.getElementById('inventoryErrors');
+            
+            // Confirm action
+            if (!confirm('This will collect hardware inventory from ALL enabled servers. This may take several minutes. Continue?')) {
+                return;
+            }
+            
+            // Disable button and show progress
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Collecting...';
+            progressDiv.style.display = 'block';
+            errorsDiv.style.display = 'none';
+            errorsDiv.innerHTML = '';
+            
+            try {
+                // Get list of servers first
+                const serversResp = await fetch('/api/servers', { credentials: 'same-origin' });
+                const servers = await serversResp.json();
+                const enabledServers = servers.filter(s => s.enabled !== false);
+                const total = enabledServers.length;
+                let completed = 0;
+                let errors = [];
+                
+                progressCount.textContent = `0 / ${total}`;
+                progressBar.style.width = '0%';
+                
+                // Collect inventory for each server sequentially
+                for (const server of enabledServers) {
+                    progressText.textContent = `Collecting: ${server.server_name || server.bmc_ip}`;
+                    
+                    try {
+                        const response = await fetch(`/api/servers/${server.bmc_ip}/inventory`, {
+                            method: 'POST',
+                            credentials: 'same-origin'
+                        });
+                        
+                        if (!response.ok) {
+                            const data = await response.json();
+                            errors.push(`${server.server_name || server.bmc_ip}: ${data.error || 'Failed'}`);
+                        }
+                    } catch (e) {
+                        errors.push(`${server.server_name || server.bmc_ip}: ${e.message}`);
+                    }
+                    
+                    completed++;
+                    progressCount.textContent = `${completed} / ${total}`;
+                    progressBar.style.width = `${(completed / total) * 100}%`;
+                }
+                
+                // Show results
+                progressText.textContent = '✅ Collection complete!';
+                
+                if (errors.length > 0) {
+                    errorsDiv.style.display = 'block';
+                    errorsDiv.innerHTML = `<strong>⚠️ ${errors.length} errors:</strong><br>` + 
+                        errors.slice(0, 10).join('<br>') + 
+                        (errors.length > 10 ? `<br>... and ${errors.length - 10} more` : '');
+                    showAlert(`Inventory collected with ${errors.length} errors`, 'warning');
+                } else {
+                    showAlert(`Successfully collected inventory for ${total} servers!`, 'success');
+                }
+                
+            } catch (e) {
+                showAlert('Failed to collect inventory: ' + e.message, 'error');
+                progressText.textContent = '❌ Collection failed';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '📦 Collect All Inventory';
             }
         }
         
