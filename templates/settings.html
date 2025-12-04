@@ -2719,7 +2719,62 @@
             }
         }
         
+        // Check for OAuth callback parameters in URL
+        async function handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiKey = urlParams.get('api_key');
+            const userEmail = urlParams.get('user_email');
+            const subscription = urlParams.get('subscription');
+            const wpUserId = urlParams.get('wp_user_id');
+            
+            if (apiKey) {
+                console.log('OAuth callback detected on settings page, processing...');
+                
+                try {
+                    // Save the API key to the backend
+                    const response = await fetch('/api/ai/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            license_key: apiKey,
+                            sync_enabled: true
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Clean up the URL (remove the callback parameters)
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        
+                        // Show success message
+                        const email = userEmail ? decodeURIComponent(userEmail) : 'CryptoLabs';
+                        showAlert(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
+                        
+                        // Trigger initial sync
+                        fetch('/api/ai/sync', { 
+                            method: 'POST',
+                            credentials: 'same-origin'
+                        }).catch(e => console.log('Sync started in background'));
+                        
+                        // Switch to AI tab and reload config
+                        showTab('ai');
+                        await loadAiConfig();
+                        
+                        console.log('OAuth callback processed successfully');
+                    } else {
+                        console.error('Failed to save API key:', await response.text());
+                        showAlert('Failed to activate AI features. Please try again.', 'error');
+                    }
+                } catch (e) {
+                    console.error('OAuth callback processing error:', e);
+                    showAlert('Error activating AI features: ' + e.message, 'error');
+                }
+            }
+        }
+        
         // Initialize
+        handleOAuthCallback();  // Process any callback parameters first
         loadServers();
         loadManagedServers();
     </script>

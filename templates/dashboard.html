@@ -2744,8 +2744,112 @@
             }
         };
         
+        // Check for OAuth callback parameters in URL
+        async function handleOAuthCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiKey = urlParams.get('api_key');
+            const userEmail = urlParams.get('user_email');
+            const subscription = urlParams.get('subscription');
+            const wpUserId = urlParams.get('wp_user_id');
+            
+            if (apiKey) {
+                console.log('OAuth callback detected, processing...');
+                
+                try {
+                    // Save the API key to the backend
+                    const response = await fetch('/api/ai/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            license_key: apiKey,
+                            sync_enabled: true
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Clean up the URL (remove the callback parameters)
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, cleanUrl);
+                        
+                        // Show success message
+                        const email = userEmail ? decodeURIComponent(userEmail) : 'CryptoLabs';
+                        showNotification(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
+                        
+                        // Trigger initial sync
+                        fetch('/api/ai/sync', { 
+                            method: 'POST',
+                            credentials: 'same-origin'
+                        }).catch(e => console.log('Sync started in background'));
+                        
+                        // Reload AI status to reflect new config
+                        await loadAiStatus();
+                        
+                        console.log('OAuth callback processed successfully');
+                    } else {
+                        console.error('Failed to save API key:', await response.text());
+                        showNotification('Failed to activate AI features. Please try again.', 'error');
+                    }
+                } catch (e) {
+                    console.error('OAuth callback processing error:', e);
+                    showNotification('Error activating AI features: ' + e.message, 'error');
+                }
+            }
+        }
+        
+        // Simple notification helper
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 500;
+                z-index: 10000;
+                animation: slideIn 0.3s ease-out;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                max-width: 400px;
+            `;
+            
+            if (type === 'success') {
+                notification.style.background = 'linear-gradient(135deg, #00d68f, #00b377)';
+            } else if (type === 'error') {
+                notification.style.background = 'linear-gradient(135deg, #ff4757, #c0392b)';
+            } else {
+                notification.style.background = 'linear-gradient(135deg, #4a9eff, #3b82f6)';
+            }
+            
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+        
+        // Add animation styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+        
         // Initialize
         checkAuth();
+        handleOAuthCallback();  // Process any callback parameters first
         loadAll();
         
         // Start auto-refresh countdown
