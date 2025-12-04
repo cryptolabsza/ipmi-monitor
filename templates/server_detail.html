@@ -940,7 +940,14 @@
                 const response = await fetch(`/api/servers/${bmcIp}/inventory`, { method: 'POST' });
                 const data = await response.json();
                 
+                if (response.status === 401 || response.status === 403) {
+                    alert('Admin login required. Redirecting to login...');
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+                
                 if (data.status === 'success') {
+                    alert('✅ Inventory collected successfully!');
                     loadInventory();
                 } else {
                     alert('Error: ' + (data.error || 'Failed to collect inventory'));
