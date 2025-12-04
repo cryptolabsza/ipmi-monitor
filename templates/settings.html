@@ -892,6 +892,15 @@
                     The IPMI Monitor exports Prometheus metrics that Grafana can use for alerts.
                 </p>
                 
+                <div style="margin-bottom: 15px;">
+                    <a href="/api/grafana/dashboard" download="ipmi-monitor-dashboard.json" class="btn" style="display: inline-flex; align-items: center; gap: 8px;">
+                        📊 Download Grafana Dashboard JSON
+                    </a>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px;">
+                        Import this into Grafana via <strong>Dashboards → Import → Upload JSON file</strong>
+                    </p>
+                </div>
+                
                 <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
                     <strong>Prometheus Metrics for Alerting:</strong><br><br>
                     <code>ipmi_alerts_total</code> - Total fired alerts<br>
@@ -2055,6 +2064,13 @@
             try {
                 const response = await fetch('/api/servers');
                 const servers = await response.json();
+                
+                // Sort servers by name (natural sort for numbers like brickbox-1, brickbox-10)
+                servers.sort((a, b) => {
+                    const nameA = (a.server_name || a.bmc_ip).toLowerCase();
+                    const nameB = (b.server_name || b.bmc_ip).toLowerCase();
+                    return nameA.localeCompare(nameB, undefined, {numeric: true, sensitivity: 'base'});
+                });
                 
                 const select1 = document.getElementById('serverSelect');
                 const select2 = document.getElementById('sshServerSelect');

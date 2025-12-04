@@ -7,7 +7,7 @@ GitHub: https://github.com/jjziets/ipmi-monitor
 License: MIT
 """
 
-from flask import Flask, render_template, render_template_string, jsonify, request, Response, session, redirect, url_for
+from flask import Flask, render_template, render_template_string, jsonify, request, Response, session, redirect, url_for, make_response
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -5417,6 +5417,108 @@ def api_reset_ecc_counts():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/grafana/dashboard')
+def api_grafana_dashboard():
+    """Download a pre-configured Grafana dashboard JSON"""
+    dashboard = {
+        "annotations": {"list": []},
+        "editable": True,
+        "fiscalYearStartMonth": 0,
+        "graphTooltip": 0,
+        "id": None,
+        "links": [],
+        "liveNow": False,
+        "panels": [
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": False, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": {"legend": False, "tooltip": False, "viz": False}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "auto", "spanNulls": False, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None}, {"color": "red", "value": 80}]}, "unit": "celsius"}, "overrides": []},
+                "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+                "id": 1,
+                "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": True}, "tooltip": {"mode": "single", "sort": "none"}},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_temperature_celsius", "legendFormat": "{{server_name}} - {{sensor_name}}", "refId": "A"}],
+                "title": "CPU/System Temperatures",
+                "type": "timeseries"
+            },
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": False, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": {"legend": False, "tooltip": False, "viz": False}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "auto", "spanNulls": False, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None}, {"color": "red", "value": 80}]}, "unit": "watt"}, "overrides": []},
+                "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+                "id": 2,
+                "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": True}, "tooltip": {"mode": "single", "sort": "none"}},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_power_watts", "legendFormat": "{{server_name}}", "refId": "A"}],
+                "title": "Power Consumption",
+                "type": "timeseries"
+            },
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None}, {"color": "yellow", "value": 1}, {"color": "red", "value": 5}]}}, "overrides": []},
+                "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+                "id": 3,
+                "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "textMode": "auto"},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_alerts_unacknowledged", "refId": "A"}],
+                "title": "Unacknowledged Alerts",
+                "type": "stat"
+            },
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None}, {"color": "red", "value": 1}]}}, "overrides": []},
+                "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+                "id": 4,
+                "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "textMode": "auto"},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_alerts_critical_24h", "refId": "A"}],
+                "title": "Critical Alerts (24h)",
+                "type": "stat"
+            },
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None}, {"color": "orange", "value": 1}]}}, "overrides": []},
+                "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+                "id": 5,
+                "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "textMode": "auto"},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_alerts_warning_24h", "refId": "A"}],
+                "title": "Warning Alerts (24h)",
+                "type": "stat"
+            },
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "blue", "value": None}]}}, "overrides": []},
+                "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8},
+                "id": 6,
+                "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "textMode": "auto"},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_servers_monitored", "refId": "A"}],
+                "title": "Servers Monitored",
+                "type": "stat"
+            },
+            {
+                "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+                "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisCenteredZero": False, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": {"legend": False, "tooltip": False, "viz": False}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "auto", "spanNulls": False, "stacking": {"group": "A", "mode": "none"}, "thresholdsStyle": {"mode": "off"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": None}]}, "unit": "rotrpm"}, "overrides": []},
+                "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+                "id": 7,
+                "options": {"legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": True}, "tooltip": {"mode": "single", "sort": "none"}},
+                "targets": [{"datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "expr": "ipmi_fan_speed_rpm", "legendFormat": "{{server_name}} - {{sensor_name}}", "refId": "A"}],
+                "title": "Fan Speeds",
+                "type": "timeseries"
+            }
+        ],
+        "refresh": "30s",
+        "schemaVersion": 38,
+        "style": "dark",
+        "tags": ["ipmi", "monitoring", "hardware"],
+        "templating": {"list": [{"current": {}, "hide": 0, "includeAll": False, "label": "Prometheus", "multi": False, "name": "DS_PROMETHEUS", "options": [], "query": "prometheus", "queryValue": "", "refresh": 1, "regex": "", "skipUrlSync": False, "type": "datasource"}]},
+        "time": {"from": "now-6h", "to": "now"},
+        "timepicker": {},
+        "timezone": "",
+        "title": "IPMI Monitor Dashboard",
+        "uid": "ipmi-monitor",
+        "version": 1,
+        "weekStart": ""
+    }
+    
+    response = make_response(json.dumps(dashboard, indent=2))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['Content-Disposition'] = 'attachment; filename=ipmi-monitor-dashboard.json'
+    return response
 
 # ============== Settings Page ==============
 
