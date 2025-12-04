@@ -1166,13 +1166,14 @@ def sync_to_cloud(initial_sync=False):
             # Collect data to sync
             servers = Server.query.all()
             
-            # Get events - 30 days for initial/first sync, 72 hours for regular sync
+            # Get events - ALL data for initial/first sync, 72 hours for regular sync
             if is_first_sync:
-                cutoff = datetime.utcnow() - timedelta(days=30)
-                app.logger.info("Initial sync: sending 30 days of historical data")
+                # Send ALL historical SEL data on first sync
+                events = IPMIEvent.query.all()
+                app.logger.info(f"Initial sync: sending ALL historical data ({len(events)} events)")
             else:
                 cutoff = datetime.utcnow() - timedelta(hours=72)
-            events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
+                events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
             
             # Get LATEST sensor readings only (not all historical data!)
             # Use a subquery to get the most recent reading for each server+sensor
