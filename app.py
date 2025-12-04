@@ -4733,6 +4733,82 @@ def api_collect_all_inventory():
     return jsonify(results)
 
 
+def infer_manufacturer(product_name, board_product=None):
+    """Infer manufacturer from product name patterns
+    
+    Many BMCs don't report manufacturer explicitly, but we can often
+    determine it from the product naming conventions.
+    """
+    # Combine product and board names for matching
+    combined = f"{product_name or ''} {board_product or ''}".upper()
+    
+    # Known product name patterns -> manufacturer
+    patterns = {
+        # ASUS / ASUSTeK
+        'ESC': 'ASUS',
+        'RS': 'ASUS',  # RS700, RS720, etc.
+        'KRPG': 'ASUS',
+        'Z10': 'ASUS',  # Z10PA, Z10PE, etc.
+        'Z11': 'ASUS',
+        'WS': 'ASUS',  # Workstation boards
+        
+        # Supermicro
+        'X10': 'Supermicro',
+        'X11': 'Supermicro',
+        'X12': 'Supermicro',
+        'X13': 'Supermicro',
+        'H11': 'Supermicro',
+        'H12': 'Supermicro',
+        'SYS-': 'Supermicro',
+        'SMC': 'Supermicro',
+        
+        # Dell
+        'POWEREDGE': 'Dell',
+        'DELL': 'Dell',
+        'R6': 'Dell',  # R640, R650, etc.
+        'R7': 'Dell',  # R740, R750, etc.
+        'R8': 'Dell',
+        
+        # HPE / HP
+        'PROLIANT': 'HPE',
+        'DL3': 'HPE',  # DL360, DL380, etc.
+        'DL5': 'HPE',
+        'DL1': 'HPE',
+        'APOLLO': 'HPE',
+        
+        # Lenovo
+        'THINKSYSTEM': 'Lenovo',
+        'SR6': 'Lenovo',  # SR650, etc.
+        'SR5': 'Lenovo',
+        'THINKSTATION': 'Lenovo',
+        
+        # Gigabyte
+        'R2': 'Gigabyte',  # R281, R282, etc.
+        'G2': 'Gigabyte',  # G291, G292, etc.
+        'MZ': 'Gigabyte',
+        
+        # NVIDIA DGX
+        'DGX': 'NVIDIA',
+        
+        # Intel
+        'S2600': 'Intel',
+        'S2400': 'Intel',
+        
+        # Inspur
+        'NF': 'Inspur',  # NF5280, etc.
+        
+        # Fujitsu
+        'PRIMERGY': 'Fujitsu',
+        'RX': 'Fujitsu',  # RX2530, etc.
+    }
+    
+    for pattern, manufacturer in patterns.items():
+        if pattern in combined:
+            return manufacturer
+    
+    return None
+
+
 def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip=None):
     """Collect hardware inventory from a server via IPMI FRU, Redfish, and SDR"""
     import subprocess
@@ -4763,6 +4839,8 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 
                 if 'product manufacturer' in key:
                     inventory.manufacturer = value
+                elif 'chassis manufacturer' in key and not inventory.manufacturer:
+                    inventory.manufacturer = value
                 elif 'product name' in key:
                     inventory.product_name = value
                 elif 'product serial' in key:
@@ -4775,6 +4853,11 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     inventory.board_product = value
                 elif 'board serial' in key:
                     inventory.board_serial = value
+        
+        # Infer manufacturer from product name if not explicitly set
+        if not inventory.manufacturer and inventory.product_name:
+            inventory.manufacturer = infer_manufacturer(inventory.product_name, inventory.board_product)
+            
     except Exception as e:
         app.logger.warning(f"FRU collection failed for {bmc_ip}: {e}")
     
