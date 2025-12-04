@@ -1373,12 +1373,11 @@
                         <li>💬 AI chat assistant</li>
                     </ul>
                     <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 15px;">
-                        Upgrade Now - $100/month
+                        Start Free Trial →
                     </a>
-                    <div class="ai-license-input" style="margin-top: 20px;">
-                        <input type="text" id="licenseKeyInput" placeholder="Enter license key..." style="padding: 10px 15px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); width: 220px;">
-                        <button onclick="activateLicense()" style="padding: 10px 20px; background: var(--accent-green); color: white; border: none; border-radius: 8px; cursor: pointer; margin-left: 8px;">Activate</button>
-                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 10px;">
+                        1 month free, then $100/month
+                    </p>
                 </div>
                 
                 <!-- AI Features for Paid Users -->
@@ -2372,32 +2371,6 @@
             return div.innerHTML;
         }
         
-        async function activateLicense() {
-            const input = document.getElementById('licenseKeyInput');
-            const key = input.value.trim();
-            if (!key) {
-                alert('Please enter a license key');
-                return;
-            }
-            
-            try {
-                const response = await fetch('/api/ai/config', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ license_key: key, sync_enabled: true })
-                });
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    alert('License activated! AI features are now enabled.');
-                    loadAiStatus();
-                } else {
-                    alert(data.error || 'Failed to activate license');
-                }
-            } catch (e) {
-                alert('Error activating license: ' + e.message);
-            }
-        }
         
         async function loadStats() {
             try {
