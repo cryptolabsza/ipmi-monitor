@@ -5,7 +5,20 @@
 
 **Free, self-hosted IPMI/BMC monitoring for your server fleet.** Collect System Event Logs (SEL), monitor sensors, track ECC errors, and get alerts - all from a beautiful web dashboard.
 
-![Dashboard Preview](docs/dashboard-preview.png)
+![Dashboard](docs/dashboard.png)
+
+## 📸 Screenshots
+
+<table>
+<tr>
+<td><img src="docs/server-detail-events.png" alt="Events" width="400"/><br/><em>Event Log - Track SEL events</em></td>
+<td><img src="docs/server-detail-sensors.png" alt="Sensors" width="400"/><br/><em>Live Sensors - Temperature, fans, voltage</em></td>
+</tr>
+<tr>
+<td><img src="docs/server-detail-inventory.png" alt="Inventory" width="400"/><br/><em>Hardware Inventory - CPU, Memory, Storage</em></td>
+<td><img src="docs/login-page.png" alt="Login" width="400"/><br/><em>Secure Admin Login</em></td>
+</tr>
+</table>
 
 ## ✨ Features
 
