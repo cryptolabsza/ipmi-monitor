@@ -1,8 +1,10 @@
 FROM python:3.11-slim
 
-# Install ipmitool
+# Install ipmitool, openssh-client, and sshpass (for detailed OS inventory via SSH)
 RUN apt-get update && apt-get install -y \
     ipmitool \
+    openssh-client \
+    sshpass \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

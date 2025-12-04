@@ -5041,34 +5041,54 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
             if ssh_available:
                 app.logger.info(f"SSH available for {bmc_ip} ({server_ip}), collecting detailed inventory")
                 
+                # Get SSH credentials - use SSH_PASS env var or fall back to IPMI password
+                ssh_user = os.environ.get('SSH_USER', 'root')
+                ssh_pass = os.environ.get('SSH_PASS', os.environ.get('IPMI_PASS', ''))
+                
+                # Build SSH command with sshpass if password is set
+                def build_ssh_cmd(remote_cmd):
+                    ssh_opts = ['-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=no']
+                    if ssh_pass:
+                        # Use sshpass for password auth
+                        return ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', remote_cmd]
+                    else:
+                        # Try passwordless (key-based) auth
+                        return ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', remote_cmd]
+                
                 # CPU info via /proc/cpuinfo
                 try:
-                    cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no', 
-                           f'root@{server_ip}', 'cat /proc/cpuinfo | grep -E "model name|physical id" | head -20']
+                    cmd = build_ssh_cmd('cat /proc/cpuinfo | grep -E "model name|physical id|cpu cores" | head -30')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0 and result.stdout:
                         # Parse CPU info
                         physical_ids = set()
                         cpu_model = None
+                        cpu_cores = None
                         for line in result.stdout.split('\n'):
                             if 'model name' in line and not cpu_model:
                                 cpu_model = line.split(':')[1].strip() if ':' in line else None
                             if 'physical id' in line:
                                 physical_ids.add(line.split(':')[1].strip() if ':' in line else '0')
+                            if 'cpu cores' in line and not cpu_cores:
+                                try:
+                                    cpu_cores = int(line.split(':')[1].strip())
+                                except:
+                                    pass
                         
                         if cpu_model:
                             inventory.cpu_model = cpu_model
                         if physical_ids:
                             inventory.cpu_count = len(physical_ids)
+                        if cpu_cores:
+                            inventory.cpu_cores = cpu_cores
                         
-                        app.logger.info(f"SSH CPU for {bmc_ip}: {inventory.cpu_model}")
+                        app.logger.info(f"SSH CPU for {bmc_ip}: {inventory.cpu_model}, {inventory.cpu_count} sockets, {inventory.cpu_cores} cores/socket")
                 except Exception as e:
                     app.logger.debug(f"SSH CPU collection failed for {bmc_ip}: {e}")
                 
                 # Memory info via /proc/meminfo
                 try:
-                    cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no',
-                           f'root@{server_ip}', 'cat /proc/meminfo | grep MemTotal']
+                    cmd = build_ssh_cmd('cat /proc/meminfo | grep MemTotal')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0 and result.stdout:
                         # Parse: MemTotal:       32780132 kB
@@ -5082,8 +5102,7 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 
                 # Storage info via lsblk
                 try:
-                    cmd = ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no',
-                           f'root@{server_ip}', 'lsblk -J -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE']
+                    cmd = build_ssh_cmd('lsblk -J -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0 and result.stdout:
                         try:
