@@ -1149,8 +1149,9 @@ class User(db.Model):
     """User accounts with role-based access
     
     Roles:
-        - admin: Full access (settings, power control, user management, etc.)
-        - readwrite: Can add/edit servers, clear events, but no power control or user management
+        - admin: Full access including user management and AI service signup
+        - readwrite: Full operational access (power control, clear SEL, manage servers, alerts, etc.)
+                    Cannot: promote to admin, remove admins, or manage AI service subscription
         - readonly: View-only access (same as anonymous when anonymous is enabled)
     """
     id = db.Column(db.Integer, primary_key=True)
@@ -4362,10 +4363,10 @@ def api_server_events(bmc_ip):
     return jsonify(result)
 
 @app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_clear_sel(bmc_ip):
-    """Clear SEL log on a specific BMC - Admin only"""
+    """Clear SEL log on a specific BMC - Requires write access"""
     try:
         password = get_ipmi_password(bmc_ip)
         result = subprocess.run(
@@ -4433,10 +4434,10 @@ def api_get_power_status(bmc_ip):
 
 
 @app.route('/api/server/<bmc_ip>/power/<action>', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_power_control(bmc_ip, action):
-    """Control server power - Admin only
+    """Control server power - Requires write access
     
     Actions:
         - on: Power on
@@ -4507,9 +4508,9 @@ def api_power_control(bmc_ip, action):
 
 
 @app.route('/api/clear_all_sel', methods=['POST'])
-@admin_required
+@write_required
 def api_clear_all_sel():
-    """Clear SEL logs on all BMCs - Admin only"""
+    """Clear SEL logs on all BMCs - Requires write access"""
     results = {'success': [], 'failed': []}
     
     for bmc_ip, server_name in SERVERS.items():
@@ -4539,10 +4540,10 @@ def api_clear_all_sel():
     })
 
 @app.route('/api/server/<bmc_ip>/clear_db_events', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_clear_db_events(bmc_ip):
-    """Clear events from database only - Admin only"""
+    """Clear events from database only - Requires write access"""
     try:
         count = IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
         db.session.commit()
@@ -4692,9 +4693,9 @@ def api_managed_servers():
     } for s in servers])
 
 @app.route('/api/servers/add', methods=['POST'])
-@admin_required
+@write_required
 def api_add_server():
-    """Add a new server to monitor - Admin only"""
+    """Add a new server to monitor - Requires write access"""
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Request body must be JSON'}), 400
@@ -4836,7 +4837,7 @@ def api_manage_server(bmc_ip):
 # ============== Server Lifecycle Management ==============
 
 @app.route('/api/servers/<bmc_ip>/deprecate', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_deprecate_server(bmc_ip):
     """Deprecate a server - stops collection but preserves all data"""
@@ -4866,7 +4867,7 @@ def api_deprecate_server(bmc_ip):
 
 
 @app.route('/api/servers/<bmc_ip>/restore', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_restore_server(bmc_ip):
     """Restore a deprecated server to active status"""
@@ -4894,7 +4895,7 @@ def api_restore_server(bmc_ip):
 
 
 @app.route('/api/servers/<bmc_ip>/purge', methods=['DELETE'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_purge_server(bmc_ip):
     """Permanently delete a deprecated server and ALL its data
@@ -4968,7 +4969,7 @@ def api_deprecated_servers():
 
 
 @app.route('/api/servers/<bmc_ip>/fix-event-names', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_fix_event_names(bmc_ip):
     """Fix mismatched server names in events table"""
@@ -5006,9 +5007,9 @@ def api_fix_event_names(bmc_ip):
 
 
 @app.route('/api/servers/import', methods=['POST'])
-@admin_required
+@write_required
 def api_import_servers():
-    """Import servers from INI format or JSON - Admin only"""
+    """Import servers from INI format or JSON - Requires write access"""
     content_type = request.content_type
     
     if 'application/json' in content_type:
@@ -5108,10 +5109,10 @@ def api_get_server_inventory(bmc_ip):
 
 
 @app.route('/api/servers/<bmc_ip>/inventory', methods=['POST'])
-@admin_required
+@write_required
 @require_valid_bmc_ip
 def api_collect_server_inventory(bmc_ip):
-    """Collect hardware inventory via IPMI FRU - Admin only"""
+    """Collect hardware inventory via IPMI FRU - Requires write access"""
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     if not server:
         return jsonify({'error': 'Server not found'}), 404
@@ -5132,9 +5133,9 @@ def api_collect_server_inventory(bmc_ip):
 
 
 @app.route('/api/inventory/collect-all', methods=['POST'])
-@admin_required
+@write_required
 def api_collect_all_inventory():
-    """Collect inventory for all servers - Admin only"""
+    """Collect inventory for all servers - Requires write access"""
     servers = Server.query.filter_by(enabled=True).all()
     results = {'success': 0, 'failed': 0, 'errors': []}
     
@@ -5994,9 +5995,9 @@ def api_complete_setup():
 
 
 @app.route('/api/servers/init-from-defaults', methods=['POST'])
-@admin_required
+@write_required
 def api_init_from_defaults():
-    """Initialize database with default servers - Admin only"""
+    """Initialize database with default servers - Requires write access"""
     added = 0
     for bmc_ip, server_name in DEFAULT_SERVERS.items():
         existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
@@ -6084,9 +6085,9 @@ def api_config_server(bmc_ip):
     return jsonify({'status': 'success', 'message': f'Configuration updated for {bmc_ip}'})
 
 @app.route('/api/config/bulk', methods=['POST'])
-@admin_required
+@write_required
 def api_config_bulk():
-    """Bulk update server configurations - Admin only"""
+    """Bulk update server configurations - Requires write access"""
     data = request.get_json()
     updated = 0
     
@@ -6327,7 +6328,7 @@ def api_check_all_redfish():
     })
 
 @app.route('/api/redfish/clear_cache', methods=['POST'])
-@admin_required
+@write_required
 def api_clear_redfish_cache():
     """Clear the Redfish availability cache"""
     with _redfish_cache_lock:
@@ -6422,7 +6423,7 @@ def api_manage_alert_rule(rule_id):
         return jsonify({'status': 'success', 'message': 'Rule deleted'})
 
 @app.route('/api/alerts/rules', methods=['POST'])
-@admin_required
+@write_required
 def api_create_alert_rule():
     """Create a new alert rule"""
     data = request.get_json()
@@ -6496,7 +6497,7 @@ def api_get_alert_history():
     } for a in alerts])
 
 @app.route('/api/alerts/history/<int:alert_id>/acknowledge', methods=['POST'])
-@admin_required
+@write_required
 def api_acknowledge_alert(alert_id):
     """Acknowledge an alert"""
     alert = AlertHistory.query.get(alert_id)
@@ -6511,7 +6512,7 @@ def api_acknowledge_alert(alert_id):
     return jsonify({'status': 'success', 'message': 'Alert acknowledged'})
 
 @app.route('/api/alerts/history/<int:alert_id>/resolve', methods=['POST'])
-@admin_required
+@write_required
 def api_resolve_alert(alert_id):
     """Mark an alert as resolved"""
     alert = AlertHistory.query.get(alert_id)
@@ -6553,7 +6554,7 @@ def api_get_notification_config():
     return jsonify(result)
 
 @app.route('/api/alerts/notifications/<channel_type>', methods=['PUT'])
-@admin_required
+@write_required
 def api_update_notification_config(channel_type):
     """Update notification channel configuration"""
     if channel_type not in ['telegram', 'email', 'webhook']:
@@ -6578,7 +6579,7 @@ def api_update_notification_config(channel_type):
     return jsonify({'status': 'success', 'message': f'Updated {channel_type} configuration'})
 
 @app.route('/api/alerts/notifications/<channel_type>/test', methods=['POST'])
-@admin_required
+@write_required
 def api_test_notification(channel_type):
     """Test a notification channel - works even if not enabled (for testing config before enabling)"""
     config = NotificationConfig.query.filter_by(channel_type=channel_type).first()
@@ -6676,7 +6677,7 @@ def api_ecc_tracking_server(bmc_ip):
     } for t in trackers])
 
 @app.route('/api/ecc/reset', methods=['POST'])
-@admin_required
+@write_required
 def api_reset_ecc_counts():
     """Reset ECC error counts (for testing or after maintenance)"""
     bmc_ip = request.args.get('bmc_ip')
@@ -6809,9 +6810,9 @@ def api_grafana_dashboard():
 # ============== Settings Page ==============
 
 @app.route('/settings')
-@admin_required
+@write_required
 def settings_page():
-    """Server configuration page - Admin only"""
+    """Server configuration page - Requires write access"""
     return render_template('settings.html')
 
 @app.route('/metrics')

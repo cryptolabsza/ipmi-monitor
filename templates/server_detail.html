@@ -410,10 +410,10 @@
             <div class="btn-group">
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
                 <button class="btn btn-warning write-required" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
-                <button class="btn btn-danger admin-only" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
+                <button class="btn btn-danger write-required" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
                 
-                <!-- Power Management Dropdown - Admin Only -->
-                <div class="power-dropdown admin-only" style="display: none; position: relative;">
+                <!-- Power Management Dropdown - Admin and Readwrite -->
+                <div class="power-dropdown write-required" style="display: none; position: relative;">
                     <button class="btn" onclick="togglePowerMenu()" id="powerMenuBtn" style="background: var(--accent-purple);">
                         ⚡ Power <span id="powerStatusBadge" style="margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">...</span>
                     </button>
@@ -952,19 +952,20 @@
                 const data = await response.json();
                 
                 // Show write-required buttons for admin and readwrite users
+                // This includes: Clear DB Events, Clear BMC SEL, Power Control
                 if (data.logged_in && (data.role === 'admin' || data.role === 'readwrite')) {
                     document.querySelectorAll('.write-required').forEach(el => {
                         el.style.display = '';
                     });
+                    // Load power status for users with write access
+                    loadPowerStatus();
                 }
                 
-                // Show admin-only buttons (power control, clear SEL) only for admins
+                // Show admin-only buttons (user management, AI config) only for admins
                 if (data.logged_in && data.role === 'admin') {
                     document.querySelectorAll('.admin-only').forEach(el => {
                         el.style.display = '';
                     });
-                    // Load power status for admin users
-                    loadPowerStatus();
                 }
             } catch (e) {
                 console.error('Failed to check auth status:', e);

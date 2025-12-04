@@ -353,8 +353,8 @@
             <button class="tab" onclick="showTab('alerts')">🔔 Alerts</button>
             <button class="tab" onclick="showTab('notifications')">📬 Notifications</button>
             <button class="tab" onclick="showTab('import')">📥 Import/Export</button>
-            <button class="tab" onclick="showTab('security')">🛡️ Security</button>
-            <button class="tab" onclick="showTab('ai')">🤖 AI Features</button>
+            <button class="tab admin-only-tab" onclick="showTab('security')" style="display: none;">🛡️ Security</button>
+            <button class="tab admin-only-tab" onclick="showTab('ai')" style="display: none;">🤖 AI Features</button>
         </div>
         
         <!-- Manage Servers Tab -->
@@ -2882,6 +2882,23 @@
         handleOAuthCallback();  // Process any callback parameters first
         loadServers();
         loadManagedServers();
+        
+        // Check auth status and show admin-only tabs
+        (async function() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.logged_in && data.role === 'admin') {
+                    // Show admin-only tabs (Security, AI Features)
+                    document.querySelectorAll('.admin-only-tab').forEach(el => {
+                        el.style.display = '';
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to check auth status:', e);
+            }
+        })();
     </script>
 </body>
 </html>
