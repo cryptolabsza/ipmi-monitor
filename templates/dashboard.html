@@ -274,8 +274,9 @@
             position: fixed;
             top: 0;
             right: 0;
-            width: 520px;
-            max-width: 95vw;
+            width: 66vw;
+            max-width: 900px;
+            min-width: 400px;
             height: 100vh;
             background: var(--bg-card);
             border-left: 1px solid var(--border-color);
@@ -337,14 +338,19 @@
         }
         
         .ai-toggle-btn.panel-open {
-            right: 540px;
+            right: calc(66vw + 20px);
+        }
+        
+        @media (max-width: 1200px) {
+            .ai-toggle-btn.panel-open {
+                display: none; /* Hide when panel covers most of screen */
+            }
         }
         
         @media (max-width: 600px) {
-            .ai-toggle-btn.panel-open {
-                right: 20px;
-                bottom: auto;
-                top: 10px;
+            .ai-panel {
+                width: 100vw;
+                max-width: 100vw;
             }
         }
         
@@ -2640,7 +2646,8 @@
                 }
                 
                 const response = await fetch(url);
-                const events = await response.json();
+                const data = await response.json();
+                const events = data.events || []; // API returns {events: [...]}
                 
                 const list = document.getElementById('eventsList');
                 
