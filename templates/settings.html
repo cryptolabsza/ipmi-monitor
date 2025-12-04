@@ -2533,11 +2533,25 @@
             }
         }
         
+        // Called when enable checkbox is toggled - remind to save
+        function updateTelegramConfig() {
+            showAlert('Remember to click Save to apply changes', 'info');
+        }
+        
+        function updateEmailConfig() {
+            showAlert('Remember to click Save to apply changes', 'info');
+        }
+        
+        function updateWebhookConfig() {
+            showAlert('Remember to click Save to apply changes', 'info');
+        }
+        
         async function saveTelegramConfig() {
             try {
                 const response = await fetch('/api/alerts/notifications/telegram', {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         enabled: document.getElementById('telegramEnabled').checked,
                         config: {
@@ -2559,10 +2573,40 @@
         
         async function testTelegram() {
             const resultDiv = document.getElementById('telegramTestResult');
-            resultDiv.innerHTML = '⏳ Sending test...';
             
+            // First save the config (so test uses latest values)
+            const botToken = document.getElementById('telegramBotToken').value;
+            const chatId = document.getElementById('telegramChatId').value;
+            
+            if (!botToken || !chatId) {
+                resultDiv.innerHTML = '❌ Please enter Bot Token and Chat ID first';
+                return;
+            }
+            
+            resultDiv.innerHTML = '⏳ Saving config and sending test...';
+            
+            // Save first
             try {
-                const response = await fetch('/api/alerts/notifications/telegram/test', { method: 'POST' });
+                await fetch('/api/alerts/notifications/telegram', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        enabled: document.getElementById('telegramEnabled').checked,
+                        config: { bot_token: botToken, chat_id: chatId }
+                    })
+                });
+            } catch (e) {
+                resultDiv.innerHTML = '❌ Failed to save config';
+                return;
+            }
+            
+            // Then test
+            try {
+                const response = await fetch('/api/alerts/notifications/telegram/test', { 
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
                 const result = await response.json();
                 
                 if (response.ok) {

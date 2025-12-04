@@ -5294,11 +5294,11 @@ def api_update_notification_config(channel_type):
 @app.route('/api/alerts/notifications/<channel_type>/test', methods=['POST'])
 @admin_required
 def api_test_notification(channel_type):
-    """Test a notification channel"""
+    """Test a notification channel - works even if not enabled (for testing config before enabling)"""
     config = NotificationConfig.query.filter_by(channel_type=channel_type).first()
     
-    if not config or not config.enabled:
-        return jsonify({'error': 'Channel not configured or not enabled'}), 400
+    if not config or not config.config_json:
+        return jsonify({'error': 'Channel not configured. Please save configuration first.'}), 400
     
     test_message = f"🧪 Test notification from {APP_NAME}\n\nIf you see this, notifications are working correctly!"
     
