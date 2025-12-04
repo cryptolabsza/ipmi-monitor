@@ -687,11 +687,23 @@ prom_power_watts = Gauge(
 # Example format: {'192.168.1.100': 'server-01', '192.168.1.101': 'server-02'}
 DEFAULT_SERVERS = {}
 
-def get_servers():
-    """Get servers from database, fallback to defaults"""
+def get_servers(include_deprecated=False):
+    """Get servers from database, fallback to defaults
+    
+    Args:
+        include_deprecated: If True, include deprecated servers (for reports/history)
+    """
     with app.app_context():
         try:
-            servers = Server.query.filter_by(enabled=True).all()
+            if include_deprecated:
+                # Get all servers except explicitly disabled
+                servers = Server.query.filter_by(enabled=True).all()
+            else:
+                # Only active servers (not deprecated, not in maintenance)
+                servers = Server.query.filter(
+                    Server.enabled == True,
+                    Server.status.in_(['active', None])  # None for backwards compat
+                ).all()
             if servers:
                 return {s.bmc_ip: s.server_name for s in servers}
         except Exception as e:
@@ -714,6 +726,30 @@ class Server(db.Model):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Lifecycle management
+    # status: 'active', 'deprecated', 'maintenance'
+    status = db.Column(db.String(20), default='active')
+    deprecated_at = db.Column(db.DateTime, nullable=True)
+    deprecated_reason = db.Column(db.Text, nullable=True)
+    
+    def is_active(self):
+        """Check if server should be collected from"""
+        return self.enabled and self.status == 'active'
+    
+    def deprecate(self, reason=None):
+        """Mark server as deprecated - stops collection but keeps data"""
+        self.status = 'deprecated'
+        self.enabled = False
+        self.deprecated_at = datetime.utcnow()
+        self.deprecated_reason = reason
+    
+    def restore(self):
+        """Restore a deprecated server to active"""
+        self.status = 'active'
+        self.enabled = True
+        self.deprecated_at = None
+        self.deprecated_reason = None
 
 class IPMIEvent(db.Model):
     """IPMI SEL Event"""
@@ -4051,14 +4087,34 @@ def update_prometheus_metrics():
 
 @app.route('/api/servers/managed')
 def api_managed_servers():
-    """Get all managed servers from database"""
-    servers = Server.query.all()
+    """Get all managed servers from database
+    
+    Query params:
+        status: Filter by status (active, deprecated, all). Default: active
+        include_deprecated: If 'true', include deprecated servers (legacy param)
+    """
+    status_filter = request.args.get('status', 'active')
+    include_deprecated = request.args.get('include_deprecated', 'false').lower() == 'true'
+    
+    if status_filter == 'all' or include_deprecated:
+        servers = Server.query.all()
+    elif status_filter == 'deprecated':
+        servers = Server.query.filter_by(status='deprecated').all()
+    else:
+        # Default: only active servers
+        servers = Server.query.filter(
+            Server.status.in_(['active', None])
+        ).all()
+    
     return jsonify([{
         'id': s.id,
         'bmc_ip': s.bmc_ip,
         'server_name': s.server_name,
         'server_ip': s.server_ip,
         'enabled': s.enabled,
+        'status': s.status or 'active',
+        'deprecated_at': s.deprecated_at.isoformat() if s.deprecated_at else None,
+        'deprecated_reason': s.deprecated_reason,
         'use_nvidia_password': s.use_nvidia_password,
         'notes': s.notes,
         'created_at': s.created_at.isoformat() if s.created_at else None,
@@ -4140,6 +4196,9 @@ def api_manage_server(bmc_ip):
             'server_name': server.server_name,
             'server_ip': server.server_ip,
             'enabled': server.enabled,
+            'status': server.status or 'active',
+            'deprecated_at': server.deprecated_at.isoformat() if server.deprecated_at else None,
+            'deprecated_reason': server.deprecated_reason,
             'use_nvidia_password': server.use_nvidia_password,
             'protocol': server.protocol or 'auto',
             'notes': server.notes,
@@ -4202,6 +4261,179 @@ def api_manage_server(bmc_ip):
         db.session.commit()
         
         return jsonify({'status': 'success', 'message': f'Deleted server {bmc_ip} and all related data'})
+
+
+# ============== Server Lifecycle Management ==============
+
+@app.route('/api/servers/<bmc_ip>/deprecate', methods=['POST'])
+@admin_required
+@require_valid_bmc_ip
+def api_deprecate_server(bmc_ip):
+    """Deprecate a server - stops collection but preserves all data"""
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    data = request.get_json() or {}
+    reason = data.get('reason', 'Server deprecated by admin')
+    
+    server.deprecate(reason)
+    db.session.commit()
+    
+    app.logger.info(f"Server {bmc_ip} ({server.server_name}) deprecated: {reason}")
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Server {server.server_name} has been deprecated',
+        'server': {
+            'bmc_ip': server.bmc_ip,
+            'server_name': server.server_name,
+            'status': server.status,
+            'deprecated_at': server.deprecated_at.isoformat() if server.deprecated_at else None,
+            'deprecated_reason': server.deprecated_reason
+        }
+    })
+
+
+@app.route('/api/servers/<bmc_ip>/restore', methods=['POST'])
+@admin_required
+@require_valid_bmc_ip
+def api_restore_server(bmc_ip):
+    """Restore a deprecated server to active status"""
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    if server.status != 'deprecated':
+        return jsonify({'error': f'Server is not deprecated (status: {server.status})'}), 400
+    
+    server.restore()
+    db.session.commit()
+    
+    app.logger.info(f"Server {bmc_ip} ({server.server_name}) restored to active")
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Server {server.server_name} has been restored to active',
+        'server': {
+            'bmc_ip': server.bmc_ip,
+            'server_name': server.server_name,
+            'status': server.status
+        }
+    })
+
+
+@app.route('/api/servers/<bmc_ip>/purge', methods=['DELETE'])
+@admin_required
+@require_valid_bmc_ip
+def api_purge_server(bmc_ip):
+    """Permanently delete a deprecated server and ALL its data
+    
+    This is destructive - removes:
+    - Server record
+    - All events
+    - All sensor readings
+    - All power readings
+    - Server status
+    - Server inventory
+    - Server config
+    """
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    # Safety: only allow purge of deprecated servers (or force with param)
+    force = request.args.get('force', 'false').lower() == 'true'
+    if server.status != 'deprecated' and not force:
+        return jsonify({
+            'error': 'Server must be deprecated before purging. Use ?force=true to override.',
+            'status': server.status
+        }), 400
+    
+    server_name = server.server_name
+    
+    # Count data being deleted
+    event_count = IPMIEvent.query.filter_by(bmc_ip=bmc_ip).count()
+    sensor_count = SensorReading.query.filter_by(bmc_ip=bmc_ip).count()
+    
+    # Delete all related data
+    IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
+    SensorReading.query.filter_by(bmc_ip=bmc_ip).delete()
+    PowerReading.query.filter_by(bmc_ip=bmc_ip).delete()
+    ServerStatus.query.filter_by(bmc_ip=bmc_ip).delete()
+    ServerConfig.query.filter_by(bmc_ip=bmc_ip).delete()
+    ServerInventory.query.filter_by(bmc_ip=bmc_ip).delete()
+    
+    # Delete server
+    db.session.delete(server)
+    db.session.commit()
+    
+    app.logger.warning(f"Server {bmc_ip} ({server_name}) PURGED: {event_count} events, {sensor_count} sensor readings deleted")
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Server {server_name} and all data permanently deleted',
+        'deleted': {
+            'events': event_count,
+            'sensors': sensor_count
+        }
+    })
+
+
+@app.route('/api/servers/deprecated')
+@login_required
+def api_deprecated_servers():
+    """Get list of deprecated servers"""
+    servers = Server.query.filter_by(status='deprecated').all()
+    
+    return jsonify([{
+        'id': s.id,
+        'bmc_ip': s.bmc_ip,
+        'server_name': s.server_name,
+        'server_ip': s.server_ip,
+        'deprecated_at': s.deprecated_at.isoformat() if s.deprecated_at else None,
+        'deprecated_reason': s.deprecated_reason,
+        'event_count': IPMIEvent.query.filter_by(bmc_ip=s.bmc_ip).count()
+    } for s in servers])
+
+
+@app.route('/api/servers/<bmc_ip>/fix-event-names', methods=['POST'])
+@admin_required
+@require_valid_bmc_ip
+def api_fix_event_names(bmc_ip):
+    """Fix mismatched server names in events table"""
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    # Count events with wrong names
+    wrong_name_count = IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip == bmc_ip,
+        IPMIEvent.server_name != server.server_name
+    ).count()
+    
+    if wrong_name_count == 0:
+        return jsonify({
+            'status': 'success',
+            'message': 'No mismatched event names found',
+            'fixed': 0
+        })
+    
+    # Update all events to use correct server name
+    IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip == bmc_ip
+    ).update({IPMIEvent.server_name: server.server_name})
+    
+    db.session.commit()
+    
+    app.logger.info(f"Fixed {wrong_name_count} event names for {bmc_ip} -> {server.server_name}")
+    
+    return jsonify({
+        'status': 'success',
+        'message': f'Updated {wrong_name_count} events to use server name: {server.server_name}',
+        'fixed': wrong_name_count
+    })
+
 
 @app.route('/api/servers/import', methods=['POST'])
 @admin_required
