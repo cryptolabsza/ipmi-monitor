@@ -1145,10 +1145,13 @@ class ServerInventory(db.Model):
         }
 
 
-def sync_to_cloud():
+def sync_to_cloud(initial_sync=False):
     """
     Sync data to CryptoLabs AI service.
     Called periodically by background thread.
+    
+    Args:
+        initial_sync: If True, sends 30 days of data instead of 72 hours
     """
     with app.app_context():
         config = CloudSync.get_config()
@@ -1156,12 +1159,19 @@ def sync_to_cloud():
         if not config.sync_enabled or not config.license_key:
             return {'success': False, 'message': 'Sync not enabled'}
         
+        # Check if this is first sync (no last_sync timestamp)
+        is_first_sync = initial_sync or config.last_sync is None
+        
         try:
             # Collect data to sync
             servers = Server.query.all()
             
-            # Get recent events (last 72 hours for AI context)
-            cutoff = datetime.utcnow() - timedelta(hours=72)
+            # Get events - 30 days for initial/first sync, 72 hours for regular sync
+            if is_first_sync:
+                cutoff = datetime.utcnow() - timedelta(days=30)
+                app.logger.info("Initial sync: sending 30 days of historical data")
+            else:
+                cutoff = datetime.utcnow() - timedelta(hours=72)
             events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
             
             # Get LATEST sensor readings only (not all historical data!)
@@ -5893,7 +5903,6 @@ def api_trigger_sync():
 
 
 @app.route('/api/ai/oauth-callback')
-@admin_required
 def api_oauth_callback():
     """
     OAuth callback endpoint for CryptoLabs SSO.
@@ -5907,7 +5916,15 @@ def api_oauth_callback():
     - state: For CSRF protection
     
     Automatically configures AI features and links accounts.
+    If user is not logged in, redirects to login first.
     """
+    # Check if user is logged in - if not, redirect to login with return URL
+    if 'username' not in session:
+        # Build the full callback URL with all parameters to return to after login
+        callback_url = request.url
+        login_url = url_for('login', next=callback_url)
+        return redirect(login_url)
+    
     api_key = request.args.get('api_key')
     subscription = request.args.get('subscription', 'free')
     user_email = request.args.get('user_email', '')
@@ -5949,6 +5966,14 @@ def api_oauth_callback():
         db.session.commit()
         
         app.logger.info(f"OAuth callback: Configured AI with key from {user_email}, tier: {subscription}")
+        
+        # Trigger initial sync in background to send all historical data (30 days)
+        try:
+            app.logger.info("Triggering initial sync after OAuth activation (30 days of data)...")
+            sync_result = sync_to_cloud(initial_sync=True)
+            app.logger.info(f"Initial sync result: {sync_result}")
+        except Exception as sync_error:
+            app.logger.error(f"Initial sync failed (non-fatal): {sync_error}")
         
         # Return success page that posts message to parent window
         return render_template_string('''
