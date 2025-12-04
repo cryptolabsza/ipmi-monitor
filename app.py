@@ -3310,54 +3310,236 @@ def cleanup_old_data():
             print(f"[IPMI Monitor] Data cleanup error: {e}", flush=True)
 
 
-def background_collector():
-    """Background thread for periodic collection with graceful shutdown"""
-    print(f"[IPMI Monitor] Background collector started (SEL interval: {POLL_INTERVAL}s, sensor multiplier: {SENSOR_POLL_MULTIPLIER}x)", flush=True)
-    print(f"[IPMI Monitor] Data retention: {DATA_RETENTION_DAYS} days (FREE tier limit)", flush=True)
-    
-    # Track when to collect sensors and run cleanup
-    collection_count = 0
-    cleanup_counter = 0
-    cleanup_interval_cycles = (CLEANUP_INTERVAL_HOURS * 3600) // POLL_INTERVAL  # How many cycles between cleanups
+# ============== Job Queue Architecture ==============
+# Separate threads for: Collection Scheduler, Collection Workers, Sync, Cleanup
+
+from queue import Queue, Empty
+
+# Job queues
+_collection_queue = Queue()
+_sensor_queue = Queue()
+
+# Configuration
+COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', 10))
+SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', 300))  # 5 minutes
+
+def collection_worker(worker_id):
+    """Worker thread that processes collection jobs from the queue"""
+    print(f"[Worker {worker_id}] Started", flush=True)
     
     while not _shutdown_event.is_set():
         try:
-            print(f"[IPMI Monitor] Starting collection cycle...", flush=True)
-            # Always collect SEL events
-            collect_all_events()
+            # Get job from queue with timeout (allows checking shutdown)
+            job = _collection_queue.get(timeout=5)
             
-            # Collect sensors based on multiplier (1 = every cycle, 2 = every 2nd, etc.)
-            collection_count += 1
-            if collection_count >= SENSOR_POLL_MULTIPLIER:
-                collection_count = 0
-                try:
-                    print(f"[IPMI Monitor] Starting sensor collection...", flush=True)
-                    collect_all_sensors_background()
-                except Exception as e:
-                    print(f"[IPMI Monitor] Error collecting sensors: {e}", flush=True)
+            if job is None:  # Poison pill for shutdown
+                break
+                
+            job_type, bmc_ip, server_name = job
             
-            # Run data cleanup periodically
-            cleanup_counter += 1
-            if cleanup_counter >= cleanup_interval_cycles:
-                cleanup_counter = 0
-                try:
-                    cleanup_old_data()
-                except Exception as e:
-                    print(f"[IPMI Monitor] Error in data cleanup: {e}", flush=True)
-            
-            # Auto-sync to AI service if enabled (every collection cycle)
             try:
-                auto_sync_to_cloud()
+                if job_type == 'sel':
+                    events = collect_ipmi_sel(bmc_ip, server_name)
+                    if events:
+                        with app.app_context():
+                            save_events_to_db(bmc_ip, server_name, events)
+                elif job_type == 'sensor':
+                    with app.app_context():
+                        collect_single_server_sensors(bmc_ip, server_name)
             except Exception as e:
-                print(f"[IPMI Monitor] Auto-sync error: {e}", flush=True)
-            
-            print(f"[IPMI Monitor] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
-                    
+                print(f"[Worker {worker_id}] Error processing {bmc_ip}: {e}", flush=True)
+            finally:
+                _collection_queue.task_done()
+                
+        except Empty:
+            continue  # Timeout, check shutdown and loop
         except Exception as e:
-            print(f"[IPMI Monitor] Error in background collector: {e}", flush=True)
+            print(f"[Worker {worker_id}] Unexpected error: {e}", flush=True)
+    
+    print(f"[Worker {worker_id}] Stopped", flush=True)
+
+def save_events_to_db(bmc_ip, server_name, events):
+    """Save collected events to database"""
+    try:
+        new_events = 0
+        for event in events:
+            # Events from collect_ipmi_sel are already IPMIEvent objects
+            if hasattr(event, 'bmc_ip'):
+                # It's an IPMIEvent object
+                existing = IPMIEvent.query.filter_by(
+                    bmc_ip=event.bmc_ip,
+                    sel_id=event.sel_id
+                ).first()
+                
+                if not existing:
+                    db.session.add(event)
+                    new_events += 1
+            else:
+                # It's a dict
+                existing = IPMIEvent.query.filter_by(
+                    bmc_ip=bmc_ip,
+                    record_id=event.get('record_id')
+                ).first()
+                
+                if not existing:
+                    new_event = IPMIEvent(
+                        bmc_ip=bmc_ip,
+                        server_name=server_name,
+                        record_id=event.get('record_id'),
+                        event_type=event.get('event_type', 'Unknown'),
+                        sensor_type=event.get('sensor_type', 'Unknown'),
+                        sensor_name=event.get('sensor_name', 'Unknown'),
+                        event_data=event.get('event_data', ''),
+                        event_description=event.get('event_description', ''),
+                        event_date=event.get('event_date'),
+                        severity=event.get('severity', 'info')
+                    )
+                    db.session.add(new_event)
+                    new_events += 1
         
-        # Wait with interruptible sleep for graceful shutdown
+        db.session.commit()
+        
+        # Update server status/stats
+        update_server_status(bmc_ip, server_name)
+        
+        if new_events > 0:
+            app.logger.info(f"Saved {new_events} new events from {server_name}")
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error saving events for {bmc_ip}: {e}")
+
+def collection_scheduler():
+    """Scheduler thread that queues collection jobs at intervals"""
+    print(f"[Scheduler] Started (interval: {POLL_INTERVAL}s, workers: {COLLECTION_WORKERS})", flush=True)
+    
+    collection_count = 0
+    
+    while not _shutdown_event.is_set():
+        try:
+            with app.app_context():
+                servers = get_servers()
+            
+            if servers:
+                print(f"[Scheduler] Queueing SEL collection for {len(servers)} servers...", flush=True)
+                
+                # Queue SEL collection jobs
+                for bmc_ip, server_name in servers.items():
+                    _collection_queue.put(('sel', bmc_ip, server_name))
+                
+                # Queue sensor jobs based on multiplier
+                collection_count += 1
+                if collection_count >= SENSOR_POLL_MULTIPLIER:
+                    collection_count = 0
+                    print(f"[Scheduler] Queueing sensor collection for {len(servers)} servers...", flush=True)
+                    for bmc_ip, server_name in servers.items():
+                        _collection_queue.put(('sensor', bmc_ip, server_name))
+                
+                # Wait for all jobs to complete (with timeout)
+                try:
+                    # Don't block forever - check every 10s
+                    while not _collection_queue.empty() and not _shutdown_event.is_set():
+                        _shutdown_event.wait(10)
+                except:
+                    pass
+                
+                print(f"[Scheduler] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
+            
+        except Exception as e:
+            print(f"[Scheduler] Error: {e}", flush=True)
+        
+        # Wait for next cycle
         _shutdown_event.wait(POLL_INTERVAL)
+    
+    # Shutdown: send poison pills to workers
+    for _ in range(COLLECTION_WORKERS):
+        _collection_queue.put(None)
+    
+    print(f"[Scheduler] Stopped", flush=True)
+
+def sync_timer():
+    """Independent sync timer - runs on its own schedule, doesn't block collection"""
+    print(f"[Sync Timer] Started (interval: {SYNC_INTERVAL}s)", flush=True)
+    
+    # Initial delay to let first collection complete
+    _shutdown_event.wait(60)
+    
+    while not _shutdown_event.is_set():
+        try:
+            with app.app_context():
+                config = CloudSync.get_config()
+                
+                if config.sync_enabled and config.license_key:
+                    print(f"[Sync Timer] Starting sync to AI service...", flush=True)
+                    result = sync_to_cloud()
+                    
+                    if result.get('success'):
+                        print(f"[Sync Timer] Sync complete: {result.get('message')}", flush=True)
+                    else:
+                        print(f"[Sync Timer] Sync failed: {result.get('message')}", flush=True)
+                        
+        except Exception as e:
+            print(f"[Sync Timer] Error: {e}", flush=True)
+        
+        # Wait for next sync
+        _shutdown_event.wait(SYNC_INTERVAL)
+    
+    print(f"[Sync Timer] Stopped", flush=True)
+
+def cleanup_timer():
+    """Independent cleanup timer"""
+    print(f"[Cleanup Timer] Started (interval: {CLEANUP_INTERVAL_HOURS}h)", flush=True)
+    
+    # Initial delay
+    _shutdown_event.wait(300)
+    
+    while not _shutdown_event.is_set():
+        try:
+            with app.app_context():
+                cleanup_old_data()
+        except Exception as e:
+            print(f"[Cleanup Timer] Error: {e}", flush=True)
+        
+        # Wait for next cleanup
+        _shutdown_event.wait(CLEANUP_INTERVAL_HOURS * 3600)
+    
+    print(f"[Cleanup Timer] Stopped", flush=True)
+
+def background_collector():
+    """Start all background threads - job queue architecture"""
+    print(f"[IPMI Monitor] Starting job queue architecture...", flush=True)
+    print(f"[IPMI Monitor] Collection interval: {POLL_INTERVAL}s, Workers: {COLLECTION_WORKERS}", flush=True)
+    print(f"[IPMI Monitor] Sync interval: {SYNC_INTERVAL}s (independent)", flush=True)
+    print(f"[IPMI Monitor] Data retention: {DATA_RETENTION_DAYS} days", flush=True)
+    
+    threads = []
+    
+    # Start collection workers
+    for i in range(COLLECTION_WORKERS):
+        t = threading.Thread(target=collection_worker, args=(i,), daemon=True)
+        t.start()
+        threads.append(t)
+    
+    # Start scheduler
+    scheduler_thread = threading.Thread(target=collection_scheduler, daemon=True)
+    scheduler_thread.start()
+    threads.append(scheduler_thread)
+    
+    # Start independent sync timer
+    sync_thread = threading.Thread(target=sync_timer, daemon=True)
+    sync_thread.start()
+    threads.append(sync_thread)
+    
+    # Start cleanup timer
+    cleanup_thread = threading.Thread(target=cleanup_timer, daemon=True)
+    cleanup_thread.start()
+    threads.append(cleanup_thread)
+    
+    print(f"[IPMI Monitor] All background threads started ({len(threads)} threads)", flush=True)
+    
+    # Keep main collector thread alive (for compatibility with existing startup code)
+    while not _shutdown_event.is_set():
+        _shutdown_event.wait(60)
 
 def collect_all_sensors_background():
     """Collect sensors from all servers in background (parallel)"""
