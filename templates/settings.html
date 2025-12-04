@@ -550,74 +550,112 @@
         
         <!-- SSH Keys Tab -->
         <div id="ssh" class="tab-content">
-            <div class="card">
-                <div class="card-title">🔑 Default SSH Configuration</div>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                    Configure SSH access for all servers. Server IPs are automatically derived from BMC IP (.0 → .1).
+            <!-- SSH Enable Toggle -->
+            <div class="card" style="border: 2px solid var(--accent-blue);">
+                <div class="card-title">🔌 SSH Inventory Collection</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    SSH to the OS enables detailed inventory collection (CPU model, exact memory, storage details).
+                    <strong>This is optional</strong> - basic inventory works via IPMI/Redfish only.
                 </p>
                 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>SSH Username</label>
-                        <input type="text" id="defaultSshUser" value="root" placeholder="root">
-                    </div>
-                    <div class="form-group">
-                        <label>SSH Port</label>
-                        <input type="number" id="defaultSshPort" value="22" placeholder="22">
-                    </div>
+                <div class="form-row" style="align-items: center;">
+                    <label class="switch-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="enableSshInventory" onchange="toggleSshInventory()">
+                        <span style="font-weight: 600;">Enable SSH to OS for detailed inventory</span>
+                    </label>
                 </div>
                 
-                <div class="form-group">
-                    <label>SSH Private Key</label>
-                    <textarea id="defaultSshKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
-...
------END OPENSSH PRIVATE KEY-----"></textarea>
-                    <p class="help-text">Paste your private SSH key here. It will be used to connect to servers.</p>
+                <div id="sshDisabledNote" style="margin-top: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                    <p style="margin: 0; color: var(--text-secondary);">
+                        ℹ️ SSH is <strong>disabled</strong>. Inventory collection uses IPMI FRU, SDR, and Redfish only.
+                    </p>
                 </div>
-                
-                <button class="btn btn-primary" onclick="saveDefaultSsh()">
-                    💾 Apply SSH Config to All Servers
-                </button>
             </div>
             
-            <div class="card">
-                <div class="card-title">🖥️ Per-Server SSH Configuration</div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Select Server</label>
-                        <select id="sshServerSelect" onchange="loadServerSshConfig()">
-                            <option value="">-- Select a server --</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div id="serverSshForm" style="display: none;">
+            <div id="sshConfigSection" style="display: none;">
+                <div class="card">
+                    <div class="card-title">🔑 Default SSH Configuration</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        Configure SSH access for all servers. Server IPs are automatically derived from BMC IP (.0 → .1).
+                    </p>
+                    
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Server IP (OS)</label>
-                            <input type="text" id="serverIp" placeholder="88.0.X.1">
-                        </div>
-                        <div class="form-group">
                             <label>SSH Username</label>
-                            <input type="text" id="serverSshUser" placeholder="root">
+                            <input type="text" id="defaultSshUser" value="root" placeholder="root">
                         </div>
                         <div class="form-group">
                             <label>SSH Port</label>
-                            <input type="number" id="serverSshPort" value="22">
+                            <input type="number" id="defaultSshPort" value="22" placeholder="22">
                         </div>
                     </div>
                     
                     <div class="form-group">
-                        <label>SSH Private Key (leave empty to use default)</label>
-                        <textarea id="serverSshKey" placeholder="Leave empty to use default key"></textarea>
+                        <label>SSH Password (optional - leave empty for key-based auth)</label>
+                        <input type="password" id="defaultSshPassword" placeholder="Leave empty to use SSH key">
+                        <p class="help-text">Password will be used if no SSH key is provided.</p>
                     </div>
                     
-                    <button class="btn btn-primary" onclick="saveServerSsh()">
-                        💾 Save Server SSH Config
+                    <div class="form-group">
+                        <label>SSH Private Key (optional)</label>
+                        <textarea id="defaultSshKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----"></textarea>
+                        <p class="help-text">Paste your private SSH key here, or leave empty to use password auth.</p>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="saveDefaultSsh()">
+                        💾 Save Default SSH Config
                     </button>
                 </div>
-            </div>
+            
+                <div class="card">
+                    <div class="card-title">🖥️ Per-Server SSH Configuration</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                        Override default SSH settings for specific servers.
+                    </p>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Select Server</label>
+                            <select id="sshServerSelect" onchange="loadServerSshConfig()">
+                                <option value="">-- Select a server --</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div id="serverSshForm" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Server IP (OS)</label>
+                                <input type="text" id="serverIp" placeholder="88.0.X.1">
+                            </div>
+                            <div class="form-group">
+                                <label>SSH Username</label>
+                                <input type="text" id="serverSshUser" placeholder="root">
+                            </div>
+                            <div class="form-group">
+                                <label>SSH Port</label>
+                                <input type="number" id="serverSshPort" value="22">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>SSH Password (leave empty to use default or key)</label>
+                            <input type="password" id="serverSshPassword" placeholder="Leave empty to use default">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>SSH Private Key (leave empty to use default)</label>
+                            <textarea id="serverSshKey" placeholder="Leave empty to use default key"></textarea>
+                        </div>
+                        
+                        <button class="btn btn-primary" onclick="saveServerSsh()">
+                            💾 Save Server SSH Config
+                        </button>
+                    </div>
+                </div>
+            </div> <!-- End sshConfigSection -->
         </div>
         
         <!-- Alerts Tab -->
@@ -1318,6 +1356,7 @@
             document.getElementById(tabId).classList.add('active');
             
             if (tabId === 'manage') loadManagedServers();
+            if (tabId === 'ssh') loadSshSettings();
             if (tabId === 'import') loadExportPreview();
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
             if (tabId === 'notifications') loadNotificationConfigs();
@@ -2270,25 +2309,86 @@
             }
         }
         
+        // ============== SSH Inventory Toggle ==============
+        
+        async function loadSshSettings() {
+            try {
+                const response = await fetch('/api/settings', { credentials: 'same-origin' });
+                const settings = await response.json();
+                const enabled = settings.enable_ssh_inventory === 'true';
+                document.getElementById('enableSshInventory').checked = enabled;
+                updateSshUI(enabled);
+            } catch (e) {
+                console.log('Could not load SSH settings');
+            }
+        }
+        
+        function updateSshUI(enabled) {
+            document.getElementById('sshConfigSection').style.display = enabled ? 'block' : 'none';
+            document.getElementById('sshDisabledNote').style.display = enabled ? 'none' : 'block';
+        }
+        
+        async function toggleSshInventory() {
+            const enabled = document.getElementById('enableSshInventory').checked;
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ enable_ssh_inventory: enabled ? 'true' : 'false' })
+                });
+                if (response.ok) {
+                    showAlert(enabled ? 'SSH inventory enabled' : 'SSH inventory disabled', 'success');
+                    updateSshUI(enabled);
+                } else {
+                    showAlert('Failed to update SSH setting', 'error');
+                    document.getElementById('enableSshInventory').checked = !enabled;
+                }
+            } catch (e) {
+                showAlert('Failed to update SSH setting', 'error');
+                document.getElementById('enableSshInventory').checked = !enabled;
+            }
+        }
+        
         async function saveDefaultSsh() {
             const user = document.getElementById('defaultSshUser').value;
             const port = document.getElementById('defaultSshPort').value;
+            const password = document.getElementById('defaultSshPassword').value;
             const key = document.getElementById('defaultSshKey').value;
             
-            if (!key) {
-                showAlert('Please enter an SSH key', 'error');
+            if (!password && !key) {
+                showAlert('Please enter either an SSH password or SSH key', 'error');
                 return;
             }
             
             try {
-                const response = await fetch('/api/config/bulk', {
-                    method: 'POST',
+                // Save as environment variables via settings
+                const settingsData = { 
+                    ssh_user: user, 
+                    ssh_port: port
+                };
+                if (password) settingsData.ssh_password = password;
+                
+                await fetch('/api/settings', {
+                    method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ssh_user: user, ssh_port: parseInt(port), ssh_key: key})
+                    credentials: 'same-origin',
+                    body: JSON.stringify(settingsData)
                 });
                 
-                const result = await response.json();
-                showAlert(`Updated SSH config for ${result.updated} servers`, 'success');
+                // Also apply SSH key to all servers if provided
+                if (key) {
+                    const response = await fetch('/api/config/bulk', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ssh_user: user, ssh_port: parseInt(port), ssh_key: key})
+                    });
+                    const result = await response.json();
+                    showAlert(`SSH config saved. Key applied to ${result.updated} servers.`, 'success');
+                } else {
+                    showAlert('SSH credentials saved.', 'success');
+                }
                 loadServerConfigs();
             } catch (e) {
                 showAlert('Failed to save SSH config', 'error');

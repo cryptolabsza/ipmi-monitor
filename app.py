@@ -1318,6 +1318,7 @@ class SystemSettings(db.Model):
         defaults = {
             'allow_anonymous_read': 'true',  # Allow anonymous users to view dashboard
             'session_timeout_hours': '24',
+            'enable_ssh_inventory': 'false',  # SSH to OS for detailed inventory (requires SSH creds)
         }
         for key, value in defaults.items():
             if not SystemSettings.query.filter_by(key=key).first():
@@ -5510,11 +5511,12 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
         except Exception as e:
             app.logger.debug(f"SDR inventory collection failed for {bmc_ip}: {e}")
     
-    # ========== CPU/Memory/Storage from SSH to OS (if reachable) ==========
-    # Run SSH collection if any detailed info is missing
+    # ========== CPU/Memory/Storage from SSH to OS (if enabled and reachable) ==========
+    # SSH is opt-in - must be enabled in settings
+    ssh_enabled = SystemSettings.get('enable_ssh_inventory', 'false').lower() == 'true'
     needs_ssh = (not inventory.cpu_model or not inventory.memory_total_gb or 
                  not inventory.memory_slots_total or not inventory.storage_info)
-    if server_ip and needs_ssh:
+    if ssh_enabled and server_ip and needs_ssh:
         try:
             # Check if SSH port is open
             import socket
@@ -5526,9 +5528,9 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
             if ssh_available:
                 app.logger.info(f"SSH available for {bmc_ip} ({server_ip}), collecting detailed inventory")
                 
-                # Get SSH credentials - use SSH_PASS env var or fall back to IPMI password
-                ssh_user = os.environ.get('SSH_USER', 'root')
-                ssh_pass = os.environ.get('SSH_PASS', os.environ.get('IPMI_PASS', ''))
+                # Get SSH credentials - check settings first, then env vars
+                ssh_user = SystemSettings.get('ssh_user') or os.environ.get('SSH_USER', 'root')
+                ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
                 
                 # Build SSH command with sshpass if password is set
                 def build_ssh_cmd(remote_cmd):
