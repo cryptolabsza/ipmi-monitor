@@ -269,13 +269,83 @@
             font-weight: 700;
         }
         
-        /* AI Panel Styles */
+        /* AI Panel Styles - Slide-out Side Panel */
         .ai-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 520px;
+            max-width: 95vw;
+            height: 100vh;
             background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            margin-bottom: 30px;
+            border-left: 1px solid var(--border-color);
+            box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
             overflow: hidden;
+        }
+        
+        .ai-panel.open {
+            transform: translateX(0);
+        }
+        
+        /* Backdrop when panel is open */
+        .ai-panel-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .ai-panel-backdrop.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Floating AI Toggle Button */
+        .ai-toggle-btn {
+            position: fixed;
+            right: 20px;
+            bottom: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border: none;
+            cursor: pointer;
+            z-index: 998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            box-shadow: 0 4px 20px rgba(74, 158, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .ai-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(74, 158, 255, 0.6);
+        }
+        
+        .ai-toggle-btn.panel-open {
+            right: 540px;
+        }
+        
+        @media (max-width: 600px) {
+            .ai-toggle-btn.panel-open {
+                right: 20px;
+                bottom: auto;
+                top: 10px;
+            }
         }
         
         .ai-panel-header {
@@ -286,6 +356,7 @@
             background: linear-gradient(90deg, rgba(168, 85, 247, 0.1), rgba(74, 158, 255, 0.1));
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
+            flex-shrink: 0;
         }
         
         .ai-title {
@@ -327,12 +398,35 @@
         
         .ai-panel-content {
             padding: 0;
-            max-height: 600px;
+            flex: 1;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         
         .ai-panel-content.collapsed {
             display: none;
+        }
+        
+        /* Make AI results fill available space */
+        .ai-results {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        /* Tab content should fill space */
+        .ai-tab-content {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        
+        .ai-tab-content.active {
+            display: flex;
         }
         
         .ai-upgrade-prompt {
@@ -643,46 +737,13 @@
         .ai-chat-container {
             display: flex;
             flex-direction: column;
-            height: 400px;
-            min-height: 200px;
-            max-height: 80vh;
+            flex: 1;
+            min-height: 300px;
             position: relative;
+            overflow: hidden;
         }
         
-        .ai-chat-resize-handle {
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 16px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            cursor: ns-resize;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            transition: all 0.2s;
-        }
-        
-        .ai-chat-resize-handle:hover {
-            background: var(--accent-blue);
-            border-color: var(--accent-blue);
-        }
-        
-        .ai-chat-resize-handle::before {
-            content: '';
-            width: 30px;
-            height: 4px;
-            background: var(--text-secondary);
-            border-radius: 2px;
-        }
-        
-        .ai-chat-resize-handle:hover::before {
-            background: white;
-        }
+        /* Resize handle removed - panel is now full height */
         
         .ai-chat-examples {
             background: var(--bg-secondary);
@@ -718,6 +779,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 10px;
+            min-height: 200px;
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -1385,17 +1447,25 @@
             </div>
         </div>
         
-        <!-- AI Insights Panel -->
+        <!-- AI Toggle Button (Floating) -->
+        <button class="ai-toggle-btn" id="aiToggleBtn" onclick="toggleAiPanel()" title="AI Insights">
+            🤖
+        </button>
+        
+        <!-- AI Panel Backdrop -->
+        <div class="ai-panel-backdrop" id="aiBackdrop" onclick="toggleAiPanel()"></div>
+        
+        <!-- AI Insights Panel (Slide-out) -->
         <div class="ai-panel" id="aiPanel">
-            <div class="ai-panel-header" onclick="toggleAiPanel()">
+            <div class="ai-panel-header">
                 <div class="ai-title">
                     <span class="ai-icon">🤖</span>
                     <h3>AI Insights</h3>
                     <span class="ai-badge" id="aiBadge">FREE</span>
                 </div>
                 <div class="ai-actions">
-                    <button class="ai-btn" title="Toggle AI Panel">
-                        <span id="aiToggleIcon">▼</span>
+                    <button class="ai-btn" onclick="toggleAiPanel()" title="Close Panel" style="font-size: 1.5rem; padding: 5px 10px;">
+                        ✕
                     </button>
                 </div>
             </div>
@@ -1658,7 +1728,6 @@
                                 <input type="text" id="aiChatInput" placeholder="Ask about your fleet..." onkeypress="if(event.key==='Enter')askAI()">
                                 <button class="ai-chat-send-btn" onclick="askAI()">Send</button>
                             </div>
-                            <div class="ai-chat-resize-handle" id="chatResizeHandle" title="Drag to resize"></div>
                         </div>
                     </div>
                 </div>
@@ -1778,16 +1847,34 @@
         let recentEventsForRca = [];
         
         function toggleAiPanel() {
-            const content = document.getElementById('aiPanelContent');
-            const icon = document.getElementById('aiToggleIcon');
-            if (content.classList.contains('collapsed')) {
-                content.classList.remove('collapsed');
-                icon.textContent = '▼';
+            const panel = document.getElementById('aiPanel');
+            const backdrop = document.getElementById('aiBackdrop');
+            const toggleBtn = document.getElementById('aiToggleBtn');
+            
+            if (panel.classList.contains('open')) {
+                // Close panel
+                panel.classList.remove('open');
+                backdrop.classList.remove('visible');
+                toggleBtn.classList.remove('panel-open');
+                document.body.style.overflow = '';
             } else {
-                content.classList.add('collapsed');
-                icon.textContent = '▶';
+                // Open panel
+                panel.classList.add('open');
+                backdrop.classList.add('visible');
+                toggleBtn.classList.add('panel-open');
+                document.body.style.overflow = 'hidden'; // Prevent background scroll
             }
         }
+        
+        // Close panel on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const panel = document.getElementById('aiPanel');
+                if (panel && panel.classList.contains('open')) {
+                    toggleAiPanel();
+                }
+            }
+        });
         
         function switchAiTab(tabName) {
             // Update tab buttons
@@ -2362,70 +2449,7 @@
             btn.innerHTML = '<span>🔍</span> Analyze Root Cause';
         }
         
-        // Chat resize functionality
-        (function initChatResize() {
-            const container = document.querySelector('.ai-chat-container');
-            const handle = document.getElementById('chatResizeHandle');
-            if (!container || !handle) return;
-            
-            // Load saved height from localStorage
-            const savedHeight = localStorage.getItem('aiChatHeight');
-            if (savedHeight) {
-                container.style.height = savedHeight + 'px';
-            }
-            
-            let isResizing = false;
-            let startY = 0;
-            let startHeight = 0;
-            
-            handle.addEventListener('mousedown', (e) => {
-                isResizing = true;
-                startY = e.clientY;
-                startHeight = container.offsetHeight;
-                document.body.style.cursor = 'ns-resize';
-                document.body.style.userSelect = 'none';
-                e.preventDefault();
-            });
-            
-            document.addEventListener('mousemove', (e) => {
-                if (!isResizing) return;
-                const deltaY = e.clientY - startY;
-                const newHeight = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + deltaY));
-                container.style.height = newHeight + 'px';
-            });
-            
-            document.addEventListener('mouseup', () => {
-                if (isResizing) {
-                    isResizing = false;
-                    document.body.style.cursor = '';
-                    document.body.style.userSelect = '';
-                    // Save height to localStorage
-                    localStorage.setItem('aiChatHeight', container.offsetHeight);
-                }
-            });
-            
-            // Touch support for mobile
-            handle.addEventListener('touchstart', (e) => {
-                isResizing = true;
-                startY = e.touches[0].clientY;
-                startHeight = container.offsetHeight;
-                e.preventDefault();
-            }, { passive: false });
-            
-            document.addEventListener('touchmove', (e) => {
-                if (!isResizing) return;
-                const deltaY = e.touches[0].clientY - startY;
-                const newHeight = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + deltaY));
-                container.style.height = newHeight + 'px';
-            }, { passive: false });
-            
-            document.addEventListener('touchend', () => {
-                if (isResizing) {
-                    isResizing = false;
-                    localStorage.setItem('aiChatHeight', container.offsetHeight);
-                }
-            });
-        })();
+        // Chat resize removed - panel is now full height slide-out
         
         function setQuestion(q) {
             document.getElementById('aiChatInput').value = q;
