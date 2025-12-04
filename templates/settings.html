@@ -1088,7 +1088,7 @@
                         </div>
                     </div>
                     <div style="text-align: center;">
-                        <a href="https://cryptolabs.co.za/ipmi-ai-trial/" target="_blank" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 16px 32px; font-size: 1.1rem; text-decoration: none; display: inline-block; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 214, 143, 0.3);">
+                        <a href="#" onclick="startFreeTrial(); return false;" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 16px 32px; font-size: 1.1rem; text-decoration: none; display: inline-block; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 214, 143, 0.3); cursor: pointer;">
                             Start Free Trial →
                         </a>
                         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 10px;">
@@ -1237,7 +1237,7 @@
                     <p style="color: var(--text-primary); font-size: 1.1rem; margin: 0 0 15px 0;">
                         <strong>Ready to let AI handle your server monitoring?</strong>
                     </p>
-                    <a href="https://cryptolabs.co.za/ipmi-ai-trial/" target="_blank" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 14px 28px; font-size: 1rem; text-decoration: none; display: inline-block; border-radius: 10px;">
+                    <a href="#" onclick="startFreeTrial(); return false;" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 14px 28px; font-size: 1rem; text-decoration: none; display: inline-block; border-radius: 10px; cursor: pointer;">
                         🎁 Start Your Free Month →
                     </a>
                 </div>
@@ -1348,6 +1348,17 @@
                     document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status || 'Success';
                 }
             }
+        }
+        
+        // Redirect to CryptoLabs signup page with return URL
+        function startFreeTrial() {
+            // Build the redirect URL back to this IPMI Monitor's OAuth callback
+            const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
+            const ipmiHost = encodeURIComponent(window.location.host);
+            const signupUrl = `https://cryptolabs.co.za/ipmi-monitor/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
+            
+            // Open in new tab so they can return easily
+            window.open(signupUrl, '_blank');
         }
         
         // SSO Login with CryptoLabs (after they've signed up via the trial page)

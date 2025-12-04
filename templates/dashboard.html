@@ -1372,7 +1372,7 @@
                         <li>🔍 Root cause analysis</li>
                         <li>💬 AI chat assistant</li>
                     </ul>
-                    <a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 15px;">
+                    <a id="startTrialBtn" href="#" onclick="startFreeTrial()" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 15px; cursor: pointer;">
                         Start Free Trial →
                     </a>
                     <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 10px;">
@@ -1763,6 +1763,16 @@
             if (tabName === 'rca') {
                 loadEventsForRca();
             }
+        }
+        
+        function startFreeTrial() {
+            // Build the redirect URL back to this IPMI Monitor's OAuth callback
+            const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
+            const ipmiHost = encodeURIComponent(window.location.host);
+            const signupUrl = `https://cryptolabs.co.za/ipmi-monitor/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
+            
+            // Open in same window so they can return easily
+            window.open(signupUrl, '_blank');
         }
         
         async function loadAiStatus() {
