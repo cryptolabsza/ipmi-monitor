@@ -1094,6 +1094,11 @@
                         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 10px;">
                             Then $100/month for up to 50 servers
                         </p>
+                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <button onclick="loginWithCryptoLabs()" class="btn btn-secondary" style="font-size: 0.95rem;">
+                                🔐 Already have an account? Sign In
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1127,16 +1132,6 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>API Key</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="password" id="aiLicenseKey" placeholder="sk-xxxxxxxxx..." style="flex: 1;">
-                            <button class="btn btn-secondary" onclick="toggleKeyVisibility()" title="Show/Hide Key" style="padding: 12px;">👁️</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
                         <label>
                             <input type="checkbox" id="aiSyncEnabled" style="margin-right: 8px;">
                             Enable cloud sync
@@ -1144,11 +1139,28 @@
                     </div>
                 </div>
                 
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
                     <button class="btn btn-primary" onclick="saveAiConfig()">💾 Save</button>
                     <button class="btn btn-secondary" onclick="testAiConnection()">🧪 Test Connection</button>
+                    <button class="btn btn-secondary" onclick="disconnectAi()">🔌 Disconnect</button>
                     <button class="btn btn-secondary" onclick="hideAiSettings()">✕ Close</button>
                 </div>
+                
+                <!-- Hidden API Key field (debug/advanced only) -->
+                <input type="hidden" id="aiLicenseKey" value="">
+                <details style="color: var(--text-secondary); font-size: 0.85rem;">
+                    <summary style="cursor: pointer; margin-bottom: 10px;">🔧 Advanced: Manual API Key</summary>
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label>API Key (for debugging only)</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="password" id="aiLicenseKeyManual" placeholder="sk-xxxxxxxxx..." style="flex: 1;">
+                            <button class="btn btn-secondary" onclick="applyManualKey()" style="padding: 12px;">Apply</button>
+                        </div>
+                        <p style="margin-top: 5px; font-size: 0.8rem; color: var(--text-secondary);">
+                            Only use this if instructed by support. Normal users should use "Sign In" above.
+                        </p>
+                    </div>
+                </details>
             </div>
             
             <!-- Features List -->
@@ -1344,8 +1356,10 @@
             
             // Listen for message from popup
             const messageHandler = async (event) => {
-                // Verify origin
-                if (!event.origin.includes('cryptolabs.co.za')) {
+                // Verify origin - accept from our own domain (callback page) or cryptolabs
+                const trustedOrigins = [window.location.origin, 'cryptolabs.co.za'];
+                const isAllowed = trustedOrigins.some(o => event.origin.includes(o));
+                if (!isAllowed) {
                     return;
                 }
                 
@@ -1353,11 +1367,12 @@
                 if (event.data && event.data.type === 'cryptolabs_ipmi_auth') {
                     window.removeEventListener('message', messageHandler);
                     
-                    const { api_key, subscription, user_email } = event.data;
+                    const { api_key, token, subscription, user_email } = event.data;
+                    const keyToUse = api_key || token;
                     
-                    if (api_key) {
+                    if (keyToUse) {
                         // Auto-fill and save
-                        document.getElementById('aiLicenseKey').value = api_key;
+                        document.getElementById('aiLicenseKey').value = keyToUse;
                         document.getElementById('aiSyncEnabled').checked = true;
                         await saveAiConfig();
                         
@@ -1388,9 +1403,39 @@
         }
         
         // Toggle API key visibility
-        function toggleKeyVisibility() {
-            const input = document.getElementById('aiLicenseKey');
-            input.type = input.type === 'password' ? 'text' : 'password';
+        // Apply manual API key (debug only)
+        function applyManualKey() {
+            const manualKey = document.getElementById('aiLicenseKeyManual').value.trim();
+            if (manualKey) {
+                document.getElementById('aiLicenseKey').value = manualKey;
+                document.getElementById('aiSyncEnabled').checked = true;
+                saveAiConfig();
+            }
+        }
+        
+        // Disconnect AI
+        async function disconnectAi() {
+            if (!confirm('Are you sure you want to disconnect from CryptoLabs AI? You can reconnect anytime by signing in again.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ai/config', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        license_key: '',
+                        sync_enabled: false
+                    })
+                });
+                
+                if (response.ok) {
+                    showAlert('Disconnected from CryptoLabs AI', 'success');
+                    loadAiConfig();
+                }
+            } catch (e) {
+                showAlert('Error: ' + e.message, 'error');
+            }
         }
         
         // Test AI connection
@@ -1398,7 +1443,7 @@
             const licenseKey = document.getElementById('aiLicenseKey').value.trim();
             
             if (!licenseKey) {
-                showAlert('Please enter an API key first', 'error');
+                showAlert('Not connected. Click "Sign In" to connect to CryptoLabs AI.', 'error');
                 return;
             }
             
