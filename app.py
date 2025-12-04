@@ -553,6 +553,35 @@ class RedfishClient:
             app.logger.error(f"Redfish clear SEL failed for {self.host}: {e}")
             return False
     
+    def get_system_info(self):
+        """Get system info (Manufacturer, Model, BIOS) directly from /redfish/v1/Systems/1"""
+        try:
+            systems_uri = self.get_systems_uri()
+            if not systems_uri:
+                return None
+            
+            systems = self._get(systems_uri)
+            if not systems or 'Members' not in systems or not systems['Members']:
+                return None
+            
+            system_uri = systems['Members'][0].get('@odata.id')
+            system = self._get(system_uri)
+            
+            if system:
+                return {
+                    'Manufacturer': system.get('Manufacturer'),
+                    'Model': system.get('Model'),
+                    'SerialNumber': system.get('SerialNumber'),
+                    'SKU': system.get('SKU'),
+                    'BiosVersion': system.get('BiosVersion'),
+                    'MemorySummary': system.get('MemorySummary', {}),
+                    'ProcessorSummary': system.get('ProcessorSummary', {}),
+                }
+            return None
+        except Exception as e:
+            app.logger.debug(f"Redfish system info failed for {self.host}: {e}")
+            return None
+    
     def get_processors(self):
         """Get processor (CPU) information via Redfish"""
         processors = []
@@ -571,7 +600,35 @@ class RedfishClient:
             if not system:
                 return processors
             
-            # Get Processors collection
+            # Try direct access to first processor (faster)
+            first_proc = self._get(f"{system_uri}/Processors/1")
+            if first_proc and first_proc.get('Model'):
+                processors.append({
+                    'Id': first_proc.get('Id', '1'),
+                    'Model': first_proc.get('Model', ''),
+                    'Manufacturer': first_proc.get('Manufacturer', ''),
+                    'TotalCores': first_proc.get('TotalCores'),
+                    'TotalThreads': first_proc.get('TotalThreads'),
+                    'MaxSpeedMHz': first_proc.get('MaxSpeedMHz'),
+                    'ProcessorType': first_proc.get('ProcessorType'),
+                    'Status': first_proc.get('Status', {}).get('Health', 'OK')
+                })
+                # Check for second processor
+                second_proc = self._get(f"{system_uri}/Processors/2")
+                if second_proc and second_proc.get('Model'):
+                    processors.append({
+                        'Id': second_proc.get('Id', '2'),
+                        'Model': second_proc.get('Model', ''),
+                        'Manufacturer': second_proc.get('Manufacturer', ''),
+                        'TotalCores': second_proc.get('TotalCores'),
+                        'TotalThreads': second_proc.get('TotalThreads'),
+                        'MaxSpeedMHz': second_proc.get('MaxSpeedMHz'),
+                        'ProcessorType': second_proc.get('ProcessorType'),
+                        'Status': second_proc.get('Status', {}).get('Health', 'OK')
+                    })
+                return processors
+            
+            # Fallback: Get Processors collection
             if 'Processors' in system:
                 proc_uri = system['Processors'].get('@odata.id')
                 proc_coll = self._get(proc_uri)
@@ -4822,9 +4879,9 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
     inventory.server_name = server_name
     inventory.primary_ip = server_ip
     
-    # Collect FRU data
+    # Collect FRU data (device 0 = builtin FRU)
     try:
-        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print']
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print', '0']
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         fru_output = result.stdout
         inventory.fru_data = fru_output
@@ -4887,6 +4944,22 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
     try:
         if should_use_redfish(bmc_ip):
             client = get_redfish_client(bmc_ip)
+            
+            # Get System info (Manufacturer, Model) from Redfish
+            try:
+                sys_info = client.get_system_info()
+                if sys_info:
+                    # Use Redfish manufacturer if not already set from FRU
+                    if not inventory.manufacturer and sys_info.get('Manufacturer'):
+                        inventory.manufacturer = sys_info['Manufacturer']
+                    # Use Redfish model/serial if not already set
+                    if not inventory.product_name and sys_info.get('Model'):
+                        inventory.product_name = sys_info['Model']
+                    if not inventory.serial_number and sys_info.get('SerialNumber'):
+                        inventory.serial_number = sys_info['SerialNumber']
+                    app.logger.info(f"Redfish system info for {bmc_ip}: {sys_info.get('Manufacturer')} {sys_info.get('Model')}")
+            except Exception as e:
+                app.logger.debug(f"Redfish system info failed for {bmc_ip}: {e}")
             
             # Get CPU info from Redfish
             try:
