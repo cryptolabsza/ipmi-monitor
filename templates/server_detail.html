@@ -1075,24 +1075,23 @@
                         <div style="display: grid; gap: 10px;">
                             ${inv.gpu_info.map(gpu => `
                                 <div style="display: flex; align-items: center; gap: 15px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
-                                    <span style="font-size: 1.8rem;">🖥️</span>
+                                    <span style="font-size: 1.8rem;">${gpu.manufacturer && gpu.manufacturer.toUpperCase().includes('NVIDIA') ? '💚' : '🖥️'}</span>
                                     <div style="flex: 1;">
-                                        <div style="font-weight: 600; color: var(--text-primary);">${gpu.name}</div>
+                                        <div style="font-weight: 600; color: var(--text-primary);">${gpu.name || 'GPU'}</div>
                                         <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                            ${gpu.memory || 'Unknown'} VRAM
-                                            ${gpu.driver ? ` • Driver ${gpu.driver}` : ''}
-                                            ${gpu.pci_bus ? ` • ${gpu.pci_bus}` : ''}
+                                            ${gpu.manufacturer || ''}
+                                            ${gpu.id ? ` • ${gpu.id}` : ''}
+                                            ${gpu.socket ? ` • Socket ${gpu.socket}` : ''}
+                                            ${gpu.serial ? ` • S/N: ${gpu.serial}` : ''}
                                         </div>
                                     </div>
                                     <div style="text-align: right;">
-                                        ${gpu.temperature != null ? `
-                                        <div style="font-weight: 600; color: ${gpu.temperature > 80 ? 'var(--accent-red)' : gpu.temperature > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};">
-                                            🌡️ ${gpu.temperature}°C
-                                        </div>` : ''}
-                                        ${gpu.utilization != null ? `
-                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                            📊 ${gpu.utilization}% util
-                                        </div>` : ''}
+                                        <div style="font-weight: 600; color: ${gpu.status === 'OK' || gpu.status === 'Enabled' ? 'var(--accent-green)' : 'var(--accent-red)'};">
+                                            ${gpu.status === 'OK' ? '✅ Healthy' : gpu.status || 'Unknown'}
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                            ${gpu.state || ''}
+                                        </div>
                                     </div>
                                 </div>
                             `).join('')}

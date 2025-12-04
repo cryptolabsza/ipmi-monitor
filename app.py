@@ -789,6 +789,101 @@ class RedfishClient:
         except Exception as e:
             app.logger.debug(f"Redfish storage failed for {self.host}: {e}")
             return drives
+    
+    def get_gpus(self):
+        """Get GPU/accelerator information via Redfish
+        
+        Works with:
+        - NVIDIA DGX systems (GPUs as Chassis members or Processors)
+        - Standard Redfish ProcessorType=GPU
+        - PCIe device enumeration
+        """
+        gpus = []
+        try:
+            # Method 1: Check Processors for GPU type (some systems list GPUs here)
+            systems_uri = self.get_systems_uri()
+            if systems_uri:
+                systems = self._get(systems_uri)
+                if systems and 'Members' in systems and systems['Members']:
+                    system_uri = systems['Members'][0].get('@odata.id')
+                    system = self._get(system_uri)
+                    
+                    if system and 'Processors' in system:
+                        proc_uri = system['Processors'].get('@odata.id')
+                        proc_coll = self._get(proc_uri)
+                        
+                        if proc_coll and 'Members' in proc_coll:
+                            for member in proc_coll['Members']:
+                                proc = self._get(member.get('@odata.id'))
+                                if proc:
+                                    proc_type = proc.get('ProcessorType', '')
+                                    # GPU, Accelerator, or contains GPU/NVIDIA in model
+                                    model = proc.get('Model', '')
+                                    if proc_type in ('GPU', 'Accelerator') or 'GPU' in model.upper() or 'NVIDIA' in model.upper():
+                                        gpus.append({
+                                            'name': proc.get('Model', proc.get('Name', 'Unknown GPU')),
+                                            'manufacturer': proc.get('Manufacturer', 'NVIDIA'),
+                                            'id': proc.get('Id', ''),
+                                            'socket': proc.get('Socket', ''),
+                                            'status': proc.get('Status', {}).get('Health', 'OK'),
+                                            'state': proc.get('Status', {}).get('State', 'Enabled'),
+                                        })
+            
+            # Method 2: DGX-specific - Check Chassis for GPU members (GPU0-GPU7)
+            if not gpus:
+                chassis_resp = self._get('/redfish/v1/Chassis')
+                if chassis_resp and 'Members' in chassis_resp:
+                    for member in chassis_resp['Members']:
+                        member_id = member.get('@odata.id', '')
+                        # Look for GPU chassis members (DGX exposes GPUs this way)
+                        if '/GPU' in member_id or 'gpu' in member_id.lower():
+                            gpu_chassis = self._get(member_id)
+                            if gpu_chassis:
+                                gpus.append({
+                                    'name': gpu_chassis.get('Model', gpu_chassis.get('Name', 'GPU')),
+                                    'manufacturer': gpu_chassis.get('Manufacturer', 'NVIDIA'),
+                                    'id': gpu_chassis.get('Id', ''),
+                                    'serial': gpu_chassis.get('SerialNumber', ''),
+                                    'part_number': gpu_chassis.get('PartNumber', ''),
+                                    'status': gpu_chassis.get('Status', {}).get('Health', 'OK'),
+                                    'state': gpu_chassis.get('Status', {}).get('State', 'Enabled'),
+                                })
+            
+            # Method 3: PCIeDevices - look for NVIDIA/GPU devices
+            if not gpus and systems_uri:
+                systems = self._get(systems_uri)
+                if systems and 'Members' in systems and systems['Members']:
+                    system_uri = systems['Members'][0].get('@odata.id')
+                    system = self._get(system_uri)
+                    
+                    if system and 'PCIeDevices' in system:
+                        pcie_uri = system['PCIeDevices'].get('@odata.id') if isinstance(system['PCIeDevices'], dict) else None
+                        if pcie_uri:
+                            pcie_coll = self._get(pcie_uri)
+                            if pcie_coll and 'Members' in pcie_coll:
+                                for member in pcie_coll['Members']:
+                                    device = self._get(member.get('@odata.id'))
+                                    if device:
+                                        dev_type = device.get('DeviceType', '')
+                                        manufacturer = device.get('Manufacturer', '').upper()
+                                        name = device.get('Name', '').upper()
+                                        
+                                        if 'GPU' in dev_type or 'NVIDIA' in manufacturer or 'GPU' in name:
+                                            gpus.append({
+                                                'name': device.get('Name', 'GPU'),
+                                                'manufacturer': device.get('Manufacturer', 'NVIDIA'),
+                                                'id': device.get('Id', ''),
+                                                'pci_id': device.get('PCIeInterface', {}).get('PCIeType', ''),
+                                                'status': device.get('Status', {}).get('Health', 'OK'),
+                                            })
+            
+            if gpus:
+                app.logger.info(f"Redfish GPUs for {self.host}: {len(gpus)} found")
+            
+            return gpus
+        except Exception as e:
+            app.logger.debug(f"Redfish GPU collection failed for {self.host}: {e}")
+            return gpus
 
 
 def check_redfish_available(bmc_ip):
@@ -5372,6 +5467,16 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     app.logger.info(f"Redfish Storage for {bmc_ip}: {len(storage_info)} drives")
             except Exception as e:
                 app.logger.debug(f"Redfish storage collection failed for {bmc_ip}: {e}")
+            
+            # Get GPU info from Redfish (NVIDIA DGX, etc.)
+            try:
+                gpu_info = client.get_gpus()
+                if gpu_info:
+                    inventory.gpu_info = json.dumps(gpu_info)
+                    inventory.gpu_count = len(gpu_info)
+                    app.logger.info(f"Redfish GPU for {bmc_ip}: {len(gpu_info)} GPUs - {gpu_info[0].get('name', 'GPU')}")
+            except Exception as e:
+                app.logger.debug(f"Redfish GPU collection failed for {bmc_ip}: {e}")
                 
     except Exception as e:
         app.logger.debug(f"Redfish inventory collection failed for {bmc_ip}: {e}")
@@ -5525,34 +5630,6 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                 app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
                 except Exception as e:
                     app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
-                
-                # ========== GPU info via nvidia-smi ==========
-                try:
-                    # Query GPU info in CSV format
-                    cmd = build_ssh_cmd('nvidia-smi --query-gpu=name,memory.total,uuid,driver_version,pci.bus_id,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>/dev/null')
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0 and result.stdout.strip():
-                        gpus = []
-                        for line in result.stdout.strip().split('\n'):
-                            parts = [p.strip() for p in line.split(',')]
-                            if len(parts) >= 2:
-                                gpu = {
-                                    'name': parts[0] if len(parts) > 0 else 'Unknown',
-                                    'memory_mb': int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None,
-                                    'memory': f"{int(parts[1])//1024}GB" if len(parts) > 1 and parts[1].isdigit() else 'Unknown',
-                                    'uuid': parts[2] if len(parts) > 2 else None,
-                                    'driver': parts[3] if len(parts) > 3 else None,
-                                    'pci_bus': parts[4] if len(parts) > 4 else None,
-                                    'temperature': int(parts[5]) if len(parts) > 5 and parts[5].isdigit() else None,
-                                    'utilization': int(parts[6]) if len(parts) > 6 and parts[6].isdigit() else None,
-                                }
-                                gpus.append(gpu)
-                        if gpus:
-                            inventory.gpu_info = json.dumps(gpus)
-                            inventory.gpu_count = len(gpus)
-                            app.logger.info(f"SSH GPU for {bmc_ip}: {len(gpus)} GPUs - {gpus[0]['name']}")
-                except Exception as e:
-                    app.logger.debug(f"SSH GPU collection failed for {bmc_ip}: {e}")
                     
         except Exception as e:
             app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
