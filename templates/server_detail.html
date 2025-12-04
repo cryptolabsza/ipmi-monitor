@@ -1068,6 +1068,38 @@
                     </div>
                     ` : ''}
                     
+                    <!-- GPU Info -->
+                    ${inv.gpu_info && inv.gpu_info.length > 0 ? `
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; grid-column: span 2;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-green);">🎮 GPU (${inv.gpu_count || inv.gpu_info.length})</h3>
+                        <div style="display: grid; gap: 10px;">
+                            ${inv.gpu_info.map(gpu => `
+                                <div style="display: flex; align-items: center; gap: 15px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
+                                    <span style="font-size: 1.8rem;">🖥️</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">${gpu.name}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                            ${gpu.memory || 'Unknown'} VRAM
+                                            ${gpu.driver ? ` • Driver ${gpu.driver}` : ''}
+                                            ${gpu.pci_bus ? ` • ${gpu.pci_bus}` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        ${gpu.temperature != null ? `
+                                        <div style="font-weight: 600; color: ${gpu.temperature > 80 ? 'var(--accent-red)' : gpu.temperature > 60 ? 'var(--accent-yellow)' : 'var(--accent-green)'};">
+                                            🌡️ ${gpu.temperature}°C
+                                        </div>` : ''}
+                                        ${gpu.utilization != null ? `
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                            📊 ${gpu.utilization}% util
+                                        </div>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
                     <!-- Storage Info -->
                     ${inv.storage_info && inv.storage_info.length > 0 ? `
                     <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; grid-column: span 2;">

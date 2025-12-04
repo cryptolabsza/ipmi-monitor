@@ -1386,6 +1386,9 @@ class ServerInventory(db.Model):
     network_macs = db.Column(db.Text)  # JSON: [{"interface": "eth0", "mac": "aa:bb:cc:dd:ee:ff"}]
     # Storage info (JSON)
     storage_info = db.Column(db.Text)  # JSON: [{"device": "/dev/sda", "size": "1TB", "model": "..."}]
+    # GPU info (JSON)
+    gpu_info = db.Column(db.Text)  # JSON: [{"name": "NVIDIA A100", "memory": "80GB", "uuid": "..."}]
+    gpu_count = db.Column(db.Integer)
     # IP addresses
     primary_ip = db.Column(db.String(20))  # OS IP (e.g., 88.0.x.1)
     primary_ip_reachable = db.Column(db.Boolean, default=True)
@@ -1417,6 +1420,8 @@ class ServerInventory(db.Model):
             'memory_slots_total': self.memory_slots_total,
             'network_macs': json.loads(self.network_macs) if self.network_macs else [],
             'storage_info': json.loads(self.storage_info) if self.storage_info else [],
+            'gpu_info': json.loads(self.gpu_info) if self.gpu_info else [],
+            'gpu_count': self.gpu_count,
             'primary_ip': self.primary_ip,
             'primary_ip_reachable': self.primary_ip_reachable,
             'primary_ip_last_check': self.primary_ip_last_check.isoformat() if self.primary_ip_last_check else None,
@@ -5520,6 +5525,34 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                 app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
                 except Exception as e:
                     app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
+                
+                # ========== GPU info via nvidia-smi ==========
+                try:
+                    # Query GPU info in CSV format
+                    cmd = build_ssh_cmd('nvidia-smi --query-gpu=name,memory.total,uuid,driver_version,pci.bus_id,temperature.gpu,utilization.gpu --format=csv,noheader,nounits 2>/dev/null')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout.strip():
+                        gpus = []
+                        for line in result.stdout.strip().split('\n'):
+                            parts = [p.strip() for p in line.split(',')]
+                            if len(parts) >= 2:
+                                gpu = {
+                                    'name': parts[0] if len(parts) > 0 else 'Unknown',
+                                    'memory_mb': int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None,
+                                    'memory': f"{int(parts[1])//1024}GB" if len(parts) > 1 and parts[1].isdigit() else 'Unknown',
+                                    'uuid': parts[2] if len(parts) > 2 else None,
+                                    'driver': parts[3] if len(parts) > 3 else None,
+                                    'pci_bus': parts[4] if len(parts) > 4 else None,
+                                    'temperature': int(parts[5]) if len(parts) > 5 and parts[5].isdigit() else None,
+                                    'utilization': int(parts[6]) if len(parts) > 6 and parts[6].isdigit() else None,
+                                }
+                                gpus.append(gpu)
+                        if gpus:
+                            inventory.gpu_info = json.dumps(gpus)
+                            inventory.gpu_count = len(gpus)
+                            app.logger.info(f"SSH GPU for {bmc_ip}: {len(gpus)} GPUs - {gpus[0]['name']}")
+                except Exception as e:
+                    app.logger.debug(f"SSH GPU collection failed for {bmc_ip}: {e}")
                     
         except Exception as e:
             app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
