@@ -4248,7 +4248,7 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
     return inventory.to_dict()
 
 
-@app.route('/api/servers/<bmc_ip>/check-connectivity', methods=['POST'])
+@app.route('/api/servers/<bmc_ip>/check-connectivity', methods=['GET', 'POST'])
 @require_valid_bmc_ip
 def api_check_server_connectivity(bmc_ip):
     """Check both BMC and primary IP connectivity"""
