@@ -1117,6 +1117,16 @@
                             <span id="aiSyncStatus" class="status-badge status-badge-success">✅ Syncing</span>
                         </div>
                     </div>
+                    <!-- Linked CryptoLabs account -->
+                    <div id="linkedAccountSection" style="margin-top: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; display: none;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">🔗</span>
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">Linked to CryptoLabs account:</div>
+                                <div style="font-weight: 600;" id="linkedAccountEmail">-</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
@@ -1322,6 +1332,15 @@
                 document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
                 document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
                 
+                // Show linked account info
+                const linkedSection = document.getElementById('linkedAccountSection');
+                if (config.linked_account && config.linked_account.wp_email) {
+                    linkedSection.style.display = 'block';
+                    document.getElementById('linkedAccountEmail').textContent = config.linked_account.wp_email;
+                } else {
+                    linkedSection.style.display = 'none';
+                }
+                
                 // Show sync status if available
                 if (config.last_sync) {
                     document.getElementById('aiLastSyncCard').style.display = 'block';
@@ -1367,11 +1386,11 @@
                 if (event.data && event.data.type === 'cryptolabs_ipmi_auth') {
                     window.removeEventListener('message', messageHandler);
                     
-                    const { api_key, token, subscription, user_email } = event.data;
+                    const { api_key, token, subscription, user_email, wp_user_id } = event.data;
                     const keyToUse = api_key || token;
                     
                     if (keyToUse) {
-                        // Auto-fill and save
+                        // Auto-fill and save - the backend will link accounts
                         document.getElementById('aiLicenseKey').value = keyToUse;
                         document.getElementById('aiSyncEnabled').checked = true;
                         await saveAiConfig();

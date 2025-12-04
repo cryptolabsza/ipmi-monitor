@@ -883,6 +883,10 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    # CryptoLabs/WordPress account linking
+    wp_user_id = db.Column(db.Integer, nullable=True)  # WordPress user ID
+    wp_email = db.Column(db.String(100), nullable=True)  # WordPress email
+    wp_linked_at = db.Column(db.DateTime, nullable=True)  # When linked
     
     @staticmethod
     def hash_password(password):
@@ -5550,9 +5554,22 @@ def api_get_ai_model_info():
 @app.route('/api/ai/config', methods=['GET'])
 @admin_required
 def api_get_ai_config():
-    """Get AI cloud configuration"""
+    """Get AI cloud configuration including linked WordPress account"""
     config = CloudSync.get_config()
-    return jsonify(config.to_dict())
+    result = config.to_dict()
+    
+    # Add linked WordPress account info for current user
+    current_username = session.get('username')
+    if current_username:
+        user = User.query.filter_by(username=current_username).first()
+        if user and user.wp_email:
+            result['linked_account'] = {
+                'wp_email': user.wp_email,
+                'wp_user_id': user.wp_user_id,
+                'linked_at': user.wp_linked_at.isoformat() if user.wp_linked_at else None
+            }
+    
+    return jsonify(result)
 
 
 @app.route('/api/ai/config', methods=['PUT'])
@@ -5618,13 +5635,15 @@ def api_oauth_callback():
     - subscription: User's subscription tier
     - user_email: User's email
     - user_name: User's display name
+    - wp_user_id: WordPress user ID (for account linking)
     - state: For CSRF protection
     
-    Automatically configures AI features with the received API key.
+    Automatically configures AI features and links accounts.
     """
     api_key = request.args.get('api_key')
     subscription = request.args.get('subscription', 'free')
     user_email = request.args.get('user_email', '')
+    wp_user_id = request.args.get('wp_user_id')
     state = request.args.get('state', '')
     
     if not api_key:
@@ -5648,6 +5667,17 @@ def api_oauth_callback():
         config.subscription_tier = subscription
         config.subscription_valid = True
         config.max_servers = 50 if subscription == 'starter' else 5
+        
+        # Link the current IPMI Monitor admin to the WordPress account
+        current_username = session.get('username')
+        if current_username and user_email:
+            user = User.query.filter_by(username=current_username).first()
+            if user:
+                user.wp_user_id = int(wp_user_id) if wp_user_id else None
+                user.wp_email = user_email
+                user.wp_linked_at = datetime.utcnow()
+                app.logger.info(f"Linked local user '{current_username}' to WordPress account '{user_email}' (ID: {wp_user_id})")
+        
         db.session.commit()
         
         app.logger.info(f"OAuth callback: Configured AI with key from {user_email}, tier: {subscription}")
