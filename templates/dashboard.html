@@ -643,7 +643,45 @@
         .ai-chat-container {
             display: flex;
             flex-direction: column;
-            height: 350px;
+            height: 400px;
+            min-height: 200px;
+            max-height: 80vh;
+            position: relative;
+        }
+        
+        .ai-chat-resize-handle {
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: ns-resize;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.2s;
+        }
+        
+        .ai-chat-resize-handle:hover {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+        
+        .ai-chat-resize-handle::before {
+            content: '';
+            width: 30px;
+            height: 4px;
+            background: var(--text-secondary);
+            border-radius: 2px;
+        }
+        
+        .ai-chat-resize-handle:hover::before {
+            background: white;
         }
         
         .ai-chat-examples {
@@ -1620,6 +1658,7 @@
                                 <input type="text" id="aiChatInput" placeholder="Ask about your fleet..." onkeypress="if(event.key==='Enter')askAI()">
                                 <button class="ai-chat-send-btn" onclick="askAI()">Send</button>
                             </div>
+                            <div class="ai-chat-resize-handle" id="chatResizeHandle" title="Drag to resize"></div>
                         </div>
                     </div>
                 </div>
@@ -2322,6 +2361,71 @@
             btn.disabled = false;
             btn.innerHTML = '<span>🔍</span> Analyze Root Cause';
         }
+        
+        // Chat resize functionality
+        (function initChatResize() {
+            const container = document.querySelector('.ai-chat-container');
+            const handle = document.getElementById('chatResizeHandle');
+            if (!container || !handle) return;
+            
+            // Load saved height from localStorage
+            const savedHeight = localStorage.getItem('aiChatHeight');
+            if (savedHeight) {
+                container.style.height = savedHeight + 'px';
+            }
+            
+            let isResizing = false;
+            let startY = 0;
+            let startHeight = 0;
+            
+            handle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startY = e.clientY;
+                startHeight = container.offsetHeight;
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const deltaY = e.clientY - startY;
+                const newHeight = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + deltaY));
+                container.style.height = newHeight + 'px';
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    // Save height to localStorage
+                    localStorage.setItem('aiChatHeight', container.offsetHeight);
+                }
+            });
+            
+            // Touch support for mobile
+            handle.addEventListener('touchstart', (e) => {
+                isResizing = true;
+                startY = e.touches[0].clientY;
+                startHeight = container.offsetHeight;
+                e.preventDefault();
+            }, { passive: false });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (!isResizing) return;
+                const deltaY = e.touches[0].clientY - startY;
+                const newHeight = Math.max(200, Math.min(window.innerHeight * 0.8, startHeight + deltaY));
+                container.style.height = newHeight + 'px';
+            }, { passive: false });
+            
+            document.addEventListener('touchend', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    localStorage.setItem('aiChatHeight', container.offsetHeight);
+                }
+            });
+        })();
         
         function setQuestion(q) {
             document.getElementById('aiChatInput').value = q;
