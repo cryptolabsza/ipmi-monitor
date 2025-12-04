@@ -1,536 +1,377 @@
 # IPMI Monitor
 
-[![Docker Build](https://github.com/jjziets/ipmi-monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/jjziets/ipmi-monitor/actions/workflows/docker-build.yml)
+[![Docker Build](https://github.com/cryptolabsza/ipmi-monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/cryptolabsza/ipmi-monitor/actions/workflows/docker-build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A production-ready Flask web dashboard for monitoring IPMI/BMC System Event Logs (SEL) across your server fleet. Features admin authentication, sensor monitoring, ECC memory identification, alerting, AI-powered insights, and Prometheus/Grafana integration.
+**Free, self-hosted IPMI/BMC monitoring for your server fleet.** Collect System Event Logs (SEL), monitor sensors, track ECC errors, and get alerts - all from a beautiful web dashboard.
+
+![Dashboard Preview](docs/dashboard-preview.png)
 
 ## ✨ Features
 
-- 🔍 **Event Collection**: Automatically collects IPMI SEL logs from all servers (parallel, 10 workers)
-- 📊 **Real-time Dashboard**: Auto-refreshing dashboard with countdown timer
-- 🌡️ **Sensor Monitoring**: Temperature, fan, voltage, and power readings
-- 💾 **ECC Memory Tracking**: Identifies which memory sensor (e.g., CPU1_ECC1) has errors
-- 🚨 **Severity Classification**: Automatic classification (Critical/Warning/Info)
-- 🔐 **Admin Authentication**: Protected settings, SEL clearing, server management
-- ➕ **Server Management**: Add/edit/delete servers via UI, config file, or import
-- 📈 **Prometheus Metrics**: Native `/metrics` endpoint for Grafana
-- 🤖 **AI Features**: Optional AI-powered summaries, predictions, and root cause analysis
-- 📥 **Export**: CSV export of event logs
-- 🐳 **Docker Ready**: Multi-arch images (amd64/arm64) via GitHub Actions
-- 🏥 **Production Health Checks**: Database, thread monitoring, graceful shutdown
+### 🆓 Free Self-Hosted Features
+- 🔍 **Event Collection** - Automatically collect IPMI SEL logs (parallel, 10 workers)
+- 📊 **Real-time Dashboard** - Auto-refreshing with server status cards
+- 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
+- 💾 **ECC Memory Tracking** - Identify which DIMM has errors
+- 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
+- 📈 **Prometheus Metrics** - Native `/metrics` endpoint for Grafana
+- 🔐 **User Management** - Admin and read-only access levels
+- 📥 **Export** - CSV export of event logs
+- 🐳 **Docker Ready** - Multi-arch images (amd64/arm64)
 
-## 🚀 Quick Start
+### 🤖 Optional AI Features (via CryptoLabs)
+- 📊 Daily health summaries
+- 🔧 AI-generated maintenance tasks
+- 📈 Failure predictions
+- 🔍 Root cause analysis
+- 💬 AI chat assistant
 
-### Option 1: Pre-configured Server List (Easiest)
+---
 
-**Step 1:** Create a `servers.yaml` file with your servers:
+## 🚀 Quick Start (5 minutes)
 
+### Option 1: Docker Compose (Recommended)
+
+**Step 1:** Create project directory
+```bash
+mkdir ipmi-monitor && cd ipmi-monitor
+```
+
+**Step 2:** Create `docker-compose.yml`:
 ```yaml
-# servers.yaml - Your server configuration
-servers:
-  - name: web-server-01
-    bmc_ip: 192.168.1.100
-    # Uses default IPMI credentials
-    
-  - name: database-server
-    bmc_ip: 192.168.1.101
-    ipmi_user: dbadmin        # Custom username
-    ipmi_pass: custompass     # Custom password
-    
-  - name: gpu-server-01
-    bmc_ip: 192.168.1.102
-    nvidia: true              # Uses NVIDIA 16-char password
+version: '3.8'
+
+services:
+  ipmi-monitor:
+    image: ghcr.io/cryptolabsza/ipmi-monitor:latest
+    container_name: ipmi-monitor
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - APP_NAME=My Server Fleet        # Customize this
+      - IPMI_USER=admin
+      - IPMI_PASS=YourIPMIPassword      # Your BMC password
+      - ADMIN_PASS=changeme             # CHANGE THIS!
+      - SECRET_KEY=change-this-to-random-string
+    volumes:
+      - ipmi_data:/app/data             # ⚠️ IMPORTANT: Persists your data!
+
+volumes:
+  ipmi_data:
 ```
 
-**Step 2:** Create a `.env` file:
-
-```env
-IPMI_PASS=YourDefaultIPMIPassword
-IPMI_PASS_NVIDIA=YourNvidia16CharPass
-ADMIN_PASS=YourSecureAdminPassword
-SECRET_KEY=your-random-secret-key-here
-```
-
-**Step 3:** Run with Docker Compose:
-
+**Step 3:** Start the service
 ```bash
 docker-compose up -d
 ```
 
-Access the dashboard at: http://localhost:5000
+**Step 4:** Open http://localhost:5000 and add your servers!
 
 ---
 
-### Option 2: Setup Wizard
-
-If you don't have a `servers.yaml` file, the first-run **Setup Wizard** will guide you through:
-
-1. Setting admin credentials
-2. Configuring default IPMI credentials
-3. Adding servers (paste a list, upload file, or enter manually)
-4. Optionally connecting to CryptoLabs AI
+### Option 2: Docker Run
 
 ```bash
-docker run -d \
-  --name ipmi-monitor \
-  -p 5000:5000 \
-  -v ipmi_data:/app/data \
-  ghcr.io/jjziets/ipmi-monitor:latest
-```
+# Create a named volume for data persistence
+docker volume create ipmi_data
 
-Then visit http://localhost:5000/setup
-
----
-
-### Option 3: Docker with Environment Variables
-
-```bash
+# Run the container
 docker run -d \
   --name ipmi-monitor \
   -p 5000:5000 \
   -e IPMI_USER=admin \
   -e IPMI_PASS=YourIPMIPassword \
-  -e ADMIN_USER=admin \
-  -e ADMIN_PASS=YourSecurePassword \
+  -e ADMIN_PASS=YourAdminPassword \
   -e SECRET_KEY=your-random-secret-key \
   -v ipmi_data:/app/data \
-  ghcr.io/jjziets/ipmi-monitor:latest
+  --restart unless-stopped \
+  ghcr.io/cryptolabsza/ipmi-monitor:latest
 ```
-
-Then add servers via the web UI at Settings → Server List.
 
 ---
 
-### Option 4: Local Development
+### Option 3: Pre-configured Server List
 
-```bash
-pip install -r requirements.txt
-export IPMI_USER=admin
-export IPMI_PASS=YourIPMIPassword
-export ADMIN_USER=admin
-export ADMIN_PASS=YourSecurePassword
-python app.py
+Create `servers.yaml` with your servers:
+
+```yaml
+servers:
+  - name: web-server-01
+    bmc_ip: 192.168.1.100
+    
+  - name: database-server
+    bmc_ip: 192.168.1.101
+    ipmi_user: dbadmin
+    ipmi_pass: custompass
+    
+  - name: gpu-server-01
+    bmc_ip: 192.168.1.102
+    nvidia: true              # Uses 16-char NVIDIA password
 ```
 
-## 📋 Server Configuration Formats
+Then mount it:
+```yaml
+volumes:
+  - ipmi_data:/app/data
+  - ./servers.yaml:/app/config/servers.yaml:ro
+```
 
-IPMI Monitor supports multiple formats for bulk server import:
+Servers are auto-imported on startup!
 
-### YAML (Recommended)
+---
 
+## ⚠️ Important: Data Persistence
+
+**Always use a named volume** to preserve your data across container updates:
+
+```yaml
+# ✅ CORRECT - Named volume (survives updates)
+volumes:
+  - ipmi_data:/app/data
+
+# ❌ WRONG - No volume (data lost on rebuild)
+# (no volume specified)
+
+# ⚠️ CAUTION - Bind mount (works but be careful with paths)
+volumes:
+  - /path/on/host:/app/data
+```
+
+If you see "No servers configured" after an update, your data wasn't persisted!
+
+---
+
+## 🖥️ Adding Servers
+
+### Via Web UI (Easiest)
+
+1. Login at `/login` (default: admin / changeme)
+2. Go to **Settings** → **Server List**
+3. Click **Add Server**
+4. Enter BMC IP and server name
+
+### Via Import
+
+Upload a file in Settings → Server List → Import:
+
+**YAML** (recommended):
 ```yaml
 servers:
   - name: server-01
     bmc_ip: 192.168.1.100
-    ipmi_user: admin          # Optional
-    ipmi_pass: password       # Optional
-    server_ip: 192.168.1.10   # Optional - OS IP
-    nvidia: false             # Optional - use NVIDIA password
-    notes: Web server         # Optional
+  - name: server-02
+    bmc_ip: 192.168.1.101
 ```
 
-### CSV
-
+**CSV**:
 ```csv
-name,bmc_ip,ipmi_user,ipmi_pass,server_ip,nvidia,notes
-server-01,192.168.1.100,admin,password,192.168.1.10,false,Web server
-server-02,192.168.1.101,,,192.168.1.11,true,GPU server
+name,bmc_ip,ipmi_user,ipmi_pass
+server-01,192.168.1.100,,
+server-02,192.168.1.101,admin,pass123
 ```
 
-### JSON
+---
 
-```json
-{
-  "servers": [
-    {
-      "name": "server-01",
-      "bmc_ip": "192.168.1.100",
-      "ipmi_user": "admin",
-      "ipmi_pass": "password"
-    }
-  ]
-}
-```
-
-### INI (Legacy)
-
-```ini
-[servers]
-192.168.1.100 = server-01
-192.168.1.101 = server-02  # nvidia
-```
-
-## 🤖 AI Features (Optional)
-
-Connect to CryptoLabs for AI-powered server monitoring:
-
-| Feature | Description |
-|---------|-------------|
-| 📊 **Daily Summaries** | AI-generated fleet health reports |
-| 🔧 **Maintenance Tasks** | Automatic task creation from events |
-| 📈 **Predictions** | Failure predictions before they happen |
-| 🔍 **Root Cause Analysis** | AI explains why incidents occurred |
-| 💬 **AI Chat** | Ask questions about your fleet |
-
-### Enable AI Features
-
-**Option 1: Login with CryptoLabs (Easiest)**
-
-1. Go to Settings → AI Features
-2. Click "Login with CryptoLabs"
-3. Sign in or create a free account
-4. AI features are automatically configured!
-
-**Option 2: Manual API Key**
-
-1. Register at [cryptolabs.co.za](https://cryptolabs.co.za/register/)
-2. Get your API key from the [AI Console](https://cryptolabs.co.za/ai-console/)
-3. Enter the key in Settings → AI Features
-
-### Pricing
-
-| Tier | Price | Servers | Features |
-|------|-------|---------|----------|
-| **Free** | $0 | 5 | Basic monitoring only |
-| **Starter** | $100/month | 50 | All AI features, 1-year retention |
-| **Starter+** | +$1/server | 51+ | Same as Starter |
-
-## Screenshots
-
-### Dashboard
-- Auto-refresh countdown with toggle
-- Time range selector (1h to 30 days)
-- Server status cards with event counts
-- Recent events feed
-
-### Server Detail
-- Events tab with filtering
-- Sensors tab with live readings (temperature, fans, voltage)
-
-## Configuration
+## ⚙️ Configuration
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `IPMI_USER` | admin | IPMI/BMC username |
-| `IPMI_PASS` | (required) | IPMI/BMC password (8-char for most servers) |
-| `IPMI_PASS_NVIDIA` | (required) | Password for NVIDIA DGX/HGX (16-char required) |
-| `POLL_INTERVAL` | 300 | Seconds between automatic collections |
+| `APP_NAME` | IPMI Monitor | Displayed in header |
+| `IPMI_USER` | admin | Default BMC username |
+| `IPMI_PASS` | (required) | Default BMC password |
+| `IPMI_PASS_NVIDIA` | - | 16-char password for NVIDIA DGX/HGX |
 | `ADMIN_USER` | admin | Dashboard admin username |
-| `ADMIN_PASS` | changeme | Dashboard admin password (**CHANGE THIS!**) |
-| `APP_NAME` | IPMI Monitor | Application name (customize for your org) |
-| `SECRET_KEY` | (auto) | Flask session secret key (**SET THIS!**) |
+| `ADMIN_PASS` | changeme | Dashboard admin password |
+| `SECRET_KEY` | (auto) | Flask session secret (**set this!**) |
+| `POLL_INTERVAL` | 300 | Seconds between collections |
+| `DATA_RETENTION_DAYS` | 30 | How long to keep events |
 
 ### Authentication
 
-The dashboard supports two access levels:
+| Access Level | Login Required | Can Do |
+|--------------|----------------|--------|
+| **Read-only** | No | View dashboard, events, sensors |
+| **Admin** | Yes | Add/delete servers, clear SEL, settings |
 
-| Access Level | Capabilities |
-|--------------|--------------|
-| **Read-only** (no login) | View dashboard, events, sensors, export CSV |
-| **Admin** (login required) | Settings, add/delete servers, clear SEL, credentials |
+---
 
-Login at `/login` with `ADMIN_USER`/`ADMIN_PASS`.
+## 📊 Prometheus & Grafana
 
-## API Endpoints
-
-### Public Endpoints (No Auth Required)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Main dashboard |
-| `/server/<bmc_ip>` | GET | Server detail page |
-| `/metrics` | GET | Prometheus metrics |
-| `/health` | GET | Health check (returns 503 if degraded) |
-| `/api/servers` | GET | List all servers with status |
-| `/api/events` | GET | Get recent events (with filters) |
-| `/api/stats` | GET | Dashboard statistics |
-| `/api/server/<bmc_ip>/events` | GET | Events for specific server |
-| `/api/sensors/<bmc_ip>` | GET | Sensor readings for server |
-| `/api/sensors/<bmc_ip>/names` | GET | Sensor ID to name mapping |
-| `/api/auth/status` | GET | Check if logged in |
-
-### Admin Endpoints (Auth Required)
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/settings` | GET | Settings page |
-| `/api/collect` | POST | Trigger event collection |
-| `/api/collect?bmc_ip=X` | POST | Collect from single server |
-| `/api/sensors/collect` | POST | Trigger sensor collection |
-| `/api/servers/add` | POST | Add new server |
-| `/api/servers/<bmc_ip>` | PUT/DELETE | Update/delete server |
-| `/api/servers/import` | POST | Import servers from INI/JSON |
-| `/api/server/<bmc_ip>/clear_sel` | POST | Clear BMC SEL log |
-| `/api/server/<bmc_ip>/clear_db_events` | POST | Clear DB events only |
-| `/api/clear_all_sel` | POST | Clear SEL on all BMCs |
-
-## Health Check
-
-The `/health` endpoint provides detailed status:
-
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-11-29T17:43:48.814437",
-  "checks": {
-    "database": "ok",
-    "collector_thread": "running"
-  },
-  "last_collection": "2025-11-29T17:43:47.957877"
-}
-```
-
-Returns:
-- **200**: All systems healthy
-- **503**: Degraded (DB error or collector stopped)
-
-## Prometheus & Grafana Integration
-
-### 1. Add to Prometheus Scrape Config
+### Add to Prometheus
 
 ```yaml
 scrape_configs:
   - job_name: 'ipmi-monitor'
     static_configs:
-      - targets: ['your-server:5001']
+      - targets: ['your-server:5000']
     scrape_interval: 60s
 ```
 
-### 2. Import Grafana Dashboard
+### Metrics Available
 
-Import `grafana/dashboards/ipmi-monitor.json` into Grafana.
+| Metric | Description |
+|--------|-------------|
+| `ipmi_server_reachable` | BMC reachability (1=yes) |
+| `ipmi_server_power_on` | Power status |
+| `ipmi_events_critical_24h` | Critical events count |
+| `ipmi_events_warning_24h` | Warning events count |
+| `ipmi_total_servers` | Total servers monitored |
 
-### Available Metrics
+### Grafana Dashboard
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `ipmi_server_reachable` | Gauge | BMC reachability (1=yes, 0=no) |
-| `ipmi_server_power_on` | Gauge | Server power status |
-| `ipmi_events_total` | Gauge | Total events per server |
-| `ipmi_events_critical_24h` | Gauge | Critical events in 24h |
-| `ipmi_events_warning_24h` | Gauge | Warning events in 24h |
-| `ipmi_total_servers` | Gauge | Total monitored servers |
-| `ipmi_reachable_servers` | Gauge | Reachable server count |
-| `ipmi_total_critical_events_24h` | Gauge | Total critical events |
-| `ipmi_total_warning_events_24h` | Gauge | Total warning events |
-| `ipmi_last_collection_timestamp` | Gauge | Last collection unix time |
+Download from: **Settings → Integrations → Download Grafana Dashboard**
 
-## Server Management
+---
 
-### Add Servers via UI
+## 🤖 AI Features (Optional)
 
-1. Login as admin
-2. Go to Settings → Server List
-3. Click "Add Server"
-4. Enter BMC IP, server name, and options
+Upgrade your monitoring with AI-powered insights from CryptoLabs:
 
-### Import from INI File
+| Feature | Description |
+|---------|-------------|
+| 📊 **Daily Summaries** | AI analyzes your fleet health daily |
+| 🔧 **Maintenance Tasks** | Auto-generated from events |
+| 📈 **Predictions** | Failure warnings before they happen |
+| 🔍 **Root Cause Analysis** | AI explains what went wrong |
+| 💬 **Chat** | Ask questions about your servers |
 
-```ini
-[server-01]
-bmc_ip = 192.168.1.100
-server_ip = 192.168.1.10
-enabled = true
+### Enable AI
 
-[server-02]
-bmc_ip = 192.168.1.101
-server_ip = 192.168.1.11
-enabled = true
-use_nvidia_password = false
+1. Go to **Settings** → **AI Features**
+2. Click **Start Free Trial** (1 month free!)
+3. Create account or login at CryptoLabs
+4. You're connected!
+
+### Pricing
+
+| Tier | Price | Servers | Trial |
+|------|-------|---------|-------|
+| Free | $0 | Unlimited | Basic monitoring only |
+| Starter | $100/mo | 50 | 1 month free |
+| Starter+ | +$15/10 servers | 51+ | - |
+
+---
+
+## 🔧 Troubleshooting
+
+### Test IPMI Connectivity
+
+```bash
+# From the container
+docker exec ipmi-monitor ipmitool -I lanplus \
+  -H 192.168.1.100 -U admin -P YourPassword power status
 ```
 
-Upload via Settings → Server List → Import.
+### Check Logs
 
-## ECC Memory Identification
-
-When ECC errors occur, the monitor shows which sensor detected them:
-
-```
-Correctable ECC | Asserted [CPU1_ECC1]
+```bash
+docker logs ipmi-monitor --tail 100
+docker logs ipmi-monitor 2>&1 | grep -i error
 ```
 
-The sensor name (e.g., `CPU1_ECC1`) is looked up from the BMC's SDR (Sensor Data Repository).
+### Database Reset
 
-To view the sensor mapping for a server:
-```
-GET /api/sensors/192.168.1.100/names
+```bash
+# Backup first!
+docker exec ipmi-monitor cp /app/data/ipmi_events.db /app/data/backup.db
+
+# Then reset
+docker exec ipmi-monitor rm /app/data/ipmi_events.db
+docker restart ipmi-monitor
 ```
 
-## Architecture
+### BMC Not Reachable
+
+1. Check network connectivity to BMC IP
+2. Verify IPMI over LAN is enabled in BMC settings
+3. Try `network_mode: host` in docker-compose
+
+---
+
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                       IPMI Monitor                               │
 │  ┌──────────────────┐  ┌────────────┐  ┌───────────────────┐   │
 │  │   Flask Web UI   │◄─│  SQLite    │◄─│  IPMI Collector   │   │
-│  │    + Admin Auth  │  │  Database  │  │  (10 parallel)    │   │
-│  │                  │  └────────────┘  └─────────┬─────────┘   │
-│  │  /metrics ───────┼──► Prometheus              │             │
-│  │  /health ────────┼──► K8s/Docker              │             │
-│  └──────────────────┘                            │             │
+│  │    + Admin Auth  │  │  Database  │  │  (10 workers)     │   │
+│  └──────────────────┘  └────────────┘  └─────────┬─────────┘   │
+│           │                                       │             │
+│   ┌───────▼───────┐                              │             │
+│   │  /metrics     │──► Prometheus/Grafana        │             │
+│   │  /health      │──► Docker/K8s healthcheck    │             │
+│   └───────────────┘                              │             │
 └──────────────────────────────────────────────────┼─────────────┘
                                                    │
-                     ┌─────────────────────────────▼─────────────┐
-                     │           BMC/IPMI Network                │
-                     │   ipmitool -I lanplus -H 88.0.X.0 ...     │
-                     │   (SEL, sensors, power status)            │
-                     └───────────────────────────────────────────┘
+            ┌──────────────────────────────────────▼──────────────┐
+            │              BMC/IPMI Network                        │
+            │  ipmitool -I lanplus -H x.x.x.x sel list            │
+            └─────────────────────────────────────────────────────┘
+                                                   │
+            ┌──────────────────────────────────────▼──────────────┐
+            │          CryptoLabs AI Service (Optional)            │
+            │  • Health summaries    • Predictions                 │
+            │  • Maintenance tasks   • Root cause analysis         │
+            └─────────────────────────────────────────────────────┘
 ```
 
-## Production Deployment
+---
 
-### Security Checklist
+## 📋 API Reference
 
-- [ ] Change `ADMIN_PASS` from default
-- [ ] Set a strong `SECRET_KEY`
-- [ ] Use HTTPS (put behind reverse proxy)
-- [ ] Restrict network access to BMC IPs
-- [ ] Review firewall rules
+### Public Endpoints
 
-### Docker Compose (Production)
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | Dashboard |
+| `GET /api/servers` | List servers |
+| `GET /api/events` | Get events |
+| `GET /api/stats` | Dashboard stats |
+| `GET /api/sensors/{bmc_ip}` | Sensor readings |
+| `GET /metrics` | Prometheus metrics |
+| `GET /health` | Health check |
 
-```yaml
-version: '3.8'
-services:
-  ipmi-monitor:
-    image: ghcr.io/jjziets/ipmi-monitor:latest
-    container_name: ipmi-monitor
-    restart: unless-stopped
-    ports:
-      - "5001:5000"
-    environment:
-      - IPMI_USER=admin
-      - IPMI_PASS=${IPMI_PASS}
-      - IPMI_PASS_NVIDIA=${IPMI_PASS_NVIDIA}
-      - POLL_INTERVAL=300
-      - ADMIN_USER=admin
-      - ADMIN_PASS=${ADMIN_PASS}
-      - SECRET_KEY=${SECRET_KEY}
-    volumes:
-      - ipmi_data:/app/instance
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+### Admin Endpoints (login required)
 
-volumes:
-  ipmi_data:
-```
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/collect` | Trigger collection |
+| `POST /api/servers/add` | Add server |
+| `DELETE /api/servers/{bmc_ip}` | Delete server |
+| `POST /api/server/{bmc_ip}/clear_sel` | Clear BMC SEL |
 
-## Supported Hardware
+---
 
-| Vendor | Model | Password | Notes |
-|--------|-------|----------|-------|
-| ASUSTek | Various | 8-char | Standard config |
-| NVIDIA | DGX/HGX | 16-char | Set `IPMI_PASS_NVIDIA` |
-| Supermicro | Various | 8-char | Standard config |
-| Dell | iDRAC | Varies | May need config changes |
-
-## Troubleshooting
-
-### IPMI Connection Errors
-
-```bash
-# Test connectivity manually
-ipmitool -I lanplus -H 192.168.1.100 -U admin -P YourPassword power status
-
-# Test SEL access
-ipmitool -I lanplus -H 192.168.1.100 -U admin -P YourPassword sel list
-```
-
-### Slow BMC Responses
-
-Some BMCs with large SEL logs (1000+ events) can take 5+ minutes to respond. The monitor uses 10-minute timeouts for these cases.
-
-### Network Issues in Docker
-
-If BMC IPs are not accessible:
-```yaml
-# Option 1: Host network mode
-network_mode: host
-
-# Option 2: Ensure routing to BMC network
-```
-
-### Database Issues
-
-```bash
-# Reset database
-docker exec ipmi-monitor rm /app/instance/ipmi_events.db
-docker restart ipmi-monitor
-
-# Check database
-docker exec ipmi-monitor sqlite3 /app/instance/ipmi_events.db ".tables"
-```
-
-### Check Logs
-
-```bash
-docker logs ipmi-monitor 2>&1 | tail -50
-docker logs ipmi-monitor 2>&1 | grep -i error
-```
-
-## Development
-
-### Local Setup
-
-```bash
-git clone https://github.com/jjziets/ipmi-monitor.git
-cd ipmi-monitor
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
-
-### Running Tests
-
-```bash
-# TODO: Add test suite
-pytest tests/
-```
-
-### Building Docker Image
-
-```bash
-docker build -t ipmi-monitor:dev .
-```
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create feature branch (`git checkout -b feature/amazing`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing`)
 5. Open a Pull Request
 
-## License
+---
 
-MIT License - see [LICENSE](LICENSE) file for details.
+## 📜 License
 
-## Changelog
+MIT License - see [LICENSE](LICENSE) for details.
 
-### v1.2.0 (2025-11-29)
-- Added admin authentication
-- Added sensor monitoring (temperature, fans, voltage, power)
-- Added ECC memory sensor identification
-- Added server management (add/edit/delete via UI)
-- Added INI import/export for server lists
-- Added auto-refresh countdown timer
-- Production hardening (error handling, thread safety, validation)
-- Enhanced health check with database and thread monitoring
+---
 
-### v1.1.0
-- Added per-server IPMI credentials
-- Added time range selector (1h to 30 days)
-- Parallel event collection (10 workers)
-- Fixed dashboard stats consistency
+## 🔗 Links
 
-### v1.0.0
-- Initial release
-- Basic SEL collection and display
-- Prometheus metrics integration
+- **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
+- **Docker Image**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
+- **AI Features**: [cryptolabs.co.za/ipmi-monitor](https://cryptolabs.co.za/ipmi-monitor)
+- **Support**: [CryptoLabs Discord](https://discord.gg/cryptolabs)
+
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://cryptolabs.co.za">CryptoLabs</a>
+</p>
