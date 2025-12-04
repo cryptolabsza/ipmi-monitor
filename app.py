@@ -4138,23 +4138,32 @@ def api_events():
     if severity:
         query = query.filter_by(severity=severity)
     if server:
-        query = query.filter_by(bmc_ip=server)
+        # Support filtering by either server_name or bmc_ip
+        query = query.filter(
+            db.or_(IPMIEvent.server_name == server, IPMIEvent.bmc_ip == server)
+        )
     
     cutoff = datetime.utcnow() - timedelta(hours=hours)
     query = query.filter(IPMIEvent.event_date >= cutoff)
     
     events = query.order_by(IPMIEvent.event_date.desc()).limit(limit).all()
     
-    return jsonify([{
-        'id': e.id,
-        'bmc_ip': e.bmc_ip,
-        'server_name': e.server_name,
-        'sel_id': e.sel_id,
-        'event_date': e.event_date.isoformat(),
-        'sensor_type': e.sensor_type,
-        'event_description': e.event_description,
-        'severity': e.severity
-    } for e in events])
+    return jsonify({
+        'events': [{
+            'id': e.id,
+            'bmc_ip': e.bmc_ip,
+            'server_name': e.server_name,
+            'sel_id': e.sel_id,
+            'event_date': e.event_date.isoformat(),
+            'timestamp': e.event_date.isoformat(),  # Alias for frontend
+            'sensor_type': e.sensor_type,
+            'event_description': e.event_description,
+            'description': e.event_description,  # Alias for frontend
+            'severity': e.severity
+        } for e in events],
+        'total': len(events),
+        'hours': hours
+    })
 
 @app.route('/api/stats')
 @view_required
@@ -4353,9 +4362,11 @@ def api_server_events(bmc_ip):
             'id': e.id,
             'sel_id': e.sel_id,
             'event_date': e.event_date.isoformat(),
+            'timestamp': e.event_date.isoformat(),  # Alias for frontend
             'sensor_type': display_sensor_type,
             'sensor_id': e.sensor_id,
             'event_description': display_description,
+            'description': display_description,  # Alias for frontend
             'severity': e.severity,
             'raw_entry': e.raw_entry
         })
