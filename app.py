@@ -4359,6 +4359,114 @@ def api_clear_sel(bmc_ip):
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+
+# ============== Power Management API ==============
+
+@app.route('/api/server/<bmc_ip>/power', methods=['GET'])
+@require_valid_bmc_ip
+def api_get_power_status(bmc_ip):
+    """Get power status for a server"""
+    try:
+        password = get_ipmi_password(bmc_ip)
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'power', 'status'],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode == 0:
+            output = result.stdout.strip().lower()
+            is_on = 'on' in output
+            return jsonify({
+                'status': 'success',
+                'power_status': 'on' if is_on else 'off',
+                'raw_output': result.stdout.strip()
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to get power status: {result.stderr}'
+            }), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Timeout getting power status'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/power/<action>', methods=['POST'])
+@admin_required
+@require_valid_bmc_ip
+def api_power_control(bmc_ip, action):
+    """Control server power - Admin only
+    
+    Actions:
+        - on: Power on
+        - off: Power off (hard)
+        - soft: Soft shutdown (graceful, sends ACPI signal)
+        - cycle: Power cycle (off then on)
+        - reset: Reset (warm reboot)
+    """
+    valid_actions = ['on', 'off', 'soft', 'cycle', 'reset']
+    
+    if action not in valid_actions:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid action. Valid actions: {", ".join(valid_actions)}'
+        }), 400
+    
+    try:
+        password = get_ipmi_password(bmc_ip)
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'power', action],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode == 0:
+            # Log the power action as an event
+            server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            server_name = server.server_name if server else bmc_ip
+            
+            action_names = {
+                'on': 'Power On',
+                'off': 'Power Off (Hard)',
+                'soft': 'Soft Shutdown',
+                'cycle': 'Power Cycle',
+                'reset': 'Reset'
+            }
+            
+            # Log as an IPMI event for audit trail
+            event = IPMIEvent(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                event_date=datetime.utcnow(),
+                sensor_type='System Event',
+                event_description=f'{action_names[action]} initiated via dashboard',
+                severity='info',
+                sel_id='ADMIN'
+            )
+            db.session.add(event)
+            db.session.commit()
+            
+            app.logger.info(f"Power {action} executed on {bmc_ip} ({server_name})")
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'{action_names[action]} command sent to {server_name}',
+                'output': result.stdout.strip()
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Power {action} failed: {result.stderr}'
+            }), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': f'Timeout executing power {action}'}), 500
+    except Exception as e:
+        app.logger.error(f"Power {action} error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @app.route('/api/clear_all_sel', methods=['POST'])
 @admin_required
 def api_clear_all_sel():

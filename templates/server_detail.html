@@ -106,6 +106,11 @@
         
         .btn-warning {
             background: var(--accent-yellow);
+        }
+        
+        /* Power menu styling */
+        .power-option:hover {
+            background: var(--bg-secondary) !important;
             color: #000;
         }
         
@@ -406,6 +411,32 @@
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
                 <button class="btn btn-warning admin-only" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
                 <button class="btn btn-danger admin-only" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
+                
+                <!-- Power Management Dropdown -->
+                <div class="power-dropdown admin-only" style="display: none; position: relative;">
+                    <button class="btn" onclick="togglePowerMenu()" id="powerMenuBtn" style="background: var(--accent-purple);">
+                        ⚡ Power <span id="powerStatusBadge" style="margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">...</span>
+                    </button>
+                    <div id="powerMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 0; min-width: 180px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                        <button class="power-option" onclick="powerAction('on')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-green);">🟢</span> Power On
+                        </button>
+                        <button class="power-option" onclick="powerAction('soft')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-yellow);">🟡</span> Soft Shutdown
+                        </button>
+                        <button class="power-option" onclick="powerAction('reset')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-blue);">🔄</span> Reset (Warm)
+                        </button>
+                        <button class="power-option" onclick="powerAction('cycle')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-purple);">🔁</span> Power Cycle
+                        </button>
+                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
+                        <button class="power-option" onclick="powerAction('off')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--accent-red); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>🔴</span> Force Power Off
+                        </button>
+                    </div>
+                </div>
+                
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
                     <span id="themeIcon">🌙</span>
                 </button>
@@ -714,6 +745,109 @@
             }
         }
         
+        // ============== Power Management ==============
+        
+        function togglePowerMenu() {
+            const menu = document.getElementById('powerMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Close power menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('powerMenu');
+            const btn = document.getElementById('powerMenuBtn');
+            if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+        
+        async function loadPowerStatus() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/power`, { credentials: 'same-origin' });
+                const data = await response.json();
+                
+                const badge = document.getElementById('powerStatusBadge');
+                if (data.status === 'success') {
+                    if (data.power_status === 'on') {
+                        badge.textContent = 'ON';
+                        badge.style.background = 'var(--accent-green)';
+                        badge.style.color = 'white';
+                    } else {
+                        badge.textContent = 'OFF';
+                        badge.style.background = 'var(--accent-red)';
+                        badge.style.color = 'white';
+                    }
+                } else {
+                    badge.textContent = '?';
+                    badge.style.background = 'var(--text-secondary)';
+                }
+            } catch (e) {
+                console.error('Failed to load power status:', e);
+            }
+        }
+        
+        async function powerAction(action) {
+            const actionNames = {
+                'on': 'Power On',
+                'off': 'Force Power Off (DANGEROUS!)',
+                'soft': 'Soft Shutdown (Graceful)',
+                'cycle': 'Power Cycle (Reboot)',
+                'reset': 'Reset (Warm Reboot)'
+            };
+            
+            const warnings = {
+                'off': '⚠️ WARNING: This will immediately cut power to the server!\n\nRunning processes will be terminated without saving.\nFilesystems may be corrupted.\n\nUse "Soft Shutdown" for graceful shutdown.',
+                'cycle': '⚠️ This will power cycle the server.\n\nThe server will go offline briefly.',
+                'reset': '⚠️ This will perform a warm reset.\n\nThe server will reboot.',
+                'soft': 'This will send an ACPI shutdown signal.\n\nThe OS should shut down gracefully.',
+                'on': 'This will power on the server.'
+            };
+            
+            // Close the menu
+            document.getElementById('powerMenu').style.display = 'none';
+            
+            // Show confirmation
+            if (!confirm(`${warnings[action]}\n\nProceed with ${actionNames[action]}?`)) {
+                return;
+            }
+            
+            // Extra confirmation for dangerous actions
+            if (action === 'off' || action === 'cycle') {
+                if (!confirm(`FINAL CONFIRMATION:\n\n${actionNames[action]} on ${bmcIp}?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                const btn = document.getElementById('powerMenuBtn');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Executing...';
+                
+                const response = await fetch(`/api/server/${bmcIp}/power/${action}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+                
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    alert(`✅ ${data.message}\n\n${data.output || ''}`);
+                    // Refresh power status after a delay
+                    setTimeout(loadPowerStatus, 3000);
+                } else {
+                    alert(`❌ Error: ${data.message}`);
+                }
+                
+                // Restore button
+                loadPowerStatus();
+                
+            } catch (e) {
+                alert('Failed to execute power command: ' + e.message);
+                loadPowerStatus();
+            }
+        }
+        
         // Tab switching
         function switchTab(tabName) {
             // Update buttons
@@ -822,6 +956,8 @@
                     document.querySelectorAll('.admin-only').forEach(el => {
                         el.style.display = '';
                     });
+                    // Load power status for admin users
+                    loadPowerStatus();
                 }
             } catch (e) {
                 console.error('Failed to check auth status:', e);
