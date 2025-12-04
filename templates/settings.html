@@ -2983,6 +2983,17 @@
         loadServers();
         loadManagedServers();
         
+        // Check if we should auto-open a specific tab (e.g., from inventory SSH hint)
+        const openTab = sessionStorage.getItem('openTab');
+        if (openTab) {
+            sessionStorage.removeItem('openTab');
+            // Find and click the tab button
+            const tabBtn = document.querySelector(`.tab[onclick*="showTab('${openTab}')"]`);
+            if (tabBtn) {
+                setTimeout(() => tabBtn.click(), 100);
+            }
+        }
+        
         // Check auth status and show admin-only tabs
         (async function() {
             try {
