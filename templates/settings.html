@@ -1816,7 +1816,7 @@
         async function loadAdminCredentials() {
             try {
                 // Load current user credentials
-                const response = await fetch('/api/admin/credentials');
+                const response = await fetch('/api/admin/credentials', { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 document.getElementById('currentUsername').value = data.username || 'admin';
@@ -1831,13 +1831,13 @@
                 }
                 
                 // Load session user
-                const authResponse = await fetch('/api/auth/status');
+                const authResponse = await fetch('/api/auth/status', { credentials: 'same-origin' });
                 const auth = await authResponse.json();
                 document.getElementById('sessionUser').textContent = auth.username || 'admin';
                 document.getElementById('sessionRole').textContent = (auth.role || 'admin').toUpperCase();
                 
                 // Load anonymous setting
-                const settingsResponse = await fetch('/api/settings');
+                const settingsResponse = await fetch('/api/settings', { credentials: 'same-origin' });
                 const settings = await settingsResponse.json();
                 document.getElementById('allowAnonymous').checked = settings.allow_anonymous_read === 'true';
                 
@@ -1851,8 +1851,9 @@
         
         async function loadUserList() {
             try {
-                const response = await fetch('/api/users');
-                const users = await response.json();
+                const response = await fetch('/api/users', { credentials: 'same-origin' });
+                const data = await response.json();
+                const users = Array.isArray(data) ? data : (data.users || []);
                 
                 const userList = document.getElementById('userList');
                 
@@ -1894,6 +1895,7 @@
                 const response = await fetch('/api/settings', {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify({ allow_anonymous_read: allow ? 'true' : 'false' })
                 });
                 
@@ -1927,6 +1929,7 @@
                 const response = await fetch('/api/users', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify({ username, password, role })
                 });
                 
@@ -1968,6 +1971,7 @@
                 const response = await fetch(`/api/users/${id}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify(data)
                 });
                 
@@ -1988,7 +1992,7 @@
             if (!confirm(`Delete user ${username}? This cannot be undone.`)) return;
             
             try {
-                const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                const response = await fetch(`/api/users/${id}`, { method: 'DELETE', credentials: 'same-origin' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -2032,6 +2036,7 @@
                 const response = await fetch('/api/admin/credentials', {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         current_password: currentPassword,
                         username: newUsername || null,
