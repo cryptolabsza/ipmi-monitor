@@ -7263,6 +7263,12 @@ def settings_page():
     """Server configuration page - Requires write access"""
     return render_template('settings.html')
 
+
+@app.route('/docs')
+def docs_page():
+    """Documentation / Wiki page - Public access"""
+    return render_template('docs.html')
+
 @app.route('/metrics')
 def prometheus_metrics():
     """Prometheus metrics endpoint"""
