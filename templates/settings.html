@@ -460,19 +460,20 @@
             
             <!-- Edit Server Modal -->
             <div id="editModal" class="modal" style="display: none;">
-                <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
                     <div class="card-title">✏️ Edit Server</div>
-                    <input type="hidden" id="editBmcIp">
+                    <input type="hidden" id="editOriginalBmcIp">
                     
                     <!-- Basic Info -->
                     <div class="form-row">
                         <div class="form-group">
                             <label>Server Name</label>
-                            <input type="text" id="editServerName">
+                            <input type="text" id="editServerName" placeholder="server-01">
                         </div>
                         <div class="form-group">
-                            <label>Server OS IP</label>
-                            <input type="text" id="editServerIp">
+                            <label>
+                                <input type="checkbox" id="editEnabled" checked> Enabled
+                            </label>
                         </div>
                     </div>
                     
@@ -491,30 +492,45 @@
                         </div>
                     </div>
                     
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label><input type="checkbox" id="editEnabled"> Enabled</label>
-                        </div>
-                        <div class="form-group">
-                            <label><input type="checkbox" id="editNvidiaPassword"> NVIDIA 16-char password</label>
-                        </div>
-                    </div>
-                    
-                    <!-- Server Credentials Section -->
-                    <div style="border-top: 1px solid var(--border-color); margin-top: 15px; padding-top: 15px;">
-                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">🔐 Server Credentials</div>
-                        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">
-                            Leave empty to use default credentials. Override for this server only.
-                        </p>
+                    <!-- BMC/IPMI Section -->
+                    <div style="border: 1px solid var(--accent-yellow); border-radius: 10px; padding: 15px; margin-top: 15px; background: rgba(255, 193, 7, 0.05);">
+                        <div style="font-weight: 600; color: var(--accent-yellow); margin-bottom: 12px;">📡 BMC / IPMI Access</div>
                         <div class="form-row">
                             <div class="form-group">
+                                <label>BMC IP Address</label>
+                                <input type="text" id="editBmcIp" placeholder="192.168.1.100">
+                            </div>
+                            <div class="form-group">
                                 <label>IPMI Username</label>
-                                <input type="text" id="editIpmiUser" placeholder="Use default">
+                                <input type="text" id="editIpmiUser" placeholder="admin">
                             </div>
                             <div class="form-group">
                                 <label>IPMI Password</label>
-                                <input type="password" id="editIpmiPass" placeholder="Use default">
+                                <input type="password" id="editIpmiPass" placeholder="••••••••">
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- OS/SSH Section -->
+                    <div style="border: 1px solid var(--accent-blue); border-radius: 10px; padding: 15px; margin-top: 15px; background: rgba(0, 123, 255, 0.05);">
+                        <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 12px;">💻 OS / SSH Access <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-secondary);">(optional - for detailed inventory)</span></div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>OS IP Address</label>
+                                <input type="text" id="editServerIp" placeholder="192.168.1.101">
+                            </div>
+                            <div class="form-group">
+                                <label>SSH Username</label>
+                                <input type="text" id="editSshUser" placeholder="root">
+                            </div>
+                            <div class="form-group">
+                                <label>SSH Password</label>
+                                <input type="password" id="editSshPass" placeholder="Leave empty for key auth">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>SSH Private Key <span style="color: var(--text-secondary); font-weight: normal;">(optional - paste key or leave empty)</span></label>
+                            <textarea id="editSshKey" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family: monospace; font-size: 0.85rem;"></textarea>
                         </div>
                     </div>
                     
@@ -1703,31 +1719,43 @@
             const server = MANAGED_SERVERS.find(s => s.bmc_ip === bmc_ip);
             if (!server) return;
             
-            document.getElementById('editBmcIp').value = bmc_ip;
+            // Store original BMC IP for updates
+            document.getElementById('editOriginalBmcIp').value = bmc_ip;
+            
+            // Basic info
             document.getElementById('editServerName').value = server.server_name;
-            document.getElementById('editServerIp').value = server.server_ip || bmc_ip.replace('.0', '.1');
             document.getElementById('editProtocol').value = server.protocol || 'auto';
             document.getElementById('editEnabled').checked = server.enabled;
-            document.getElementById('editNvidiaPassword').checked = server.use_nvidia_password;
             document.getElementById('editNotes').value = server.notes || '';
-            document.getElementById('redfishStatus').style.display = 'none';
             
-            // Clear credentials (will show placeholder for "use default")
+            // BMC/IPMI
+            document.getElementById('editBmcIp').value = bmc_ip;
             document.getElementById('editIpmiUser').value = '';
             document.getElementById('editIpmiPass').value = '';
+            document.getElementById('editIpmiPass').placeholder = '••••••••';
             
-            // Try to load server-specific credentials if any
+            // OS/SSH
+            document.getElementById('editServerIp').value = server.server_ip || '';
+            document.getElementById('editSshUser').value = '';
+            document.getElementById('editSshPass').value = '';
+            document.getElementById('editSshKey').value = '';
+            
+            document.getElementById('redfishStatus').style.display = 'none';
+            
+            // Load server-specific credentials
             try {
                 const response = await fetch(`/api/config/server/${bmc_ip}`, { credentials: 'same-origin' });
                 if (response.ok) {
                     const config = await response.json();
+                    // IPMI creds
                     if (config.ipmi_user) document.getElementById('editIpmiUser').value = config.ipmi_user;
-                    // Password is not returned for security, but we show placeholder
-                    if (config.has_ipmi_pass) document.getElementById('editIpmiPass').placeholder = '••••••• (set)';
-                    else document.getElementById('editIpmiPass').placeholder = 'Use default';
+                    if (config.has_ipmi_pass) document.getElementById('editIpmiPass').placeholder = '••••••• (saved)';
+                    // SSH creds
+                    if (config.ssh_user) document.getElementById('editSshUser').value = config.ssh_user;
+                    if (config.has_ssh_key) document.getElementById('editSshKey').placeholder = 'SSH key is set (paste new to replace)';
                 }
             } catch (e) {
-                // Ignore - just use defaults
+                console.log('No server config found, using defaults');
             }
             
             document.getElementById('editModal').style.display = 'flex';
@@ -1769,36 +1797,59 @@
         }
         
         async function saveServerEdit() {
-            const bmc_ip = document.getElementById('editBmcIp').value;
+            const originalBmcIp = document.getElementById('editOriginalBmcIp').value;
+            const newBmcIp = document.getElementById('editBmcIp').value.trim();
+            
+            if (!newBmcIp) {
+                showAlert('BMC IP is required', 'error');
+                return;
+            }
             
             try {
                 // Save server settings
-                const response = await fetch(`/api/servers/${bmc_ip}`, {
+                const serverData = {
+                    server_name: document.getElementById('editServerName').value,
+                    server_ip: document.getElementById('editServerIp').value,
+                    protocol: document.getElementById('editProtocol').value,
+                    enabled: document.getElementById('editEnabled').checked,
+                    notes: document.getElementById('editNotes').value
+                };
+                
+                // If BMC IP changed, include it
+                if (newBmcIp !== originalBmcIp) {
+                    serverData.new_bmc_ip = newBmcIp;
+                }
+                
+                const response = await fetch(`/api/servers/${originalBmcIp}`, {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
-                    body: JSON.stringify({
-                        server_name: document.getElementById('editServerName').value,
-                        server_ip: document.getElementById('editServerIp').value,
-                        protocol: document.getElementById('editProtocol').value,
-                        enabled: document.getElementById('editEnabled').checked,
-                        use_nvidia_password: document.getElementById('editNvidiaPassword').checked,
-                        notes: document.getElementById('editNotes').value
-                    })
+                    body: JSON.stringify(serverData)
                 });
                 
-                const result = await response.json();
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to update server');
+                }
                 
-                // Save credentials if any were entered
+                // Save credentials (IPMI + SSH)
+                const credData = {};
                 const ipmiUser = document.getElementById('editIpmiUser').value.trim();
                 const ipmiPass = document.getElementById('editIpmiPass').value;
+                const sshUser = document.getElementById('editSshUser').value.trim();
+                const sshPass = document.getElementById('editSshPass').value;
+                const sshKey = document.getElementById('editSshKey').value.trim();
                 
-                if (ipmiUser || ipmiPass) {
-                    const credData = {};
-                    if (ipmiUser) credData.ipmi_user = ipmiUser;
-                    if (ipmiPass) credData.ipmi_pass = ipmiPass;
-                    
-                    await fetch(`/api/config/server/${bmc_ip}`, {
+                if (ipmiUser) credData.ipmi_user = ipmiUser;
+                if (ipmiPass) credData.ipmi_pass = ipmiPass;
+                if (sshUser) credData.ssh_user = sshUser;
+                if (sshPass) credData.ssh_pass = sshPass;
+                if (sshKey) credData.ssh_key = sshKey;
+                
+                // Save credentials if any provided
+                if (Object.keys(credData).length > 0) {
+                    const targetBmc = newBmcIp !== originalBmcIp ? newBmcIp : originalBmcIp;
+                    await fetch(`/api/config/server/${targetBmc}`, {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         credentials: 'same-origin',
@@ -1806,12 +1857,12 @@
                     });
                 }
                 
-                showAlert(result.message || 'Server updated', 'success');
+                showAlert('Server updated successfully', 'success');
                 closeEditModal();
                 loadManagedServers();
                 loadServers();
             } catch (e) {
-                showAlert('Failed to update server', 'error');
+                showAlert(e.message || 'Failed to update server', 'error');
             }
         }
         

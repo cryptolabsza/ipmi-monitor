@@ -1122,7 +1122,7 @@ class ServerStatus(db.Model):
     info_events_total = db.Column(db.Integer, default=0)
 
 class ServerConfig(db.Model):
-    """Per-server configuration (IPMI credentials, SSH keys)"""
+    """Per-server configuration (IPMI credentials, SSH credentials)"""
     id = db.Column(db.Integer, primary_key=True)
     bmc_ip = db.Column(db.String(20), nullable=False, unique=True)
     server_name = db.Column(db.String(50), nullable=False)
@@ -1130,6 +1130,7 @@ class ServerConfig(db.Model):
     ipmi_user = db.Column(db.String(50))
     ipmi_pass = db.Column(db.String(100))
     ssh_user = db.Column(db.String(50), default='root')
+    ssh_pass = db.Column(db.String(100))  # SSH password (alternative to key)
     ssh_key = db.Column(db.Text)  # Private key content
     ssh_port = db.Column(db.Integer, default=22)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -5528,9 +5529,16 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
             if ssh_available:
                 app.logger.info(f"SSH available for {bmc_ip} ({server_ip}), collecting detailed inventory")
                 
-                # Get SSH credentials - check settings first, then env vars
-                ssh_user = SystemSettings.get('ssh_user') or os.environ.get('SSH_USER', 'root')
-                ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
+                # Get SSH credentials - check per-server config first, then settings, then env vars
+                server_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+                if server_config and (server_config.ssh_user or server_config.ssh_pass or server_config.ssh_key):
+                    ssh_user = server_config.ssh_user or 'root'
+                    ssh_pass = server_config.ssh_pass or ''
+                    ssh_key = server_config.ssh_key  # May be used in future for key-based auth
+                    app.logger.info(f"Using per-server SSH credentials for {bmc_ip}")
+                else:
+                    ssh_user = SystemSettings.get('ssh_user') or os.environ.get('SSH_USER', 'root')
+                    ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
                 
                 # Build SSH command with sshpass if password is set
                 def build_ssh_cmd(remote_cmd):
@@ -6167,7 +6175,16 @@ def api_config_server(bmc_ip):
     if request.method == 'GET':
         config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
         if not config:
-            return jsonify({'error': 'Server not found'}), 404
+            # Return empty config (not an error - server may not have custom creds)
+            return jsonify({
+                'bmc_ip': bmc_ip,
+                'ipmi_user': None,
+                'has_ipmi_pass': False,
+                'ssh_user': None,
+                'has_ssh_pass': False,
+                'has_ssh_key': False,
+                'ssh_port': 22
+            })
         return jsonify({
             'bmc_ip': config.bmc_ip,
             'server_name': config.server_name,
@@ -6175,6 +6192,7 @@ def api_config_server(bmc_ip):
             'ipmi_user': config.ipmi_user,
             'has_ipmi_pass': bool(config.ipmi_pass),
             'ssh_user': config.ssh_user,
+            'has_ssh_pass': bool(config.ssh_pass),
             'has_ssh_key': bool(config.ssh_key),
             'ssh_port': config.ssh_port
         })
@@ -6199,6 +6217,8 @@ def api_config_server(bmc_ip):
         config.ipmi_pass = data['ipmi_pass']
     if 'ssh_user' in data:
         config.ssh_user = data['ssh_user']
+    if 'ssh_pass' in data:
+        config.ssh_pass = data['ssh_pass']
     if 'ssh_key' in data:
         config.ssh_key = data['ssh_key']
     if 'ssh_port' in data:
