@@ -1029,7 +1029,7 @@ def get_servers(include_deprecated=False):
         try:
             if include_deprecated:
                 # Get all servers except explicitly disabled
-                servers = Server.query.filter_by(enabled=True).all()
+            servers = Server.query.filter_by(enabled=True).all()
             else:
                 # Only active servers (not deprecated, not in maintenance)
                 servers = Server.query.filter(
@@ -1586,8 +1586,8 @@ def sync_to_cloud(initial_sync=False):
                 events = IPMIEvent.query.all()
                 app.logger.info(f"Initial sync: sending ALL historical data ({len(events)} events)")
             else:
-                cutoff = datetime.utcnow() - timedelta(hours=72)
-                events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
+            cutoff = datetime.utcnow() - timedelta(hours=72)
+            events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
             
             # Get LATEST sensor readings only (not all historical data!)
             # Use a subquery to get the most recent reading for each server+sensor
@@ -4053,9 +4053,9 @@ def collection_scheduler():
                     _collection_queue.put(('sel', bmc_ip, server_name))
                 
                 # Queue sensor jobs based on multiplier
-                collection_count += 1
-                if collection_count >= SENSOR_POLL_MULTIPLIER:
-                    collection_count = 0
+            collection_count += 1
+            if collection_count >= SENSOR_POLL_MULTIPLIER:
+                collection_count = 0
                     print(f"[Scheduler] Queueing sensor collection for {len(servers)} servers...", flush=True)
                     for bmc_ip, server_name in servers.items():
                         _collection_queue.put(('sensor', bmc_ip, server_name))
@@ -4070,7 +4070,7 @@ def collection_scheduler():
                 
                 print(f"[Scheduler] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
             
-        except Exception as e:
+                except Exception as e:
             print(f"[Scheduler] Error: {e}", flush=True)
         
         # Wait for next cycle
@@ -4103,7 +4103,7 @@ def sync_timer():
                     else:
                         print(f"[Sync Timer] Sync failed: {result.get('message')}", flush=True)
                         
-        except Exception as e:
+                except Exception as e:
             print(f"[Sync Timer] Error: {e}", flush=True)
         
         # Wait for next sync
@@ -4121,7 +4121,7 @@ def connectivity_timer():
     while not _shutdown_event.is_set():
         try:
             check_and_report_connectivity_changes()
-        except Exception as e:
+            except Exception as e:
             print(f"[Connectivity Timer] Error: {e}", flush=True)
         
         # Check every 60 seconds
@@ -4306,16 +4306,16 @@ def api_events():
     
     return jsonify({
         'events': [{
-            'id': e.id,
-            'bmc_ip': e.bmc_ip,
-            'server_name': e.server_name,
-            'sel_id': e.sel_id,
-            'event_date': e.event_date.isoformat(),
+        'id': e.id,
+        'bmc_ip': e.bmc_ip,
+        'server_name': e.server_name,
+        'sel_id': e.sel_id,
+        'event_date': e.event_date.isoformat(),
             'timestamp': e.event_date.isoformat(),  # Alias for frontend
-            'sensor_type': e.sensor_type,
-            'event_description': e.event_description,
+        'sensor_type': e.sensor_type,
+        'event_description': e.event_description,
             'description': e.event_description,  # Alias for frontend
-            'severity': e.severity
+        'severity': e.severity
         } for e in events],
         'total': len(events),
         'hours': hours
@@ -4835,7 +4835,7 @@ def api_managed_servers():
     include_deprecated = request.args.get('include_deprecated', 'false').lower() == 'true'
     
     if status_filter == 'all' or include_deprecated:
-        servers = Server.query.all()
+    servers = Server.query.all()
     elif status_filter == 'deprecated':
         servers = Server.query.filter_by(status='deprecated').all()
     else:
@@ -8433,11 +8433,12 @@ def _run_migrations(inspector):
     """Run database migrations for new columns and tables"""
     try:
         existing_tables = inspector.get_table_names()
+        conn = db.engine.connect()
         
         # Migration 1: Add ssh_key table
         if 'ssh_key' not in existing_tables:
             app.logger.info("Migration: Creating ssh_key table...")
-            db.engine.execute('''
+            conn.execute(db.text('''
                 CREATE TABLE IF NOT EXISTS ssh_key (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name VARCHAR(50) NOT NULL UNIQUE,
@@ -8446,17 +8447,53 @@ def _run_migrations(inspector):
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            ''')
+            '''))
+            conn.commit()
             app.logger.info("Migration: ssh_key table created")
         
-        # Migration 2: Add ssh_key_id column to server_config
+        # Migration 2: Add SSH-related columns to server_config
         if 'server_config' in existing_tables:
             columns = [c['name'] for c in inspector.get_columns('server_config')]
-            if 'ssh_key_id' not in columns:
-                app.logger.info("Migration: Adding ssh_key_id to server_config...")
-                db.engine.execute('ALTER TABLE server_config ADD COLUMN ssh_key_id INTEGER')
-                app.logger.info("Migration: ssh_key_id column added")
+            
+            ssh_columns = [
+                ('ssh_user', "VARCHAR(50) DEFAULT 'root'"),
+                ('ssh_pass', 'VARCHAR(100)'),
+                ('ssh_key', 'TEXT'),
+                ('ssh_key_id', 'INTEGER'),
+                ('ssh_port', 'INTEGER DEFAULT 22'),
+            ]
+            
+            for col_name, col_type in ssh_columns:
+                if col_name not in columns:
+                    app.logger.info(f"Migration: Adding {col_name} to server_config...")
+                    try:
+                        conn.execute(db.text(f'ALTER TABLE server_config ADD COLUMN {col_name} {col_type}'))
+                        conn.commit()
+                        app.logger.info(f"Migration: {col_name} column added")
+                    except Exception as e:
+                        app.logger.warning(f"Migration: Could not add {col_name}: {e}")
         
+        # Migration 3: Add columns to server_inventory
+        if 'server_inventory' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_inventory')]
+            
+            inv_columns = [
+                ('nic_info', 'TEXT'),
+                ('nic_count', 'INTEGER'),
+                ('storage_count', 'INTEGER'),
+            ]
+            
+            for col_name, col_type in inv_columns:
+                if col_name not in columns:
+                    app.logger.info(f"Migration: Adding {col_name} to server_inventory...")
+                    try:
+                        conn.execute(db.text(f'ALTER TABLE server_inventory ADD COLUMN {col_name} {col_type}'))
+                        conn.commit()
+                        app.logger.info(f"Migration: {col_name} column added")
+                    except Exception as e:
+                        app.logger.warning(f"Migration: Could not add {col_name}: {e}")
+        
+        conn.close()
         app.logger.info("Migrations complete")
     except Exception as e:
         app.logger.warning(f"Migration warning (may already be applied): {e}")
