@@ -7269,6 +7269,17 @@ def docs_page():
     """Documentation / Wiki page - Public access"""
     return render_template('docs.html')
 
+
+@app.route('/docs/raw')
+def docs_raw():
+    """Raw Markdown documentation - for AI service and other consumers"""
+    docs_path = os.path.join(os.path.dirname(__file__), 'docs', 'user-guide.md')
+    if os.path.exists(docs_path):
+        with open(docs_path, 'r') as f:
+            return Response(f.read(), mimetype='text/markdown')
+    return Response('# Documentation not found', mimetype='text/markdown'), 404
+
+
 @app.route('/metrics')
 def prometheus_metrics():
     """Prometheus metrics endpoint"""

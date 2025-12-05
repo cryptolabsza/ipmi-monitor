@@ -1,0 +1,50 @@
+name: Sync Documentation to AI Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ipmi-monitor
+        uses: actions/checkout@v4
+        with:
+          path: ipmi-monitor
+
+      - name: Checkout ipmi-monitor-ai
+        uses: actions/checkout@v4
+        with:
+          repository: cryptolabsza/ipmi-monitor-ai
+          token: ${{ secrets.GH_PAT }}
+          path: ipmi-monitor-ai
+
+      - name: Sync documentation
+        run: |
+          # Copy user guide to AI knowledge base
+          cp ipmi-monitor/docs/user-guide.md ipmi-monitor-ai/knowledge/ipmi_monitor_guide.md
+          
+          echo "Documentation synced at $(date)"
+
+      - name: Commit and push to ipmi-monitor-ai
+        run: |
+          cd ipmi-monitor-ai
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          
+          # Check if there are changes
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add knowledge/ipmi_monitor_guide.md
+            git commit -m "Sync documentation from ipmi-monitor
+
+            Auto-synced from: ${{ github.repository }}@${{ github.sha }}"
+            git push
+            echo "Documentation synced successfully!"
+          fi
+

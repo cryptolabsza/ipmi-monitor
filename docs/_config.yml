@@ -1,0 +1,26 @@
+# GitHub Pages Configuration
+title: IPMI Monitor
+description: Web-based server hardware monitoring via IPMI and Redfish
+url: https://cryptolabsza.github.io
+baseurl: /ipmi-monitor
+
+# Theme
+remote_theme: pages-themes/minimal@v0.2.0
+plugins:
+  - jekyll-remote-theme
+
+# Markdown
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Navigation
+nav:
+  - title: Home
+    url: /
+  - title: User Guide
+    url: /user-guide
+  - title: GitHub
+    url: https://github.com/cryptolabsza/ipmi-monitor
+
