@@ -2600,31 +2600,36 @@
                 const keys = await response.json();
                 SSH_KEYS = keys;
                 
-                // Update keys list display
+                // Update keys list display (only if on SSH tab)
                 const container = document.getElementById('sshKeysContainer');
-                if (keys.length === 0) {
-                    container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No SSH keys stored yet.</p>';
-                } else {
-                    container.innerHTML = keys.map(k => `
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 8px;">
-                            <div>
-                                <strong style="color: var(--accent-blue);">🔑 ${escapeHtml(k.name)}</strong>
-                                <span style="color: var(--text-secondary); margin-left: 10px; font-family: monospace; font-size: 0.8rem;">
-                                    ${k.fingerprint || 'No fingerprint'}
-                                </span>
+                if (container) {
+                    if (keys.length === 0) {
+                        container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No SSH keys stored yet.</p>';
+                    } else {
+                        container.innerHTML = keys.map(k => `
+                            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 8px;">
+                                <div>
+                                    <strong style="color: var(--accent-blue);">🔑 ${escapeHtml(k.name)}</strong>
+                                    <span style="color: var(--text-secondary); margin-left: 10px; font-family: monospace; font-size: 0.8rem;">
+                                        ${k.fingerprint || 'No fingerprint'}
+                                    </span>
+                                </div>
+                                <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="deleteSshKey(${k.id}, '${escapeHtml(k.name)}')">
+                                    🗑️ Delete
+                                </button>
                             </div>
-                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="deleteSshKey(${k.id}, '${escapeHtml(k.name)}')">
-                                🗑️ Delete
-                            </button>
-                        </div>
-                    `).join('');
+                        `).join('');
+                    }
                 }
                 
                 // Update all SSH key dropdowns
                 populateSshKeyDropdowns();
             } catch (e) {
                 console.error('Failed to load SSH keys:', e);
-                document.getElementById('sshKeysContainer').innerHTML = '<p style="color: var(--accent-red);">Failed to load keys</p>';
+                const container = document.getElementById('sshKeysContainer');
+                if (container) {
+                    container.innerHTML = '<p style="color: var(--accent-red);">Failed to load keys</p>';
+                }
             }
         }
         
@@ -3367,6 +3372,7 @@
         handleOAuthCallback();  // Process any callback parameters first
         loadServers();
         loadManagedServers();
+        loadSshKeys();  // Load SSH keys for Add New Server dropdown
         
         // Check if we should auto-open a specific tab (e.g., from inventory SSH hint)
         const openTab = sessionStorage.getItem('openTab');
