@@ -6582,9 +6582,9 @@ def api_test_bmc():
     ipmi_pass = data.get('ipmi_pass')
     
     if not ipmi_user or not ipmi_pass:
-        creds = get_ipmi_credentials(bmc_ip)
-        ipmi_user = ipmi_user or creds['user']
-        ipmi_pass = ipmi_pass or creds['pass']
+        default_user, default_pass = get_ipmi_credentials(bmc_ip)
+        ipmi_user = ipmi_user or default_user
+        ipmi_pass = ipmi_pass or default_pass
     
     try:
         start_time = time.time()
