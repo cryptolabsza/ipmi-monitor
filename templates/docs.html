@@ -839,9 +839,9 @@ increase(ipmi_events_critical_24h[1h]) > 5
 # Multiple Servers Down
 count(ipmi_server_reachable == 0) > 2</code></pre>
                 
-                <div class="tip-box warning">
-                    <strong>⚠️ Scrape Interval</strong>
-                    Keep scrape interval at 60s or higher. IPMI/BMC queries are slow and frequent scraping can overwhelm BMCs.
+                <div class="tip-box">
+                    <strong>💡 Scrape Interval Note</strong>
+                    Scraping <code>/metrics</code> reads cached data from the last collection cycle (default: every 5 minutes). Faster scrape intervals won't give you fresher data - they'll just read the same values repeatedly.
                 </div>
             </section>
             

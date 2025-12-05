@@ -397,7 +397,7 @@ increase(ipmi_events_critical_24h[1h]) > 5
 count(ipmi_server_reachable == 0) > 2
 ```
 
-> ⚠️ Keep scrape interval at 60s or higher. IPMI/BMC queries are slow.
+> 💡 **Note:** Scraping `/metrics` reads cached data from the last collection cycle (default: every 5 minutes). Faster scrape intervals won't give you fresher data - they'll just read the same values repeatedly.
 
 ---
 
