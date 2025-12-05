@@ -387,43 +387,65 @@
             <div class="card">
                 <div class="card-title">➕ Add New Server</div>
                 
+                <!-- Basic Info -->
                 <div class="form-row">
-                    <div class="form-group">
-                        <label>BMC IP Address</label>
-                        <input type="text" id="newBmcIp" placeholder="88.0.X.0">
-                    </div>
                     <div class="form-group">
                         <label>Server Name</label>
                         <input type="text" id="newServerName" placeholder="server-01">
                     </div>
                     <div class="form-group">
-                        <label>Server OS IP (optional)</label>
-                        <input type="text" id="newServerIp" placeholder="88.0.X.1">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
                         <label>Protocol</label>
                         <select id="newProtocol">
-                            <option value="auto">Auto (try Redfish first)</option>
+                            <option value="auto">Auto (Redfish first)</option>
                             <option value="ipmi">IPMI only</option>
                             <option value="redfish">Redfish only</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="newNvidiaPassword"> Uses NVIDIA 16-char password
-                        </label>
+                        <label>Notes</label>
+                        <input type="text" id="newNotes" placeholder="Optional">
                     </div>
                 </div>
                 
-                <div class="form-group">
-                    <label>Notes (optional)</label>
-                    <input type="text" id="newNotes" placeholder="e.g., DGX system, special config">
+                <!-- BMC Section -->
+                <div style="border: 1px solid var(--accent-yellow); border-radius: 8px; padding: 12px; margin-top: 12px; background: rgba(255, 193, 7, 0.05);">
+                    <div style="font-weight: 600; color: var(--accent-yellow); margin-bottom: 10px; font-size: 0.9rem;">📡 BMC Access</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>BMC IP</label>
+                            <input type="text" id="newBmcIp" placeholder="192.168.1.100">
+                        </div>
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" id="newIpmiUser" placeholder="admin (or leave for default)">
+                        </div>
+                        <div class="form-group">
+                            <label>Password</label>
+                            <input type="password" id="newIpmiPass" placeholder="Leave for default">
+                        </div>
+                    </div>
                 </div>
                 
-                <button class="btn btn-primary" onclick="addServer()">➕ Add Server</button>
+                <!-- OS Section -->
+                <div style="border: 1px solid var(--accent-blue); border-radius: 8px; padding: 12px; margin-top: 12px; background: rgba(0, 123, 255, 0.05);">
+                    <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 10px; font-size: 0.9rem;">💻 Host OS Access <span style="font-weight: normal; color: var(--text-secondary);">(optional)</span></div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>OS IP</label>
+                            <input type="text" id="newServerIp" placeholder="192.168.1.101">
+                        </div>
+                        <div class="form-group">
+                            <label>SSH User</label>
+                            <input type="text" id="newSshUser" placeholder="root">
+                        </div>
+                        <div class="form-group">
+                            <label>SSH Password</label>
+                            <input type="password" id="newSshPass" placeholder="Or use key">
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="addServer()" style="margin-top: 15px;">➕ Add Server</button>
             </div>
             
             <div class="card">
@@ -1675,8 +1697,13 @@
             const server_name = document.getElementById('newServerName').value.trim();
             const server_ip = document.getElementById('newServerIp').value.trim();
             const protocol = document.getElementById('newProtocol').value;
-            const use_nvidia_password = document.getElementById('newNvidiaPassword').checked;
             const notes = document.getElementById('newNotes').value.trim();
+            
+            // Credentials
+            const ipmi_user = document.getElementById('newIpmiUser').value.trim();
+            const ipmi_pass = document.getElementById('newIpmiPass').value;
+            const ssh_user = document.getElementById('newSshUser').value.trim();
+            const ssh_pass = document.getElementById('newSshPass').value;
             
             if (!bmc_ip || !server_name) {
                 showAlert('BMC IP and Server Name are required', 'error');
@@ -1684,28 +1711,52 @@
             }
             
             try {
+                // Add server
                 const response = await fetch('/api/servers/add', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({bmc_ip, server_name, server_ip, protocol, use_nvidia_password, notes})
+                    credentials: 'same-origin',
+                    body: JSON.stringify({bmc_ip, server_name, server_ip, protocol, notes})
                 });
                 
                 const result = await response.json();
                 if (response.ok) {
+                    // Save credentials if any provided
+                    const credData = {};
+                    if (ipmi_user) credData.ipmi_user = ipmi_user;
+                    if (ipmi_pass) credData.ipmi_pass = ipmi_pass;
+                    if (ssh_user) credData.ssh_user = ssh_user;
+                    if (ssh_pass) credData.ssh_pass = ssh_pass;
+                    
+                    if (Object.keys(credData).length > 0) {
+                        await fetch(`/api/config/server/${bmc_ip}`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            credentials: 'same-origin',
+                            body: JSON.stringify(credData)
+                        });
+                    }
+                    
                     showAlert(result.message, 'success');
+                    
+                    // Clear form
                     document.getElementById('newBmcIp').value = '';
                     document.getElementById('newServerName').value = '';
                     document.getElementById('newServerIp').value = '';
                     document.getElementById('newProtocol').value = 'auto';
-                    document.getElementById('newNvidiaPassword').checked = false;
                     document.getElementById('newNotes').value = '';
+                    document.getElementById('newIpmiUser').value = '';
+                    document.getElementById('newIpmiPass').value = '';
+                    document.getElementById('newSshUser').value = '';
+                    document.getElementById('newSshPass').value = '';
+                    
                     loadManagedServers();
                     loadServers();
                 } else {
                     showAlert(result.error, 'error');
                 }
             } catch (e) {
-                showAlert('Failed to add server', 'error');
+                showAlert('Failed to add server: ' + e.message, 'error');
             }
         }
         
