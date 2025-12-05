@@ -288,6 +288,11 @@
             </div>
             
             <div class="nav-section">
+                <h3>Integrations</h3>
+                <a href="#prometheus" class="nav-link">Prometheus & Grafana</a>
+            </div>
+            
+            <div class="nav-section">
                 <h3>AI Features</h3>
                 <a href="#ai-overview" class="nav-link">AI Overview</a>
                 <a href="#ai-chat" class="nav-link">AI Chat</a>
@@ -749,6 +754,94 @@ servers:
                 <div class="tip-box warning">
                     <strong>⚠️ Security Note</strong>
                     Only enable anonymous access on trusted networks. Sensitive information like server names and events will be visible.
+                </div>
+            </section>
+            
+            <!-- Prometheus & Grafana -->
+            <section id="prometheus" class="doc-section">
+                <h2>📊 Prometheus & Grafana Integration</h2>
+                <p>IPMI Monitor provides a built-in Prometheus exporter for integration with your existing monitoring stack.</p>
+                
+                <h3>Prometheus Metrics Endpoint</h3>
+                <p>Metrics are exposed at <code>/metrics</code> in Prometheus text format:</p>
+                <pre><code>http://your-ipmi-monitor:5000/metrics</code></pre>
+                
+                <h3>Available Metrics</h3>
+                <table>
+                    <tr><th>Metric</th><th>Type</th><th>Description</th></tr>
+                    <tr><td><code>ipmi_server_reachable</code></td><td>Gauge</td><td>Whether BMC is reachable (1=yes, 0=no)</td></tr>
+                    <tr><td><code>ipmi_server_power_on</code></td><td>Gauge</td><td>Server power state (1=on, 0=off)</td></tr>
+                    <tr><td><code>ipmi_temperature_celsius</code></td><td>Gauge</td><td>Temperature readings per sensor</td></tr>
+                    <tr><td><code>ipmi_fan_speed_rpm</code></td><td>Gauge</td><td>Fan speed readings</td></tr>
+                    <tr><td><code>ipmi_voltage_volts</code></td><td>Gauge</td><td>Voltage sensor readings</td></tr>
+                    <tr><td><code>ipmi_power_watts</code></td><td>Gauge</td><td>Power consumption</td></tr>
+                    <tr><td><code>ipmi_events_total</code></td><td>Gauge</td><td>Total events collected per server</td></tr>
+                    <tr><td><code>ipmi_events_critical_24h</code></td><td>Gauge</td><td>Critical events in last 24h</td></tr>
+                    <tr><td><code>ipmi_events_warning_24h</code></td><td>Gauge</td><td>Warning events in last 24h</td></tr>
+                    <tr><td><code>ipmi_total_servers</code></td><td>Gauge</td><td>Total monitored servers</td></tr>
+                    <tr><td><code>ipmi_reachable_servers</code></td><td>Gauge</td><td>Number of reachable servers</td></tr>
+                    <tr><td><code>ipmi_alerts_total</code></td><td>Gauge</td><td>Total fired alerts</td></tr>
+                    <tr><td><code>ipmi_alerts_unacknowledged</code></td><td>Gauge</td><td>Unacknowledged alerts</td></tr>
+                    <tr><td><code>ipmi_last_collection_timestamp</code></td><td>Gauge</td><td>Unix timestamp of last collection</td></tr>
+                </table>
+                
+                <h3>Prometheus Configuration</h3>
+                <p>Add this to your <code>prometheus.yml</code>:</p>
+                <pre><code>scrape_configs:
+  - job_name: 'ipmi-monitor'
+    static_configs:
+      - targets: ['ipmi-monitor:5000']
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    metrics_path: /metrics</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Target Configuration</strong>
+                    <ul style="margin: 10px 0 0 20px;">
+                        <li><code>ipmi-monitor:5000</code> - Docker network (container name)</li>
+                        <li><code>localhost:5000</code> - Same host</li>
+                        <li><code>192.168.1.50:5000</code> - Remote IP</li>
+                    </ul>
+                </div>
+                
+                <h3>Pre-built Grafana Dashboard</h3>
+                <p>We provide a ready-to-import Grafana dashboard with:</p>
+                <ul>
+                    <li><strong>Fleet Overview</strong> - Total servers, reachable count, alerts</li>
+                    <li><strong>Server Health</strong> - Per-server temperature, power, events</li>
+                    <li><strong>Event Timeline</strong> - Critical/warning events over time</li>
+                    <li><strong>Temperature Heatmap</strong> - Temperature trends across fleet</li>
+                    <li><strong>Alert History</strong> - Alert counts and status</li>
+                </ul>
+                
+                <h4>Import Dashboard</h4>
+                <ol>
+                    <li>Go to Grafana → Dashboards → Import</li>
+                    <li>Download the dashboard JSON from: <br>
+                        <a href="https://github.com/cryptolabsza/ipmi-monitor/blob/main/grafana/dashboards/ipmi-monitor.json" target="_blank" style="color: var(--accent-blue);">github.com/cryptolabsza/ipmi-monitor/grafana/dashboards/ipmi-monitor.json</a>
+                    </li>
+                    <li>Upload or paste the JSON</li>
+                    <li>Select your Prometheus data source</li>
+                    <li>Click Import</li>
+                </ol>
+                
+                <h3>Example Grafana Alerts</h3>
+                <p>Create Grafana alerts based on IPMI Monitor metrics:</p>
+                <pre><code># High Temperature Alert
+ipmi_temperature_celsius{sensor=~"CPU.*"} > 80
+
+# Server Unreachable
+ipmi_server_reachable == 0
+
+# Critical Events Spike
+increase(ipmi_events_critical_24h[1h]) > 5
+
+# Multiple Servers Down
+count(ipmi_server_reachable == 0) > 2</code></pre>
+                
+                <div class="tip-box warning">
+                    <strong>⚠️ Scrape Interval</strong>
+                    Keep scrape interval at 60s or higher. IPMI/BMC queries are slow and frequent scraping can overwhelm BMCs.
                 </div>
             </section>
             
