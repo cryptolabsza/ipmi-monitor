@@ -239,7 +239,47 @@ servers:
 
 ### SSH Configuration
 
-SSH enables detailed inventory collection from the server's OS.
+SSH enables detailed inventory collection from the server's OS. This is **optional** and supplements data from IPMI/Redfish.
+
+#### Data Collection Priority
+
+IPMI Monitor collects data in this order, only filling gaps:
+
+1. **IPMI FRU** - Manufacturer, product, serial (always tried first)
+2. **Redfish API** - Detailed CPU, memory, storage, GPU info
+3. **IPMI SDR** - CPU/DIMM counts from sensor names
+4. **SSH to OS** - Only collects data that IPMI/Redfish didn't provide
+
+#### Target Machine Requirements
+
+For SSH inventory collection to work, the target server's OS needs these standard Linux tools:
+
+| Tool | Package | Used For | Required |
+|------|---------|----------|----------|
+| `lspci` | `pciutils` | GPU detection, NIC detection, storage controllers | ✅ Yes |
+| `lsblk` | `util-linux` | Storage devices (NVMe, SSD, HDD) | ✅ Yes |
+| `lscpu` | `util-linux` | CPU model, socket count, core count | ✅ Yes |
+| `/proc/cpuinfo` | (kernel) | CPU fallback if lscpu unavailable | Built-in |
+| `/proc/meminfo` | (kernel) | Total memory | Built-in |
+| `/sys/class/net/` | (kernel) | Network interfaces, MACs, speeds | Built-in |
+| `/sys/class/dmi/id/` | (kernel) | System manufacturer, product name | Built-in |
+| `/sys/class/hwmon/` | (kernel) | Temperature sensors | Built-in |
+| `dmidecode` | `dmidecode` | Memory DIMM details (needs root) | Optional |
+| `virsh` | `libvirt` | KVM host device passthrough info | Optional |
+
+**Typical installation (Debian/Ubuntu):**
+```bash
+sudo apt install pciutils util-linux
+```
+
+**Typical installation (RHEL/CentOS/Rocky):**
+```bash
+sudo dnf install pciutils util-linux
+```
+
+> ⚠️ **Note:** SSH collection does NOT require `nvidia-smi` or any vendor drivers. GPU detection uses `lspci` which sees all PCI devices including GPUs passed through to VMs.
+
+> 💡 **Note:** No software installation is needed if you only use IPMI/Redfish for monitoring. SSH is purely supplemental.
 
 #### Enable SSH
 
@@ -260,7 +300,7 @@ Store SSH keys centrally and assign them to servers:
 #### Per-Server Overrides
 
 Each server can have custom SSH settings:
-- Custom OS IP
+- Custom OS IP (if different from BMC IP pattern)
 - Custom username
 - Different SSH key
 - Custom port
