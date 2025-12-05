@@ -7213,8 +7213,8 @@ def api_create_user():
         return jsonify({'error': 'Username must be at least 3 characters'}), 400
     if len(password) < 6:
         return jsonify({'error': 'Password must be at least 6 characters'}), 400
-    if role not in ['admin', 'readonly']:
-        return jsonify({'error': 'Role must be admin or readonly'}), 400
+    if role not in ['admin', 'readwrite', 'readonly']:
+        return jsonify({'error': 'Role must be admin, readwrite, or readonly'}), 400
     
     # Check if username exists
     if User.query.filter_by(username=username).first():
@@ -7266,7 +7266,7 @@ def api_update_user(user_id):
                     return jsonify({'error': 'Username already exists'}), 400
                 user.username = new_username
         
-        if 'role' in data and data['role'] in ['admin', 'readonly']:
+        if 'role' in data and data['role'] in ['admin', 'readwrite', 'readonly']:
             user.role = data['role']
         
         if 'enabled' in data:
