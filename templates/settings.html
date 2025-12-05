@@ -566,10 +566,15 @@
                     
                     <div id="redfishStatus" style="display: none; margin: 15px 0; padding: 10px; border-radius: 8px;"></div>
                     
-                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <!-- Test Results Area -->
+                    <div id="connectionTestResults" style="display: none; margin-top: 15px; padding: 12px; border-radius: 8px; background: var(--bg-secondary);"></div>
+                    
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px;">
                         <button class="btn btn-primary" onclick="saveServerEdit()">💾 Save</button>
                         <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
-                        <button class="btn" style="background: var(--accent-blue);" onclick="checkRedfishStatus()">🔗 Check Redfish</button>
+                        <button class="btn" style="background: var(--accent-yellow); color: #000;" onclick="testBmcConnection()">🔌 Test BMC</button>
+                        <button class="btn" style="background: var(--accent-blue);" onclick="testSshConnection()">🖥️ Test SSH</button>
+                        <button class="btn" style="background: var(--accent-purple);" onclick="checkRedfishStatus()">🔗 Check Redfish</button>
                         <button class="btn btn-danger" onclick="deleteServer()" style="margin-left: auto;">🗑️ Delete</button>
                     </div>
                 </div>
@@ -1863,6 +1868,100 @@
             }
             
             document.getElementById('editModal').style.display = 'flex';
+        }
+        
+        async function testBmcConnection() {
+            const bmc_ip = document.getElementById('editBmcIp').value;
+            const ipmi_user = document.getElementById('editIpmiUser').value.trim();
+            const ipmi_pass = document.getElementById('editIpmiPass').value;
+            const resultsDiv = document.getElementById('connectionTestResults');
+            
+            resultsDiv.style.display = 'block';
+            resultsDiv.style.background = 'var(--bg-secondary)';
+            resultsDiv.innerHTML = '⏳ Testing BMC connection to ' + bmc_ip + '...';
+            
+            try {
+                const response = await fetch('/api/test/bmc', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        bmc_ip: bmc_ip,
+                        ipmi_user: ipmi_user || null,
+                        ipmi_pass: ipmi_pass || null
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.status === 'success') {
+                    resultsDiv.style.background = 'rgba(0, 214, 143, 0.2)';
+                    resultsDiv.innerHTML = `
+                        ✅ <strong>BMC Connection Successful!</strong><br>
+                        <small style="color: var(--text-secondary);">
+                            Power: ${data.power_status || 'Unknown'} | 
+                            Response time: ${data.response_time_ms || '?'}ms
+                        </small>
+                    `;
+                } else {
+                    resultsDiv.style.background = 'rgba(255, 107, 107, 0.2)';
+                    resultsDiv.innerHTML = `
+                        ❌ <strong>BMC Connection Failed</strong><br>
+                        <small style="color: var(--accent-red);">${data.error || 'Unknown error'}</small>
+                    `;
+                }
+            } catch (e) {
+                resultsDiv.style.background = 'rgba(255, 107, 107, 0.2)';
+                resultsDiv.innerHTML = `❌ <strong>Test Failed:</strong> ${e.message}`;
+            }
+        }
+        
+        async function testSshConnection() {
+            const bmc_ip = document.getElementById('editBmcIp').value;
+            const server_ip = document.getElementById('editServerIp').value.trim() || bmc_ip.replace('.0', '.1');
+            const ssh_user = document.getElementById('editSshUser').value.trim() || 'root';
+            const ssh_pass = document.getElementById('editSshPass').value;
+            const ssh_key_id = document.getElementById('editSshKeyId').value;
+            const resultsDiv = document.getElementById('connectionTestResults');
+            
+            resultsDiv.style.display = 'block';
+            resultsDiv.style.background = 'var(--bg-secondary)';
+            resultsDiv.innerHTML = '⏳ Testing SSH connection to ' + server_ip + '...';
+            
+            try {
+                const response = await fetch('/api/test/ssh', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        bmc_ip: bmc_ip,
+                        server_ip: server_ip,
+                        ssh_user: ssh_user,
+                        ssh_pass: ssh_pass || null,
+                        ssh_key_id: ssh_key_id ? parseInt(ssh_key_id) : null
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.status === 'success') {
+                    resultsDiv.style.background = 'rgba(0, 214, 143, 0.2)';
+                    resultsDiv.innerHTML = `
+                        ✅ <strong>SSH Connection Successful!</strong><br>
+                        <small style="color: var(--text-secondary);">
+                            Host: ${data.hostname || 'Unknown'} | 
+                            Kernel: ${data.kernel || 'Unknown'}
+                        </small>
+                    `;
+                } else {
+                    resultsDiv.style.background = 'rgba(255, 107, 107, 0.2)';
+                    resultsDiv.innerHTML = `
+                        ❌ <strong>SSH Connection Failed</strong><br>
+                        <small style="color: var(--accent-red);">${data.error || 'Unknown error'}</small>
+                    `;
+                }
+            } catch (e) {
+                resultsDiv.style.background = 'rgba(255, 107, 107, 0.2)';
+                resultsDiv.innerHTML = `❌ <strong>Test Failed:</strong> ${e.message}`;
+            }
         }
         
         async function checkRedfishStatus() {

@@ -6564,6 +6564,153 @@ def collect_single_server_sensors(bmc_ip, server_name):
 
 # ============== Redfish API ==============
 
+# ============== Connection Test Endpoints ==============
+
+@app.route('/api/test/bmc', methods=['POST'])
+@login_required
+def api_test_bmc():
+    """Test BMC/IPMI connection with provided or saved credentials"""
+    import time
+    data = request.get_json()
+    bmc_ip = data.get('bmc_ip')
+    
+    if not bmc_ip or not validate_ip_address(bmc_ip):
+        return jsonify({'status': 'error', 'error': 'Invalid BMC IP address'}), 400
+    
+    # Get credentials - use provided ones or fall back to saved/default
+    ipmi_user = data.get('ipmi_user')
+    ipmi_pass = data.get('ipmi_pass')
+    
+    if not ipmi_user or not ipmi_pass:
+        creds = get_ipmi_credentials(bmc_ip)
+        ipmi_user = ipmi_user or creds['user']
+        ipmi_pass = ipmi_pass or creds['pass']
+    
+    try:
+        start_time = time.time()
+        # Test with a simple power status command
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'power', 'status']
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        
+        if result.returncode == 0:
+            power_status = 'on' if 'on' in result.stdout.lower() else 'off' if 'off' in result.stdout.lower() else 'unknown'
+            return jsonify({
+                'status': 'success',
+                'message': 'BMC connection successful',
+                'power_status': power_status,
+                'response_time_ms': elapsed_ms
+            })
+        else:
+            error_msg = result.stderr.strip() or result.stdout.strip() or 'Connection failed'
+            # Simplify common error messages
+            if 'Unable to establish' in error_msg:
+                error_msg = 'Cannot connect to BMC - check IP address'
+            elif 'password' in error_msg.lower() or 'authentication' in error_msg.lower():
+                error_msg = 'Authentication failed - check username/password'
+            return jsonify({'status': 'error', 'error': error_msg})
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'error': 'Connection timed out after 15 seconds'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
+@app.route('/api/test/ssh', methods=['POST'])
+@login_required
+def api_test_ssh():
+    """Test SSH connection to host OS with provided or saved credentials"""
+    data = request.get_json()
+    bmc_ip = data.get('bmc_ip')
+    server_ip = data.get('server_ip')
+    ssh_user = data.get('ssh_user', 'root')
+    ssh_pass = data.get('ssh_pass')
+    ssh_key_id = data.get('ssh_key_id')
+    
+    if not server_ip:
+        server_ip = bmc_ip.replace('.0', '.1') if bmc_ip else None
+    
+    if not server_ip or not validate_ip_address(server_ip):
+        return jsonify({'status': 'error', 'error': 'Invalid server IP address'}), 400
+    
+    # Get SSH key content if key ID provided
+    ssh_key_content = None
+    if ssh_key_id:
+        stored_key = SSHKey.query.get(ssh_key_id)
+        if stored_key:
+            ssh_key_content = stored_key.key_content
+    
+    # If no key ID, check saved server config
+    if not ssh_key_content and not ssh_pass and bmc_ip:
+        server_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+        if server_config:
+            if server_config.ssh_key_id:
+                stored_key = SSHKey.query.get(server_config.ssh_key_id)
+                if stored_key:
+                    ssh_key_content = stored_key.key_content
+            elif server_config.ssh_pass:
+                ssh_pass = server_config.ssh_pass
+    
+    # Fall back to default key
+    if not ssh_key_content and not ssh_pass:
+        default_key_id = SystemSettings.get('default_ssh_key_id')
+        if default_key_id:
+            stored_key = SSHKey.query.get(int(default_key_id))
+            if stored_key:
+                ssh_key_content = stored_key.key_content
+        else:
+            ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
+    
+    try:
+        ssh_opts = ['-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=no']
+        
+        if ssh_key_content:
+            # Write key to temp file
+            import tempfile
+            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
+            key_file.write(ssh_key_content)
+            key_file.close()
+            os.chmod(key_file.name, 0o600)
+            cmd = ['ssh'] + ssh_opts + ['-i', key_file.name, '-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+        elif ssh_pass:
+            cmd = ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+        else:
+            # Try default SSH key from ~/.ssh
+            cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        
+        # Clean up temp key file
+        if ssh_key_content and 'key_file' in locals():
+            try:
+                os.unlink(key_file.name)
+            except:
+                pass
+        
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            hostname = lines[0] if len(lines) > 0 else 'Unknown'
+            kernel = lines[1] if len(lines) > 1 else 'Unknown'
+            return jsonify({
+                'status': 'success',
+                'message': 'SSH connection successful',
+                'hostname': hostname,
+                'kernel': kernel
+            })
+        else:
+            error_msg = result.stderr.strip() or 'Connection failed'
+            if 'Permission denied' in error_msg:
+                error_msg = 'Authentication failed - check SSH key or password'
+            elif 'Connection refused' in error_msg:
+                error_msg = 'Connection refused - SSH service not running or wrong port'
+            elif 'No route to host' in error_msg or 'Connection timed out' in error_msg:
+                error_msg = 'Cannot reach host - check IP address and network'
+            return jsonify({'status': 'error', 'error': error_msg})
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'error': 'Connection timed out after 15 seconds'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)})
+
+
 @app.route('/api/redfish/status/<bmc_ip>')
 def api_redfish_status(bmc_ip):
     """Check Redfish availability for a BMC"""
