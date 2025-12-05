@@ -6661,28 +6661,33 @@ def api_test_ssh():
             ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
     
     try:
-        ssh_opts = ['-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=no']
+        import tempfile
+        ssh_opts = ['-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=no']
+        key_file_path = None
         
         if ssh_key_content:
             # Write key to temp file
-            import tempfile
             key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
             key_file.write(ssh_key_content)
             key_file.close()
             os.chmod(key_file.name, 0o600)
-            cmd = ['ssh'] + ssh_opts + ['-i', key_file.name, '-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+            key_file_path = key_file.name
+            cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', '-i', key_file_path, f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+            app.logger.info(f"SSH test using stored key for {server_ip}")
         elif ssh_pass:
             cmd = ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+            app.logger.info(f"SSH test using password for {server_ip}")
         else:
             # Try default SSH key from ~/.ssh
             cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', 'hostname && uname -r']
+            app.logger.info(f"SSH test using default ~/.ssh key for {server_ip}")
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         
         # Clean up temp key file
-        if ssh_key_content and 'key_file' in locals():
+        if key_file_path:
             try:
-                os.unlink(key_file.name)
+                os.unlink(key_file_path)
             except:
                 pass
         
@@ -6697,13 +6702,18 @@ def api_test_ssh():
                 'kernel': kernel
             })
         else:
-            error_msg = result.stderr.strip() or 'Connection failed'
+            error_msg = result.stderr.strip() or result.stdout.strip() or 'Connection failed'
+            app.logger.warning(f"SSH test failed for {server_ip}: {error_msg}")
+            
+            # Provide helpful error messages while keeping details
             if 'Permission denied' in error_msg:
-                error_msg = 'Authentication failed - check SSH key or password'
+                error_msg = f'Authentication failed: {error_msg}'
             elif 'Connection refused' in error_msg:
-                error_msg = 'Connection refused - SSH service not running or wrong port'
+                error_msg = f'Connection refused: SSH service not running or wrong port'
             elif 'No route to host' in error_msg or 'Connection timed out' in error_msg:
-                error_msg = 'Cannot reach host - check IP address and network'
+                error_msg = f'Cannot reach host: {error_msg}'
+            elif 'Host key verification failed' in error_msg:
+                error_msg = 'Host key verification failed - try with StrictHostKeyChecking=no'
             return jsonify({'status': 'error', 'error': error_msg})
     except subprocess.TimeoutExpired:
         return jsonify({'status': 'error', 'error': 'Connection timed out after 15 seconds'})
