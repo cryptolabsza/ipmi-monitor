@@ -2356,34 +2356,22 @@
                     return nameA.localeCompare(nameB, undefined, {numeric: true, sensitivity: 'base'});
                 });
                 
-                const select1 = document.getElementById('serverSelect');
-                const select2 = document.getElementById('sshServerSelect');
+                // Populate SSH server select (if it exists)
+                const sshSelect = document.getElementById('sshServerSelect');
+                if (sshSelect) {
+                    sshSelect.innerHTML = '<option value="">-- Select a server --</option>';
+                    servers.forEach(s => {
+                        sshSelect.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
+                    });
+                }
                 
-                select1.innerHTML = '<option value="">-- Select a server --</option>';
-                select2.innerHTML = '<option value="">-- Select a server --</option>';
-                
+                // Store servers for other uses
                 servers.forEach(s => {
                     SERVERS[s.bmc_ip] = s;
-                    select1.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
-                    select2.innerHTML += `<option value="${s.bmc_ip}">${s.server_name} (${s.bmc_ip})</option>`;
                 });
             } catch (e) {
                 console.error('Failed to load servers:', e);
             }
-        }
-        
-        function loadServerConfig() {
-            const bmc_ip = document.getElementById('serverSelect').value;
-            const form = document.getElementById('serverConfigForm');
-            
-            if (!bmc_ip) {
-                form.style.display = 'none';
-                return;
-            }
-            
-            form.style.display = 'block';
-            document.getElementById('serverIpmiUser').value = '';
-            document.getElementById('serverIpmiPass').value = '';
         }
         
         function loadServerSshConfig() {
@@ -2420,30 +2408,6 @@
                 
                 const result = await response.json();
                 showAlert(`Updated ${result.updated} servers`, 'success');
-            } catch (e) {
-                showAlert('Failed to save credentials', 'error');
-            }
-        }
-        
-        async function saveServerCredentials() {
-            const bmc_ip = document.getElementById('serverSelect').value;
-            const user = document.getElementById('serverIpmiUser').value;
-            const pass = document.getElementById('serverIpmiPass').value;
-            
-            if (!bmc_ip || !user || !pass) {
-                showAlert('Please fill all fields', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/config/server/${bmc_ip}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ipmi_user: user, ipmi_pass: pass})
-                });
-                
-                const result = await response.json();
-                showAlert(result.message, 'success');
             } catch (e) {
                 showAlert('Failed to save credentials', 'error');
             }
