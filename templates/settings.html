@@ -440,7 +440,18 @@
                         </div>
                         <div class="form-group">
                             <label>SSH Password</label>
-                            <input type="password" id="newSshPass" placeholder="Or use key">
+                            <input type="password" id="newSshPass" placeholder="Or use key below">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-top: 10px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>SSH Key <span style="color: var(--text-secondary); font-weight: normal;">(select from stored keys)</span></label>
+                            <select id="newSshKeyId">
+                                <option value="">-- Use default or password --</option>
+                            </select>
+                            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;">
+                                <a href="#" onclick="showTab('ssh'); return false;" style="color: var(--accent-blue);">Manage SSH keys →</a>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1749,6 +1760,7 @@
             const ipmi_pass = document.getElementById('newIpmiPass').value;
             const ssh_user = document.getElementById('newSshUser').value.trim();
             const ssh_pass = document.getElementById('newSshPass').value;
+            const ssh_key_id = document.getElementById('newSshKeyId').value;
             
             if (!bmc_ip || !server_name) {
                 showAlert('BMC IP and Server Name are required', 'error');
@@ -1772,6 +1784,7 @@
                     if (ipmi_pass) credData.ipmi_pass = ipmi_pass;
                     if (ssh_user) credData.ssh_user = ssh_user;
                     if (ssh_pass) credData.ssh_pass = ssh_pass;
+                    if (ssh_key_id) credData.ssh_key_id = parseInt(ssh_key_id);
                     
                     if (Object.keys(credData).length > 0) {
                         await fetch(`/api/config/server/${bmc_ip}`, {
@@ -1794,6 +1807,7 @@
                     document.getElementById('newIpmiPass').value = '';
                     document.getElementById('newSshUser').value = '';
                     document.getElementById('newSshPass').value = '';
+                    document.getElementById('newSshKeyId').value = '';
                     
                     loadManagedServers();
                     loadServers();
@@ -2615,7 +2629,7 @@
         }
         
         function populateSshKeyDropdowns() {
-            const dropdowns = ['defaultSshKeyId', 'serverSshKeyId'];
+            const dropdowns = ['defaultSshKeyId', 'serverSshKeyId', 'newSshKeyId'];
             dropdowns.forEach(id => {
                 const select = document.getElementById(id);
                 if (!select) return;
