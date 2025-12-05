@@ -1029,7 +1029,7 @@ def get_servers(include_deprecated=False):
         try:
             if include_deprecated:
                 # Get all servers except explicitly disabled
-            servers = Server.query.filter_by(enabled=True).all()
+                servers = Server.query.filter_by(enabled=True).all()
             else:
                 # Only active servers (not deprecated, not in maintenance)
                 servers = Server.query.filter(
