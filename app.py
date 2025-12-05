@@ -1131,10 +1131,36 @@ class ServerConfig(db.Model):
     ipmi_pass = db.Column(db.String(100))
     ssh_user = db.Column(db.String(50), default='root')
     ssh_pass = db.Column(db.String(100))  # SSH password (alternative to key)
-    ssh_key = db.Column(db.Text)  # Private key content
+    ssh_key = db.Column(db.Text)  # Private key content (direct paste - deprecated)
+    ssh_key_id = db.Column(db.Integer, db.ForeignKey('ssh_key.id'), nullable=True)  # Reference to stored key
     ssh_port = db.Column(db.Integer, default=22)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class SSHKey(db.Model):
+    """Stored SSH keys that can be assigned to servers"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)  # e.g., "DGX Key", "Default Key"
+    key_content = db.Column(db.Text, nullable=False)  # Private key content
+    fingerprint = db.Column(db.String(100))  # Key fingerprint for display
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @staticmethod
+    def get_fingerprint(key_content):
+        """Get fingerprint from SSH key content"""
+        import hashlib
+        import base64
+        try:
+            # Simple fingerprint from key content
+            lines = [l for l in key_content.strip().split('\n') if not l.startswith('-----')]
+            key_data = ''.join(lines)
+            decoded = base64.b64decode(key_data)
+            fp = hashlib.md5(decoded).hexdigest()
+            return ':'.join(fp[i:i+2] for i in range(0, len(fp), 2))
+        except:
+            return None
+
 
 class SensorReading(db.Model):
     """Sensor readings from BMC"""
@@ -5531,23 +5557,53 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 
                 # Get SSH credentials - check per-server config first, then settings, then env vars
                 server_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
-                if server_config and (server_config.ssh_user or server_config.ssh_pass or server_config.ssh_key):
+                ssh_key_content = None
+                
+                if server_config:
                     ssh_user = server_config.ssh_user or 'root'
                     ssh_pass = server_config.ssh_pass or ''
-                    ssh_key = server_config.ssh_key  # May be used in future for key-based auth
-                    app.logger.info(f"Using per-server SSH credentials for {bmc_ip}")
+                    
+                    # Check for stored SSH key by ID first
+                    if server_config.ssh_key_id:
+                        stored_key = SSHKey.query.get(server_config.ssh_key_id)
+                        if stored_key:
+                            ssh_key_content = stored_key.key_content
+                            app.logger.info(f"Using stored SSH key '{stored_key.name}' for {bmc_ip}")
+                    # Fall back to inline key if set
+                    elif server_config.ssh_key:
+                        ssh_key_content = server_config.ssh_key
+                        app.logger.info(f"Using inline SSH key for {bmc_ip}")
+                    else:
+                        app.logger.info(f"Using per-server SSH credentials (password) for {bmc_ip}")
                 else:
                     ssh_user = SystemSettings.get('ssh_user') or os.environ.get('SSH_USER', 'root')
                     ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
+                    # Check for default SSH key
+                    default_key_id = SystemSettings.get('default_ssh_key_id')
+                    if default_key_id:
+                        stored_key = SSHKey.query.get(int(default_key_id))
+                        if stored_key:
+                            ssh_key_content = stored_key.key_content
+                            app.logger.info(f"Using default stored SSH key '{stored_key.name}' for {bmc_ip}")
                 
-                # Build SSH command with sshpass if password is set
+                # Build SSH command - prefer key auth, fall back to password
                 def build_ssh_cmd(remote_cmd):
                     ssh_opts = ['-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=no']
-                    if ssh_pass:
+                    
+                    # Key-based auth takes priority
+                    if ssh_key_content:
+                        # Write key to temp file for use
+                        import tempfile
+                        key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
+                        key_file.write(ssh_key_content)
+                        key_file.close()
+                        os.chmod(key_file.name, 0o600)
+                        return ['ssh'] + ssh_opts + ['-i', key_file.name, '-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', remote_cmd]
+                    elif ssh_pass:
                         # Use sshpass for password auth
                         return ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', remote_cmd]
                     else:
-                        # Try passwordless (key-based) auth
+                        # Try passwordless (default key from ~/.ssh) auth
                         return ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', remote_cmd]
                 
                 # CPU info via /proc/cpuinfo
@@ -6183,6 +6239,7 @@ def api_config_server(bmc_ip):
                 'ssh_user': None,
                 'has_ssh_pass': False,
                 'has_ssh_key': False,
+                'ssh_key_id': None,
                 'ssh_port': 22
             })
         return jsonify({
@@ -6194,6 +6251,7 @@ def api_config_server(bmc_ip):
             'ssh_user': config.ssh_user,
             'has_ssh_pass': bool(config.ssh_pass),
             'has_ssh_key': bool(config.ssh_key),
+            'ssh_key_id': config.ssh_key_id,
             'ssh_port': config.ssh_port
         })
     
@@ -6221,11 +6279,101 @@ def api_config_server(bmc_ip):
         config.ssh_pass = data['ssh_pass']
     if 'ssh_key' in data:
         config.ssh_key = data['ssh_key']
+    if 'ssh_key_id' in data:
+        config.ssh_key_id = data['ssh_key_id'] if data['ssh_key_id'] else None
     if 'ssh_port' in data:
         config.ssh_port = data['ssh_port']
     
     db.session.commit()
     return jsonify({'status': 'success', 'message': f'Configuration updated for {bmc_ip}'})
+
+
+# ============== SSH Key Management ==============
+
+@app.route('/api/ssh-keys', methods=['GET'])
+@login_required
+def api_list_ssh_keys():
+    """List all stored SSH keys"""
+    keys = SSHKey.query.all()
+    return jsonify([{
+        'id': k.id,
+        'name': k.name,
+        'fingerprint': k.fingerprint,
+        'created_at': k.created_at.isoformat() if k.created_at else None,
+        'updated_at': k.updated_at.isoformat() if k.updated_at else None,
+    } for k in keys])
+
+@app.route('/api/ssh-keys', methods=['POST'])
+@admin_required
+def api_add_ssh_key():
+    """Add a new SSH key"""
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    key_content = data.get('key_content', '').strip()
+    
+    if not name:
+        return jsonify({'error': 'Key name is required'}), 400
+    if not key_content:
+        return jsonify({'error': 'Key content is required'}), 400
+    if not key_content.startswith('-----BEGIN'):
+        return jsonify({'error': 'Invalid SSH key format'}), 400
+    
+    # Check for duplicate name
+    if SSHKey.query.filter_by(name=name).first():
+        return jsonify({'error': f'Key with name "{name}" already exists'}), 400
+    
+    try:
+        fingerprint = SSHKey.get_fingerprint(key_content)
+        key = SSHKey(name=name, key_content=key_content, fingerprint=fingerprint)
+        db.session.add(key)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'SSH key "{name}" added',
+            'id': key.id,
+            'fingerprint': fingerprint
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to add key: {str(e)}'}), 500
+
+@app.route('/api/ssh-keys/<int:key_id>', methods=['GET'])
+@login_required
+def api_get_ssh_key(key_id):
+    """Get SSH key details (not the content)"""
+    key = SSHKey.query.get(key_id)
+    if not key:
+        return jsonify({'error': 'Key not found'}), 404
+    
+    return jsonify({
+        'id': key.id,
+        'name': key.name,
+        'fingerprint': key.fingerprint,
+        'created_at': key.created_at.isoformat() if key.created_at else None,
+    })
+
+@app.route('/api/ssh-keys/<int:key_id>', methods=['DELETE'])
+@admin_required
+def api_delete_ssh_key(key_id):
+    """Delete an SSH key"""
+    key = SSHKey.query.get(key_id)
+    if not key:
+        return jsonify({'error': 'Key not found'}), 404
+    
+    # Check if key is in use
+    servers_using = ServerConfig.query.filter_by(ssh_key_id=key_id).count()
+    if servers_using > 0:
+        return jsonify({'error': f'Key is assigned to {servers_using} server(s). Unassign first.'}), 400
+    
+    try:
+        db.session.delete(key)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'SSH key "{key.name}" deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to delete key: {str(e)}'}), 500
+
 
 @app.route('/api/config/bulk', methods=['POST'])
 @write_required

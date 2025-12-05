@@ -554,11 +554,13 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>SSH Private Key <span style="color: var(--text-secondary); font-weight: normal;">(optional)</span></label>
-                            <textarea id="editSshKey" rows="2" placeholder="Paste private key here, or leave empty to use password" style="font-family: monospace; font-size: 0.85rem;"></textarea>
+                            <label>SSH Key <span style="color: var(--text-secondary); font-weight: normal;">(select from stored keys)</span></label>
+                            <select id="editSshKeyId">
+                                <option value="">-- Use default key --</option>
+                            </select>
                         </div>
                         <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 5px 0 0 0;">
-                            SSH to the host OS enables collection of detailed CPU, memory, and storage info.
+                            SSH to the host OS enables collection of detailed CPU, memory, and storage info. <a href="#" onclick="showTab('ssh'); return false;" style="color: var(--accent-blue);">Manage SSH keys →</a>
                         </p>
                     </div>
                     
@@ -599,6 +601,41 @@
             </div>
             
             <div id="sshConfigSection" style="display: none;">
+                <!-- SSH Key Management -->
+                <div class="card" style="border: 2px solid var(--accent-purple);">
+                    <div class="card-title">🔐 SSH Key Management</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        Store SSH keys here and assign them to servers. Much easier than pasting keys on each server!
+                    </p>
+                    
+                    <!-- Stored Keys List -->
+                    <div id="sshKeysList" style="margin-bottom: 20px;">
+                        <h4 style="margin: 0 0 10px 0; color: var(--text-primary);">Stored Keys</h4>
+                        <div id="sshKeysContainer">
+                            <p style="color: var(--text-secondary);">Loading keys...</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Add New Key -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: var(--text-primary);">➕ Add New Key</h4>
+                        <div class="form-group">
+                            <label>Key Name</label>
+                            <input type="text" id="newKeyName" placeholder="e.g., DGX Key, Default Key">
+                            <p class="help-text">A friendly name to identify this key</p>
+                        </div>
+                        <div class="form-group">
+                            <label>Private Key Content</label>
+                            <textarea id="newKeyContent" rows="6" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+...paste your private key here...
+-----END OPENSSH PRIVATE KEY-----" style="font-family: monospace; font-size: 0.85rem;"></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="addSshKey()">
+                            ➕ Add Key
+                        </button>
+                    </div>
+                </div>
+                
                 <div class="card">
                     <div class="card-title">🔑 Default SSH Configuration</div>
                     <p style="color: var(--text-secondary); margin-bottom: 20px;">
@@ -617,17 +654,17 @@
                     </div>
                     
                     <div class="form-group">
-                        <label>SSH Password (optional - leave empty for key-based auth)</label>
-                        <input type="password" id="defaultSshPassword" placeholder="Leave empty to use SSH key">
-                        <p class="help-text">Password will be used if no SSH key is provided.</p>
+                        <label>Default SSH Key</label>
+                        <select id="defaultSshKeyId">
+                            <option value="">-- No default key (use password) --</option>
+                        </select>
+                        <p class="help-text">Select a stored key to use as the default for all servers.</p>
                     </div>
                     
                     <div class="form-group">
-                        <label>SSH Private Key (optional)</label>
-                        <textarea id="defaultSshKey" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
-...
------END OPENSSH PRIVATE KEY-----"></textarea>
-                        <p class="help-text">Paste your private SSH key here, or leave empty to use password auth.</p>
+                        <label>SSH Password (fallback if no key)</label>
+                        <input type="password" id="defaultSshPassword" placeholder="Leave empty to require key">
+                        <p class="help-text">Used only if no SSH key is assigned.</p>
                     </div>
                     
                     <button class="btn btn-primary" onclick="saveDefaultSsh()">
@@ -667,13 +704,16 @@
                         </div>
                         
                         <div class="form-group">
-                            <label>SSH Password (leave empty to use default or key)</label>
-                            <input type="password" id="serverSshPassword" placeholder="Leave empty to use default">
+                            <label>SSH Key</label>
+                            <select id="serverSshKeyId">
+                                <option value="">-- Use default key --</option>
+                            </select>
+                            <p class="help-text">Select a stored key or use the default.</p>
                         </div>
                         
                         <div class="form-group">
-                            <label>SSH Private Key (leave empty to use default)</label>
-                            <textarea id="serverSshKey" placeholder="Leave empty to use default key"></textarea>
+                            <label>SSH Password (fallback if no key)</label>
+                            <input type="password" id="serverSshPassword" placeholder="Leave empty to use key">
                         </div>
                         
                         <button class="btn btn-primary" onclick="saveServerSsh()">
@@ -1382,7 +1422,7 @@
             document.getElementById(tabId).classList.add('active');
             
             if (tabId === 'manage') loadManagedServers();
-            if (tabId === 'ssh') loadSshSettings();
+            if (tabId === 'ssh') { loadSshSettings(); loadSshKeys(); }
             if (tabId === 'import') loadExportPreview();
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
             if (tabId === 'notifications') loadNotificationConfigs();
@@ -1795,7 +1835,14 @@
             document.getElementById('editServerIp').value = server.server_ip || '';
             document.getElementById('editSshUser').value = '';
             document.getElementById('editSshPass').value = '';
-            document.getElementById('editSshKey').value = '';
+            
+            // Populate SSH key dropdown and reset selection
+            const sshKeySelect = document.getElementById('editSshKeyId');
+            sshKeySelect.innerHTML = '<option value="">-- Use default key --</option>';
+            SSH_KEYS.forEach(k => {
+                sshKeySelect.innerHTML += `<option value="${k.id}">${escapeHtml(k.name)}</option>`;
+            });
+            sshKeySelect.value = '';
             
             document.getElementById('redfishStatus').style.display = 'none';
             
@@ -1809,7 +1856,7 @@
                     if (config.has_ipmi_pass) document.getElementById('editIpmiPass').placeholder = '••••••• (saved)';
                     // SSH creds
                     if (config.ssh_user) document.getElementById('editSshUser').value = config.ssh_user;
-                    if (config.has_ssh_key) document.getElementById('editSshKey').placeholder = 'SSH key is set (paste new to replace)';
+                    if (config.ssh_key_id) document.getElementById('editSshKeyId').value = config.ssh_key_id;
                 }
             } catch (e) {
                 console.log('No server config found, using defaults');
@@ -1895,24 +1942,23 @@
                 const ipmiPass = document.getElementById('editIpmiPass').value;
                 const sshUser = document.getElementById('editSshUser').value.trim();
                 const sshPass = document.getElementById('editSshPass').value;
-                const sshKey = document.getElementById('editSshKey').value.trim();
+                const sshKeyId = document.getElementById('editSshKeyId').value;
                 
                 if (ipmiUser) credData.ipmi_user = ipmiUser;
                 if (ipmiPass) credData.ipmi_pass = ipmiPass;
                 if (sshUser) credData.ssh_user = sshUser;
                 if (sshPass) credData.ssh_pass = sshPass;
-                if (sshKey) credData.ssh_key = sshKey;
+                // Always include ssh_key_id (can be null to clear)
+                credData.ssh_key_id = sshKeyId ? parseInt(sshKeyId) : null;
                 
-                // Save credentials if any provided
-                if (Object.keys(credData).length > 0) {
-                    const targetBmc = newBmcIp !== originalBmcIp ? newBmcIp : originalBmcIp;
-                    await fetch(`/api/config/server/${targetBmc}`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        credentials: 'same-origin',
-                        body: JSON.stringify(credData)
-                    });
-                }
+                // Save credentials
+                const targetBmc = newBmcIp !== originalBmcIp ? newBmcIp : originalBmcIp;
+                await fetch(`/api/config/server/${targetBmc}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify(credData)
+                });
                 
                 showAlert('Server updated successfully', 'success');
                 closeEditModal();
@@ -2432,6 +2478,126 @@
             document.getElementById('sshDisabledNote').style.display = enabled ? 'none' : 'block';
         }
         
+        // ============== SSH Key Management ==============
+        let SSH_KEYS = [];
+        
+        async function loadSshKeys() {
+            try {
+                const response = await fetch('/api/ssh-keys', { credentials: 'same-origin' });
+                const keys = await response.json();
+                SSH_KEYS = keys;
+                
+                // Update keys list display
+                const container = document.getElementById('sshKeysContainer');
+                if (keys.length === 0) {
+                    container.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No SSH keys stored yet.</p>';
+                } else {
+                    container.innerHTML = keys.map(k => `
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 8px;">
+                            <div>
+                                <strong style="color: var(--accent-blue);">🔑 ${escapeHtml(k.name)}</strong>
+                                <span style="color: var(--text-secondary); margin-left: 10px; font-family: monospace; font-size: 0.8rem;">
+                                    ${k.fingerprint || 'No fingerprint'}
+                                </span>
+                            </div>
+                            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="deleteSshKey(${k.id}, '${escapeHtml(k.name)}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    `).join('');
+                }
+                
+                // Update all SSH key dropdowns
+                populateSshKeyDropdowns();
+            } catch (e) {
+                console.error('Failed to load SSH keys:', e);
+                document.getElementById('sshKeysContainer').innerHTML = '<p style="color: var(--accent-red);">Failed to load keys</p>';
+            }
+        }
+        
+        function populateSshKeyDropdowns() {
+            const dropdowns = ['defaultSshKeyId', 'serverSshKeyId'];
+            dropdowns.forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                
+                const currentValue = select.value;
+                select.innerHTML = '<option value="">-- No key / Use default --</option>';
+                SSH_KEYS.forEach(k => {
+                    select.innerHTML += `<option value="${k.id}">${escapeHtml(k.name)}</option>`;
+                });
+                select.value = currentValue; // Restore selection
+            });
+        }
+        
+        async function addSshKey() {
+            const name = document.getElementById('newKeyName').value.trim();
+            const keyContent = document.getElementById('newKeyContent').value.trim();
+            
+            if (!name) {
+                showAlert('Please enter a name for the key', 'error');
+                return;
+            }
+            if (!keyContent) {
+                showAlert('Please paste the SSH key content', 'error');
+                return;
+            }
+            if (!keyContent.startsWith('-----BEGIN')) {
+                showAlert('Invalid SSH key format. Key should start with -----BEGIN', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/ssh-keys', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ name, key_content: keyContent })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(`SSH key "${name}" added successfully!`, 'success');
+                    document.getElementById('newKeyName').value = '';
+                    document.getElementById('newKeyContent').value = '';
+                    loadSshKeys(); // Refresh list
+                } else {
+                    showAlert(result.error || 'Failed to add key', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to add SSH key: ' + e.message, 'error');
+            }
+        }
+        
+        async function deleteSshKey(keyId, keyName) {
+            if (!confirm(`Delete SSH key "${keyName}"? This cannot be undone.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/ssh-keys/${keyId}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    showAlert(`SSH key "${keyName}" deleted`, 'success');
+                    loadSshKeys(); // Refresh list
+                } else {
+                    showAlert(result.error || 'Failed to delete key', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to delete SSH key: ' + e.message, 'error');
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         async function toggleSshInventory() {
             const enabled = document.getElementById('enableSshInventory').checked;
             try {
@@ -2458,44 +2624,36 @@
             const user = document.getElementById('defaultSshUser').value;
             const port = document.getElementById('defaultSshPort').value;
             const password = document.getElementById('defaultSshPassword').value;
-            const key = document.getElementById('defaultSshKey').value;
+            const keyId = document.getElementById('defaultSshKeyId').value;
             
-            if (!password && !key) {
-                showAlert('Please enter either an SSH password or SSH key', 'error');
+            if (!password && !keyId) {
+                showAlert('Please select an SSH key or enter a password', 'error');
                 return;
             }
             
             try {
-                // Save as environment variables via settings
+                // Save as system settings
                 const settingsData = { 
                     ssh_user: user, 
-                    ssh_port: port
+                    ssh_port: port,
+                    default_ssh_key_id: keyId || ''
                 };
                 if (password) settingsData.ssh_password = password;
                 
-                await fetch('/api/settings', {
+                const response = await fetch('/api/settings', {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(settingsData)
                 });
                 
-                // Also apply SSH key to all servers if provided
-                if (key) {
-                    const response = await fetch('/api/config/bulk', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        credentials: 'same-origin',
-                        body: JSON.stringify({ssh_user: user, ssh_port: parseInt(port), ssh_key: key})
-                    });
-                    const result = await response.json();
-                    showAlert(`SSH config saved. Key applied to ${result.updated} servers.`, 'success');
+                if (response.ok) {
+                    showAlert('Default SSH configuration saved!', 'success');
                 } else {
-                    showAlert('SSH credentials saved.', 'success');
+                    showAlert('Failed to save SSH config', 'error');
                 }
-                loadServerConfigs();
             } catch (e) {
-                showAlert('Failed to save SSH config', 'error');
+                showAlert('Failed to save SSH config: ' + e.message, 'error');
             }
         }
         
@@ -2504,7 +2662,8 @@
             const server_ip = document.getElementById('serverIp').value;
             const user = document.getElementById('serverSshUser').value;
             const port = document.getElementById('serverSshPort').value;
-            const key = document.getElementById('serverSshKey').value;
+            const keyId = document.getElementById('serverSshKeyId').value;
+            const password = document.getElementById('serverSshPassword').value;
             
             if (!bmc_ip) {
                 showAlert('Please select a server', 'error');
@@ -2512,20 +2671,29 @@
             }
             
             try {
-                const data = {server_ip, ssh_user: user, ssh_port: parseInt(port)};
-                if (key) data.ssh_key = key;
+                const data = {
+                    server_ip,
+                    ssh_user: user,
+                    ssh_port: parseInt(port) || 22,
+                    ssh_key_id: keyId ? parseInt(keyId) : null,
+                    ssh_pass: password || ''
+                };
                 
                 const response = await fetch(`/api/config/server/${bmc_ip}`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify(data)
                 });
                 
                 const result = await response.json();
-                showAlert(result.message, 'success');
-                loadServerConfigs();
+                if (response.ok) {
+                    showAlert(`SSH config saved for ${bmc_ip}`, 'success');
+                } else {
+                    showAlert(result.error || 'Failed to save', 'error');
+                }
             } catch (e) {
-                showAlert('Failed to save SSH config', 'error');
+                showAlert('Failed to save SSH config: ' + e.message, 'error');
             }
         }
         
