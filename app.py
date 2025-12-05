@@ -8003,6 +8003,39 @@ def handle_exception(e):
 # Initialize database with lock to prevent race conditions
 import fcntl
 
+def _run_migrations(inspector):
+    """Run database migrations for new columns and tables"""
+    try:
+        existing_tables = inspector.get_table_names()
+        
+        # Migration 1: Add ssh_key table
+        if 'ssh_key' not in existing_tables:
+            app.logger.info("Migration: Creating ssh_key table...")
+            db.engine.execute('''
+                CREATE TABLE IF NOT EXISTS ssh_key (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(50) NOT NULL UNIQUE,
+                    key_content TEXT NOT NULL,
+                    fingerprint VARCHAR(100),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            app.logger.info("Migration: ssh_key table created")
+        
+        # Migration 2: Add ssh_key_id column to server_config
+        if 'server_config' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_config')]
+            if 'ssh_key_id' not in columns:
+                app.logger.info("Migration: Adding ssh_key_id to server_config...")
+                db.engine.execute('ALTER TABLE server_config ADD COLUMN ssh_key_id INTEGER')
+                app.logger.info("Migration: ssh_key_id column added")
+        
+        app.logger.info("Migrations complete")
+    except Exception as e:
+        app.logger.warning(f"Migration warning (may already be applied): {e}")
+
+
 def init_db():
     with app.app_context():
         # Use file lock to prevent multiple workers from creating tables simultaneously
@@ -8022,6 +8055,8 @@ def init_db():
                         app.logger.info("Database tables created")
                     else:
                         app.logger.info("Database tables already exist")
+                        # Run migrations for new columns/tables
+                        _run_migrations(inspector)
                     
                     # Initialize default alert rules
                     initialize_default_alerts()
