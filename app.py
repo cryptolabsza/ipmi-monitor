@@ -1586,8 +1586,8 @@ def sync_to_cloud(initial_sync=False):
                 events = IPMIEvent.query.all()
                 app.logger.info(f"Initial sync: sending ALL historical data ({len(events)} events)")
             else:
-            cutoff = datetime.utcnow() - timedelta(hours=72)
-            events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
+                cutoff = datetime.utcnow() - timedelta(hours=72)
+                events = IPMIEvent.query.filter(IPMIEvent.event_date > cutoff).all()
             
             # Get LATEST sensor readings only (not all historical data!)
             # Use a subquery to get the most recent reading for each server+sensor
@@ -4053,9 +4053,9 @@ def collection_scheduler():
                     _collection_queue.put(('sel', bmc_ip, server_name))
                 
                 # Queue sensor jobs based on multiplier
-            collection_count += 1
-            if collection_count >= SENSOR_POLL_MULTIPLIER:
-                collection_count = 0
+                collection_count += 1
+                if collection_count >= SENSOR_POLL_MULTIPLIER:
+                    collection_count = 0
                     print(f"[Scheduler] Queueing sensor collection for {len(servers)} servers...", flush=True)
                     for bmc_ip, server_name in servers.items():
                         _collection_queue.put(('sensor', bmc_ip, server_name))
@@ -4070,7 +4070,7 @@ def collection_scheduler():
                 
                 print(f"[Scheduler] Collection cycle complete. Next in {POLL_INTERVAL}s", flush=True)
             
-                except Exception as e:
+        except Exception as e:
             print(f"[Scheduler] Error: {e}", flush=True)
         
         # Wait for next cycle
@@ -4103,7 +4103,7 @@ def sync_timer():
                     else:
                         print(f"[Sync Timer] Sync failed: {result.get('message')}", flush=True)
                         
-                except Exception as e:
+        except Exception as e:
             print(f"[Sync Timer] Error: {e}", flush=True)
         
         # Wait for next sync
@@ -4121,7 +4121,7 @@ def connectivity_timer():
     while not _shutdown_event.is_set():
         try:
             check_and_report_connectivity_changes()
-            except Exception as e:
+        except Exception as e:
             print(f"[Connectivity Timer] Error: {e}", flush=True)
         
         # Check every 60 seconds
@@ -4835,7 +4835,7 @@ def api_managed_servers():
     include_deprecated = request.args.get('include_deprecated', 'false').lower() == 'true'
     
     if status_filter == 'all' or include_deprecated:
-    servers = Server.query.all()
+        servers = Server.query.all()
     elif status_filter == 'deprecated':
         servers = Server.query.filter_by(status='deprecated').all()
     else:
