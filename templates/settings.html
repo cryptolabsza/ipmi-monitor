@@ -494,30 +494,33 @@
                     
                     <!-- BMC/IPMI Section -->
                     <div style="border: 1px solid var(--accent-yellow); border-radius: 10px; padding: 15px; margin-top: 15px; background: rgba(255, 193, 7, 0.05);">
-                        <div style="font-weight: 600; color: var(--accent-yellow); margin-bottom: 12px;">📡 BMC / IPMI Access</div>
+                        <div style="font-weight: 600; color: var(--accent-yellow); margin-bottom: 12px;">📡 BMC Access</div>
                         <div class="form-row">
-                            <div class="form-group">
+                            <div class="form-group" style="flex: 2;">
                                 <label>BMC IP Address</label>
                                 <input type="text" id="editBmcIp" placeholder="192.168.1.100">
                             </div>
                             <div class="form-group">
-                                <label>IPMI Username</label>
+                                <label>Username</label>
                                 <input type="text" id="editIpmiUser" placeholder="admin">
                             </div>
                             <div class="form-group">
-                                <label>IPMI Password</label>
+                                <label>Password</label>
                                 <input type="password" id="editIpmiPass" placeholder="••••••••">
                             </div>
                         </div>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 10px 0 0 0;">
+                            Used for both IPMI commands (port 623) and BMC SSH (port 22) if supported.
+                        </p>
                     </div>
                     
                     <!-- OS/SSH Section -->
                     <div style="border: 1px solid var(--accent-blue); border-radius: 10px; padding: 15px; margin-top: 15px; background: rgba(0, 123, 255, 0.05);">
-                        <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 12px;">💻 OS / SSH Access <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-secondary);">(optional - for detailed inventory)</span></div>
+                        <div style="font-weight: 600; color: var(--accent-blue); margin-bottom: 12px;">💻 Host OS Access <span style="font-weight: normal; font-size: 0.85rem; color: var(--text-secondary);">(optional - for detailed inventory)</span></div>
                         <div class="form-row">
-                            <div class="form-group">
+                            <div class="form-group" style="flex: 2;">
                                 <label>OS IP Address</label>
-                                <input type="text" id="editServerIp" placeholder="192.168.1.101">
+                                <input type="text" id="editServerIp" placeholder="192.168.1.101 (usually different from BMC)">
                             </div>
                             <div class="form-group">
                                 <label>SSH Username</label>
@@ -525,13 +528,16 @@
                             </div>
                             <div class="form-group">
                                 <label>SSH Password</label>
-                                <input type="password" id="editSshPass" placeholder="Leave empty for key auth">
+                                <input type="password" id="editSshPass" placeholder="Or use key below">
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>SSH Private Key <span style="color: var(--text-secondary); font-weight: normal;">(optional - paste key or leave empty)</span></label>
-                            <textarea id="editSshKey" rows="3" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----" style="font-family: monospace; font-size: 0.85rem;"></textarea>
+                            <label>SSH Private Key <span style="color: var(--text-secondary); font-weight: normal;">(optional)</span></label>
+                            <textarea id="editSshKey" rows="2" placeholder="Paste private key here, or leave empty to use password" style="font-family: monospace; font-size: 0.85rem;"></textarea>
                         </div>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 5px 0 0 0;">
+                            SSH to the host OS enables collection of detailed CPU, memory, and storage info.
+                        </p>
                     </div>
                     
                     <div id="redfishStatus" style="display: none; margin: 15px 0; padding: 10px; border-radius: 8px;"></div>
