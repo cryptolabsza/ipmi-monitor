@@ -5696,116 +5696,118 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 except Exception as e:
                     app.logger.debug(f"SSH memory slots collection failed for {bmc_ip}: {e}")
                 
-                # ========== STORAGE: lsblk + NVMe detection ==========
-                try:
-                    # Get block devices with more details
-                    cmd = build_ssh_cmd('lsblk -d -o NAME,SIZE,MODEL,TRAN,ROTA,TYPE -P 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0 and result.stdout:
-                        drives = []
-                        for line in result.stdout.strip().split('\n'):
-                            if 'NAME=' in line:
-                                # Parse: NAME="sda" SIZE="1.8T" MODEL="SAMSUNG MZ7LH1T9" TRAN="sata" ROTA="0" TYPE="disk"
-                                device = {}
-                                for part in line.split():
-                                    if '=' in part:
-                                        key, val = part.split('=', 1)
-                                        device[key.lower()] = val.strip('"')
-                                if device.get('type') == 'disk':
-                                    is_ssd = device.get('rota') == '0'
-                                    is_nvme = device.get('name', '').startswith('nvme')
-                                    drives.append({
-                                        'name': device.get('name'),
-                                        'size': device.get('size'),
-                                        'model': device.get('model', 'Unknown'),
-                                        'transport': device.get('tran', 'Unknown'),
-                                        'type': 'NVMe' if is_nvme else ('SSD' if is_ssd else 'HDD')
-                                    })
-                            elif line.strip() and not line.startswith('NAME'):
-                                # Fallback text parse
-                                parts = line.split()
-                                if len(parts) >= 2:
-                                    drives.append({
-                                        'name': parts[0],
-                                        'size': parts[1] if len(parts) > 1 else 'Unknown',
-                                        'model': ' '.join(parts[2:-1]) if len(parts) > 3 else 'Unknown'
-                                    })
-                        if drives:
-                            inventory.storage_info = json.dumps(drives)
-                            inventory.storage_count = len(drives)
-                            app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives - {[d.get('type', 'disk') for d in drives]}")
-                except Exception as e:
-                    app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
+                # ========== STORAGE: lsblk + NVMe detection (only if not from IPMI/Redfish) ==========
+                if not inventory.storage_info:
+                    try:
+                        # Get block devices with more details
+                        cmd = build_ssh_cmd('lsblk -d -o NAME,SIZE,MODEL,TRAN,ROTA,TYPE -P 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                        if result.returncode == 0 and result.stdout:
+                            drives = []
+                            for line in result.stdout.strip().split('\n'):
+                                if 'NAME=' in line:
+                                    # Parse: NAME="sda" SIZE="1.8T" MODEL="SAMSUNG MZ7LH1T9" TRAN="sata" ROTA="0" TYPE="disk"
+                                    device = {}
+                                    for part in line.split():
+                                        if '=' in part:
+                                            key, val = part.split('=', 1)
+                                            device[key.lower()] = val.strip('"')
+                                    if device.get('type') == 'disk':
+                                        is_ssd = device.get('rota') == '0'
+                                        is_nvme = device.get('name', '').startswith('nvme')
+                                        drives.append({
+                                            'name': device.get('name'),
+                                            'size': device.get('size'),
+                                            'model': device.get('model', 'Unknown'),
+                                            'transport': device.get('tran', 'Unknown'),
+                                            'type': 'NVMe' if is_nvme else ('SSD' if is_ssd else 'HDD')
+                                        })
+                                elif line.strip() and not line.startswith('NAME'):
+                                    # Fallback text parse
+                                    parts = line.split()
+                                    if len(parts) >= 2:
+                                        drives.append({
+                                            'name': parts[0],
+                                            'size': parts[1] if len(parts) > 1 else 'Unknown',
+                                            'model': ' '.join(parts[2:-1]) if len(parts) > 3 else 'Unknown'
+                                        })
+                            if drives:
+                                inventory.storage_info = json.dumps(drives)
+                                inventory.storage_count = len(drives)
+                                app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives - {[d.get('type', 'disk') for d in drives]}")
+                    except Exception as e:
+                        app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
                 
-                # ========== ALL PCI DEVICES: lspci comprehensive scan ==========
-                try:
-                    # Get all PCI devices for GPUs, NICs, storage controllers, etc.
-                    cmd = build_ssh_cmd("lspci -mm 2>/dev/null")
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0 and result.stdout.strip():
-                        gpus = []
-                        pci_nics = []
-                        storage_controllers = []
-                        
-                        for line in result.stdout.strip().split('\n'):
-                            # Parse: 00:1f.6 "Ethernet controller" "Intel Corporation" "Ethernet Connection (14) I219-V"
-                            parts = line.split('"')
-                            if len(parts) >= 5:
-                                pci_addr = parts[0].strip()
-                                device_class = parts[1]
-                                vendor = parts[3]
-                                device = parts[5] if len(parts) > 5 else ''
-                                
-                                # GPU detection
-                                if any(x in device_class.upper() for x in ['VGA', '3D', 'DISPLAY']):
-                                    gpu = {
-                                        'pci_address': pci_addr,
-                                        'vendor': vendor,
-                                        'device': device,
-                                        'class': device_class
-                                    }
-                                    # Identify NVIDIA models
-                                    if 'NVIDIA' in vendor.upper():
-                                        for model in ['A100', 'H100', 'V100', 'A40', 'A30', 'RTX', 'Tesla', 'Quadro']:
-                                            if model in device.upper():
-                                                gpu['model'] = model
-                                                break
-                                    gpus.append(gpu)
-                                
-                                # NIC detection (Ethernet, Network, InfiniBand)
-                                elif any(x in device_class.upper() for x in ['ETHERNET', 'NETWORK', 'INFINIBAND']):
-                                    pci_nics.append({
-                                        'pci_address': pci_addr,
-                                        'vendor': vendor,
-                                        'device': device,
-                                        'class': device_class
-                                    })
-                                
-                                # Storage controller detection
-                                elif any(x in device_class.upper() for x in ['SATA', 'SAS', 'RAID', 'NVM', 'SCSI', 'STORAGE']):
-                                    storage_controllers.append({
-                                        'pci_address': pci_addr,
-                                        'vendor': vendor,
-                                        'device': device,
-                                        'class': device_class
-                                    })
-                        
-                        # Store GPU info
-                        if gpus:
-                            inventory.gpu_info = json.dumps(gpus)
-                            inventory.gpu_count = len(gpus)
-                            app.logger.info(f"SSH GPU for {bmc_ip}: {len(gpus)} GPUs - {[g.get('vendor', '') for g in gpus]}")
-                        
-                        # Store PCI NIC info (merge with interface info later)
-                        if pci_nics:
-                            app.logger.info(f"SSH PCI NICs for {bmc_ip}: {len(pci_nics)} network devices")
-                        
-                        # Store storage controller info
-                        if storage_controllers:
-                            app.logger.info(f"SSH Storage Controllers for {bmc_ip}: {len(storage_controllers)} controllers")
+                # ========== ALL PCI DEVICES: lspci comprehensive scan (only if GPU not from IPMI/Redfish) ==========
+                if not inventory.gpu_info:
+                    try:
+                        # Get all PCI devices for GPUs, NICs, storage controllers, etc.
+                        cmd = build_ssh_cmd("lspci -mm 2>/dev/null")
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                        if result.returncode == 0 and result.stdout.strip():
+                            gpus = []
+                            pci_nics = []
+                            storage_controllers = []
                             
-                except Exception as e:
-                    app.logger.debug(f"SSH PCI scan failed for {bmc_ip}: {e}")
+                            for line in result.stdout.strip().split('\n'):
+                                # Parse: 00:1f.6 "Ethernet controller" "Intel Corporation" "Ethernet Connection (14) I219-V"
+                                parts = line.split('"')
+                                if len(parts) >= 5:
+                                    pci_addr = parts[0].strip()
+                                    device_class = parts[1]
+                                    vendor = parts[3]
+                                    device = parts[5] if len(parts) > 5 else ''
+                                    
+                                    # GPU detection
+                                    if any(x in device_class.upper() for x in ['VGA', '3D', 'DISPLAY']):
+                                        gpu = {
+                                            'pci_address': pci_addr,
+                                            'vendor': vendor,
+                                            'device': device,
+                                            'class': device_class
+                                        }
+                                        # Identify NVIDIA models
+                                        if 'NVIDIA' in vendor.upper():
+                                            for model in ['A100', 'H100', 'V100', 'A40', 'A30', 'RTX', 'Tesla', 'Quadro']:
+                                                if model in device.upper():
+                                                    gpu['model'] = model
+                                                    break
+                                        gpus.append(gpu)
+                                    
+                                    # NIC detection (Ethernet, Network, InfiniBand)
+                                    elif any(x in device_class.upper() for x in ['ETHERNET', 'NETWORK', 'INFINIBAND']):
+                                        pci_nics.append({
+                                            'pci_address': pci_addr,
+                                            'vendor': vendor,
+                                            'device': device,
+                                            'class': device_class
+                                        })
+                                    
+                                    # Storage controller detection
+                                    elif any(x in device_class.upper() for x in ['SATA', 'SAS', 'RAID', 'NVM', 'SCSI', 'STORAGE']):
+                                        storage_controllers.append({
+                                            'pci_address': pci_addr,
+                                            'vendor': vendor,
+                                            'device': device,
+                                            'class': device_class
+                                        })
+                            
+                            # Store GPU info only if not already set
+                            if gpus:
+                                inventory.gpu_info = json.dumps(gpus)
+                                inventory.gpu_count = len(gpus)
+                                app.logger.info(f"SSH GPU for {bmc_ip}: {len(gpus)} GPUs - {[g.get('vendor', '') for g in gpus]}")
+                            
+                            # Store PCI NIC info (merge with interface info later)
+                            if pci_nics:
+                                app.logger.info(f"SSH PCI NICs for {bmc_ip}: {len(pci_nics)} network devices")
+                            
+                            # Store storage controller info
+                            if storage_controllers:
+                                app.logger.info(f"SSH Storage Controllers for {bmc_ip}: {len(storage_controllers)} controllers")
+                                
+                    except Exception as e:
+                        app.logger.debug(f"SSH PCI scan failed for {bmc_ip}: {e}")
                 
                 # ========== VIRSH for KVM hosts (fallback for passed-through devices) ==========
                 if not inventory.gpu_info:
@@ -5840,41 +5842,42 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     except Exception as e:
                         app.logger.debug(f"SSH system info collection failed for {bmc_ip}: {e}")
                 
-                # ========== NETWORK INTERFACES: detailed with speed/state ==========
-                try:
-                    # Get interfaces with MAC, speed, state
-                    cmd = build_ssh_cmd('''for iface in $(ls /sys/class/net | grep -vE '^lo$|^veth|^br-|^docker|^virbr|^vnet'); do
-                        mac=$(cat /sys/class/net/$iface/address 2>/dev/null)
-                        speed=$(cat /sys/class/net/$iface/speed 2>/dev/null || echo "N/A")
-                        state=$(cat /sys/class/net/$iface/operstate 2>/dev/null || echo "unknown")
-                        echo "$iface|$mac|$speed|$state"
-                    done''')
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0 and result.stdout.strip():
-                        nics = []
-                        for line in result.stdout.strip().split('\n'):
-                            parts = line.split('|')
-                            if len(parts) >= 2 and parts[1].strip() and parts[1] != '00:00:00:00:00:00':
-                                nic = {
-                                    'interface': parts[0].strip(),
-                                    'mac': parts[1].strip()
-                                }
-                                if len(parts) >= 3 and parts[2].strip() != 'N/A':
-                                    try:
-                                        speed = int(parts[2].strip())
-                                        nic['speed_mbps'] = speed
-                                        nic['speed'] = f"{speed // 1000}Gbps" if speed >= 1000 else f"{speed}Mbps"
-                                    except:
-                                        pass
-                                if len(parts) >= 4:
-                                    nic['state'] = parts[3].strip()
-                                nics.append(nic)
-                        if nics:
-                            inventory.nic_info = json.dumps(nics)
-                            inventory.nic_count = len(nics)
-                            app.logger.info(f"SSH NICs for {bmc_ip}: {len(nics)} interfaces - {[n.get('speed', 'N/A') for n in nics if n.get('speed')]}")
-                except Exception as e:
-                    app.logger.debug(f"SSH NIC collection failed for {bmc_ip}: {e}")
+                # ========== NETWORK INTERFACES: detailed with speed/state (only if not from IPMI) ==========
+                if not inventory.nic_info:
+                    try:
+                        # Get interfaces with MAC, speed, state
+                        cmd = build_ssh_cmd('''for iface in $(ls /sys/class/net | grep -vE '^lo$|^veth|^br-|^docker|^virbr|^vnet'); do
+                            mac=$(cat /sys/class/net/$iface/address 2>/dev/null)
+                            speed=$(cat /sys/class/net/$iface/speed 2>/dev/null || echo "N/A")
+                            state=$(cat /sys/class/net/$iface/operstate 2>/dev/null || echo "unknown")
+                            echo "$iface|$mac|$speed|$state"
+                        done''')
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                        if result.returncode == 0 and result.stdout.strip():
+                            nics = []
+                            for line in result.stdout.strip().split('\n'):
+                                parts = line.split('|')
+                                if len(parts) >= 2 and parts[1].strip() and parts[1] != '00:00:00:00:00:00':
+                                    nic = {
+                                        'interface': parts[0].strip(),
+                                        'mac': parts[1].strip()
+                                    }
+                                    if len(parts) >= 3 and parts[2].strip() != 'N/A':
+                                        try:
+                                            speed = int(parts[2].strip())
+                                            nic['speed_mbps'] = speed
+                                            nic['speed'] = f"{speed // 1000}Gbps" if speed >= 1000 else f"{speed}Mbps"
+                                        except:
+                                            pass
+                                    if len(parts) >= 4:
+                                        nic['state'] = parts[3].strip()
+                                    nics.append(nic)
+                            if nics:
+                                inventory.nic_info = json.dumps(nics)
+                                inventory.nic_count = len(nics)
+                                app.logger.info(f"SSH NICs for {bmc_ip}: {len(nics)} interfaces - {[n.get('speed', 'N/A') for n in nics if n.get('speed')]}")
+                    except Exception as e:
+                        app.logger.debug(f"SSH NIC collection failed for {bmc_ip}: {e}")
                 
                 # ========== MEMORY DIMMs via /sys or lshw ==========
                 if not inventory.memory_slots_total:
