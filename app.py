@@ -1514,6 +1514,9 @@ class ServerInventory(db.Model):
     # GPU info (JSON)
     gpu_info = db.Column(db.Text)  # JSON: [{"name": "NVIDIA A100", "memory": "80GB", "uuid": "..."}]
     gpu_count = db.Column(db.Integer)
+    # NIC info (JSON) - collected via lspci
+    nic_info = db.Column(db.Text)  # JSON: [{"pci_address": "04:00.0", "model": "Intel I350..."}]
+    nic_count = db.Column(db.Integer)
     # PCIe health (JSON) - collected via lspci -vvv and setpci
     pcie_health = db.Column(db.Text)  # JSON: [{"device": "01:00.0", "name": "GPU", "status": "ok|error", "errors": [...]}]
     pcie_errors_count = db.Column(db.Integer, default=0)  # Count of devices with errors
@@ -1550,6 +1553,8 @@ class ServerInventory(db.Model):
             'storage_info': json.loads(self.storage_info) if self.storage_info else [],
             'gpu_info': json.loads(self.gpu_info) if self.gpu_info else [],
             'gpu_count': self.gpu_count,
+            'nic_info': json.loads(self.nic_info) if self.nic_info else [],
+            'nic_count': self.nic_count,
             'pcie_health': json.loads(self.pcie_health) if self.pcie_health else [],
             'pcie_errors_count': self.pcie_errors_count or 0,
             'primary_ip': self.primary_ip,
@@ -1650,6 +1655,8 @@ def sync_to_cloud(initial_sync=False):
                     'storage_info': json.loads(inv.storage_info) if inv.storage_info else [],
                     'gpu_info': json.loads(inv.gpu_info) if inv.gpu_info else [],
                     'gpu_count': inv.gpu_count,
+                    'nic_info': json.loads(inv.nic_info) if inv.nic_info else [],
+                    'nic_count': inv.nic_count,
                     'pcie_health': json.loads(inv.pcie_health) if inv.pcie_health else [],
                     'pcie_errors_count': inv.pcie_errors_count or 0,
                     'bmc_firmware': inv.bmc_firmware,
@@ -5658,18 +5665,22 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                         # Try passwordless (default key from ~/.ssh) auth
                         return ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', remote_cmd]
                 
-                # CPU info via /proc/cpuinfo
+                # CPU info via /proc/cpuinfo (most complete and reliable)
                 try:
-                    cmd = build_ssh_cmd('cat /proc/cpuinfo | grep -E "model name|physical id|cpu cores" | head -30')
+                    cmd = build_ssh_cmd('cat /proc/cpuinfo | grep -E "model name|vendor_id|physical id|cpu cores|siblings" | head -50')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0 and result.stdout:
                         # Parse CPU info
                         physical_ids = set()
                         cpu_model = None
+                        cpu_vendor = None
                         cpu_cores = None
+                        siblings = None
                         for line in result.stdout.split('\n'):
                             if 'model name' in line and not cpu_model:
                                 cpu_model = line.split(':')[1].strip() if ':' in line else None
+                            if 'vendor_id' in line and not cpu_vendor:
+                                cpu_vendor = line.split(':')[1].strip() if ':' in line else None
                             if 'physical id' in line:
                                 physical_ids.add(line.split(':')[1].strip() if ':' in line else '0')
                             if 'cpu cores' in line and not cpu_cores:
@@ -5677,9 +5688,18 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                     cpu_cores = int(line.split(':')[1].strip())
                                 except:
                                     pass
+                            if 'siblings' in line and not siblings:
+                                try:
+                                    siblings = int(line.split(':')[1].strip())
+                                except:
+                                    pass
                         
+                        # Build full CPU model with vendor if available
                         if cpu_model:
-                            inventory.cpu_model = cpu_model
+                            if cpu_vendor and cpu_vendor not in cpu_model:
+                                inventory.cpu_model = f"{cpu_vendor} {cpu_model}"
+                            else:
+                                inventory.cpu_model = cpu_model
                         if physical_ids:
                             inventory.cpu_count = len(physical_ids)
                         if cpu_cores:
@@ -5748,6 +5768,94 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                 app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
                 except Exception as e:
                     app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
+                
+                # GPU info via lspci (VGA and 3D controllers)
+                try:
+                    cmd = build_ssh_cmd('lspci 2>/dev/null | grep -iE "vga|3d controller|display"')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        gpus = []
+                        for line in result.stdout.strip().split('\n'):
+                            if line:
+                                # Parse: "01:00.0 VGA compatible controller: NVIDIA Corporation GA100 [A100 80GB PCIe]"
+                                parts = line.split(': ', 1)
+                                if len(parts) >= 2:
+                                    pci_info = parts[0]  # "01:00.0 VGA compatible controller"
+                                    vendor_model = parts[1]  # "NVIDIA Corporation GA100 [A100 80GB PCIe]"
+                                    pci_addr = pci_info.split()[0] if pci_info else None
+                                    gpus.append({
+                                        'pci_address': pci_addr,
+                                        'name': vendor_model.strip(),
+                                        'type': 'VGA' if 'VGA' in line.upper() else '3D Controller'
+                                    })
+                        if gpus:
+                            # Only update if we don't have GPU info from Redfish
+                            if not inventory.gpu_info:
+                                inventory.gpu_info = json.dumps(gpus)
+                                inventory.gpu_count = len(gpus)
+                            app.logger.info(f"SSH GPUs for {bmc_ip}: {len(gpus)} - {gpus[0].get('name', 'GPU')[:50]}")
+                except Exception as e:
+                    app.logger.debug(f"SSH GPU collection failed for {bmc_ip}: {e}")
+                
+                # NIC info via lspci (Ethernet controllers)
+                try:
+                    cmd = build_ssh_cmd('lspci 2>/dev/null | grep -i ethernet')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        nics = []
+                        for line in result.stdout.strip().split('\n'):
+                            if line:
+                                # Parse: "04:00.0 Ethernet controller: Intel Corporation I350 Gigabit..."
+                                parts = line.split(': ', 1)
+                                if len(parts) >= 2:
+                                    pci_addr = parts[0].split()[0] if parts[0] else None
+                                    nic_model = parts[1].strip()
+                                    nics.append({
+                                        'pci_address': pci_addr,
+                                        'model': nic_model
+                                    })
+                        if nics:
+                            # Store NIC info
+                            if not inventory.nic_info:
+                                inventory.nic_info = json.dumps(nics)
+                                inventory.nic_count = len(nics)
+                            app.logger.info(f"SSH NICs for {bmc_ip}: {len(nics)} - {nics[0].get('model', 'NIC')[:50]}")
+                except Exception as e:
+                    app.logger.debug(f"SSH NIC collection failed for {bmc_ip}: {e}")
+                
+                # NVMe devices via lspci
+                try:
+                    cmd = build_ssh_cmd('lspci 2>/dev/null | grep -i nvme')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        nvme_devices = []
+                        for line in result.stdout.strip().split('\n'):
+                            if line:
+                                # Parse: "05:00.0 Non-Volatile memory controller: Samsung Electronics..."
+                                parts = line.split(': ', 1)
+                                if len(parts) >= 2:
+                                    pci_addr = parts[0].split()[0] if parts[0] else None
+                                    nvme_model = parts[1].strip()
+                                    nvme_devices.append({
+                                        'pci_address': pci_addr,
+                                        'model': nvme_model,
+                                        'type': 'nvme'
+                                    })
+                        if nvme_devices:
+                            # Append NVMe info to storage_info
+                            existing_storage = json.loads(inventory.storage_info) if inventory.storage_info else []
+                            for nvme in nvme_devices:
+                                existing_storage.append({
+                                    'name': nvme['pci_address'],
+                                    'model': nvme['model'],
+                                    'type': 'nvme'
+                                })
+                            inventory.storage_info = json.dumps(existing_storage)
+                            if not inventory.storage_count:
+                                inventory.storage_count = len(existing_storage)
+                            app.logger.info(f"SSH NVMe for {bmc_ip}: {len(nvme_devices)} devices")
+                except Exception as e:
+                    app.logger.debug(f"SSH NVMe collection failed for {bmc_ip}: {e}")
                 
                 # PCIe health check via lspci -vvv (checks AER, link status)
                 # AER Error Types:
@@ -8964,6 +9072,18 @@ def _run_migrations(inspector):
                 app.logger.info("Migration: Adding public_ip to server...")
                 execute_sql('ALTER TABLE server ADD COLUMN public_ip VARCHAR(45)')
                 app.logger.info("Migration: public_ip column added")
+        
+        # Migration 5: Add nic_info and nic_count columns to server_inventory
+        if 'server_inventory' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_inventory')]
+            if 'nic_info' not in columns:
+                app.logger.info("Migration: Adding nic_info to server_inventory...")
+                execute_sql('ALTER TABLE server_inventory ADD COLUMN nic_info TEXT')
+                app.logger.info("Migration: nic_info column added")
+            if 'nic_count' not in columns:
+                app.logger.info("Migration: Adding nic_count to server_inventory...")
+                execute_sql('ALTER TABLE server_inventory ADD COLUMN nic_count INTEGER')
+                app.logger.info("Migration: nic_count column added")
         
         app.logger.info("Migrations complete")
     except Exception as e:
