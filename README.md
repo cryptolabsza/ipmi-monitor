@@ -267,11 +267,13 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 
 ### Pricing
 
-| Tier | Price | Servers | Trial |
-|------|-------|---------|-------|
-| Free | $0 | Unlimited | Basic monitoring only |
-| Starter | $100/mo | 50 | 1 month free |
-| Starter+ | +$15/10 servers | 51+ | - |
+| Tier | Price | Servers | Tokens/month | Trial |
+|------|-------|---------|--------------|-------|
+| Free | $0 | Unlimited | - | Basic monitoring only |
+| Standard | $15/mo | 10 servers | 100K tokens | 1 month free |
+| Professional | $50/mo | 50 servers | 1M tokens | 1 month free |
+
+> 💡 **Tokens** are used for AI chat, summaries, and predictions. 100K tokens ≈ 200+ AI queries/month.
 
 ---
 

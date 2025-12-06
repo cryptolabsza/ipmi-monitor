@@ -390,7 +390,7 @@
             font-weight: 600;
         }
         
-        .ai-badge.starter {
+        .ai-badge.standard {
             background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
         }
         
@@ -1479,7 +1479,7 @@
             <div class="ai-panel-content" id="aiPanelContent">
                 <!-- Upgrade Prompt for Free Users -->
                 <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 30px;">
-                    <p style="font-size: 1.1rem;">🚀 <strong>Upgrade to Starter</strong> to unlock AI-powered features:</p>
+                    <p style="font-size: 1.1rem;">🚀 <strong>Upgrade to Standard ($15/mo)</strong> to unlock AI-powered features:</p>
                     <ul>
                         <li>📊 Daily fleet health summaries</li>
                         <li>🔧 AI-generated maintenance tasks</li>
@@ -1921,14 +1921,14 @@
                 
                 if (aiEnabled) {
                     badge.textContent = data.subscription_tier.toUpperCase();
-                    badge.classList.add('starter');
+                    badge.classList.add('standard');
                     upgradePrompt.style.display = 'none';
                     results.style.display = 'block';
                     updateSyncStatus(data);
                     loadCachedAiResults();
                 } else {
                     badge.textContent = 'FREE';
-                    badge.classList.remove('starter');
+                    badge.classList.remove('standard');
                     upgradePrompt.style.display = 'block';
                     results.style.display = 'none';
                 }

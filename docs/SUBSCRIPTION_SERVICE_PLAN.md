@@ -4,15 +4,15 @@
 
 Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS product:
 
-| Tier | Price | Servers | What's Included |
-|------|-------|---------|-----------------|
-| **Free** | $0 | Up to 50 | Monitoring, dashboard, CSV export, Prometheus/Grafana |
-| **Starter** | $29/mo | Up to 50 | + AI summaries, predictions, RCA, reports, alerting (Telegram/Email/Slack) |
-| **Starter+** | $29/mo + $1/server | 51+ | Same as Starter, additional servers at $1/server/month |
+| Tier | Price | Servers | Tokens/mo | What's Included |
+|------|-------|---------|-----------|-----------------|
+| **Free** | $0 | Unlimited | - | Monitoring, dashboard, CSV export, Prometheus/Grafana |
+| **Standard** | $15/mo | 10 | 100K | + AI summaries, predictions, RCA, chat, alerting |
+| **Professional** | $50/mo | 50 | 1M | All Standard features + priority support |
 
 **Key Principle**: All AI logic, prompts, and playbooks remain on CryptoLabs servers. Customers cannot bypass by adding their own LLM tokens.
 
-**Release Strategy**: Ship FREE tier NOW, build AI features for Starter tier iteratively.
+**Release Strategy**: Ship FREE tier NOW, build AI features for Standard tier iteratively.
 
 ---
 
@@ -95,7 +95,7 @@ Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS produ
 - Prometheus metrics endpoint
 - Grafana dashboard integration
 
-**What's NOT Included (Starter only):**
+**What's NOT Included (Standard/Professional only):**
 - ❌ Email/Telegram/Slack alerts (costs us money)
 - ❌ AI summaries & reports
 - ❌ Predictive analytics
@@ -110,7 +110,7 @@ Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS produ
 
 ---
 
-### 💎 STARTER TIER ($29/month) - PHASE 2
+### 💎 STANDARD TIER ($15/month) - PHASE 2
 
 **Pricing:**
 - $29/month for up to 50 servers
@@ -277,7 +277,7 @@ CREATE TABLE customers (
     email VARCHAR(255) UNIQUE,
     company_name VARCHAR(255),
     license_key VARCHAR(64) UNIQUE,
-    subscription_tier VARCHAR(50),  -- 'starter', 'pro', 'enterprise'
+    subscription_tier VARCHAR(50),  -- 'standard', 'professional'
     max_servers INT,
     subscription_status VARCHAR(50),
     created_at TIMESTAMP,
@@ -687,7 +687,8 @@ GET /ipmi/v1/subscription/status
 
 | Product | Price | Description |
 |---------|-------|-------------|
-| IPMI Monitor Starter | $29/mo | Up to 50 servers, all AI features |
+| IPMI Monitor Standard | $15/mo | 10 servers, 100K tokens, AI features |
+| IPMI Monitor Professional | $50/mo | 50 servers, 1M tokens, priority support |
 | Additional Servers | $1/server/mo | For 51+ servers |
 
 ### Revenue Projections
@@ -708,13 +709,13 @@ GET /ipmi/v1/subscription/status
 | Task | Status | Notes |
 |------|--------|-------|
 | Remove/disable alerting code | TODO | Move to paid tier |
-| Add "Upgrade to Starter" UI prompts | TODO | Settings page, dashboard |
+| Add "Upgrade to Standard" UI prompts | TODO | Settings page, dashboard |
 | 50 server limit enforcement | TODO | Soft limit with upgrade prompt |
 | Update README for open source | TODO | Installation guide |
 | GitHub release | TODO | Tag v1.0.0 |
 | Landing page on cryptolabs.co.za | TODO | Product page |
 
-### 📈 PHASE 2: STARTER TIER (4-6 Weeks)
+### 📈 PHASE 2: STANDARD TIER (4-6 Weeks)
 
 | Week | Deliverables |
 |------|--------------|
@@ -753,15 +754,15 @@ GET /ipmi/v1/subscription/status
 
 1. **Disable alerting in free version**
    - Comment out/gate Telegram, Email, Slack notification code
-   - Show "Upgrade to Starter" when user tries to configure alerts
+   - Show "Upgrade to Standard" when user tries to configure alerts
 
 2. **Add server limit (50)**
    - Soft limit: allow adding more but show upgrade prompt
    - Display "X/50 servers" in dashboard header
 
 3. **Add upgrade prompts in UI**
-   - Settings page: "🚀 Upgrade to Starter for AI features & alerting"
-   - Dashboard: subtle "Starter" badge/banner
+   - Settings page: "🚀 Upgrade to Standard for AI features & alerting"
+   - Dashboard: subtle "Standard" badge/banner
 
 4. **Clean up for open source release**
    - Remove BrickBox-specific configs from repo
@@ -776,7 +777,7 @@ GET /ipmi/v1/subscription/status
    - Tag v1.0.0
    - Release notes
 
-### LATER (Build Starter Tier)
+### LATER (Build Standard Tier)
 
 7. Set up CryptoLabs cloud infrastructure
 8. Implement license key system
@@ -784,5 +785,5 @@ GET /ipmi/v1/subscription/status
 10. Re-enable alerting for paid users
 11. Develop AI pipeline
 12. WooCommerce subscription products
-13. Launch Starter tier
+13. Launch Standard tier
 

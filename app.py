@@ -1395,7 +1395,7 @@ class CloudSync(db.Model):
     last_sync = db.Column(db.DateTime, nullable=True)
     last_sync_status = db.Column(db.String(50), nullable=True)  # 'success', 'error', 'pending'
     last_sync_message = db.Column(db.Text, nullable=True)
-    subscription_tier = db.Column(db.String(50), nullable=True)  # 'free', 'starter', etc.
+    subscription_tier = db.Column(db.String(50), nullable=True)  # 'free', 'standard', 'professional'
     subscription_valid = db.Column(db.Boolean, default=False)
     max_servers = db.Column(db.Integer, default=50)
     features = db.Column(db.Text, nullable=True)  # JSON array of enabled features
@@ -6459,7 +6459,7 @@ def api_complete_setup():
             try:
                 validation = validate_license_key(ai_data['api_key'])
                 if validation.get('valid'):
-                    config.subscription_tier = validation.get('tier', 'starter')
+                    config.subscription_tier = validation.get('tier', 'standard')
                     config.subscription_valid = True
                     config.max_servers = validation.get('max_servers', 50)
             except:
@@ -8047,7 +8047,7 @@ def api_update_ai_config():
             
             if validation['valid']:
                 config.license_key = data['license_key']
-                config.subscription_tier = validation.get('tier', 'starter')
+                config.subscription_tier = validation.get('tier', 'standard')
                 config.subscription_valid = True
                 config.max_servers = validation.get('max_servers', 50)
                 config.features = json.dumps(validation.get('features', []))
@@ -8132,7 +8132,7 @@ def api_oauth_callback():
         config.sync_enabled = True
         config.subscription_tier = subscription
         config.subscription_valid = True
-        config.max_servers = 50 if subscription == 'starter' else 5
+        config.max_servers = 50 if subscription == 'professional' else 10
         
         # Link the current IPMI Monitor admin to the WordPress account
         current_username = session.get('username')
@@ -8273,7 +8273,7 @@ def api_get_ai_results():
     if not CloudSync.is_ai_enabled():
         return jsonify({
             'enabled': False,
-            'message': 'AI features not enabled. Upgrade to Starter plan for AI insights.',
+            'message': 'AI features not enabled. Upgrade to Standard plan for AI insights.',
             'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
         })
     

@@ -1336,7 +1336,7 @@
                 <div id="aiStatusSection">
                     <div class="server-item" id="aiStatusDisplay">
                         <div class="server-info">
-                            <span class="server-name" id="aiTierDisplay">STARTER</span>
+                            <span class="server-name" id="aiTierDisplay">STANDARD</span>
                             <span class="server-ip" id="aiStatusMessage">Connected to CryptoLabs AI</span>
                         </div>
                         <div class="server-badges">
@@ -1554,7 +1554,7 @@
             document.getElementById('aiTrialCTA').style.display = isConnected ? 'none' : 'block';
             
             if (isConnected) {
-                document.getElementById('aiTierDisplay').textContent = (config.subscription_tier || 'STARTER').toUpperCase();
+                document.getElementById('aiTierDisplay').textContent = (config.subscription_tier || 'STANDARD').toUpperCase();
                 document.getElementById('aiStatusMessage').textContent = `Connected - ${config.max_servers || 50} servers max`;
                 document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
                 document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
