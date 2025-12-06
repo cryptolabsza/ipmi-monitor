@@ -282,17 +282,46 @@ sudo dnf install pciutils util-linux
 
 > 💡 **Note:** No software installation is needed if you only use IPMI/Redfish for monitoring. SSH is purely supplemental.
 
-#### PCIe Health Monitoring
+#### PCIe Health Monitoring (AER)
 
-When SSH is enabled, IPMI Monitor checks PCIe device health using `lspci -vvv`. This detects:
+When SSH is enabled, IPMI Monitor checks PCIe device health using `lspci -vvv`. This parses **AER (Advanced Error Reporting)** status registers.
 
-| Error Type | Severity | Description |
-|------------|----------|-------------|
+**Device Status Flags:**
+
+| Flag | Severity | Description |
+|------|----------|-------------|
 | `FatalError` | Critical | PCIe fatal error - device may be non-functional |
 | `NonFatalError` | Warning | Recoverable PCIe error |
 | `UnsupportedRequest` | Warning | Device received unsupported PCIe request |
-| `UE:*` | Critical | Uncorrectable errors (AER) |
-| `CE:*` | Warning | Correctable errors (AER) |
+
+**Uncorrectable Errors (UESta) - Critical:**
+
+| Code | Description |
+|------|-------------|
+| `DLP` | Data Link Protocol Error |
+| `SDES` | Surprise Down Error (device unexpectedly removed) |
+| `TLP` | TLP Prefix Blocked |
+| `FCP` | Flow Control Protocol Error |
+| `CmpltTO` | Completion Timeout |
+| `CmpltAbrt` | Completer Abort |
+| `UnxCmplt` | Unexpected Completion |
+| `RxOF` | Receiver Overflow |
+| `MalfTLP` | Malformed TLP |
+| `ECRC` | ECRC Error |
+| `UnsupReq` | Unsupported Request |
+
+**Correctable Errors (CESta) - Warning:**
+
+| Code | Description |
+|------|-------------|
+| `RxErr` | Receiver Error |
+| `BadTLP` | Bad TLP (recoverable) |
+| `BadDLLP` | Bad DLLP (recoverable) |
+| `Rollover` | Replay Number Rollover |
+| `Timeout` | Replay Timer Timeout |
+| `NonFatalErr` | Non-Fatal Error (Advisory) |
+
+> 💡 **Tip:** Uncorrectable errors (UE) indicate serious hardware issues that may require replacement. Correctable errors (CE) are recovered automatically but frequent occurrences may indicate failing hardware.
 
 The inventory page shows PCIe health status for GPUs and VGA devices. Devices with errors are highlighted and logged as warnings.
 

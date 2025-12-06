@@ -5746,14 +5746,47 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
                 
                 # PCIe health check via lspci -vvv (checks AER, link status)
+                # AER Error Types:
+                # - UESta (Uncorrectable Error Status): DLP, SDES, TLP, FCP, CmpltTO, CmpltAbrt, UnxCmplt, RxOF, MalfTLP, ECRC, UnsupReq, ACSViol
+                # - CESta (Correctable Error Status): RxErr, BadTLP, BadDLLP, Rollover, Timeout, NonFatalErr
                 try:
                     # Get PCIe devices with verbose info including AER status
-                    cmd = build_ssh_cmd('lspci -vvv 2>/dev/null | grep -E "^[0-9a-f]|DevSta:|LnkSta:|UESta:|CESta:|AER" | head -500')
+                    cmd = build_ssh_cmd('lspci -vvv 2>/dev/null | grep -E "^[0-9a-f]|DevSta:|LnkSta:|UESta:|UEMsk:|CESta:|CEMsk:|AER" | head -500')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                     
                     pcie_devices = []
                     current_device = None
                     error_count = 0
+                    
+                    # Known AER error types with descriptions
+                    ue_error_descriptions = {
+                        'DLP': 'Data Link Protocol Error',
+                        'SDES': 'Surprise Down Error',
+                        'TLP': 'TLP Prefix Blocked',
+                        'FCP': 'Flow Control Protocol Error',
+                        'CmpltTO': 'Completion Timeout',
+                        'CmpltAbrt': 'Completer Abort',
+                        'UnxCmplt': 'Unexpected Completion',
+                        'RxOF': 'Receiver Overflow',
+                        'MalfTLP': 'Malformed TLP',
+                        'ECRC': 'ECRC Error',
+                        'UnsupReq': 'Unsupported Request',
+                        'ACSViol': 'ACS Violation',
+                        'UncorrIntErr': 'Uncorrectable Internal Error',
+                        'BlockedTLP': 'Blocked TLP',
+                        'AtomicOpBlocked': 'Atomic Op Blocked',
+                        'TLPBlockedErr': 'TLP Blocked Error',
+                    }
+                    ce_error_descriptions = {
+                        'RxErr': 'Receiver Error',
+                        'BadTLP': 'Bad TLP',
+                        'BadDLLP': 'Bad DLLP',
+                        'Rollover': 'Replay Number Rollover',
+                        'Timeout': 'Replay Timer Timeout',
+                        'NonFatalErr': 'Non-Fatal Error (Advisory)',
+                        'CorrIntErr': 'Corrected Internal Error',
+                        'HeaderOF': 'Header Log Overflow',
+                    }
                     
                     if result.returncode == 0 and result.stdout:
                         for line in result.stdout.split('\n'):
@@ -5774,11 +5807,13 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                     'name': device_name[:100],  # Truncate long names
                                     'status': 'ok',
                                     'errors': [],
+                                    'ue_errors': [],  # Uncorrectable (critical)
+                                    'ce_errors': [],  # Correctable (warning)
                                     'link_status': None
                                 }
                             
                             elif current_device:
-                                # DevSta: CorrErr+ NonFatalErr- FatalErr- UnssupportReq+
+                                # DevSta: CorrErr+ NonFatalErr- FatalErr- UnsupportedReq+
                                 if 'DevSta:' in line:
                                     # Check for error flags
                                     if 'FatalErr+' in line:
@@ -5788,10 +5823,13 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                         current_device['errors'].append('NonFatalError')
                                         if current_device['status'] != 'critical':
                                             current_device['status'] = 'warning'
-                                    if 'UnssupportReq+' in line or 'UnsupportReq+' in line:
+                                    if 'UnsupportedReq+' in line or 'UnssupportReq+' in line or 'UnsupReq+' in line:
                                         current_device['errors'].append('UnsupportedRequest')
                                         if current_device['status'] == 'ok':
                                             current_device['status'] = 'warning'
+                                    if 'CorrErr+' in line:
+                                        # Correctable error flag set - will be detailed in CESta
+                                        pass
                                 
                                 # LnkSta: Speed 16GT/s, Width x16
                                 if 'LnkSta:' in line:
@@ -5803,23 +5841,26 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                             'width': width_match.group(1) if width_match else None
                                         }
                                 
-                                # UESta: (Uncorrectable Error Status)
+                                # UESta: DLP+ SDES- TLP- ... (Uncorrectable Error Status - CRITICAL)
                                 if 'UESta:' in line:
-                                    # Check for non-zero error bits
+                                    # Parse error flags: word followed by + means error is set
+                                    # Example: "UESta:  DLP- SDES- TLP- FCP- CmpltTO+ CmpltAbrt-"
                                     ue_errors = re.findall(r'(\w+)\+', line)
                                     for err in ue_errors:
-                                        if err not in ['Supported']:  # Filter false positives
-                                            current_device['errors'].append(f'UE:{err}')
-                                            current_device['status'] = 'critical'
+                                        desc = ue_error_descriptions.get(err, err)
+                                        current_device['ue_errors'].append({'code': err, 'desc': desc})
+                                        current_device['errors'].append(f'UE:{err}')
+                                        current_device['status'] = 'critical'
                                 
-                                # CESta: (Correctable Error Status)
+                                # CESta: RxErr+ BadTLP+ BadDLLP+ ... (Correctable Error Status - WARNING)
                                 if 'CESta:' in line:
                                     ce_errors = re.findall(r'(\w+)\+', line)
                                     for err in ce_errors:
-                                        if err not in ['Supported']:
-                                            current_device['errors'].append(f'CE:{err}')
-                                            if current_device['status'] == 'ok':
-                                                current_device['status'] = 'warning'
+                                        desc = ce_error_descriptions.get(err, err)
+                                        current_device['ce_errors'].append({'code': err, 'desc': desc})
+                                        current_device['errors'].append(f'CE:{err}')
+                                        if current_device['status'] == 'ok':
+                                            current_device['status'] = 'warning'
                         
                         # Don't forget last device
                         if current_device:
