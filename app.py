@@ -1609,6 +1609,9 @@ def sync_to_cloud(initial_sync=False):
             
             app.logger.info(f"Sync: {len(servers)} servers, {len(events)} events, {len(sensors)} sensors")
             
+            # Get inventory data for all servers
+            inventories = ServerInventory.query.all()
+            
             payload = {
                 'servers': [{
                     'name': s.server_name,
@@ -1630,8 +1633,30 @@ def sync_to_cloud(initial_sync=False):
                     'value': s.value,
                     'unit': s.unit,
                     'status': s.status
-                } for s in sensors]
+                } for s in sensors],
+                'inventory': [{
+                    'server_name': inv.server_name,
+                    'bmc_ip': inv.bmc_ip,
+                    'manufacturer': inv.manufacturer,
+                    'product_name': inv.product_name,
+                    'serial_number': inv.serial_number,
+                    'cpu_model': inv.cpu_model,
+                    'cpu_count': inv.cpu_count,
+                    'cpu_cores': inv.cpu_cores,
+                    'memory_total_gb': inv.memory_total_gb,
+                    'memory_slots_used': inv.memory_slots_used,
+                    'memory_slots_total': inv.memory_slots_total,
+                    'storage_info': json.loads(inv.storage_info) if inv.storage_info else [],
+                    'gpu_info': json.loads(inv.gpu_info) if inv.gpu_info else [],
+                    'gpu_count': inv.gpu_count,
+                    'pcie_health': json.loads(inv.pcie_health) if inv.pcie_health else [],
+                    'pcie_errors_count': inv.pcie_errors_count or 0,
+                    'bmc_firmware': inv.bmc_firmware,
+                    'collected_at': inv.collected_at.isoformat() if inv.collected_at else None
+                } for inv in inventories]
             }
+            
+            app.logger.info(f"Sync: {len(servers)} servers, {len(events)} events, {len(sensors)} sensors, {len(inventories)} inventory records")
             
             # Send to AI service
             response = requests.post(
