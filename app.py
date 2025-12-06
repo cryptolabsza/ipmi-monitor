@@ -8354,6 +8354,516 @@ def api_get_anonymous_setting():
         'allow_anonymous_read': allow_anonymous_read()
     })
 
+
+# ============== Configuration Backup/Restore ==============
+
+@app.route('/api/config/export', methods=['GET'])
+@admin_required
+def api_export_config():
+    """
+    Export complete IPMI Monitor configuration as JSON.
+    
+    Includes:
+    - Servers (with credentials optionally masked)
+    - System settings
+    - SSH keys (optionally excluded)
+    - Alert rules
+    - Users (passwords excluded)
+    - AI configuration (API key masked)
+    
+    Query params:
+    - include_secrets: Include passwords/keys (default: false)
+    - format: json (default) or yaml
+    """
+    include_secrets = request.args.get('include_secrets', 'false').lower() == 'true'
+    format_type = request.args.get('format', 'json')
+    
+    # Collect all configuration
+    config_data = {
+        'export_version': '1.0',
+        'exported_at': datetime.utcnow().isoformat(),
+        'app_name': APP_NAME,
+    }
+    
+    # Servers
+    servers = Server.query.all()
+    config_data['servers'] = []
+    for s in servers:
+        server_data = {
+            'name': s.server_name,
+            'bmc_ip': s.bmc_ip,
+            'server_ip': s.server_ip,
+            'enabled': s.enabled,
+            'notes': s.notes,
+        }
+        # Get per-server config if exists
+        server_config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
+        if server_config:
+            if server_config.ipmi_user:
+                server_data['ipmi_user'] = server_config.ipmi_user
+            if include_secrets and server_config.ipmi_pass:
+                server_data['ipmi_pass'] = server_config.ipmi_pass
+            if server_config.ssh_user:
+                server_data['ssh_user'] = server_config.ssh_user
+            if include_secrets and server_config.ssh_pass:
+                server_data['ssh_pass'] = server_config.ssh_pass
+            if server_config.ssh_key_id:
+                ssh_key = SSHKey.query.get(server_config.ssh_key_id)
+                if ssh_key:
+                    server_data['ssh_key_name'] = ssh_key.name
+        config_data['servers'].append(server_data)
+    
+    # System settings
+    settings = SystemSettings.query.all()
+    config_data['settings'] = {s.key: s.value for s in settings}
+    
+    # SSH keys
+    ssh_keys = SSHKey.query.all()
+    config_data['ssh_keys'] = []
+    for key in ssh_keys:
+        key_data = {
+            'name': key.name,
+            'fingerprint': key.fingerprint,
+        }
+        if include_secrets:
+            key_data['key_content'] = key.key_content
+        config_data['ssh_keys'].append(key_data)
+    
+    # Alert rules
+    alerts = AlertRule.query.all()
+    config_data['alert_rules'] = [{
+        'name': a.name,
+        'description': a.description,
+        'event_pattern': a.event_pattern,
+        'severity': a.severity,
+        'enabled': a.enabled,
+        'notification_channels': a.notification_channels,
+    } for a in alerts]
+    
+    # Users (without passwords)
+    users = User.query.all()
+    config_data['users'] = [{
+        'username': u.username,
+        'role': u.role,
+    } for u in users]
+    
+    # AI configuration
+    ai_config = CloudSync.get_config()
+    config_data['ai_config'] = {
+        'sync_enabled': ai_config.sync_enabled,
+        'subscription_tier': ai_config.subscription_tier,
+        # Mask API key
+        'license_key': f"{'*' * 20}...{ai_config.license_key[-8:]}" if ai_config.license_key and len(ai_config.license_key) > 8 else None,
+    }
+    
+    # Return as JSON or downloadable file
+    if request.args.get('download', 'false').lower() == 'true':
+        response = make_response(json.dumps(config_data, indent=2))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename=ipmi-monitor-config-{datetime.utcnow().strftime("%Y%m%d-%H%M%S")}.json'
+        return response
+    
+    return jsonify(config_data)
+
+
+@app.route('/api/config/import', methods=['POST'])
+@admin_required
+def api_import_config():
+    """
+    Import IPMI Monitor configuration from JSON.
+    
+    Request body: JSON configuration (from export)
+    
+    Query params:
+    - merge: Merge with existing config (default: true)
+    - skip_servers: Don't import servers (default: false)
+    - skip_settings: Don't import settings (default: false)
+    - skip_ssh_keys: Don't import SSH keys (default: false)
+    - skip_alerts: Don't import alert rules (default: false)
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No configuration data provided'}), 400
+    
+    merge = request.args.get('merge', 'true').lower() == 'true'
+    skip_servers = request.args.get('skip_servers', 'false').lower() == 'true'
+    skip_settings = request.args.get('skip_settings', 'false').lower() == 'true'
+    skip_ssh_keys = request.args.get('skip_ssh_keys', 'false').lower() == 'true'
+    skip_alerts = request.args.get('skip_alerts', 'false').lower() == 'true'
+    
+    results = {
+        'servers': {'imported': 0, 'updated': 0, 'skipped': 0},
+        'settings': {'imported': 0, 'updated': 0},
+        'ssh_keys': {'imported': 0, 'updated': 0, 'skipped': 0},
+        'alert_rules': {'imported': 0, 'updated': 0},
+        'errors': []
+    }
+    
+    try:
+        # Import SSH keys first (servers may reference them)
+        if not skip_ssh_keys and 'ssh_keys' in data:
+            for key_data in data['ssh_keys']:
+                try:
+                    existing = SSHKey.query.filter_by(name=key_data['name']).first()
+                    if existing:
+                        if merge and 'key_content' in key_data:
+                            existing.key_content = key_data['key_content']
+                            existing.fingerprint = SSHKey.get_fingerprint(key_data['key_content'])
+                            results['ssh_keys']['updated'] += 1
+                        else:
+                            results['ssh_keys']['skipped'] += 1
+                    elif 'key_content' in key_data:
+                        new_key = SSHKey(
+                            name=key_data['name'],
+                            key_content=key_data['key_content'],
+                            fingerprint=SSHKey.get_fingerprint(key_data['key_content'])
+                        )
+                        db.session.add(new_key)
+                        results['ssh_keys']['imported'] += 1
+                    else:
+                        results['ssh_keys']['skipped'] += 1
+                except Exception as e:
+                    results['errors'].append(f"SSH key {key_data.get('name')}: {str(e)}")
+        
+        # Import servers
+        if not skip_servers and 'servers' in data:
+            for server_data in data['servers']:
+                try:
+                    bmc_ip = server_data.get('bmc_ip')
+                    name = server_data.get('name')
+                    if not bmc_ip or not name:
+                        results['errors'].append(f"Server missing bmc_ip or name: {server_data}")
+                        continue
+                    
+                    existing = Server.query.filter_by(bmc_ip=bmc_ip).first()
+                    if existing:
+                        if merge:
+                            existing.server_name = name
+                            existing.server_ip = server_data.get('server_ip')
+                            existing.notes = server_data.get('notes')
+                            existing.enabled = server_data.get('enabled', True)
+                            results['servers']['updated'] += 1
+                        else:
+                            results['servers']['skipped'] += 1
+                    else:
+                        new_server = Server(
+                            bmc_ip=bmc_ip,
+                            server_name=name,
+                            server_ip=server_data.get('server_ip'),
+                            notes=server_data.get('notes'),
+                            enabled=server_data.get('enabled', True)
+                        )
+                        db.session.add(new_server)
+                        results['servers']['imported'] += 1
+                    
+                    # Handle per-server config
+                    if any(k in server_data for k in ['ipmi_user', 'ipmi_pass', 'ssh_user', 'ssh_pass', 'ssh_key_name']):
+                        config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+                        if not config:
+                            config = ServerConfig(bmc_ip=bmc_ip)
+                            db.session.add(config)
+                        
+                        if 'ipmi_user' in server_data:
+                            config.ipmi_user = server_data['ipmi_user']
+                        if 'ipmi_pass' in server_data:
+                            config.ipmi_pass = server_data['ipmi_pass']
+                        if 'ssh_user' in server_data:
+                            config.ssh_user = server_data['ssh_user']
+                        if 'ssh_pass' in server_data:
+                            config.ssh_pass = server_data['ssh_pass']
+                        if 'ssh_key_name' in server_data:
+                            ssh_key = SSHKey.query.filter_by(name=server_data['ssh_key_name']).first()
+                            if ssh_key:
+                                config.ssh_key_id = ssh_key.id
+                                
+                except Exception as e:
+                    results['errors'].append(f"Server {server_data.get('bmc_ip')}: {str(e)}")
+        
+        # Import settings
+        if not skip_settings and 'settings' in data:
+            for key, value in data['settings'].items():
+                try:
+                    SystemSettings.set(key, value)
+                    results['settings']['imported'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Setting {key}: {str(e)}")
+        
+        # Import alert rules
+        if not skip_alerts and 'alert_rules' in data:
+            for rule_data in data['alert_rules']:
+                try:
+                    existing = AlertRule.query.filter_by(name=rule_data['name']).first()
+                    if existing:
+                        if merge:
+                            existing.description = rule_data.get('description')
+                            existing.event_pattern = rule_data.get('event_pattern')
+                            existing.severity = rule_data.get('severity')
+                            existing.enabled = rule_data.get('enabled', True)
+                            existing.notification_channels = rule_data.get('notification_channels')
+                            results['alert_rules']['updated'] += 1
+                    else:
+                        new_rule = AlertRule(
+                            name=rule_data['name'],
+                            description=rule_data.get('description'),
+                            event_pattern=rule_data.get('event_pattern'),
+                            severity=rule_data.get('severity'),
+                            enabled=rule_data.get('enabled', True),
+                            notification_channels=rule_data.get('notification_channels')
+                        )
+                        db.session.add(new_rule)
+                        results['alert_rules']['imported'] += 1
+                except Exception as e:
+                    results['errors'].append(f"Alert rule {rule_data.get('name')}: {str(e)}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Configuration imported successfully',
+            'results': results
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Config import failed: {e}")
+        return jsonify({'error': str(e), 'results': results}), 500
+
+
+@app.route('/api/config/backup-to-cloud', methods=['POST'])
+@admin_required
+def api_backup_to_cloud():
+    """
+    Backup configuration to cloud (requires AI subscription).
+    
+    Stores encrypted backup linked to WordPress account.
+    """
+    config = CloudSync.get_config()
+    
+    if not config.sync_enabled or not config.license_key:
+        return jsonify({
+            'error': 'Cloud backup requires an active AI subscription',
+            'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
+        }), 400
+    
+    try:
+        # Get full config (with secrets for cloud backup)
+        # We include secrets because they're encrypted in transit
+        servers = Server.query.all()
+        ssh_keys = SSHKey.query.all()
+        settings = SystemSettings.query.all()
+        alerts = AlertRule.query.all()
+        
+        backup_data = {
+            'backup_version': '1.0',
+            'backed_up_at': datetime.utcnow().isoformat(),
+            'servers': [{
+                'name': s.server_name,
+                'bmc_ip': s.bmc_ip,
+                'server_ip': s.server_ip,
+                'enabled': s.enabled,
+                'notes': s.notes,
+            } for s in servers],
+            'settings': {s.key: s.value for s in settings},
+            'ssh_keys': [{
+                'name': k.name,
+                'key_content': k.key_content,
+                'fingerprint': k.fingerprint
+            } for k in ssh_keys],
+            'alert_rules': [{
+                'name': a.name,
+                'description': a.description,
+                'event_pattern': a.event_pattern,
+                'severity': a.severity,
+                'enabled': a.enabled,
+            } for a in alerts],
+        }
+        
+        # Add per-server configs
+        for server_data in backup_data['servers']:
+            server_config = ServerConfig.query.filter_by(bmc_ip=server_data['bmc_ip']).first()
+            if server_config:
+                server_data['config'] = {
+                    'ipmi_user': server_config.ipmi_user,
+                    'ipmi_pass': server_config.ipmi_pass,
+                    'ssh_user': server_config.ssh_user,
+                    'ssh_pass': server_config.ssh_pass,
+                    'ssh_key_id': server_config.ssh_key_id,
+                }
+        
+        # Send to AI service
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/backup",
+            json={'backup': backup_data},
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if response.ok:
+            result = response.json()
+            return jsonify({
+                'status': 'success',
+                'message': 'Configuration backed up to cloud',
+                'backup_id': result.get('backup_id'),
+                'backed_up_at': backup_data['backed_up_at']
+            })
+        else:
+            return jsonify({
+                'error': f'Cloud backup failed: {response.text}'
+            }), response.status_code
+            
+    except Exception as e:
+        app.logger.error(f"Cloud backup failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/config/restore-from-cloud', methods=['POST'])
+@admin_required
+def api_restore_from_cloud():
+    """
+    Restore configuration from cloud backup.
+    
+    Query params:
+    - backup_id: Specific backup to restore (default: latest)
+    """
+    config = CloudSync.get_config()
+    
+    if not config.sync_enabled or not config.license_key:
+        return jsonify({
+            'error': 'Cloud restore requires an active AI subscription',
+            'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
+        }), 400
+    
+    backup_id = request.args.get('backup_id', 'latest')
+    
+    try:
+        # Fetch backup from AI service
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/backup/{backup_id}",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if not response.ok:
+            return jsonify({
+                'error': f'Failed to fetch backup: {response.text}'
+            }), response.status_code
+        
+        backup_data = response.json().get('backup')
+        if not backup_data:
+            return jsonify({'error': 'No backup data returned'}), 404
+        
+        # Use the import function with the backup data
+        # Simulate a request to our import endpoint
+        with app.test_request_context(
+            '/api/config/import?merge=true',
+            method='POST',
+            json=backup_data,
+            headers={'Authorization': request.headers.get('Authorization')}
+        ):
+            # Re-use import logic
+            pass  # This would be complex, let's just do it inline
+        
+        # Actually import the data
+        results = {'imported': 0, 'errors': []}
+        
+        # Import SSH keys first
+        for key_data in backup_data.get('ssh_keys', []):
+            try:
+                existing = SSHKey.query.filter_by(name=key_data['name']).first()
+                if not existing and 'key_content' in key_data:
+                    new_key = SSHKey(
+                        name=key_data['name'],
+                        key_content=key_data['key_content'],
+                        fingerprint=key_data.get('fingerprint') or SSHKey.get_fingerprint(key_data['key_content'])
+                    )
+                    db.session.add(new_key)
+                    results['imported'] += 1
+            except Exception as e:
+                results['errors'].append(f"SSH key {key_data.get('name')}: {e}")
+        
+        # Import servers
+        for server_data in backup_data.get('servers', []):
+            try:
+                existing = Server.query.filter_by(bmc_ip=server_data['bmc_ip']).first()
+                if not existing:
+                    new_server = Server(
+                        bmc_ip=server_data['bmc_ip'],
+                        server_name=server_data['name'],
+                        server_ip=server_data.get('server_ip'),
+                        notes=server_data.get('notes'),
+                        enabled=server_data.get('enabled', True)
+                    )
+                    db.session.add(new_server)
+                    results['imported'] += 1
+                
+                # Import server config
+                if 'config' in server_data:
+                    cfg = server_data['config']
+                    config_obj = ServerConfig.query.filter_by(bmc_ip=server_data['bmc_ip']).first()
+                    if not config_obj:
+                        config_obj = ServerConfig(bmc_ip=server_data['bmc_ip'])
+                        db.session.add(config_obj)
+                    config_obj.ipmi_user = cfg.get('ipmi_user')
+                    config_obj.ipmi_pass = cfg.get('ipmi_pass')
+                    config_obj.ssh_user = cfg.get('ssh_user')
+                    config_obj.ssh_pass = cfg.get('ssh_pass')
+                    if cfg.get('ssh_key_id'):
+                        config_obj.ssh_key_id = cfg['ssh_key_id']
+            except Exception as e:
+                results['errors'].append(f"Server {server_data.get('bmc_ip')}: {e}")
+        
+        # Import settings
+        for key, value in backup_data.get('settings', {}).items():
+            try:
+                SystemSettings.set(key, value)
+                results['imported'] += 1
+            except Exception as e:
+                results['errors'].append(f"Setting {key}: {e}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Configuration restored from cloud backup',
+            'backup_id': backup_id,
+            'backed_up_at': backup_data.get('backed_up_at'),
+            'results': results
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Cloud restore failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/config/cloud-backups', methods=['GET'])
+@admin_required
+def api_list_cloud_backups():
+    """List available cloud backups"""
+    config = CloudSync.get_config()
+    
+    if not config.sync_enabled or not config.license_key:
+        return jsonify({
+            'error': 'Cloud backups require an active AI subscription',
+            'backups': []
+        }), 400
+    
+    try:
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/backups",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': response.text, 'backups': []}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e), 'backups': []}), 500
+
+
 # Global error handlers
 @app.errorhandler(404)
 def not_found_error(error):
