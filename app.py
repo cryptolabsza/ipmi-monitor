@@ -1507,11 +1507,8 @@ class ServerInventory(db.Model):
     memory_slots_total = db.Column(db.Integer)
     # Network MACs (JSON list)
     network_macs = db.Column(db.Text)  # JSON: [{"interface": "eth0", "mac": "aa:bb:cc:dd:ee:ff"}]
-    nic_info = db.Column(db.Text)  # JSON: [{"interface": "eth0", "mac": "...", "speed": "10Gbps"}]
-    nic_count = db.Column(db.Integer)
     # Storage info (JSON)
     storage_info = db.Column(db.Text)  # JSON: [{"device": "/dev/sda", "size": "1TB", "model": "..."}]
-    storage_count = db.Column(db.Integer)
     # GPU info (JSON)
     gpu_info = db.Column(db.Text)  # JSON: [{"name": "NVIDIA A100", "memory": "80GB", "uuid": "..."}]
     gpu_count = db.Column(db.Integer)
@@ -1545,10 +1542,7 @@ class ServerInventory(db.Model):
             'memory_slots_used': self.memory_slots_used,
             'memory_slots_total': self.memory_slots_total,
             'network_macs': json.loads(self.network_macs) if self.network_macs else [],
-            'nic_info': json.loads(self.nic_info) if self.nic_info else [],
-            'nic_count': self.nic_count,
             'storage_info': json.loads(self.storage_info) if self.storage_info else [],
-            'storage_count': self.storage_count,
             'gpu_info': json.loads(self.gpu_info) if self.gpu_info else [],
             'gpu_count': self.gpu_count,
             'primary_ip': self.primary_ip,
@@ -1607,10 +1601,7 @@ def sync_to_cloud(initial_sync=False):
                 )
             ).all()
             
-            # Get inventory data
-            inventories = ServerInventory.query.all()
-            
-            app.logger.info(f"Sync: {len(servers)} servers, {len(events)} events, {len(sensors)} sensors, {len(inventories)} inventory records")
+            app.logger.info(f"Sync: {len(servers)} servers, {len(events)} events, {len(sensors)} sensors")
             
             payload = {
                 'servers': [{
@@ -1633,26 +1624,7 @@ def sync_to_cloud(initial_sync=False):
                     'value': s.value,
                     'unit': s.unit,
                     'status': s.status
-                } for s in sensors],
-                'inventory': [{
-                    'server_name': inv.server_name,
-                    'manufacturer': inv.manufacturer,
-                    'product_name': inv.product_name,
-                    'serial_number': inv.serial_number,
-                    'cpu_model': inv.cpu_model,
-                    'cpu_count': inv.cpu_count,
-                    'cpu_cores': inv.cpu_cores,
-                    'memory_total': f"{inv.memory_total_gb}GB" if inv.memory_total_gb else None,
-                    'memory_slots_used': inv.memory_slots_used,
-                    'memory_slots_total': inv.memory_slots_total,
-                    'gpu_info': json.loads(inv.gpu_info) if inv.gpu_info else [],
-                    'gpu_count': inv.gpu_count or 0,
-                    'storage_info': json.loads(inv.storage_info) if inv.storage_info else [],
-                    'storage_count': inv.storage_count or 0,
-                    'nic_info': json.loads(inv.nic_info) if inv.nic_info else [],
-                    'bmc_mac': inv.bmc_mac_address,
-                    'bmc_firmware': inv.bmc_firmware
-                } for inv in inventories]
+                } for s in sensors]
             }
             
             # Send to AI service
@@ -4306,16 +4278,16 @@ def api_events():
     
     return jsonify({
         'events': [{
-        'id': e.id,
-        'bmc_ip': e.bmc_ip,
-        'server_name': e.server_name,
-        'sel_id': e.sel_id,
-        'event_date': e.event_date.isoformat(),
+            'id': e.id,
+            'bmc_ip': e.bmc_ip,
+            'server_name': e.server_name,
+            'sel_id': e.sel_id,
+            'event_date': e.event_date.isoformat(),
             'timestamp': e.event_date.isoformat(),  # Alias for frontend
-        'sensor_type': e.sensor_type,
-        'event_description': e.event_description,
+            'sensor_type': e.sensor_type,
+            'event_description': e.event_description,
             'description': e.event_description,  # Alias for frontend
-        'severity': e.severity
+            'severity': e.severity
         } for e in events],
         'total': len(events),
         'hours': hours
@@ -5696,261 +5668,34 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 except Exception as e:
                     app.logger.debug(f"SSH memory slots collection failed for {bmc_ip}: {e}")
                 
-                # ========== STORAGE: lsblk + NVMe detection (only if not from IPMI/Redfish) ==========
-                if not inventory.storage_info:
-                    try:
-                        # Get block devices with more details
-                        cmd = build_ssh_cmd('lsblk -d -o NAME,SIZE,MODEL,TRAN,ROTA,TYPE -P 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                        if result.returncode == 0 and result.stdout:
-                            drives = []
-                            for line in result.stdout.strip().split('\n'):
-                                if 'NAME=' in line:
-                                    # Parse: NAME="sda" SIZE="1.8T" MODEL="SAMSUNG MZ7LH1T9" TRAN="sata" ROTA="0" TYPE="disk"
-                                    device = {}
-                                    for part in line.split():
-                                        if '=' in part:
-                                            key, val = part.split('=', 1)
-                                            device[key.lower()] = val.strip('"')
-                                    if device.get('type') == 'disk':
-                                        is_ssd = device.get('rota') == '0'
-                                        is_nvme = device.get('name', '').startswith('nvme')
-                                        drives.append({
-                                            'name': device.get('name'),
-                                            'size': device.get('size'),
-                                            'model': device.get('model', 'Unknown'),
-                                            'transport': device.get('tran', 'Unknown'),
-                                            'type': 'NVMe' if is_nvme else ('SSD' if is_ssd else 'HDD')
-                                        })
-                                elif line.strip() and not line.startswith('NAME'):
-                                    # Fallback text parse
-                                    parts = line.split()
-                                    if len(parts) >= 2:
-                                        drives.append({
-                                            'name': parts[0],
-                                            'size': parts[1] if len(parts) > 1 else 'Unknown',
-                                            'model': ' '.join(parts[2:-1]) if len(parts) > 3 else 'Unknown'
-                                        })
+                # Storage info via lsblk
+                try:
+                    cmd = build_ssh_cmd('lsblk -J -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        try:
+                            # Try JSON output first
+                            storage_data = json.loads(result.stdout)
+                            drives = [d for d in storage_data.get('blockdevices', []) if d.get('type') == 'disk']
                             if drives:
                                 inventory.storage_info = json.dumps(drives)
-                                inventory.storage_count = len(drives)
-                                app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives - {[d.get('type', 'disk') for d in drives]}")
-                    except Exception as e:
-                        app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
-                
-                # ========== ALL PCI DEVICES: lspci comprehensive scan (only if GPU not from IPMI/Redfish) ==========
-                if not inventory.gpu_info:
-                    try:
-                        # Get all PCI devices for GPUs, NICs, storage controllers, etc.
-                        cmd = build_ssh_cmd("lspci -mm 2>/dev/null")
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                        if result.returncode == 0 and result.stdout.strip():
-                            gpus = []
-                            pci_nics = []
-                            storage_controllers = []
-                            
-                            for line in result.stdout.strip().split('\n'):
-                                # Parse: 00:1f.6 "Ethernet controller" "Intel Corporation" "Ethernet Connection (14) I219-V"
-                                parts = line.split('"')
-                                if len(parts) >= 5:
-                                    pci_addr = parts[0].strip()
-                                    device_class = parts[1]
-                                    vendor = parts[3]
-                                    device = parts[5] if len(parts) > 5 else ''
-                                    
-                                    # GPU detection
-                                    if any(x in device_class.upper() for x in ['VGA', '3D', 'DISPLAY']):
-                                        gpu = {
-                                            'pci_address': pci_addr,
-                                            'vendor': vendor,
-                                            'device': device,
-                                            'class': device_class
-                                        }
-                                        # Identify NVIDIA models
-                                        if 'NVIDIA' in vendor.upper():
-                                            for model in ['A100', 'H100', 'V100', 'A40', 'A30', 'RTX', 'Tesla', 'Quadro']:
-                                                if model in device.upper():
-                                                    gpu['model'] = model
-                                                    break
-                                        gpus.append(gpu)
-                                    
-                                    # NIC detection (Ethernet, Network, InfiniBand)
-                                    elif any(x in device_class.upper() for x in ['ETHERNET', 'NETWORK', 'INFINIBAND']):
-                                        pci_nics.append({
-                                            'pci_address': pci_addr,
-                                            'vendor': vendor,
-                                            'device': device,
-                                            'class': device_class
-                                        })
-                                    
-                                    # Storage controller detection
-                                    elif any(x in device_class.upper() for x in ['SATA', 'SAS', 'RAID', 'NVM', 'SCSI', 'STORAGE']):
-                                        storage_controllers.append({
-                                            'pci_address': pci_addr,
-                                            'vendor': vendor,
-                                            'device': device,
-                                            'class': device_class
-                                        })
-                            
-                            # Store GPU info only if not already set
-                            if gpus:
-                                inventory.gpu_info = json.dumps(gpus)
-                                inventory.gpu_count = len(gpus)
-                                app.logger.info(f"SSH GPU for {bmc_ip}: {len(gpus)} GPUs - {[g.get('vendor', '') for g in gpus]}")
-                            
-                            # Store PCI NIC info (merge with interface info later)
-                            if pci_nics:
-                                app.logger.info(f"SSH PCI NICs for {bmc_ip}: {len(pci_nics)} network devices")
-                            
-                            # Store storage controller info
-                            if storage_controllers:
-                                app.logger.info(f"SSH Storage Controllers for {bmc_ip}: {len(storage_controllers)} controllers")
-                                
-                    except Exception as e:
-                        app.logger.debug(f"SSH PCI scan failed for {bmc_ip}: {e}")
-                
-                # ========== VIRSH for KVM hosts (fallback for passed-through devices) ==========
-                if not inventory.gpu_info:
-                    try:
-                        cmd = build_ssh_cmd("virsh nodedev-list --cap pci 2>/dev/null | head -50")
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
-                        if result.returncode == 0 and result.stdout.strip():
-                            devices = result.stdout.strip().split('\n')
-                            # Count device types
-                            nvidia_count = sum(1 for d in devices if 'nvidia' in d.lower())
-                            if nvidia_count > 0:
-                                inventory.gpu_info = json.dumps([{'vendor': 'NVIDIA', 'source': 'virsh', 'count': nvidia_count}])
-                                inventory.gpu_count = nvidia_count
-                                app.logger.info(f"SSH GPU (virsh) for {bmc_ip}: {nvidia_count} NVIDIA devices")
-                    except Exception as e:
-                        app.logger.debug(f"SSH virsh collection failed for {bmc_ip}: {e}")
-                
-                # ========== SYSTEM INFO via /sys (no root needed) ==========
-                if not inventory.manufacturer or not inventory.product:
-                    try:
-                        cmd = build_ssh_cmd("cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/product_name /sys/class/dmi/id/product_serial 2>/dev/null")
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                        if result.returncode == 0 and result.stdout.strip():
-                            lines = result.stdout.strip().split('\n')
-                            if len(lines) >= 1 and lines[0].strip():
-                                inventory.manufacturer = lines[0].strip()
-                            if len(lines) >= 2 and lines[1].strip():
-                                inventory.product = lines[1].strip()
-                            if len(lines) >= 3 and lines[2].strip():
-                                inventory.serial_number = lines[2].strip()
-                            app.logger.info(f"SSH System for {bmc_ip}: {inventory.manufacturer} {inventory.product}")
-                    except Exception as e:
-                        app.logger.debug(f"SSH system info collection failed for {bmc_ip}: {e}")
-                
-                # ========== NETWORK INTERFACES: detailed with speed/state (only if not from IPMI) ==========
-                if not inventory.nic_info:
-                    try:
-                        # Get interfaces with MAC, speed, state
-                        cmd = build_ssh_cmd('''for iface in $(ls /sys/class/net | grep -vE '^lo$|^veth|^br-|^docker|^virbr|^vnet'); do
-                            mac=$(cat /sys/class/net/$iface/address 2>/dev/null)
-                            speed=$(cat /sys/class/net/$iface/speed 2>/dev/null || echo "N/A")
-                            state=$(cat /sys/class/net/$iface/operstate 2>/dev/null || echo "unknown")
-                            echo "$iface|$mac|$speed|$state"
-                        done''')
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                        if result.returncode == 0 and result.stdout.strip():
-                            nics = []
-                            for line in result.stdout.strip().split('\n'):
-                                parts = line.split('|')
-                                if len(parts) >= 2 and parts[1].strip() and parts[1] != '00:00:00:00:00:00':
-                                    nic = {
-                                        'interface': parts[0].strip(),
-                                        'mac': parts[1].strip()
-                                    }
-                                    if len(parts) >= 3 and parts[2].strip() != 'N/A':
-                                        try:
-                                            speed = int(parts[2].strip())
-                                            nic['speed_mbps'] = speed
-                                            nic['speed'] = f"{speed // 1000}Gbps" if speed >= 1000 else f"{speed}Mbps"
-                                        except:
-                                            pass
-                                    if len(parts) >= 4:
-                                        nic['state'] = parts[3].strip()
-                                    nics.append(nic)
-                            if nics:
-                                inventory.nic_info = json.dumps(nics)
-                                inventory.nic_count = len(nics)
-                                app.logger.info(f"SSH NICs for {bmc_ip}: {len(nics)} interfaces - {[n.get('speed', 'N/A') for n in nics if n.get('speed')]}")
-                    except Exception as e:
-                        app.logger.debug(f"SSH NIC collection failed for {bmc_ip}: {e}")
-                
-                # ========== MEMORY DIMMs via /sys or lshw ==========
-                if not inventory.memory_slots_total:
-                    try:
-                        # Try to get DIMM count from sysfs first (doesn't need root)
-                        cmd = build_ssh_cmd("ls -1 /sys/devices/system/memory/memory* 2>/dev/null | wc -l")
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                        if result.returncode == 0 and result.stdout.strip():
-                            try:
-                                mem_blocks = int(result.stdout.strip())
-                                if mem_blocks > 0:
-                                    app.logger.debug(f"SSH Memory blocks for {bmc_ip}: {mem_blocks}")
-                            except:
-                                pass
-                    except Exception as e:
-                        app.logger.debug(f"SSH memory DIMM collection failed for {bmc_ip}: {e}")
-                
-                # ========== CPU: Enhanced with lscpu ==========
-                if not inventory.cpu_model:
-                    try:
-                        cmd = build_ssh_cmd("lscpu 2>/dev/null | grep -E 'Model name|Socket|Core|Thread|CPU\\(s\\):'")
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                        if result.returncode == 0 and result.stdout.strip():
-                            for line in result.stdout.strip().split('\n'):
-                                if 'Model name' in line:
-                                    inventory.cpu_model = line.split(':', 1)[1].strip()
-                                elif 'Socket(s)' in line:
-                                    try:
-                                        inventory.cpu_count = int(line.split(':')[1].strip())
-                                    except:
-                                        pass
-                                elif 'Core(s) per socket' in line:
-                                    try:
-                                        inventory.cpu_cores = int(line.split(':')[1].strip())
-                                    except:
-                                        pass
-                            app.logger.info(f"SSH CPU (lscpu) for {bmc_ip}: {inventory.cpu_model}")
-                    except Exception as e:
-                        app.logger.debug(f"SSH lscpu collection failed for {bmc_ip}: {e}")
-                
-                # ========== SENSORS via /sys/class/hwmon (no lm-sensors needed) ==========
-                try:
-                    cmd = build_ssh_cmd('''for hwmon in /sys/class/hwmon/hwmon*; do
-                        name=$(cat $hwmon/name 2>/dev/null || echo "unknown")
-                        for temp in $hwmon/temp*_input; do
-                            if [ -f "$temp" ]; then
-                                label=$(cat ${temp%_input}_label 2>/dev/null || basename $temp)
-                                val=$(cat $temp 2>/dev/null)
-                                if [ -n "$val" ]; then
-                                    echo "$name|$label|$val"
-                                fi
-                            fi
-                        done
-                    done | head -30''')
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0 and result.stdout.strip():
-                        sensors = []
-                        for line in result.stdout.strip().split('\n'):
-                            parts = line.split('|')
-                            if len(parts) >= 3:
-                                try:
-                                    temp_milli = int(parts[2])
-                                    sensors.append({
-                                        'source': parts[0],
-                                        'label': parts[1],
-                                        'value_c': temp_milli / 1000.0
+                                app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
+                        except json.JSONDecodeError:
+                            # Parse text output
+                            drives = []
+                            for line in result.stdout.strip().split('\n')[1:]:  # Skip header
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    drives.append({
+                                        'name': parts[0],
+                                        'size': parts[1] if len(parts) > 1 else 'Unknown',
+                                        'model': ' '.join(parts[2:-1]) if len(parts) > 3 else 'Unknown'
                                     })
-                                except:
-                                    pass
-                        if sensors:
-                            app.logger.info(f"SSH Sensors for {bmc_ip}: {len(sensors)} temperature readings")
+                            if drives:
+                                inventory.storage_info = json.dumps(drives)
+                                app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
                 except Exception as e:
-                    app.logger.debug(f"SSH sensor collection failed for {bmc_ip}: {e}")
+                    app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
                     
         except Exception as e:
             app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
@@ -8436,12 +8181,11 @@ def _run_migrations(inspector):
     """Run database migrations for new columns and tables"""
     try:
         existing_tables = inspector.get_table_names()
-        conn = db.engine.connect()
         
         # Migration 1: Add ssh_key table
         if 'ssh_key' not in existing_tables:
             app.logger.info("Migration: Creating ssh_key table...")
-            conn.execute(db.text('''
+            db.engine.execute('''
                 CREATE TABLE IF NOT EXISTS ssh_key (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name VARCHAR(50) NOT NULL UNIQUE,
@@ -8450,53 +8194,17 @@ def _run_migrations(inspector):
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
-            '''))
-            conn.commit()
+            ''')
             app.logger.info("Migration: ssh_key table created")
         
-        # Migration 2: Add SSH-related columns to server_config
+        # Migration 2: Add ssh_key_id column to server_config
         if 'server_config' in existing_tables:
             columns = [c['name'] for c in inspector.get_columns('server_config')]
-            
-            ssh_columns = [
-                ('ssh_user', "VARCHAR(50) DEFAULT 'root'"),
-                ('ssh_pass', 'VARCHAR(100)'),
-                ('ssh_key', 'TEXT'),
-                ('ssh_key_id', 'INTEGER'),
-                ('ssh_port', 'INTEGER DEFAULT 22'),
-            ]
-            
-            for col_name, col_type in ssh_columns:
-                if col_name not in columns:
-                    app.logger.info(f"Migration: Adding {col_name} to server_config...")
-                    try:
-                        conn.execute(db.text(f'ALTER TABLE server_config ADD COLUMN {col_name} {col_type}'))
-                        conn.commit()
-                        app.logger.info(f"Migration: {col_name} column added")
-                    except Exception as e:
-                        app.logger.warning(f"Migration: Could not add {col_name}: {e}")
+            if 'ssh_key_id' not in columns:
+                app.logger.info("Migration: Adding ssh_key_id to server_config...")
+                db.engine.execute('ALTER TABLE server_config ADD COLUMN ssh_key_id INTEGER')
+                app.logger.info("Migration: ssh_key_id column added")
         
-        # Migration 3: Add columns to server_inventory
-        if 'server_inventory' in existing_tables:
-            columns = [c['name'] for c in inspector.get_columns('server_inventory')]
-            
-            inv_columns = [
-                ('nic_info', 'TEXT'),
-                ('nic_count', 'INTEGER'),
-                ('storage_count', 'INTEGER'),
-            ]
-            
-            for col_name, col_type in inv_columns:
-                if col_name not in columns:
-                    app.logger.info(f"Migration: Adding {col_name} to server_inventory...")
-                    try:
-                        conn.execute(db.text(f'ALTER TABLE server_inventory ADD COLUMN {col_name} {col_type}'))
-                        conn.commit()
-                        app.logger.info(f"Migration: {col_name} column added")
-                    except Exception as e:
-                        app.logger.warning(f"Migration: Could not add {col_name}: {e}")
-        
-        conn.close()
         app.logger.info("Migrations complete")
     except Exception as e:
         app.logger.warning(f"Migration warning (may already be applied): {e}")
