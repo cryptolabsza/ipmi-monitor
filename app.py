@@ -4025,7 +4025,7 @@ def save_events_to_db(bmc_ip, server_name, events):
 
 def collection_scheduler():
     """Scheduler thread that queues collection jobs at intervals"""
-    print(f"[Scheduler] Started (interval: {POLL_INTERVAL}s, workers: {COLLECTION_WORKERS})", flush=True)
+    print(f"[Scheduler] Started (interval: {POLL_INTERVAL}s, workers: {get_collection_workers()})", flush=True)
     
     collection_count = 0
     
@@ -4066,7 +4066,7 @@ def collection_scheduler():
         _shutdown_event.wait(POLL_INTERVAL)
     
     # Shutdown: send poison pills to workers
-    for _ in range(COLLECTION_WORKERS):
+    for _ in range(get_collection_workers()):
         _collection_queue.put(None)
     
     print(f"[Scheduler] Stopped", flush=True)
@@ -4141,14 +4141,15 @@ def cleanup_timer():
 def background_collector():
     """Start all background threads - job queue architecture"""
     print(f"[IPMI Monitor] Starting job queue architecture...", flush=True)
-    print(f"[IPMI Monitor] Collection interval: {POLL_INTERVAL}s, Workers: {COLLECTION_WORKERS}", flush=True)
+    print(f"[IPMI Monitor] Collection interval: {POLL_INTERVAL}s, Workers: {get_collection_workers()} (CPU cores: {CPU_COUNT})", flush=True)
     print(f"[IPMI Monitor] Sync interval: {SYNC_INTERVAL}s (independent)", flush=True)
     print(f"[IPMI Monitor] Data retention: {DATA_RETENTION_DAYS} days", flush=True)
     
     threads = []
     
-    # Start collection workers
-    for i in range(COLLECTION_WORKERS):
+    # Start collection workers (based on configured worker count)
+    worker_count = get_collection_workers()
+    for i in range(worker_count):
         t = threading.Thread(target=collection_worker, args=(i,), daemon=True)
         t.start()
         threads.append(t)
