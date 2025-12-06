@@ -8319,13 +8319,27 @@ import fcntl
 
 def _run_migrations(inspector):
     """Run database migrations for new columns and tables"""
+    from sqlalchemy import text
+    
+    def execute_sql(sql):
+        """Execute SQL in a way compatible with both SQLAlchemy 1.x and 2.x"""
+        try:
+            # SQLAlchemy 2.x style
+            with db.engine.connect() as conn:
+                conn.execute(text(sql))
+                conn.commit()
+        except Exception:
+            # Fallback for older versions
+            db.session.execute(text(sql))
+            db.session.commit()
+    
     try:
         existing_tables = inspector.get_table_names()
         
         # Migration 1: Add ssh_key table
         if 'ssh_key' not in existing_tables:
             app.logger.info("Migration: Creating ssh_key table...")
-            db.engine.execute('''
+            execute_sql('''
                 CREATE TABLE IF NOT EXISTS ssh_key (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name VARCHAR(50) NOT NULL UNIQUE,
@@ -8342,7 +8356,7 @@ def _run_migrations(inspector):
             columns = [c['name'] for c in inspector.get_columns('server_config')]
             if 'ssh_key_id' not in columns:
                 app.logger.info("Migration: Adding ssh_key_id to server_config...")
-                db.engine.execute('ALTER TABLE server_config ADD COLUMN ssh_key_id INTEGER')
+                execute_sql('ALTER TABLE server_config ADD COLUMN ssh_key_id INTEGER')
                 app.logger.info("Migration: ssh_key_id column added")
         
         # Migration 3: Add pcie_health columns to server_inventory
@@ -8350,11 +8364,11 @@ def _run_migrations(inspector):
             columns = [c['name'] for c in inspector.get_columns('server_inventory')]
             if 'pcie_health' not in columns:
                 app.logger.info("Migration: Adding pcie_health to server_inventory...")
-                db.engine.execute('ALTER TABLE server_inventory ADD COLUMN pcie_health TEXT')
+                execute_sql('ALTER TABLE server_inventory ADD COLUMN pcie_health TEXT')
                 app.logger.info("Migration: pcie_health column added")
             if 'pcie_errors_count' not in columns:
                 app.logger.info("Migration: Adding pcie_errors_count to server_inventory...")
-                db.engine.execute('ALTER TABLE server_inventory ADD COLUMN pcie_errors_count INTEGER DEFAULT 0')
+                execute_sql('ALTER TABLE server_inventory ADD COLUMN pcie_errors_count INTEGER DEFAULT 0')
                 app.logger.info("Migration: pcie_errors_count column added")
         
         app.logger.info("Migrations complete")
