@@ -1131,6 +1131,63 @@
             </div>
             
             <div class="card">
+                <div class="card-title">💾 Backup & Restore</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Export or import your IPMI Monitor configuration including servers, settings, SSH keys, and alert rules.
+                </p>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+                    <!-- Local Backup -->
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;">
+                        <h4 style="margin: 0 0 10px 0;">📤 Export Configuration</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">
+                            Download your configuration as a JSON file.
+                        </p>
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="exportIncludeSecrets">
+                                <span style="font-size: 0.9rem;">Include passwords & SSH keys</span>
+                            </label>
+                        </div>
+                        <button class="btn btn-secondary" onclick="exportConfig()" style="width: 100%;">
+                            📥 Download Backup
+                        </button>
+                    </div>
+                    
+                    <!-- Local Restore -->
+                    <div style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px;">
+                        <h4 style="margin: 0 0 10px 0;">📥 Import Configuration</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">
+                            Restore from a previously exported JSON file.
+                        </p>
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="handleImportFile(this)">
+                        <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()" style="width: 100%;">
+                            📂 Select Backup File
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Cloud Backup (AI Subscription) -->
+                <div id="cloudBackupSection" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <h4 style="margin: 0 0 10px 0;">☁️ Cloud Backup <span id="cloudBackupBadge" style="font-size: 0.75rem; background: var(--accent-blue); color: white; padding: 2px 8px; border-radius: 10px; margin-left: 8px;">AI Subscription</span></h4>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px;">
+                        Automatically backup your configuration to the cloud. Linked to your WordPress account.
+                    </p>
+                    <div id="cloudBackupStatus" style="margin-bottom: 15px;">
+                        <span style="color: var(--text-secondary);">Checking status...</span>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="backupToCloud()" id="btnBackupToCloud" disabled>
+                            ☁️ Backup to Cloud
+                        </button>
+                        <button class="btn btn-secondary" onclick="showCloudBackups()" id="btnShowBackups" disabled>
+                            📋 View Backups
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
                 <div class="card-title">👥 User Management</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
                     Manage users with different access levels. <strong>Admin</strong> can make changes, <strong>Read-only</strong> can only view.
@@ -2450,6 +2507,184 @@
                 showAlert('Error updating worker setting', 'error');
             }
         }
+        
+        // ============ Backup & Restore Functions ============
+        
+        async function loadBackupStatus() {
+            try {
+                // Check if AI is enabled for cloud backup
+                const response = await fetch('/api/ai/status', { credentials: 'same-origin' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const cloudSection = document.getElementById('cloudBackupStatus');
+                    const btnBackup = document.getElementById('btnBackupToCloud');
+                    const btnShow = document.getElementById('btnShowBackups');
+                    
+                    if (data.enabled && data.subscription_valid) {
+                        cloudSection.innerHTML = `
+                            <span style="color: var(--accent-green);">✅ Cloud backup available</span>
+                            ${data.last_sync ? `<br><small style="color: var(--text-secondary);">Last sync: ${new Date(data.last_sync).toLocaleString()}</small>` : ''}
+                        `;
+                        btnBackup.disabled = false;
+                        btnShow.disabled = false;
+                    } else {
+                        cloudSection.innerHTML = `
+                            <span style="color: var(--text-secondary);">☁️ Cloud backup requires AI subscription</span>
+                            <br><a href="https://cryptolabs.co.za/ipmi-monitor" target="_blank" style="color: var(--accent-blue);">
+                                Upgrade to enable cloud backups →
+                            </a>
+                        `;
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load backup status:', e);
+            }
+        }
+        
+        async function exportConfig() {
+            const includeSecrets = document.getElementById('exportIncludeSecrets').checked;
+            try {
+                const url = `/api/config/export?download=true&include_secrets=${includeSecrets}`;
+                window.location.href = url;
+                showAlert('Configuration exported', 'success');
+            } catch (e) {
+                showAlert('Failed to export configuration', 'error');
+            }
+        }
+        
+        function handleImportFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const config = JSON.parse(e.target.result);
+                    
+                    // Show confirmation
+                    const serverCount = config.servers?.length || 0;
+                    const keyCount = config.ssh_keys?.length || 0;
+                    const alertCount = config.alert_rules?.length || 0;
+                    
+                    if (!confirm(`Import configuration?\n\n` +
+                        `• ${serverCount} servers\n` +
+                        `• ${keyCount} SSH keys\n` +
+                        `• ${alertCount} alert rules\n\n` +
+                        `Existing items will be updated, new items will be added.`)) {
+                        return;
+                    }
+                    
+                    const response = await fetch('/api/config/import?merge=true', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        credentials: 'same-origin',
+                        body: JSON.stringify(config)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok) {
+                        showAlert(`Configuration imported! Servers: ${result.results.servers.imported} new, ${result.results.servers.updated} updated`, 'success');
+                        // Reload the page to show new data
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showAlert(result.error || 'Import failed', 'error');
+                    }
+                } catch (e) {
+                    showAlert('Invalid configuration file: ' + e.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            input.value = ''; // Reset input
+        }
+        
+        async function backupToCloud() {
+            if (!confirm('Backup your configuration to the cloud?\n\nThis will store an encrypted copy linked to your WordPress account.')) {
+                return;
+            }
+            
+            try {
+                showAlert('Backing up to cloud...', 'info');
+                
+                const response = await fetch('/api/config/backup-to-cloud', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Configuration backed up to cloud!', 'success');
+                } else {
+                    showAlert(result.error || 'Cloud backup failed', 'error');
+                }
+            } catch (e) {
+                showAlert('Cloud backup failed: ' + e.message, 'error');
+            }
+        }
+        
+        async function showCloudBackups() {
+            try {
+                const response = await fetch('/api/config/cloud-backups', { credentials: 'same-origin' });
+                const data = await response.json();
+                
+                if (!response.ok || !data.backups?.length) {
+                    showAlert('No cloud backups found', 'info');
+                    return;
+                }
+                
+                const backupList = data.backups.map(b => 
+                    `• ${new Date(b.backed_up_at).toLocaleString()} (${b.server_count} servers)`
+                ).join('\n');
+                
+                const selected = prompt(
+                    `Available cloud backups:\n\n${backupList}\n\n` +
+                    `Enter backup ID to restore (or 'latest'):`,
+                    'latest'
+                );
+                
+                if (selected) {
+                    await restoreFromCloud(selected);
+                }
+            } catch (e) {
+                showAlert('Failed to list backups: ' + e.message, 'error');
+            }
+        }
+        
+        async function restoreFromCloud(backupId) {
+            if (!confirm(`Restore configuration from cloud backup?\n\nBackup: ${backupId}\n\nExisting items will be merged with the backup.`)) {
+                return;
+            }
+            
+            try {
+                showAlert('Restoring from cloud...', 'info');
+                
+                const response = await fetch(`/api/config/restore-from-cloud?backup_id=${backupId}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Configuration restored from cloud!', 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert(result.error || 'Restore failed', 'error');
+                }
+            } catch (e) {
+                showAlert('Restore failed: ' + e.message, 'error');
+            }
+        }
+        
+        // Load backup status when security tab loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if we're on security tab
+            const securityTab = document.getElementById('security');
+            if (securityTab) {
+                loadBackupStatus();
+            }
+        });
         
         async function createUser() {
             const username = document.getElementById('newUserUsername').value.trim();
