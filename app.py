@@ -8132,7 +8132,7 @@ def api_oauth_callback():
         config.sync_enabled = True
         config.subscription_tier = subscription
         config.subscription_valid = True
-        config.max_servers = 50 if subscription == 'professional' else 10
+        config.max_servers = 500 if subscription == 'professional' else 50
         
         # Link the current IPMI Monitor admin to the WordPress account
         current_username = session.get('username')
@@ -8273,7 +8273,7 @@ def api_get_ai_results():
     if not CloudSync.is_ai_enabled():
         return jsonify({
             'enabled': False,
-            'message': 'AI features not enabled. Upgrade to Standard plan for AI insights.',
+            'message': 'AI features not enabled. Upgrade to Standard plan ($100/mo) for AI insights.',
             'upgrade_url': 'https://cryptolabs.co.za/ipmi-monitor'
         })
     

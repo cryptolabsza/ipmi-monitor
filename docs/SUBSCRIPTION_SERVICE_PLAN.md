@@ -7,8 +7,9 @@ Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS produ
 | Tier | Price | Servers | Tokens/mo | What's Included |
 |------|-------|---------|-----------|-----------------|
 | **Free** | $0 | Unlimited | - | Monitoring, dashboard, CSV export, Prometheus/Grafana |
-| **Standard** | $15/mo | 10 | 100K | + AI summaries, predictions, RCA, chat, alerting |
-| **Professional** | $50/mo | 50 | 1M | All Standard features + priority support |
+| **Standard** | $100/mo | 50 | 1M | + AI summaries, predictions, RCA, chat, alerting |
+| **Standard+** | +$15/10 servers | 51+ | +100K | Additional servers at $15/10 servers |
+| **Professional** | $500/mo | 500 | 10M | All features + priority support |
 
 **Key Principle**: All AI logic, prompts, and playbooks remain on CryptoLabs servers. Customers cannot bypass by adding their own LLM tokens.
 
@@ -110,7 +111,7 @@ Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS produ
 
 ---
 
-### 💎 STANDARD TIER ($15/month) - PHASE 2
+### 💎 STANDARD TIER ($100/month) - PHASE 2
 
 **Pricing:**
 - $29/month for up to 50 servers
@@ -687,8 +688,9 @@ GET /ipmi/v1/subscription/status
 
 | Product | Price | Description |
 |---------|-------|-------------|
-| IPMI Monitor Standard | $15/mo | 10 servers, 100K tokens, AI features |
-| IPMI Monitor Professional | $50/mo | 50 servers, 1M tokens, priority support |
+| IPMI Monitor Standard | $100/mo | 50 servers, 1M tokens, AI features |
+| IPMI Monitor Standard+ | +$15/10 servers | Additional servers + 100K tokens each |
+| IPMI Monitor Professional | $500/mo | 500 servers, 10M tokens, priority support |
 | Additional Servers | $1/server/mo | For 51+ servers |
 
 ### Revenue Projections
