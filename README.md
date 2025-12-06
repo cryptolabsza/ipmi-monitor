@@ -174,15 +174,21 @@ Upload a file in Settings → Server List → Import:
 servers:
   - name: server-01
     bmc_ip: 192.168.1.100
+    
   - name: server-02
     bmc_ip: 192.168.1.101
+    server_ip: 10.0.0.101        # OS IP for SSH inventory (optional)
+    public_ip: 203.0.113.50      # External IP for documentation (optional)
+    ipmi_user: admin
+    ipmi_pass: secretpass
+    notes: Production database
 ```
 
 **CSV**:
 ```csv
-name,bmc_ip,ipmi_user,ipmi_pass
-server-01,192.168.1.100,,
-server-02,192.168.1.101,admin,pass123
+name,bmc_ip,server_ip,public_ip,ipmi_user,ipmi_pass,notes
+server-01,192.168.1.100,10.0.0.100,,,
+server-02,192.168.1.101,10.0.0.101,203.0.113.50,admin,pass123,Edge server
 ```
 
 ---

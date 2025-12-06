@@ -229,13 +229,35 @@ Import servers from a YAML/JSON file:
 ```yaml
 # servers.yaml example
 servers:
+  # Minimal - just name and BMC IP
   - name: server-01
     bmc_ip: 192.168.1.100
-    server_ip: 192.168.1.101
+    
+  # Full configuration with all optional fields
   - name: server-02
-    bmc_ip: 192.168.1.102
-    server_ip: 192.168.1.103
+    bmc_ip: 192.168.1.102       # Required: BMC/IPMI IP
+    server_ip: 10.0.0.102       # Optional: OS IP for SSH inventory
+    public_ip: 203.0.113.50     # Optional: External/public IP (documentation)
+    ipmi_user: admin            # Optional: Per-server IPMI username
+    ipmi_pass: secretpass       # Optional: Per-server IPMI password
+    ssh_user: root              # Optional: SSH username (default: root)
+    ssh_key_name: production    # Optional: Name of stored SSH key
+    notes: Production database  # Optional: Notes/description
 ```
+
+**Available fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | ✅ Yes | Display name for the server |
+| `bmc_ip` | ✅ Yes | BMC/IPMI management IP |
+| `server_ip` | No | OS IP address (for SSH inventory) |
+| `public_ip` | No | Public/external IP (for reference) |
+| `ipmi_user` | No | IPMI username (uses default if not set) |
+| `ipmi_pass` | No | IPMI password (uses default if not set) |
+| `ssh_user` | No | SSH username (default: root) |
+| `ssh_key_name` | No | Name of a stored SSH key to use |
+| `notes` | No | Notes or description |
 
 ### SSH Configuration
 

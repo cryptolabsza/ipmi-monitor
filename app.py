@@ -1049,9 +1049,10 @@ SERVERS = DEFAULT_SERVERS
 class Server(db.Model):
     """Server inventory - managed dynamically"""
     id = db.Column(db.Integer, primary_key=True)
-    bmc_ip = db.Column(db.String(20), nullable=False, unique=True)
+    bmc_ip = db.Column(db.String(45), nullable=False, unique=True)  # IPv6 support
     server_name = db.Column(db.String(50), nullable=False)
-    server_ip = db.Column(db.String(20))  # OS IP (usually .1)
+    server_ip = db.Column(db.String(45))  # OS IP (usually .1) - IPv6 support
+    public_ip = db.Column(db.String(45))  # External/public IP (optional, for reference)
     enabled = db.Column(db.Boolean, default=True)
     use_nvidia_password = db.Column(db.Boolean, default=False)  # Needs 16-char password
     protocol = db.Column(db.String(20), default='auto')  # 'auto', 'ipmi', 'redfish'
@@ -4869,6 +4870,7 @@ def api_managed_servers():
         'bmc_ip': s.bmc_ip,
         'server_name': s.server_name,
         'server_ip': s.server_ip,
+        'public_ip': s.public_ip,
         'enabled': s.enabled,
         'status': s.status or 'active',
         'deprecated_at': s.deprecated_at.isoformat() if s.deprecated_at else None,
@@ -5224,6 +5226,7 @@ def api_import_servers():
             if existing:
                 existing.server_name = server_name
                 existing.server_ip = server_data.get('server_ip', bmc_ip.replace('.0', '.1'))
+                existing.public_ip = server_data.get('public_ip')
                 existing.enabled = server_data.get('enabled', True)
                 existing.use_nvidia_password = server_data.get('use_nvidia_password', False)
                 existing.notes = server_data.get('notes', '')
@@ -5233,6 +5236,7 @@ def api_import_servers():
                     bmc_ip=bmc_ip,
                     server_name=server_name,
                     server_ip=server_data.get('server_ip', bmc_ip.replace('.0', '.1')),
+                    public_ip=server_data.get('public_ip'),
                     enabled=server_data.get('enabled', True),
                     use_nvidia_password=server_data.get('use_nvidia_password', False),
                     notes=server_data.get('notes', '')
@@ -6192,6 +6196,7 @@ def import_servers_to_database(servers_data):
             if existing:
                 existing.server_name = server_name
                 existing.server_ip = server_data.get('server_ip', bmc_ip.replace('.0', '.1'))
+                existing.public_ip = server_data.get('public_ip')
                 existing.enabled = server_data.get('enabled', True)
                 existing.use_nvidia_password = server_data.get('use_nvidia_password', False)
                 existing.notes = server_data.get('notes', '')
@@ -6201,6 +6206,7 @@ def import_servers_to_database(servers_data):
                     bmc_ip=bmc_ip,
                     server_name=server_name,
                     server_ip=server_data.get('server_ip', bmc_ip.replace('.0', '.1')),
+                    public_ip=server_data.get('public_ip'),
                     enabled=server_data.get('enabled', True),
                     use_nvidia_password=server_data.get('use_nvidia_password', False),
                     notes=server_data.get('notes', '')
@@ -8393,6 +8399,7 @@ def api_export_config():
             'name': s.server_name,
             'bmc_ip': s.bmc_ip,
             'server_ip': s.server_ip,
+            'public_ip': s.public_ip,
             'enabled': s.enabled,
             'notes': s.notes,
         }
@@ -8540,6 +8547,7 @@ def api_import_config():
                         if merge:
                             existing.server_name = name
                             existing.server_ip = server_data.get('server_ip')
+                            existing.public_ip = server_data.get('public_ip')
                             existing.notes = server_data.get('notes')
                             existing.enabled = server_data.get('enabled', True)
                             results['servers']['updated'] += 1
@@ -8550,6 +8558,7 @@ def api_import_config():
                             bmc_ip=bmc_ip,
                             server_name=name,
                             server_ip=server_data.get('server_ip'),
+                            public_ip=server_data.get('public_ip'),
                             notes=server_data.get('notes'),
                             enabled=server_data.get('enabled', True)
                         )
@@ -8660,6 +8669,7 @@ def api_backup_to_cloud():
                 'name': s.server_name,
                 'bmc_ip': s.bmc_ip,
                 'server_ip': s.server_ip,
+                'public_ip': s.public_ip,
                 'enabled': s.enabled,
                 'notes': s.notes,
             } for s in servers],
@@ -8946,6 +8956,14 @@ def _run_migrations(inspector):
                 app.logger.info("Migration: Adding pcie_errors_count to server_inventory...")
                 execute_sql('ALTER TABLE server_inventory ADD COLUMN pcie_errors_count INTEGER DEFAULT 0')
                 app.logger.info("Migration: pcie_errors_count column added")
+        
+        # Migration 4: Add public_ip column to server table
+        if 'server' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server')]
+            if 'public_ip' not in columns:
+                app.logger.info("Migration: Adding public_ip to server...")
+                execute_sql('ALTER TABLE server ADD COLUMN public_ip VARCHAR(45)')
+                app.logger.info("Migration: public_ip column added")
         
         app.logger.info("Migrations complete")
     except Exception as e:
