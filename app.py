@@ -1513,6 +1513,9 @@ class ServerInventory(db.Model):
     # GPU info (JSON)
     gpu_info = db.Column(db.Text)  # JSON: [{"name": "NVIDIA A100", "memory": "80GB", "uuid": "..."}]
     gpu_count = db.Column(db.Integer)
+    # PCIe health (JSON) - collected via lspci -vvv and setpci
+    pcie_health = db.Column(db.Text)  # JSON: [{"device": "01:00.0", "name": "GPU", "status": "ok|error", "errors": [...]}]
+    pcie_errors_count = db.Column(db.Integer, default=0)  # Count of devices with errors
     # IP addresses
     primary_ip = db.Column(db.String(20))  # OS IP (e.g., 88.0.x.1)
     primary_ip_reachable = db.Column(db.Boolean, default=True)
@@ -1546,6 +1549,8 @@ class ServerInventory(db.Model):
             'storage_info': json.loads(self.storage_info) if self.storage_info else [],
             'gpu_info': json.loads(self.gpu_info) if self.gpu_info else [],
             'gpu_count': self.gpu_count,
+            'pcie_health': json.loads(self.pcie_health) if self.pcie_health else [],
+            'pcie_errors_count': self.pcie_errors_count or 0,
             'primary_ip': self.primary_ip,
             'primary_ip_reachable': self.primary_ip_reachable,
             'primary_ip_last_check': self.primary_ip_last_check.isoformat() if self.primary_ip_last_check else None,
@@ -5714,6 +5719,112 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                 app.logger.info(f"SSH Storage for {bmc_ip}: {len(drives)} drives")
                 except Exception as e:
                     app.logger.debug(f"SSH storage collection failed for {bmc_ip}: {e}")
+                
+                # PCIe health check via lspci -vvv (checks AER, link status)
+                try:
+                    # Get PCIe devices with verbose info including AER status
+                    cmd = build_ssh_cmd('lspci -vvv 2>/dev/null | grep -E "^[0-9a-f]|DevSta:|LnkSta:|UESta:|CESta:|AER" | head -500')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                    
+                    pcie_devices = []
+                    current_device = None
+                    error_count = 0
+                    
+                    if result.returncode == 0 and result.stdout:
+                        for line in result.stdout.split('\n'):
+                            line = line.strip()
+                            
+                            # New device header: "01:00.0 VGA compatible controller: NVIDIA..."
+                            if re.match(r'^[0-9a-f]{2}:[0-9a-f]{2}\.[0-9a-f]', line):
+                                if current_device:
+                                    pcie_devices.append(current_device)
+                                    if current_device.get('errors'):
+                                        error_count += 1
+                                
+                                parts = line.split(' ', 1)
+                                device_id = parts[0]
+                                device_name = parts[1] if len(parts) > 1 else 'Unknown'
+                                current_device = {
+                                    'device': device_id,
+                                    'name': device_name[:100],  # Truncate long names
+                                    'status': 'ok',
+                                    'errors': [],
+                                    'link_status': None
+                                }
+                            
+                            elif current_device:
+                                # DevSta: CorrErr+ NonFatalErr- FatalErr- UnssupportReq+
+                                if 'DevSta:' in line:
+                                    # Check for error flags
+                                    if 'FatalErr+' in line:
+                                        current_device['errors'].append('FatalError')
+                                        current_device['status'] = 'critical'
+                                    if 'NonFatalErr+' in line:
+                                        current_device['errors'].append('NonFatalError')
+                                        if current_device['status'] != 'critical':
+                                            current_device['status'] = 'warning'
+                                    if 'UnssupportReq+' in line or 'UnsupportReq+' in line:
+                                        current_device['errors'].append('UnsupportedRequest')
+                                        if current_device['status'] == 'ok':
+                                            current_device['status'] = 'warning'
+                                
+                                # LnkSta: Speed 16GT/s, Width x16
+                                if 'LnkSta:' in line:
+                                    speed_match = re.search(r'Speed\s+(\S+)', line)
+                                    width_match = re.search(r'Width\s+(x\d+)', line)
+                                    if speed_match or width_match:
+                                        current_device['link_status'] = {
+                                            'speed': speed_match.group(1) if speed_match else None,
+                                            'width': width_match.group(1) if width_match else None
+                                        }
+                                
+                                # UESta: (Uncorrectable Error Status)
+                                if 'UESta:' in line:
+                                    # Check for non-zero error bits
+                                    ue_errors = re.findall(r'(\w+)\+', line)
+                                    for err in ue_errors:
+                                        if err not in ['Supported']:  # Filter false positives
+                                            current_device['errors'].append(f'UE:{err}')
+                                            current_device['status'] = 'critical'
+                                
+                                # CESta: (Correctable Error Status)
+                                if 'CESta:' in line:
+                                    ce_errors = re.findall(r'(\w+)\+', line)
+                                    for err in ce_errors:
+                                        if err not in ['Supported']:
+                                            current_device['errors'].append(f'CE:{err}')
+                                            if current_device['status'] == 'ok':
+                                                current_device['status'] = 'warning'
+                        
+                        # Don't forget last device
+                        if current_device:
+                            pcie_devices.append(current_device)
+                            if current_device.get('errors'):
+                                error_count += 1
+                        
+                        # Filter to only include GPUs and devices with errors (to reduce noise)
+                        important_devices = [d for d in pcie_devices 
+                                           if d.get('errors') 
+                                           or 'VGA' in d.get('name', '') 
+                                           or 'NVIDIA' in d.get('name', '')
+                                           or '3D controller' in d.get('name', '')
+                                           or 'GPU' in d.get('name', '')]
+                        
+                        if important_devices:
+                            inventory.pcie_health = json.dumps(important_devices)
+                            inventory.pcie_errors_count = error_count
+                            
+                            # Log summary
+                            error_devices = [d for d in important_devices if d.get('errors')]
+                            if error_devices:
+                                app.logger.warning(f"PCIe errors for {bmc_ip}: {len(error_devices)} devices with errors")
+                                for d in error_devices:
+                                    app.logger.warning(f"  {d['device']}: {', '.join(d['errors'])}")
+                            else:
+                                app.logger.info(f"PCIe health for {bmc_ip}: {len(important_devices)} GPU/VGA devices, no errors")
+                        
+                except Exception as e:
+                    app.logger.debug(f"SSH PCIe health check failed for {bmc_ip}: {e}")
                     
         except Exception as e:
             app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
@@ -8233,6 +8344,18 @@ def _run_migrations(inspector):
                 app.logger.info("Migration: Adding ssh_key_id to server_config...")
                 db.engine.execute('ALTER TABLE server_config ADD COLUMN ssh_key_id INTEGER')
                 app.logger.info("Migration: ssh_key_id column added")
+        
+        # Migration 3: Add pcie_health columns to server_inventory
+        if 'server_inventory' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_inventory')]
+            if 'pcie_health' not in columns:
+                app.logger.info("Migration: Adding pcie_health to server_inventory...")
+                db.engine.execute('ALTER TABLE server_inventory ADD COLUMN pcie_health TEXT')
+                app.logger.info("Migration: pcie_health column added")
+            if 'pcie_errors_count' not in columns:
+                app.logger.info("Migration: Adding pcie_errors_count to server_inventory...")
+                db.engine.execute('ALTER TABLE server_inventory ADD COLUMN pcie_errors_count INTEGER DEFAULT 0')
+                app.logger.info("Migration: pcie_errors_count column added")
         
         app.logger.info("Migrations complete")
     except Exception as e:

@@ -256,7 +256,7 @@ For SSH inventory collection to work, the target server's OS needs these standar
 
 | Tool | Package | Used For | Required |
 |------|---------|----------|----------|
-| `lspci` | `pciutils` | GPU detection, NIC detection, storage controllers | ✅ Yes |
+| `lspci` | `pciutils` | GPU detection, NIC detection, PCIe health | ✅ Yes |
 | `lsblk` | `util-linux` | Storage devices (NVMe, SSD, HDD) | ✅ Yes |
 | `lscpu` | `util-linux` | CPU model, socket count, core count | ✅ Yes |
 | `/proc/cpuinfo` | (kernel) | CPU fallback if lscpu unavailable | Built-in |
@@ -266,6 +266,7 @@ For SSH inventory collection to work, the target server's OS needs these standar
 | `/sys/class/hwmon/` | (kernel) | Temperature sensors | Built-in |
 | `dmidecode` | `dmidecode` | Memory DIMM details (needs root) | Optional |
 | `virsh` | `libvirt` | KVM host device passthrough info | Optional |
+| `setpci` | `pciutils` | Advanced PCIe diagnostics | Optional |
 
 **Typical installation (Debian/Ubuntu):**
 ```bash
@@ -280,6 +281,20 @@ sudo dnf install pciutils util-linux
 > ⚠️ **Note:** SSH collection does NOT require `nvidia-smi` or any vendor drivers. GPU detection uses `lspci` which sees all PCI devices including GPUs passed through to VMs.
 
 > 💡 **Note:** No software installation is needed if you only use IPMI/Redfish for monitoring. SSH is purely supplemental.
+
+#### PCIe Health Monitoring
+
+When SSH is enabled, IPMI Monitor checks PCIe device health using `lspci -vvv`. This detects:
+
+| Error Type | Severity | Description |
+|------------|----------|-------------|
+| `FatalError` | Critical | PCIe fatal error - device may be non-functional |
+| `NonFatalError` | Warning | Recoverable PCIe error |
+| `UnsupportedRequest` | Warning | Device received unsupported PCIe request |
+| `UE:*` | Critical | Uncorrectable errors (AER) |
+| `CE:*` | Warning | Correctable errors (AER) |
+
+The inventory page shows PCIe health status for GPUs and VGA devices. Devices with errors are highlighted and logged as warnings.
 
 #### Enable SSH
 
