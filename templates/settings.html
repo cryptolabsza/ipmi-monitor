@@ -1107,6 +1107,30 @@
             </div>
             
             <div class="card">
+                <div class="card-title">⚡ Performance Settings</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Configure collection performance. More workers = faster parallel collection but more CPU/memory usage.
+                </p>
+                
+                <div class="form-group">
+                    <label>Collection Workers</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <select id="workerMode" onchange="updateWorkerMode()" style="flex: 1;">
+                            <option value="auto">Auto (use CPU cores)</option>
+                            <option value="fixed">Fixed number</option>
+                        </select>
+                        <input type="number" id="workerCount" min="1" max="64" value="4" 
+                               style="width: 80px; display: none;" onchange="updateWorkerCount()">
+                        <span id="workerInfo" style="color: var(--text-secondary); font-size: 0.9rem;"></span>
+                    </div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px;">
+                        <strong>Auto:</strong> Uses all available CPU cores (<span id="cpuCountDisplay">-</span> on this system).<br>
+                        <strong>Fixed:</strong> Set a specific number of parallel workers.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="card">
                 <div class="card-title">👥 User Management</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
                     Manage users with different access levels. <strong>Admin</strong> can make changes, <strong>Read-only</strong> can only view.
@@ -2274,6 +2298,9 @@
                 const settings = await settingsResponse.json();
                 document.getElementById('allowAnonymous').checked = settings.allow_anonymous_read === 'true';
                 
+                // Load worker settings
+                await loadWorkerSettings(settings);
+                
                 // Load users list
                 loadUserList();
                 
@@ -2346,6 +2373,81 @@
             } catch (e) {
                 showAlert('Error updating setting', 'error');
                 document.getElementById('allowAnonymous').checked = !allow;
+            }
+        }
+        
+        // Worker settings
+        let systemCpuCount = 4; // Will be updated from API
+        
+        async function loadWorkerSettings(settings) {
+            try {
+                // Get system info including CPU count
+                const sysResponse = await fetch('/api/system/info', { credentials: 'same-origin' });
+                if (sysResponse.ok) {
+                    const sysInfo = await sysResponse.json();
+                    systemCpuCount = sysInfo.cpu_count || 4;
+                    document.getElementById('cpuCountDisplay').textContent = systemCpuCount;
+                    document.getElementById('workerInfo').textContent = `(Current: ${sysInfo.current_workers} workers)`;
+                    
+                    // Set the UI based on configured value
+                    const configured = settings.collection_workers || 'auto';
+                    if (configured === 'auto' || configured === '0') {
+                        document.getElementById('workerMode').value = 'auto';
+                        document.getElementById('workerCount').style.display = 'none';
+                    } else {
+                        document.getElementById('workerMode').value = 'fixed';
+                        document.getElementById('workerCount').value = configured;
+                        document.getElementById('workerCount').style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load worker settings:', e);
+            }
+        }
+        
+        function updateWorkerMode() {
+            const mode = document.getElementById('workerMode').value;
+            const countInput = document.getElementById('workerCount');
+            
+            if (mode === 'auto') {
+                countInput.style.display = 'none';
+                saveWorkerSetting('auto');
+            } else {
+                countInput.style.display = 'block';
+                countInput.value = countInput.value || systemCpuCount;
+                saveWorkerSetting(countInput.value);
+            }
+        }
+        
+        function updateWorkerCount() {
+            const count = document.getElementById('workerCount').value;
+            if (count && parseInt(count) > 0) {
+                saveWorkerSetting(count);
+            }
+        }
+        
+        async function saveWorkerSetting(value) {
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ collection_workers: value })
+                });
+                
+                if (response.ok) {
+                    // Update the info display
+                    const sysResponse = await fetch('/api/system/info', { credentials: 'same-origin' });
+                    if (sysResponse.ok) {
+                        const sysInfo = await sysResponse.json();
+                        document.getElementById('workerInfo').textContent = `(Current: ${sysInfo.current_workers} workers)`;
+                    }
+                    showAlert(`Worker setting updated to ${value === 'auto' ? 'auto (' + systemCpuCount + ' cores)' : value + ' workers'}`, 'success');
+                } else {
+                    showAlert('Failed to update worker setting', 'error');
+                }
+            } catch (e) {
+                showAlert('Error updating worker setting', 'error');
             }
         }
         

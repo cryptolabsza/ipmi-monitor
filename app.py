@@ -1346,6 +1346,7 @@ class SystemSettings(db.Model):
             'allow_anonymous_read': 'true',  # Allow anonymous users to view dashboard
             'session_timeout_hours': '24',
             'enable_ssh_inventory': 'false',  # SSH to OS for detailed inventory (requires SSH creds)
+            'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
         }
         for key, value in defaults.items():
             if not SystemSettings.query.filter_by(key=key).first():
@@ -3804,9 +3805,9 @@ def collect_all_events():
             app.logger.warning("No servers configured for collection")
             return
         
-        # Use ThreadPoolExecutor for parallel collection (10 workers)
+        # Use ThreadPoolExecutor for parallel collection
         try:
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor(max_workers=get_collection_workers()) as executor:
                 futures = {
                     executor.submit(collect_single_server, bmc_ip, server_name): (bmc_ip, server_name)
                     for bmc_ip, server_name in servers.items()
@@ -3917,8 +3918,24 @@ _collection_queue = Queue()
 _sensor_queue = Queue()
 
 # Configuration
-COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', 10))
+# Default workers to CPU count, can be overridden by env var or settings
+CPU_COUNT = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
+COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', CPU_COUNT))
 SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', 300))  # 5 minutes
+
+def get_collection_workers():
+    """Get the configured number of collection workers.
+    Priority: SystemSettings > Environment > CPU count
+    Returns: int - number of workers, or 0 for 'auto' (use CPU count)
+    """
+    try:
+        with app.app_context():
+            setting = SystemSettings.get('collection_workers', 'auto')
+            if setting == 'auto' or setting == '0':
+                return CPU_COUNT
+            return int(setting)
+    except:
+        return COLLECTION_WORKERS
 
 def collection_worker(worker_id):
     """Worker thread that processes collection jobs from the queue"""
@@ -4175,7 +4192,7 @@ def collect_all_sensors_background():
         print(f"[IPMI Monitor] Collecting sensors from {len(servers)} servers...", flush=True)
         collected = 0
         try:
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor(max_workers=get_collection_workers()) as executor:
                 futures = {
                     executor.submit(collect_single_server_sensors, bmc_ip, server_name): (bmc_ip, server_name)
                     for bmc_ip, server_name in servers.items()
@@ -6531,7 +6548,7 @@ def api_collect_sensors():
     def collect_all_sensors():
         with app.app_context():
             app.logger.info("Starting sensor collection...")
-            with ThreadPoolExecutor(max_workers=10) as executor:
+            with ThreadPoolExecutor(max_workers=get_collection_workers()) as executor:
                 futures = {
                     executor.submit(collect_single_server_sensors, bmc_ip, server_name): bmc_ip
                     for bmc_ip, server_name in SERVERS.items()
@@ -6754,7 +6771,7 @@ def api_check_all_redfish():
     def check_one(bmc_ip):
         return bmc_ip, check_redfish_available(bmc_ip)
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=get_collection_workers()) as executor:
         futures = [executor.submit(check_one, ip) for ip in servers.keys()]
         for future in as_completed(futures):
             try:
@@ -8140,6 +8157,17 @@ def api_update_settings():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/system/info', methods=['GET'])
+@admin_required
+def api_system_info():
+    """Get system information including CPU count for worker configuration"""
+    return jsonify({
+        'cpu_count': CPU_COUNT,
+        'current_workers': get_collection_workers(),
+        'configured_workers': SystemSettings.get('collection_workers', 'auto'),
+        'env_workers': os.environ.get('COLLECTION_WORKERS', None),
+    })
 
 @app.route('/api/settings/anonymous', methods=['GET'])
 def api_get_anonymous_setting():
