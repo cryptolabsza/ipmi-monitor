@@ -5874,12 +5874,13 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                         # Get server record
                                         server_record = Server.query.filter_by(bmc_ip=bmc_ip).first()
                                         if server_record:
-                                            # Check if we already logged this recently (prevent duplicates)
-                                            recent_event = Event.query.filter(
-                                                Event.server_id == server_record.id,
-                                                Event.description.contains(f'Xid {xid["xid_code"]}'),
-                                                Event.description.contains(xid['pci_address']),
-                                                Event.timestamp >= datetime.utcnow() - timedelta(hours=4)
+                                            # Generate a unique sel_id for Xid events (XID-pci-code)
+                                            xid_sel_id = f"XID-{xid['pci_address'][-5:]}-{xid['xid_code']}"
+                                            
+                                            # Check if we already logged this (using unique constraint)
+                                            recent_event = IPMIEvent.query.filter(
+                                                IPMIEvent.bmc_ip == bmc_ip,
+                                                IPMIEvent.sel_id == xid_sel_id
                                             ).first()
                                             
                                             if not recent_event:
@@ -5889,16 +5890,19 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                                 if xid['recovery_action']:
                                                     event_msg += f' | Recovery: {xid["recovery_action"]}'
                                                 
-                                                event = Event(
-                                                    server_id=server_record.id,
-                                                    description=event_desc,
-                                                    message=event_msg,
+                                                event = IPMIEvent(
+                                                    bmc_ip=bmc_ip,
+                                                    server_name=server_record.server_name,
+                                                    sel_id=xid_sel_id,
+                                                    event_date=datetime.utcnow(),
+                                                    sensor_type='GPU Xid Error',
+                                                    sensor_id=xid['pci_address'],
+                                                    event_description=event_desc,
                                                     severity='critical',
-                                                    timestamp=datetime.utcnow(),
-                                                    event_type='GPU_XID_ERROR'
+                                                    raw_entry=event_msg
                                                 )
                                                 db.session.add(event)
-                                                app.logger.warning(f"🔴 CRITICAL: {event_desc} on {server_record.name}")
+                                                app.logger.warning(f"🔴 CRITICAL: {event_desc} on {server_record.server_name}")
                             
                             try:
                                 db.session.commit()
@@ -8914,14 +8918,14 @@ def api_server_xid_errors(server_id):
     """Get Xid errors for a specific server"""
     server = Server.query.get_or_404(server_id)
     
-    # Get from events
-    xid_events = Event.query.filter(
-        Event.server_id == server_id,
-        Event.event_type == 'GPU_XID_ERROR'
-    ).order_by(Event.timestamp.desc()).limit(50).all()
+    # Get Xid events from IPMIEvent (sensor_type = 'GPU Xid Error')
+    xid_events = IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip == server.bmc_ip,
+        IPMIEvent.sensor_type == 'GPU Xid Error'
+    ).order_by(IPMIEvent.collected_at.desc()).limit(50).all()
     
-    # Also check inventory for recent Xid errors
-    inventory = ServerInventory.query.filter_by(server_name=server.name).first()
+    # Also check inventory for recent Xid errors from dmesg
+    inventory = ServerInventory.query.filter_by(server_name=server.server_name).first()
     raw_xid = []
     if inventory and inventory.raw_inventory:
         try:
@@ -8931,13 +8935,16 @@ def api_server_xid_errors(server_id):
             pass
     
     return jsonify({
-        'server_name': server.name,
+        'server_name': server.server_name,
+        'bmc_ip': server.bmc_ip,
         'events': [{
             'id': e.id,
-            'description': e.description,
-            'message': e.message,
+            'sel_id': e.sel_id,
+            'description': e.event_description,
+            'pci_address': e.sensor_id,
             'severity': e.severity,
-            'timestamp': e.timestamp.isoformat()
+            'raw_entry': e.raw_entry,
+            'timestamp': e.collected_at.isoformat() if e.collected_at else None
         } for e in xid_events],
         'recent_xid_errors': raw_xid,
         'critical_count': len([e for e in xid_events if e.severity == 'critical'])
