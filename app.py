@@ -5861,11 +5861,12 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
         except Exception as e:
             app.logger.debug(f"SDR inventory collection failed for {bmc_ip}: {e}")
     
-    # ========== CPU/Memory/Storage from SSH to OS (if enabled and reachable) ==========
+    # ========== CPU/Memory/Storage/GPU from SSH to OS (if enabled and reachable) ==========
     # SSH is opt-in - must be enabled in settings
     ssh_enabled = SystemSettings.get('enable_ssh_inventory', 'false').lower() == 'true'
     needs_ssh = (not inventory.cpu_model or not inventory.memory_total_gb or 
-                 not inventory.memory_slots_total or not inventory.storage_info)
+                 not inventory.memory_slots_total or not inventory.storage_info or
+                 not inventory.gpu_info)  # Also need SSH for GPU detection
     if ssh_enabled and server_ip and needs_ssh:
         try:
             # Check if SSH port is open
