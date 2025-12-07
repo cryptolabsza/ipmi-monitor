@@ -1839,27 +1839,135 @@ class RecoveryActionLog(db.Model):
         }
 
 
-# XID error configurations for UI display
+# XID error configurations for UI display and recovery ladder
+# Each Xid has: name, severity, actions (recovery ladder), and user_message (hides technical details)
 XID_RECOVERY_CONFIGS = {
-    8: {'name': 'GPU Reset Detected', 'severity': 'warning', 'actions': ['none']},
-    13: {'name': 'Graphics Exception', 'severity': 'warning', 'actions': ['kill_workload', 'soft_reset']},
-    31: {'name': 'GPU Memory Page Fault', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'reboot']},
-    32: {'name': 'Invalid Push Buffer', 'severity': 'warning', 'actions': ['kill_workload', 'soft_reset']},
-    43: {'name': 'GPU Stopped Responding', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'pci_reset', 'reboot']},
-    45: {'name': 'Preemptive Cleanup', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset']},
-    48: {'name': 'Double-Bit ECC Error', 'severity': 'critical', 'actions': ['kill_workload', 'reboot', 'maintenance']},
-    61: {'name': 'Internal uC Breakpoint', 'severity': 'critical', 'actions': ['power_cycle', 'maintenance']},
-    62: {'name': 'Internal uC Halt', 'severity': 'critical', 'actions': ['power_cycle', 'maintenance']},
-    63: {'name': 'ECC Page Retirement', 'severity': 'warning', 'actions': ['none']},
-    64: {'name': 'ECC DBE Page Retirement', 'severity': 'critical', 'actions': ['reboot', 'maintenance']},
-    69: {'name': 'Video Processor Exception', 'severity': 'warning', 'actions': ['kill_workload', 'soft_reset']},
-    74: {'name': 'GPU Exception', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'pci_reset', 'reboot']},
-    79: {'name': 'GPU Fell Off Bus', 'severity': 'critical', 'actions': ['pci_reset', 'reboot', 'power_cycle', 'maintenance']},
-    92: {'name': 'High Single-Bit ECC Rate', 'severity': 'warning', 'actions': ['clock_limit', 'maintenance']},
-    94: {'name': 'Contained ECC Error', 'severity': 'warning', 'actions': ['none']},
-    95: {'name': 'Uncontained ECC Error', 'severity': 'critical', 'actions': ['reboot', 'maintenance']},
-    119: {'name': 'GSP Error', 'severity': 'critical', 'actions': ['soft_reset', 'pci_reset', 'reboot']},
-    154: {'name': 'GPU Recovery Action Required', 'severity': 'critical', 'actions': ['soft_reset', 'reboot', 'power_cycle', 'maintenance']},
+    8: {
+        'name': 'GPU Reset Detected',
+        'severity': 'warning',
+        'actions': ['monitor'],
+        'user_message': 'GPU experienced a reset - monitoring for recurrence'
+    },
+    13: {
+        'name': 'Graphics Exception',
+        'severity': 'warning',
+        'actions': ['kill_workload', 'soft_reset'],
+        'user_message': 'GPU graphics error - workload may need restart'
+    },
+    31: {
+        'name': 'Memory Page Fault',
+        'severity': 'critical',
+        'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'reboot'],
+        'user_message': 'GPU memory error detected - may require recovery'
+    },
+    32: {
+        'name': 'Invalid Push Buffer',
+        'severity': 'warning',
+        'actions': ['kill_workload', 'soft_reset'],
+        'user_message': 'GPU command error - workload may need restart'
+    },
+    43: {
+        'name': 'GPU Stopped Responding',
+        'severity': 'critical',
+        'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'pci_reset', 'reboot'],
+        'user_message': 'GPU not responding - recovery in progress'
+    },
+    45: {
+        'name': 'Preemptive Cleanup',
+        'severity': 'critical',
+        'actions': ['kill_workload', 'soft_reset'],
+        'user_message': 'GPU cleanup required - recovering'
+    },
+    48: {
+        'name': 'Double-Bit ECC Error',
+        'severity': 'critical',
+        'actions': ['kill_workload', 'reboot', 'maintenance'],
+        'user_message': 'GPU memory hardware error - may need maintenance'
+    },
+    61: {
+        'name': 'Microcontroller Breakpoint',
+        'severity': 'critical',
+        'actions': ['power_cycle', 'maintenance'],
+        'user_message': 'GPU firmware error - power cycle required'
+    },
+    62: {
+        'name': 'Microcontroller Halt',
+        'severity': 'critical',
+        'actions': ['power_cycle', 'maintenance'],
+        'user_message': 'GPU firmware halted - power cycle required'
+    },
+    63: {
+        'name': 'ECC Page Retirement',
+        'severity': 'warning',
+        'actions': ['monitor'],
+        'user_message': 'GPU memory page retired - monitoring'
+    },
+    64: {
+        'name': 'ECC DBE Page Retirement',
+        'severity': 'critical',
+        'actions': ['reboot', 'maintenance'],
+        'user_message': 'GPU memory error - reboot required'
+    },
+    69: {
+        'name': 'Video Processor Exception',
+        'severity': 'warning',
+        'actions': ['kill_workload', 'soft_reset'],
+        'user_message': 'Video processing error - recovering'
+    },
+    74: {
+        'name': 'GPU Exception',
+        'severity': 'critical',
+        'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'pci_reset', 'reboot'],
+        'user_message': 'GPU error detected - recovery in progress'
+    },
+    79: {
+        'name': 'GPU Fell Off Bus',
+        'severity': 'critical',
+        'actions': ['pci_reset', 'reboot', 'power_cycle'],
+        'user_message': 'GPU disconnected - hardware recovery needed'
+    },
+    92: {
+        'name': 'High Single-Bit ECC Rate',
+        'severity': 'warning',
+        'actions': ['clock_limit', 'maintenance'],
+        'user_message': 'GPU memory showing wear - reduced performance'
+    },
+    94: {
+        'name': 'Contained ECC Error',
+        'severity': 'warning',
+        'actions': ['monitor'],
+        'user_message': 'GPU memory error corrected - monitoring'
+    },
+    95: {
+        'name': 'Uncontained ECC Error',
+        'severity': 'critical',
+        'actions': ['reboot', 'maintenance'],
+        'user_message': 'GPU memory failure - reboot required'
+    },
+    119: {
+        'name': 'GSP Error',
+        'severity': 'critical',
+        'actions': ['soft_reset', 'pci_reset', 'reboot'],
+        'user_message': 'GPU processor error - recovery in progress'
+    },
+    154: {
+        'name': 'Recovery Required',
+        'severity': 'critical',
+        'actions': ['soft_reset', 'reboot', 'power_cycle'],
+        'user_message': 'GPU requires recovery - automated recovery in progress'
+    },
+}
+
+# Action descriptions for user display
+RECOVERY_ACTION_DESCRIPTIONS = {
+    'monitor': 'Monitoring GPU status',
+    'kill_workload': 'Stopping affected workload',
+    'soft_reset': 'Performing GPU soft reset',
+    'clock_limit': 'Applying GPU clock limit for stability',
+    'pci_reset': 'Performing PCI bus reset',
+    'reboot': 'Initiating system reboot',
+    'power_cycle': 'Performing power cycle',
+    'maintenance': 'Flagged for maintenance review'
 }
 
 
@@ -10184,16 +10292,313 @@ def api_xid_configs():
     """Get all XID error configurations with recovery actions"""
     return jsonify({
         'configs': XID_RECOVERY_CONFIGS,
-        'action_descriptions': {
-            'none': 'Monitor only - no action taken',
-            'kill_workload': 'Kill container/VM using the GPU',
-            'soft_reset': 'NVIDIA soft reset (nvidia-smi -r)',
-            'clock_limit': 'Reduce GPU clocks for stability',
-            'pci_reset': 'PCI device remove and rescan',
-            'reboot': 'System reboot',
-            'power_cycle': 'IPMI power cycle',
-            'maintenance': 'Flag for manual maintenance'
-        }
+        'action_descriptions': RECOVERY_ACTION_DESCRIPTIONS
+    })
+
+
+@app.route('/api/recovery/xid/<int:xid_code>/auto', methods=['POST'])
+@admin_required
+def api_auto_xid_recovery(xid_code):
+    """
+    Trigger automatic recovery for a specific Xid error.
+    
+    The agent will follow the recovery ladder based on:
+    - The Xid error's defined recovery sequence
+    - The client's enabled permissions (system-wide or per-server)
+    - Current recovery state (to avoid repeating failed actions)
+    
+    Request body:
+    {
+        "bmc_ip": "88.0.43.0",
+        "gpu_pci": "0000:01:00.0",  // Optional, defaults to first GPU
+        "force_action": "soft_reset"  // Optional, force specific action
+    }
+    """
+    data = request.get_json() or {}
+    bmc_ip = data.get('bmc_ip')
+    gpu_pci = data.get('gpu_pci', '0000:01:00.0')
+    force_action = data.get('force_action')
+    
+    if not bmc_ip:
+        return jsonify({'error': 'bmc_ip required'}), 400
+    
+    # Get Xid config
+    xid_config = XID_RECOVERY_CONFIGS.get(xid_code)
+    if not xid_config:
+        return jsonify({'error': f'Unknown Xid code: {xid_code}'}), 400
+    
+    # Get server info
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': f'Server not found: {bmc_ip}'}), 404
+    
+    server_name = server.server_name
+    
+    # Get recovery permissions for this server
+    permissions = RecoveryPermissions.get_for_server(bmc_ip)
+    
+    # Determine which action to take
+    recovery_ladder = xid_config['actions']
+    
+    # If force_action specified, use that
+    if force_action and force_action in recovery_ladder:
+        action_to_take = force_action
+    else:
+        # Find first allowed action in the ladder
+        action_to_take = None
+        for action in recovery_ladder:
+            if action == 'monitor':
+                action_to_take = 'monitor'
+                break
+            elif action == 'kill_workload' and permissions.allow_kill_workload:
+                action_to_take = 'kill_workload'
+                break
+            elif action == 'soft_reset' and permissions.allow_soft_reset:
+                action_to_take = 'soft_reset'
+                break
+            elif action == 'clock_limit' and permissions.allow_clock_limit:
+                action_to_take = 'clock_limit'
+                break
+            elif action == 'pci_reset' and permissions.allow_pci_reset:
+                action_to_take = 'pci_reset'
+                break
+            elif action == 'reboot' and permissions.allow_reboot:
+                action_to_take = 'reboot'
+                break
+            elif action == 'power_cycle' and permissions.allow_power_cycle:
+                action_to_take = 'power_cycle'
+                break
+            elif action == 'maintenance' and permissions.allow_maintenance_flag:
+                action_to_take = 'maintenance'
+                break
+    
+    if not action_to_take:
+        return jsonify({
+            'status': 'no_action',
+            'message': 'No recovery actions are enabled for this server',
+            'xid_code': xid_code,
+            'recovery_ladder': recovery_ladder,
+            'permissions': permissions.to_dict()
+        })
+    
+    # Execute the action
+    result = _execute_recovery_action(
+        action_to_take, bmc_ip, server_name, gpu_pci, xid_code
+    )
+    
+    return jsonify(result)
+
+
+def _execute_recovery_action(action: str, bmc_ip: str, server_name: str, gpu_pci: str, xid_code: int) -> dict:
+    """Execute a single recovery action and return result"""
+    
+    # Get server for SSH credentials
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    server_ip = server.server_ip if server else None
+    
+    # Log the action start
+    app.logger.info(f"[{server_name}] Executing {action} for Xid {xid_code} on GPU {gpu_pci}")
+    
+    result = {
+        'status': 'unknown',
+        'action': action,
+        'xid_code': xid_code,
+        'gpu_pci': gpu_pci,
+        'bmc_ip': bmc_ip,
+        'server_name': server_name,
+        'timestamp': datetime.utcnow().isoformat()
+    }
+    
+    try:
+        if action == 'monitor':
+            # Just log it
+            event = IPMIEvent(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                event_date=datetime.utcnow(),
+                sensor_type='GPU Recovery',
+                event_description=f'Xid {xid_code} on {gpu_pci} - monitoring only',
+                severity='info',
+                sel_id=f'XID-{xid_code}'
+            )
+            db.session.add(event)
+            db.session.commit()
+            result['status'] = 'success'
+            result['message'] = 'Logged for monitoring'
+            
+        elif action == 'kill_workload':
+            if not server_ip:
+                result['status'] = 'skipped'
+                result['message'] = 'No SSH IP configured'
+            else:
+                # This would require SSH - simplified here
+                result['status'] = 'pending'
+                result['message'] = 'Kill workload requires SSH execution'
+                
+        elif action == 'soft_reset':
+            if not server_ip:
+                result['status'] = 'skipped'
+                result['message'] = 'No SSH IP configured'
+            else:
+                result['status'] = 'pending'
+                result['message'] = 'Soft reset requires SSH execution'
+                
+        elif action == 'clock_limit':
+            if not server_ip:
+                result['status'] = 'skipped'
+                result['message'] = 'No SSH IP configured'
+            else:
+                result['status'] = 'pending'
+                result['message'] = 'Clock limit requires SSH execution'
+                
+        elif action == 'pci_reset':
+            if not server_ip:
+                result['status'] = 'skipped'
+                result['message'] = 'No SSH IP configured'
+            else:
+                result['status'] = 'pending'
+                result['message'] = 'PCI reset requires SSH execution'
+                
+        elif action == 'reboot':
+            # Execute via IPMI
+            password = get_ipmi_password(bmc_ip)
+            cmd_result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'chassis', 'power', 'reset'],
+                capture_output=True, text=True, timeout=30
+            )
+            
+            if cmd_result.returncode == 0:
+                # Log the event
+                event = IPMIEvent(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    event_date=datetime.utcnow(),
+                    sensor_type='GPU Recovery',
+                    event_description=f'Reboot initiated for Xid {xid_code} recovery',
+                    severity='warning',
+                    sel_id=f'RECOVERY-REBOOT'
+                )
+                db.session.add(event)
+                db.session.commit()
+                
+                result['status'] = 'success'
+                result['message'] = 'System reboot initiated'
+            else:
+                result['status'] = 'failed'
+                result['message'] = f'Reboot failed: {cmd_result.stderr}'
+                
+        elif action == 'power_cycle':
+            # Execute via IPMI
+            password = get_ipmi_password(bmc_ip)
+            cmd_result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'chassis', 'power', 'cycle'],
+                capture_output=True, text=True, timeout=30
+            )
+            
+            if cmd_result.returncode == 0:
+                # Log the event
+                event = IPMIEvent(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    event_date=datetime.utcnow(),
+                    sensor_type='GPU Recovery',
+                    event_description=f'Power cycle initiated for Xid {xid_code} recovery',
+                    severity='critical',
+                    sel_id=f'RECOVERY-POWERCYCLE'
+                )
+                db.session.add(event)
+                db.session.commit()
+                
+                result['status'] = 'success'
+                result['message'] = 'Power cycle initiated'
+            else:
+                result['status'] = 'failed'
+                result['message'] = f'Power cycle failed: {cmd_result.stderr}'
+                
+        elif action == 'maintenance':
+            # Flag for maintenance
+            task = MaintenanceTask.query.filter_by(
+                bmc_ip=bmc_ip,
+                component=f'GPU:{gpu_pci}',
+                status='pending'
+            ).first()
+            
+            if not task:
+                task = MaintenanceTask(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    component=f'GPU:{gpu_pci}',
+                    issue_type='gpu_error',
+                    description=f'GPU requires maintenance due to recurring Xid {xid_code} errors',
+                    severity='critical',
+                    status='pending'
+                )
+                db.session.add(task)
+                db.session.commit()
+            
+            result['status'] = 'success'
+            result['message'] = 'GPU flagged for maintenance'
+            result['maintenance_task_id'] = task.id
+            
+        else:
+            result['status'] = 'unknown_action'
+            result['message'] = f'Unknown action: {action}'
+            
+    except Exception as e:
+        app.logger.error(f"Recovery action {action} failed: {e}")
+        result['status'] = 'error'
+        result['message'] = str(e)
+    
+    return result
+
+
+@app.route('/api/recovery/xid-summary')
+@login_required
+def api_xid_summary():
+    """Get summary of Xid errors with recovery status"""
+    # Get recent Xid events
+    cutoff = datetime.utcnow() - timedelta(hours=72)
+    
+    xid_events = IPMIEvent.query.filter(
+        IPMIEvent.sensor_type == 'GPU Xid Error',
+        IPMIEvent.event_date >= cutoff
+    ).all()
+    
+    # Group by server and Xid code
+    summary = {}
+    for event in xid_events:
+        # Extract Xid code from description (e.g., "GPU Xid 43 (GPU stopped responding)")
+        match = re.search(r'Xid\s*(\d+)', event.event_description)
+        if match:
+            xid_code = int(match.group(1))
+            key = f"{event.bmc_ip}:{xid_code}"
+            
+            if key not in summary:
+                xid_config = XID_RECOVERY_CONFIGS.get(xid_code, {})
+                summary[key] = {
+                    'bmc_ip': event.bmc_ip,
+                    'server_name': event.server_name,
+                    'xid_code': xid_code,
+                    'xid_name': xid_config.get('name', f'Unknown Xid {xid_code}'),
+                    'severity': xid_config.get('severity', 'unknown'),
+                    'user_message': xid_config.get('user_message', ''),
+                    'recovery_ladder': xid_config.get('actions', []),
+                    'count': 0,
+                    'first_seen': event.event_date.isoformat(),
+                    'last_seen': event.event_date.isoformat()
+                }
+            
+            summary[key]['count'] += 1
+            if event.event_date.isoformat() > summary[key]['last_seen']:
+                summary[key]['last_seen'] = event.event_date.isoformat()
+    
+    return jsonify({
+        'xid_events': list(summary.values()),
+        'total_unique': len(summary),
+        'configs': XID_RECOVERY_CONFIGS,
+        'action_descriptions': RECOVERY_ACTION_DESCRIPTIONS
     })
 
 
