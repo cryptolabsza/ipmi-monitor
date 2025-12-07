@@ -767,6 +767,11 @@
                 const data = await response.json();
                 
                 const badge = document.getElementById('powerStatusBadge');
+                if (!badge) {
+                    console.warn('Power status badge element not found');
+                    return;
+                }
+                
                 if (data.status === 'success') {
                     if (data.power_status === 'on') {
                         badge.textContent = 'ON';
