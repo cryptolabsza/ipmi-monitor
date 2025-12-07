@@ -6135,6 +6135,114 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
         except Exception as e:
             app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
     
+    # ========== ALWAYS check for GPU Xid errors via SSH (if SSH is enabled) ==========
+    # This runs independently of inventory collection since Xid errors are critical
+    if ssh_enabled and server_ip:
+        try:
+            # Get SSH credentials
+            server_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+            ssh_key_content = None
+            
+            if server_config:
+                ssh_user = server_config.ssh_user or 'root'
+                if server_config.ssh_key_id:
+                    stored_key = SSHKey.query.get(server_config.ssh_key_id)
+                    if stored_key:
+                        ssh_key_content = stored_key.key_content
+                elif server_config.ssh_key:
+                    ssh_key_content = server_config.ssh_key
+            else:
+                ssh_user = SystemSettings.get('ssh_user') or os.environ.get('SSH_USER', 'root')
+                default_key_id = SystemSettings.get('default_ssh_key_id')
+                if default_key_id:
+                    stored_key = SSHKey.query.get(int(default_key_id))
+                    if stored_key:
+                        ssh_key_content = stored_key.key_content
+            
+            # Build SSH command
+            def build_xid_ssh_cmd(remote_cmd):
+                ssh_opts = ['-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=yes']
+                if ssh_key_content:
+                    key_content_clean = ssh_key_content.replace('\r\n', '\n').strip() + '\n'
+                    key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+                    key_file.write(key_content_clean)
+                    key_file.close()
+                    os.chmod(key_file.name, 0o600)
+                    return ['ssh'] + ssh_opts + ['-i', key_file.name, f'{ssh_user}@{server_ip}', remote_cmd]
+                return None
+            
+            # Check for Xid errors
+            xid_cmd = build_xid_ssh_cmd('dmesg 2>/dev/null | grep -i "NVRM.*Xid" | tail -20')
+            if xid_cmd:
+                result = subprocess.run(xid_cmd, capture_output=True, text=True, timeout=15)
+                if result.returncode == 0 and result.stdout:
+                    xid_pattern = r'\[([\d.]+)\].*Xid.*\(PCI:([0-9a-f:]+)\).*?(\d+),?\s*(.*)'
+                    critical_xids = {
+                        31: 'GPU memory page fault', 43: 'GPU stopped responding',
+                        45: 'Preemptive cleanup', 48: 'Double bit ECC error',
+                        79: 'GPU fell off the bus', 94: 'Contained ECC error',
+                        95: 'Uncontained ECC error', 119: 'GSP error',
+                        154: 'GPU recovery action required'
+                    }
+                    
+                    xid_events_detected = []
+                    for line in result.stdout.strip().split('\n'):
+                        match = re.search(xid_pattern, line, re.IGNORECASE)
+                        if match:
+                            xid_code = int(match.group(3))
+                            pci_address = match.group(2)
+                            message = match.group(4).strip()
+                            
+                            if xid_code in critical_xids:
+                                xid_events_detected.append({
+                                    'pci_address': pci_address,
+                                    'xid_code': xid_code,
+                                    'message': message,
+                                    'description': critical_xids[xid_code]
+                                })
+                    
+                    if xid_events_detected:
+                        app.logger.warning(f"🔴 GPU Xid for {bmc_ip}: {len(xid_events_detected)} critical errors detected")
+                        
+                        # Create events for new Xid errors
+                        server_record = Server.query.filter_by(bmc_ip=bmc_ip).first()
+                        if server_record:
+                            seen = set()
+                            for xid in xid_events_detected:
+                                key = f"{xid['pci_address']}:{xid['xid_code']}"
+                                if key not in seen:
+                                    seen.add(key)
+                                    xid_sel_id = f"XID-{xid['pci_address'][-5:]}-{xid['xid_code']}"
+                                    
+                                    existing = IPMIEvent.query.filter(
+                                        IPMIEvent.bmc_ip == bmc_ip,
+                                        IPMIEvent.sel_id == xid_sel_id
+                                    ).first()
+                                    
+                                    if not existing:
+                                        event_desc = f'GPU Xid {xid["xid_code"]} ({xid["description"]}) on PCI:{xid["pci_address"]}'
+                                        event = IPMIEvent(
+                                            bmc_ip=bmc_ip,
+                                            server_name=server_record.server_name,
+                                            sel_id=xid_sel_id,
+                                            event_date=datetime.utcnow(),
+                                            sensor_type='GPU Xid Error',
+                                            sensor_id=xid['pci_address'],
+                                            event_description=event_desc,
+                                            severity='critical',
+                                            raw_entry=xid['message']
+                                        )
+                                        db.session.add(event)
+                                        app.logger.warning(f"🔴 NEW: {event_desc} on {server_record.server_name}")
+                            
+                            try:
+                                db.session.commit()
+                            except Exception as e:
+                                db.session.rollback()
+                                app.logger.error(f"Failed to save Xid events: {e}")
+        except Exception as e:
+            app.logger.debug(f"SSH Xid check failed for {bmc_ip}: {e}")
+    
     # Check primary IP reachability (use socket instead of ping)
     if server_ip:
         try:
