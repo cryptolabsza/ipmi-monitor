@@ -1521,11 +1521,105 @@
                     
                     <!-- AI Tabs -->
                     <div class="ai-tabs">
+                        <button class="ai-tab" onclick="switchAiTab('agent')" id="agentTabBtn">🤖 Agent</button>
                         <button class="ai-tab active" onclick="switchAiTab('summary')">📊 Summary</button>
                         <button class="ai-tab" onclick="switchAiTab('tasks')">🔧 Maintenance Tasks</button>
                         <button class="ai-tab" onclick="switchAiTab('predictions')">🔮 Predictions</button>
                         <button class="ai-tab" onclick="switchAiTab('rca')">🔍 RCA</button>
                         <button class="ai-tab" onclick="switchAiTab('chat')">💬 Chat</button>
+                    </div>
+                    
+                    <!-- Agent Tab (NEW) -->
+                    <div class="ai-tab-content" id="aiTabAgent">
+                        <div class="ai-options">
+                            <div class="ai-options-title">🤖 AI Agent - Autonomous Recovery</div>
+                            
+                            <!-- Agent Status -->
+                            <div id="agentStatus" style="background: var(--bg-secondary); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-weight: 600;">Agent Status</span>
+                                    <span id="agentStatusBadge" style="padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; background: var(--accent-green); color: white;">Active</span>
+                                </div>
+                                <div id="agentSummary" style="font-size: 0.9rem; color: var(--text-secondary);">
+                                    Analyzing fleet for issues...
+                                </div>
+                            </div>
+                            
+                            <!-- Auto-Recovery Toggle -->
+                            <div class="ai-option-group" style="background: var(--bg-secondary); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <label class="ai-option-label" style="margin-bottom: 4px; display: block;">Auto-Recovery</label>
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                                            Allow AI to automatically fix issues
+                                        </span>
+                                    </div>
+                                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                                        <input type="checkbox" id="autoRecoveryToggle" onchange="toggleAutoRecovery(this.checked)">
+                                        <span class="slider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--bg-tertiary); border-radius: 26px; transition: 0.3s;"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <!-- Recovery Permissions -->
+                            <div class="ai-option-group" id="recoveryPermissions" style="margin-bottom: 15px;">
+                                <label class="ai-option-label">Recovery Permissions:</label>
+                                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px;">
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <span>🎮 GPU Soft Reset (Xid 43)</span>
+                                            <input type="checkbox" name="agentPermission" value="xid_43" checked>
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <span>🔌 GPU PCI Reset (Xid 79)</span>
+                                            <input type="checkbox" name="agentPermission" value="xid_79">
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <span>⚡ GPU Recovery (Xid 154)</span>
+                                            <input type="checkbox" name="agentPermission" value="xid_154">
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <span>🌡️ Temperature Management</span>
+                                            <input type="checkbox" name="agentPermission" value="high_temp" checked>
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <span>💾 Disk Cleanup</span>
+                                            <input type="checkbox" name="agentPermission" value="disk_full" checked>
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <span>🧠 Memory Error Reset</span>
+                                            <input type="checkbox" name="agentPermission" value="memory_error" checked>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="ai-generate-btn" onclick="analyzeWithAgent()" id="agentAnalyzeBtn">
+                            <span>🤖</span> Analyze Fleet
+                        </button>
+                        
+                        <!-- Agent Results -->
+                        <div class="ai-output" id="agentOutput" style="display: none;">
+                            <div class="ai-output-header">
+                                <span class="ai-output-title">🤖 Agent Analysis</span>
+                                <span class="ai-output-time" id="agentTime"></span>
+                            </div>
+                            <div id="agentContent"></div>
+                        </div>
+                        
+                        <!-- Recovery History -->
+                        <div class="ai-output" id="recoveryHistory" style="margin-top: 15px;">
+                            <div class="ai-output-header">
+                                <span class="ai-output-title">📜 Recovery History</span>
+                                <button onclick="refreshRecoveryHistory()" style="padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-color); background: transparent; border-radius: 4px; cursor: pointer; color: var(--text-primary);">↻ Refresh</button>
+                            </div>
+                            <div id="recoveryHistoryContent" style="max-height: 200px; overflow-y: auto;">
+                                <p style="color: var(--text-secondary); text-align: center; padding: 20px;">
+                                    No recent recovery actions
+                                </p>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Summary Tab -->
@@ -1896,7 +1990,234 @@
             if (tabName === 'rca') {
                 loadEventsForRca();
             }
+            
+            // Load agent status when switching to Agent tab
+            if (tabName === 'agent') {
+                loadAgentStatus();
+            }
         }
+        
+        // ============== AI Agent Functions ==============
+        
+        let agentSettings = {
+            autoRecoveryEnabled: false,
+            permissions: {}
+        };
+        
+        async function loadAgentStatus() {
+            try {
+                const response = await fetch('/api/ai/agent/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateAgentStatusUI(data);
+                }
+            } catch (e) {
+                console.error('Failed to load agent status:', e);
+                document.getElementById('agentSummary').textContent = 'Agent status unavailable';
+            }
+        }
+        
+        async function loadAgentSettings() {
+            try {
+                const response = await fetch('/api/ai/agent/settings');
+                if (response.ok) {
+                    const data = await response.json();
+                    agentSettings = data.settings || agentSettings;
+                    
+                    // Update UI
+                    document.getElementById('autoRecoveryToggle').checked = agentSettings.autoRecoveryEnabled;
+                    
+                    // Update permission checkboxes
+                    if (agentSettings.permissions) {
+                        Object.entries(agentSettings.permissions).forEach(([key, enabled]) => {
+                            const checkbox = document.querySelector(`input[name="agentPermission"][value="${key}"]`);
+                            if (checkbox) checkbox.checked = enabled;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load agent settings:', e);
+            }
+        }
+        
+        async function toggleAutoRecovery(enabled) {
+            agentSettings.autoRecoveryEnabled = enabled;
+            await saveAgentSettings();
+            
+            // Update UI feedback
+            const badge = document.getElementById('agentStatusBadge');
+            if (enabled) {
+                badge.textContent = 'Auto-Recovery ON';
+                badge.style.background = 'var(--accent-green)';
+            } else {
+                badge.textContent = 'Monitor Only';
+                badge.style.background = 'var(--accent-blue)';
+            }
+        }
+        
+        async function saveAgentSettings() {
+            // Collect permissions from checkboxes
+            const permissions = {};
+            document.querySelectorAll('input[name="agentPermission"]').forEach(cb => {
+                permissions[cb.value] = cb.checked;
+            });
+            agentSettings.permissions = permissions;
+            
+            try {
+                await fetch('/api/ai/agent/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ settings: agentSettings })
+                });
+            } catch (e) {
+                console.error('Failed to save agent settings:', e);
+            }
+        }
+        
+        function updateAgentStatusUI(data) {
+            const summaryEl = document.getElementById('agentSummary');
+            const badgeEl = document.getElementById('agentStatusBadge');
+            
+            if (data.agent_enabled) {
+                badgeEl.textContent = agentSettings.autoRecoveryEnabled ? 'Auto-Recovery ON' : 'Monitor Only';
+                badgeEl.style.background = agentSettings.autoRecoveryEnabled ? 'var(--accent-green)' : 'var(--accent-blue)';
+                
+                summaryEl.innerHTML = `
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;">
+                        <span style="background: var(--bg-tertiary); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                            ✅ GPU Recovery
+                        </span>
+                        <span style="background: var(--bg-tertiary); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                            ✅ Disk Cleanup
+                        </span>
+                        <span style="background: var(--bg-tertiary); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem;">
+                            ✅ Temp Management
+                        </span>
+                    </div>
+                `;
+            } else {
+                badgeEl.textContent = 'Disabled';
+                badgeEl.style.background = 'var(--text-secondary)';
+                summaryEl.textContent = 'Agent is not available';
+            }
+        }
+        
+        async function analyzeWithAgent() {
+            const btn = document.getElementById('agentAnalyzeBtn');
+            const output = document.getElementById('agentOutput');
+            const content = document.getElementById('agentContent');
+            const timeEl = document.getElementById('agentTime');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Analyzing...';
+            
+            try {
+                const response = await fetch('/api/ai/agent/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        auto_recovery_enabled: agentSettings.autoRecoveryEnabled
+                    })
+                });
+                
+                if (!response.ok) throw new Error('Analysis failed');
+                
+                const data = await response.json();
+                
+                output.style.display = 'block';
+                timeEl.textContent = `Generated: ${new Date().toLocaleString()}`;
+                
+                // Format agent response
+                let html = `<div style="padding: 10px 0;"><h4 style="margin-bottom: 10px;">${data.summary}</h4>`;
+                
+                if (data.actions_taken && data.actions_taken.length > 0) {
+                    html += '<div style="margin-bottom: 15px;"><strong>🤖 Actions Taken:</strong><ul style="margin: 8px 0; padding-left: 20px;">';
+                    data.actions_taken.forEach(action => {
+                        html += `<li style="margin: 4px 0;"><span style="color: var(--accent-green);">✅</span> ${action.message}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                if (data.actions_pending && data.actions_pending.length > 0) {
+                    html += '<div style="margin-bottom: 15px;"><strong>⏳ Actions Pending (Enable Auto-Recovery):</strong><ul style="margin: 8px 0; padding-left: 20px;">';
+                    data.actions_pending.forEach(action => {
+                        html += `<li style="margin: 4px 0;"><span style="color: var(--accent-yellow);">⚠️</span> ${action.message}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                if (data.recommendations && data.recommendations.length > 0) {
+                    html += '<div style="margin-bottom: 15px;"><strong>📋 Recommendations:</strong><ul style="margin: 8px 0; padding-left: 20px;">';
+                    data.recommendations.forEach(rec => {
+                        const icon = rec.severity === 'critical' ? '🔴' : '⚠️';
+                        html += `<li style="margin: 4px 0;">${icon} ${rec.recommendation}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                if (data.critical_count === 0 && data.warning_count === 0) {
+                    html += '<p style="color: var(--accent-green);">✅ No issues detected - fleet is healthy!</p>';
+                }
+                
+                html += '</div>';
+                content.innerHTML = html;
+                
+            } catch (e) {
+                content.innerHTML = `<p style="color: var(--accent-red);">❌ Analysis failed: ${e.message}</p>`;
+                output.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>🤖</span> Analyze Fleet';
+            }
+        }
+        
+        async function refreshRecoveryHistory() {
+            const content = document.getElementById('recoveryHistoryContent');
+            
+            try {
+                const response = await fetch('/api/ai/agent/recovery/history');
+                if (!response.ok) throw new Error('Failed to load history');
+                
+                const data = await response.json();
+                
+                if (data.history && data.history.length > 0) {
+                    let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+                    data.history.forEach(item => {
+                        const icon = item.success ? '✅' : '❌';
+                        const time = new Date(item.timestamp).toLocaleString();
+                        html += `
+                            <div style="padding: 8px; background: var(--bg-tertiary); border-radius: 6px; font-size: 0.85rem;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span>${icon} ${item.action}</span>
+                                    <span style="color: var(--text-secondary);">${time}</span>
+                                </div>
+                                <div style="color: var(--text-secondary); margin-top: 4px;">${item.message}</div>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    content.innerHTML = html;
+                } else {
+                    content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">No recent recovery actions</p>';
+                }
+            } catch (e) {
+                content.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Could not load history</p>';
+            }
+        }
+        
+        // Load agent settings on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAgentSettings();
+        });
+        
+        // Save agent permissions when changed
+        document.addEventListener('change', function(e) {
+            if (e.target.name === 'agentPermission') {
+                saveAgentSettings();
+            }
+        });
+        
+        // ============== End AI Agent Functions ==============
         
         function startFreeTrial() {
             // Build the redirect URL back to this IPMI Monitor's OAuth callback

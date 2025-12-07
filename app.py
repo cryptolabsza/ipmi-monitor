@@ -8427,6 +8427,175 @@ def api_ai_rca():
         return jsonify({'error': str(e)}), 500
 
 
+# ============== AI Agent Endpoints ==============
+
+@app.route('/api/ai/agent/status')
+@login_required
+def api_ai_agent_status():
+    """Get AI Agent status and capabilities"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({
+            'agent_enabled': False,
+            'error': 'AI features not enabled'
+        })
+    
+    try:
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/agent/status",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'agent_enabled': False, 'error': 'Agent unavailable'})
+            
+    except Exception as e:
+        return jsonify({'agent_enabled': False, 'error': str(e)})
+
+
+@app.route('/api/ai/agent/settings', methods=['GET', 'POST'])
+@login_required
+def api_ai_agent_settings():
+    """Get or update AI Agent settings"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({'error': 'AI features not enabled'}), 403
+    
+    try:
+        if request.method == 'POST':
+            data = request.get_json()
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/agent/settings",
+                json=data,
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=30
+            )
+        else:
+            response = requests.get(
+                f"{config.AI_SERVICE_URL}/api/v1/agent/settings",
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=30
+            )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/agent/analyze', methods=['POST'])
+@login_required
+def api_ai_agent_analyze():
+    """Analyze fleet with AI Agent"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({'error': 'AI features not enabled'}), 403
+    
+    data = request.get_json() or {}
+    
+    # Add local event data to the request
+    try:
+        # Get recent events from local database
+        hours = data.get('hours', 24)
+        cutoff = datetime.now() - timedelta(hours=hours)
+        
+        events = Event.query.filter(Event.timestamp >= cutoff).order_by(Event.timestamp.desc()).limit(1000).all()
+        
+        event_list = [{
+            'event_id': e.id,
+            'server_name': e.server.name if e.server else 'Unknown',
+            'description': e.description,
+            'message': e.message,
+            'severity': e.severity,
+            'timestamp': e.timestamp.isoformat()
+        } for e in events]
+        
+        # Send to AI service for agent analysis
+        response = requests.post(
+            f"{config.AI_SERVICE_URL}/api/v1/agent/analyze",
+            json={
+                'events': event_list,
+                'auto_recovery_enabled': data.get('auto_recovery_enabled', False),
+                'server_name': data.get('server_name')
+            },
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=60
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/agent/recovery/status')
+@login_required
+def api_ai_agent_recovery_status():
+    """Get recovery status for servers"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({'error': 'AI features not enabled'}), 403
+    
+    server_id = request.args.get('server_id')
+    gpu_id = request.args.get('gpu_id')
+    
+    try:
+        params = {}
+        if server_id:
+            params['server_id'] = server_id
+        if gpu_id:
+            params['gpu_id'] = gpu_id
+            
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/agent/recovery/status",
+            params=params,
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/agent/recovery/history')
+@login_required
+def api_ai_agent_recovery_history():
+    """Get recovery action history"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({'history': [], 'error': 'AI features not enabled'})
+    
+    try:
+        # For now, return empty history - this will be populated from AI service
+        # In production, this would query the AI service for recovery history
+        return jsonify({
+            'history': [],
+            'message': 'Recovery history will appear here after agent actions'
+        })
+            
+    except Exception as e:
+        return jsonify({'history': [], 'error': str(e)})
+
+
 # ============== System Settings ==============
 
 @app.route('/api/settings', methods=['GET'])
