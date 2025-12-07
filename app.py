@@ -51,6 +51,89 @@ db = SQLAlchemy(app)
 # Branding - customize for your organization
 APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 
+# =============================================================================
+# VERSION INFORMATION
+# =============================================================================
+APP_VERSION = '1.6.0'  # Semantic version - update on releases
+
+def get_build_info():
+    """
+    Get build information including git commit and timestamp.
+    Build info is set during Docker build via build args.
+    """
+    return {
+        'version': APP_VERSION,
+        'git_branch': os.environ.get('GIT_BRANCH', 'unknown'),
+        'git_commit': os.environ.get('GIT_COMMIT', 'unknown')[:7] if os.environ.get('GIT_COMMIT') else 'dev',
+        'git_commit_full': os.environ.get('GIT_COMMIT', 'unknown'),
+        'build_time': os.environ.get('BUILD_TIME', 'unknown'),
+    }
+
+def get_version_string():
+    """Get formatted version string like: v1.6.0 (main@8d7150c, 2025-12-07 05:47 UTC)"""
+    info = get_build_info()
+    if info['git_commit'] != 'dev' and info['git_commit'] != 'unknown':
+        return f"v{info['version']} ({info['git_branch']}@{info['git_commit']}, {info['build_time']})"
+    return f"v{info['version']} (development)"
+
+def check_for_updates():
+    """
+    Check GitHub for newer releases.
+    Returns dict with update_available, latest_version, current_version.
+    """
+    try:
+        # Check GitHub API for latest release
+        response = requests.get(
+            'https://api.github.com/repos/cryptolabsza/ipmi-monitor/releases/latest',
+            timeout=5,
+            headers={'Accept': 'application/vnd.github.v3+json'}
+        )
+        if response.status_code == 200:
+            data = response.json()
+            latest_tag = data.get('tag_name', '').lstrip('v')
+            latest_commit = data.get('target_commitish', '')
+            published_at = data.get('published_at', '')
+            
+            # Also check main branch for latest commit
+            commits_response = requests.get(
+                'https://api.github.com/repos/cryptolabsza/ipmi-monitor/commits/main',
+                timeout=5,
+                headers={'Accept': 'application/vnd.github.v3+json'}
+            )
+            latest_main_commit = ''
+            latest_main_date = ''
+            if commits_response.status_code == 200:
+                commit_data = commits_response.json()
+                latest_main_commit = commit_data.get('sha', '')[:7]
+                latest_main_date = commit_data.get('commit', {}).get('committer', {}).get('date', '')
+            
+            current_info = get_build_info()
+            current_commit = current_info['git_commit_full'][:7] if current_info['git_commit_full'] != 'unknown' else ''
+            
+            # Check if update available
+            update_available = False
+            if latest_main_commit and current_commit and latest_main_commit != current_commit:
+                update_available = True
+            
+            return {
+                'update_available': update_available,
+                'current_version': APP_VERSION,
+                'current_commit': current_commit,
+                'latest_release': latest_tag,
+                'latest_release_date': published_at,
+                'latest_main_commit': latest_main_commit,
+                'latest_main_date': latest_main_date,
+                'release_notes_url': data.get('html_url', ''),
+                'docker_pull': 'docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest'
+            }
+    except Exception as e:
+        app.logger.debug(f"Update check failed: {e}")
+    
+    return {
+        'update_available': False,
+        'error': 'Could not check for updates'
+    }
+
 # Configure logging to work with gunicorn
 import logging
 import sys
@@ -4862,10 +4945,15 @@ def collect_all_sensors_background():
         
         print(f"[IPMI Monitor] Background sensor collection complete: {collected}/{len(servers)} servers", flush=True)
 
-# Template context processor - inject APP_NAME into all templates
+# Template context processor - inject APP_NAME and version into all templates
 @app.context_processor
-def inject_app_name():
-    return {'app_name': APP_NAME}
+def inject_app_globals():
+    return {
+        'app_name': APP_NAME,
+        'app_version': APP_VERSION,
+        'version_string': get_version_string(),
+        'build_info': get_build_info()
+    }
 
 # Routes
 @app.route('/')
@@ -8710,6 +8798,29 @@ def health_check():
     
     status_code = 200 if health_status['status'] == 'healthy' else 503
     return jsonify(health_status), status_code
+
+
+@app.route('/api/version')
+def api_version():
+    """Get current version and build information"""
+    info = get_build_info()
+    return jsonify({
+        'version': info['version'],
+        'version_string': get_version_string(),
+        'git_branch': info['git_branch'],
+        'git_commit': info['git_commit'],
+        'git_commit_full': info['git_commit_full'],
+        'build_time': info['build_time']
+    })
+
+
+@app.route('/api/version/check')
+def api_version_check():
+    """Check for available updates"""
+    update_info = check_for_updates()
+    update_info['current_version_string'] = get_version_string()
+    return jsonify(update_info)
+
 
 # ============== Authentication ==============
 

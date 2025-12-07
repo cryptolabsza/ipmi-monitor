@@ -1,5 +1,15 @@
 FROM python:3.11-slim
 
+# Build arguments for version info
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILD_TIME=unknown
+
+# Set as environment variables (available at runtime)
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV GIT_BRANCH=${GIT_BRANCH}
+ENV BUILD_TIME=${BUILD_TIME}
+
 # Install ipmitool, openssh-client, and sshpass (for detailed OS inventory via SSH)
 RUN apt-get update && apt-get install -y \
     ipmitool \

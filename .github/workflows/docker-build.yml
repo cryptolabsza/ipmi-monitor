@@ -50,6 +50,13 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Get build info
+        id: build_info
+        run: |
+          echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          echo "build_time=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -60,4 +67,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
+            GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
+            BUILD_TIME=${{ steps.build_info.outputs.build_time }}
 

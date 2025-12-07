@@ -1386,7 +1386,11 @@
                 <div class="logo-icon"><img src="{{ url_for('static', filename='favicon.png') }}" alt="Logo" style="width: 40px; height: 40px; border-radius: 8px;"></div>
                 <div>
                     <h1>{{ app_name }}</h1>
-                    <span class="last-updated" id="lastUpdated">Loading...</span>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <span class="version-badge" id="versionBadge" onclick="checkForUpdates()" style="cursor: pointer; font-size: 0.75rem; color: var(--text-secondary); background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px; font-family: monospace;" title="Click to check for updates">{{ version_string }}</span>
+                        <span class="last-updated" id="lastUpdated">Loading...</span>
+                        <span class="update-available" id="updateAvailable" style="display: none; font-size: 0.75rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 4px; cursor: pointer;" onclick="showUpdateInfo()">⬆️ Update available</span>
+                    </div>
                 </div>
             </div>
             <div class="header-actions">
@@ -1905,6 +1909,83 @@
                 icon.textContent = theme === 'dark' ? '🌙' : '☀️';
             }
         }
+        
+        // Version check management
+        let updateInfo = null;
+        
+        async function checkForUpdates() {
+            const badge = document.getElementById('versionBadge');
+            const originalText = badge.textContent;
+            badge.textContent = 'Checking...';
+            
+            try {
+                const response = await fetch('/api/version/check');
+                const data = await response.json();
+                updateInfo = data;
+                
+                badge.textContent = originalText;
+                
+                if (data.update_available) {
+                    document.getElementById('updateAvailable').style.display = 'inline';
+                    showUpdateNotification(data);
+                } else if (data.error) {
+                    showToast('Could not check for updates', 'warning');
+                } else {
+                    showToast('You are running the latest version!', 'success');
+                }
+            } catch (e) {
+                badge.textContent = originalText;
+                showToast('Failed to check for updates', 'error');
+            }
+        }
+        
+        function showUpdateNotification(data) {
+            const notification = document.createElement('div');
+            notification.className = 'update-notification';
+            notification.innerHTML = `
+                <div style="position: fixed; bottom: 20px; right: 20px; background: var(--bg-card); border: 1px solid #10b981; border-radius: 12px; padding: 20px; max-width: 400px; z-index: 10000; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                        <div>
+                            <h3 style="margin: 0; color: #10b981;">⬆️ Update Available</h3>
+                            <p style="margin: 5px 0 0; font-size: 0.85rem; color: var(--text-secondary);">New version on main branch</p>
+                        </div>
+                        <button onclick="this.closest('.update-notification').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">×</button>
+                    </div>
+                    <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 0.85rem; margin-bottom: 15px;">
+                        <div>Current: <span style="color: var(--accent-orange);">${data.current_version_string}</span></div>
+                        <div style="margin-top: 5px;">Latest: <span style="color: #10b981;">main@${data.latest_main_commit}</span></div>
+                    </div>
+                    <p style="margin: 0 0 15px; font-size: 0.9rem; color: var(--text-primary);">To update, run:</p>
+                    <code style="display: block; background: #1a1a2e; color: #10b981; padding: 12px; border-radius: 6px; font-size: 0.85rem; word-break: break-all;">${data.docker_pull}</code>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            // Auto-hide after 30 seconds
+            setTimeout(() => notification.remove(), 30000);
+        }
+        
+        function showUpdateInfo() {
+            if (updateInfo) {
+                showUpdateNotification(updateInfo);
+            } else {
+                checkForUpdates();
+            }
+        }
+        
+        // Check for updates on page load (silent)
+        setTimeout(async () => {
+            try {
+                const response = await fetch('/api/version/check');
+                const data = await response.json();
+                updateInfo = data;
+                if (data.update_available) {
+                    document.getElementById('updateAvailable').style.display = 'inline';
+                }
+            } catch (e) {
+                // Silent fail on initial check
+            }
+        }, 5000);
         
         // Initialize theme immediately
         initTheme();
