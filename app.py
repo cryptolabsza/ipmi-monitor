@@ -7169,7 +7169,21 @@ def api_check_server_connectivity(bmc_ip):
     if inventory:
         inventory.primary_ip_reachable = results['primary_ip_reachable']
         inventory.primary_ip_last_check = datetime.utcnow()
-        db.session.commit()
+    
+    # Update ServerStatus.is_reachable so dashboard reflects new status
+    server_status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+    if server_status:
+        server_status.is_reachable = results['bmc_reachable']
+        server_status.last_check = datetime.utcnow()
+        if results['bmc_reachable']:
+            # Also update power status if BMC became reachable
+            try:
+                power = collect_power_status(bmc_ip)
+                server_status.power_status = power
+            except:
+                pass
+    
+    db.session.commit()
     
     return jsonify(results)
 
