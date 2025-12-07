@@ -4999,7 +4999,7 @@ def api_maintenance_tasks():
     })
 
 @app.route('/api/maintenance/<int:task_id>', methods=['PUT'])
-@auth_required
+@admin_required
 def api_update_maintenance_task(task_id):
     """Update maintenance task status"""
     task = MaintenanceTask.query.get_or_404(task_id)
