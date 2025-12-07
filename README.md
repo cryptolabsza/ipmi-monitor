@@ -34,6 +34,8 @@
 - 🔐 **User Management** - Admin and read-only access levels
 - 📥 **Export** - CSV export of event logs
 - 🐳 **Docker Ready** - Multi-arch images (amd64/arm64)
+- 🔄 **Version Display** - Shows version, git commit, and build time in header
+- ⬆️ **Update Notifications** - Checks GitHub for newer releases
 
 ### 🤖 Optional AI Features (via CryptoLabs)
 - 📊 Daily health summaries

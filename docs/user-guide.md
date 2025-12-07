@@ -10,6 +10,7 @@
 - [Quick Start](#quick-start)
 - [Key Concepts](#key-concepts)
 - [Dashboard](#dashboard)
+- [Version & Updates](#version--updates)
 - [Server Details](#server-details)
 - [GPU Health Monitoring](#gpu-health-monitoring)
 - [Uptime & Reboot Detection](#uptime--reboot-detection)
@@ -128,6 +129,76 @@ Each card displays:
 ### Auto-Refresh
 
 Data refreshes automatically every 60 seconds. Event collection runs every 5 minutes by default (configurable via `POLL_INTERVAL` environment variable).
+
+---
+
+## Version & Updates
+
+IPMI Monitor displays version information in the dashboard header and can check for updates.
+
+### Version Display
+
+The header shows:
+```
+IPMI Monitor
+v1.6.0 (main@8d7150c, 2025-12-07 22:41 UTC)   Last updated: 12:46:02 AM
+```
+
+Components:
+- **Version number** - Semantic version (e.g., v1.6.0)
+- **Branch** - Git branch (main)
+- **Commit** - Short git commit hash
+- **Build time** - When the Docker image was built
+
+### Checking for Updates
+
+1. **Click the version badge** in the header
+2. IPMI Monitor queries GitHub for the latest commits
+3. If a newer version exists:
+   - A green **⬆️ Update available** badge appears
+   - Click it to see update instructions
+
+### Update Notification
+
+When an update is available, a popup shows:
+- Your current version
+- The latest version on GitHub
+- The docker pull command to update
+
+### Manual Update
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
+
+# Restart with docker-compose
+docker-compose up -d --force-recreate ipmi-monitor
+
+# Or with docker run
+docker stop ipmi-monitor
+docker rm ipmi-monitor
+docker run -d ... ghcr.io/cryptolabsza/ipmi-monitor:latest
+```
+
+### API Endpoints
+
+```
+GET /api/version       - Get current version and build info
+GET /api/version/check - Check GitHub for newer releases
+```
+
+**Example response from `/api/version`:**
+```json
+{
+  "version": "1.6.0",
+  "version_string": "v1.6.0 (main@8d7150c, 2025-12-07 22:41 UTC)",
+  "git_branch": "main",
+  "git_commit": "8d7150c",
+  "build_time": "2025-12-07 22:41 UTC"
+}
+```
+
+> 💡 **Note:** Update checking requires network access to api.github.com. If your server can't reach GitHub, the check will silently fail.
 
 ---
 
@@ -893,6 +964,13 @@ POST /api/test/bmc          - Test BMC connection
 POST /api/test/ssh          - Test SSH connection
 GET  /metrics               - Prometheus metrics
 GET  /health                - Health check
+```
+
+### Version & Updates
+
+```
+GET  /api/version           - Get current version and build info
+GET  /api/version/check     - Check GitHub for newer releases
 ```
 
 ### Monitoring Endpoints
