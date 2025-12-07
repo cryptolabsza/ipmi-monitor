@@ -1086,12 +1086,16 @@
                                         </div>
                                     </div>
                                     <div style="text-align: right;">
-                                        <div style="font-weight: 600; color: ${gpu.status === 'OK' || gpu.status === 'Enabled' ? 'var(--accent-green)' : 'var(--accent-red)'};">
-                                            ${gpu.status === 'OK' ? '✅ Healthy' : gpu.status || 'Unknown'}
-                                        </div>
-                                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                                            ${gpu.state || ''}
-                                        </div>
+                                        ${gpu.status === 'OK' || gpu.status === 'Enabled' ? `
+                                            <div style="font-weight: 600; color: var(--accent-green);">✅ Healthy</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-secondary);">${gpu.state || 'Enabled'}</div>
+                                        ` : gpu.status ? `
+                                            <div style="font-weight: 600; color: var(--accent-red);">⚠️ ${gpu.status}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-secondary);">${gpu.state || ''}</div>
+                                        ` : `
+                                            <div style="font-size: 0.85rem; color: var(--text-secondary);">Detected</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-secondary);">via lspci</div>
+                                        `}
                                     </div>
                                 </div>
                             `).join('')}
