@@ -92,6 +92,52 @@ SERVERS_CONFIG_FILE = os.environ.get('SERVERS_CONFIG_FILE', '')  # Override spec
 # Setup complete flag
 SETUP_COMPLETE_FILE = os.path.join(DATA_DIR, '.setup_complete')
 
+# =============================================================================
+# GPU ERROR HANDLING - User-friendly descriptions (hide technical Xid codes)
+# =============================================================================
+
+# Map Xid codes to user-friendly descriptions (clients don't need to know Xid numbers)
+GPU_ERROR_DESCRIPTIONS = {
+    # Memory errors
+    31: 'GPU Memory Error',
+    48: 'GPU Memory Error (ECC)',
+    63: 'GPU Memory Degradation',
+    64: 'GPU Memory Degradation (Critical)',
+    92: 'GPU Memory Warning',
+    94: 'GPU Memory Error (Contained)',
+    95: 'GPU Memory Error (Critical)',
+    
+    # GPU unresponsive
+    43: 'GPU Not Responding',
+    45: 'GPU Process Terminated',
+    61: 'GPU Firmware Error',
+    62: 'GPU Firmware Error',
+    74: 'GPU Exception',
+    79: 'GPU Disconnected',
+    119: 'GPU System Error',
+    
+    # Recovery required
+    154: 'GPU Requires Recovery',
+}
+
+# Recovery actions with user-friendly names
+RECOVERY_ACTIONS = {
+    'gpu_reset': 'GPU Reset',
+    'node_reboot': 'Server Reboot Required',
+    'power_cycle': 'Power Cycle Required',
+    'clock_limit': 'GPU Clock Limited',
+    'workload_killed': 'Workload Terminated',
+    'maintenance': 'Maintenance Required',
+}
+
+def get_gpu_error_description(xid_code, recovery_action=None):
+    """Get user-friendly description for GPU error (hides Xid code from clients)"""
+    base_desc = GPU_ERROR_DESCRIPTIONS.get(xid_code, 'GPU Error Detected')
+    if recovery_action:
+        action_desc = RECOVERY_ACTIONS.get(recovery_action, recovery_action)
+        return f"{base_desc} - {action_desc}"
+    return base_desc
+
 def get_user(username):
     """Get user by username"""
     try:
@@ -1121,6 +1167,48 @@ class ServerStatus(db.Model):
     critical_events_total = db.Column(db.Integer, default=0)
     warning_events_total = db.Column(db.Integer, default=0)
     info_events_total = db.Column(db.Integer, default=0)
+
+class ServerUptime(db.Model):
+    """Track server uptime to detect unexpected reboots"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(45), nullable=False, unique=True, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    last_uptime_seconds = db.Column(db.Integer)  # Last known uptime in seconds
+    last_boot_time = db.Column(db.DateTime)  # Calculated boot time
+    last_check = db.Column(db.DateTime, default=datetime.utcnow)
+    reboot_count = db.Column(db.Integer, default=0)  # Total reboots detected
+    unexpected_reboot_count = db.Column(db.Integer, default=0)  # Reboots not initiated by us
+
+class MaintenanceTask(db.Model):
+    """AI-generated maintenance tasks based on patterns"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(45), nullable=False, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    task_type = db.Column(db.String(50), nullable=False)  # 'gpu_replacement', 'memory_check', 'general'
+    description = db.Column(db.Text, nullable=False)
+    severity = db.Column(db.String(20), default='medium')  # low, medium, high, critical
+    status = db.Column(db.String(20), default='pending')  # pending, scheduled, in_progress, completed, cancelled
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    scheduled_for = db.Column(db.DateTime)
+    completed_at = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+    # Track what triggered this maintenance
+    trigger_event_ids = db.Column(db.Text)  # JSON list of event IDs
+    recovery_attempts = db.Column(db.Integer, default=0)
+
+class RecoveryLog(db.Model):
+    """Log all recovery actions taken by the system"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(45), nullable=False, index=True)
+    server_name = db.Column(db.String(50), nullable=False)
+    action_type = db.Column(db.String(50), nullable=False)  # 'gpu_reset', 'reboot', 'power_cycle', 'clock_limit'
+    target_device = db.Column(db.String(100))  # e.g., 'GPU0:0000:01:00.0'
+    reason = db.Column(db.Text)  # Why action was taken
+    result = db.Column(db.String(20))  # 'success', 'failed', 'pending'
+    initiated_by = db.Column(db.String(50), default='system')  # 'system', 'user', 'ai_agent'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    error_message = db.Column(db.Text)
 
 class ServerConfig(db.Model):
     """Per-server configuration (IPMI credentials, SSH credentials)"""
@@ -4248,17 +4336,19 @@ def check_ssh_xid_errors(bmc_ip, server_name):
                     ).first()
                     
                     if not existing:
-                        event_desc = f'GPU Xid {xid["xid_code"]} ({xid["description"]}) on PCI:{xid["pci_address"]}'
+                        # User-friendly description (hides Xid code from clients)
+                        event_desc = get_gpu_error_description(xid['xid_code'], xid.get('recovery_action'))
+                        event_desc += f" (GPU:{xid['pci_address'][-5:]})"  # Short PCI ID only
                         event = IPMIEvent(
                             bmc_ip=bmc_ip,
                             server_name=server_name,
                             sel_id=xid_sel_id,
                             event_date=datetime.utcnow(),
-                            sensor_type='GPU Xid Error',
+                            sensor_type='GPU Health',  # User-friendly name
                             sensor_id=xid['pci_address'],
                             event_description=event_desc,
                             severity='critical',
-                            raw_entry=xid['message']
+                            raw_entry=json.dumps({'xid': xid['xid_code'], 'message': xid['message']})  # Technical details in raw
                         )
                         db.session.add(event)
                         app.logger.warning(f"🔴 NEW: {event_desc} on {server_name}")
@@ -4273,6 +4363,265 @@ def check_ssh_xid_errors(bmc_ip, server_name):
         # Don't log as error - SSH may not be available for all servers
         app.logger.debug(f"SSH Xid check failed for {bmc_ip}: {e}")
 
+
+# =============================================================================
+# SYSTEM EVENT & RECOVERY LOGGING FUNCTIONS
+# =============================================================================
+
+def create_system_event(bmc_ip, server_name, event_type, description, severity='info', 
+                        device_id=None, raw_data=None):
+    """
+    Create a system event (logged like SEL events for unified display).
+    
+    Event types:
+    - 'gpu_error': GPU error detected (hides Xid code from client)
+    - 'recovery_action': Recovery action taken
+    - 'unexpected_reboot': Server rebooted unexpectedly
+    - 'maintenance_created': Maintenance task created
+    - 'uptime_alert': Uptime-related event
+    """
+    try:
+        # Generate unique SEL-like ID for system events
+        sel_id = f"SYS-{event_type[:3].upper()}-{datetime.utcnow().strftime('%H%M%S')}"
+        
+        # Map event_type to sensor_type for display
+        sensor_type_map = {
+            'gpu_error': 'GPU Health',
+            'recovery_action': 'System Recovery',
+            'unexpected_reboot': 'System Reboot',
+            'maintenance_created': 'Maintenance',
+            'uptime_alert': 'System Uptime',
+        }
+        sensor_type = sensor_type_map.get(event_type, 'System Event')
+        
+        event = IPMIEvent(
+            bmc_ip=bmc_ip,
+            server_name=server_name,
+            sel_id=sel_id,
+            event_date=datetime.utcnow(),
+            sensor_type=sensor_type,
+            sensor_id=device_id or 'system',
+            event_description=description,
+            severity=severity,
+            raw_entry=json.dumps(raw_data) if raw_data else None
+        )
+        db.session.add(event)
+        db.session.commit()
+        
+        app.logger.info(f"[{severity.upper()}] {server_name}: {description}")
+        return event
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Failed to create system event: {e}")
+        return None
+
+def log_recovery_action(bmc_ip, server_name, action_type, target_device=None, 
+                        reason=None, result='pending', initiated_by='system'):
+    """
+    Log a recovery action and create corresponding system event.
+    
+    Action types: 'gpu_reset', 'reboot', 'power_cycle', 'clock_limit', 'workload_kill'
+    """
+    try:
+        # Create recovery log entry
+        recovery = RecoveryLog(
+            bmc_ip=bmc_ip,
+            server_name=server_name,
+            action_type=action_type,
+            target_device=target_device,
+            reason=reason,
+            result=result,
+            initiated_by=initiated_by
+        )
+        db.session.add(recovery)
+        db.session.commit()
+        
+        # Also create a system event so it shows in the event log
+        action_desc = RECOVERY_ACTIONS.get(action_type, action_type)
+        device_str = f" on {target_device}" if target_device else ""
+        description = f"{action_desc}{device_str}"
+        if reason:
+            description += f" - {reason}"
+        
+        create_system_event(
+            bmc_ip=bmc_ip,
+            server_name=server_name,
+            event_type='recovery_action',
+            description=description,
+            severity='warning',
+            device_id=target_device,
+            raw_data={'action': action_type, 'reason': reason, 'result': result}
+        )
+        
+        return recovery
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Failed to log recovery action: {e}")
+        return None
+
+def check_maintenance_needed(bmc_ip, server_name):
+    """
+    Check if maintenance task should be created based on recovery patterns.
+    Creates maintenance task if:
+    - 3+ reboots in 24 hours
+    - 5+ GPU errors in 24 hours for same device
+    - 2+ power cycles in 24 hours
+    """
+    try:
+        cutoff = datetime.utcnow() - timedelta(hours=24)
+        
+        # Count recent recovery actions
+        recent_reboots = RecoveryLog.query.filter(
+            RecoveryLog.bmc_ip == bmc_ip,
+            RecoveryLog.action_type.in_(['reboot', 'node_reboot']),
+            RecoveryLog.created_at >= cutoff
+        ).count()
+        
+        recent_power_cycles = RecoveryLog.query.filter(
+            RecoveryLog.bmc_ip == bmc_ip,
+            RecoveryLog.action_type == 'power_cycle',
+            RecoveryLog.created_at >= cutoff
+        ).count()
+        
+        # Count GPU errors by device
+        recent_gpu_events = IPMIEvent.query.filter(
+            IPMIEvent.bmc_ip == bmc_ip,
+            IPMIEvent.sensor_type.in_(['GPU Health', 'GPU Xid Error']),
+            IPMIEvent.severity == 'critical',
+            IPMIEvent.event_date >= cutoff
+        ).all()
+        
+        # Group by device
+        gpu_error_counts = {}
+        for event in recent_gpu_events:
+            device = event.sensor_id or 'unknown'
+            gpu_error_counts[device] = gpu_error_counts.get(device, 0) + 1
+        
+        # Check thresholds
+        maintenance_needed = False
+        task_description = []
+        task_severity = 'medium'
+        
+        if recent_reboots >= 3:
+            task_description.append(f"{recent_reboots} reboots in 24h")
+            task_severity = 'high'
+            maintenance_needed = True
+        
+        if recent_power_cycles >= 2:
+            task_description.append(f"{recent_power_cycles} power cycles in 24h")
+            task_severity = 'high'
+            maintenance_needed = True
+        
+        for device, count in gpu_error_counts.items():
+            if count >= 5:
+                task_description.append(f"GPU {device}: {count} errors in 24h")
+                task_severity = 'critical'
+                maintenance_needed = True
+        
+        if maintenance_needed:
+            # Check if there's already a pending task for this server
+            existing = MaintenanceTask.query.filter(
+                MaintenanceTask.bmc_ip == bmc_ip,
+                MaintenanceTask.status.in_(['pending', 'scheduled'])
+            ).first()
+            
+            if not existing:
+                description = f"Automated maintenance required: {'; '.join(task_description)}"
+                task = MaintenanceTask(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    task_type='automated_maintenance',
+                    description=description,
+                    severity=task_severity,
+                    recovery_attempts=recent_reboots + recent_power_cycles
+                )
+                db.session.add(task)
+                db.session.commit()
+                
+                # Create system event for the maintenance task
+                create_system_event(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    event_type='maintenance_created',
+                    description=f"Maintenance task created: {description}",
+                    severity='warning'
+                )
+                
+                app.logger.warning(f"🔧 Maintenance task created for {server_name}: {description}")
+                return task
+        
+        return None
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error checking maintenance needs: {e}")
+        return None
+
+def check_uptime_and_detect_reboot(bmc_ip, server_name, current_uptime_seconds):
+    """
+    Check server uptime and detect unexpected reboots.
+    Creates an event if server has rebooted since last check.
+    """
+    try:
+        uptime_record = ServerUptime.query.filter_by(bmc_ip=bmc_ip).first()
+        
+        if not uptime_record:
+            # First time seeing this server
+            uptime_record = ServerUptime(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                last_uptime_seconds=current_uptime_seconds,
+                last_boot_time=datetime.utcnow() - timedelta(seconds=current_uptime_seconds),
+                reboot_count=0,
+                unexpected_reboot_count=0
+            )
+            db.session.add(uptime_record)
+            db.session.commit()
+            return None
+        
+        # If current uptime is less than last known uptime, server rebooted
+        if current_uptime_seconds < uptime_record.last_uptime_seconds:
+            uptime_record.reboot_count += 1
+            new_boot_time = datetime.utcnow() - timedelta(seconds=current_uptime_seconds)
+            
+            # Check if we initiated this reboot (look for recent recovery action)
+            recent_recovery = RecoveryLog.query.filter(
+                RecoveryLog.bmc_ip == bmc_ip,
+                RecoveryLog.action_type.in_(['reboot', 'node_reboot', 'power_cycle']),
+                RecoveryLog.created_at >= datetime.utcnow() - timedelta(minutes=30)
+            ).first()
+            
+            if not recent_recovery:
+                # Unexpected reboot
+                uptime_record.unexpected_reboot_count += 1
+                
+                create_system_event(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    event_type='unexpected_reboot',
+                    description=f"Unexpected server reboot detected (uptime was {uptime_record.last_uptime_seconds//3600}h)",
+                    severity='warning',
+                    raw_data={
+                        'previous_uptime_seconds': uptime_record.last_uptime_seconds,
+                        'new_uptime_seconds': current_uptime_seconds,
+                        'reboot_count': uptime_record.reboot_count
+                    }
+                )
+                app.logger.warning(f"⚠️ Unexpected reboot detected: {server_name}")
+            else:
+                # Expected reboot (we initiated it)
+                app.logger.info(f"✅ Server {server_name} rebooted as expected (recovery action)")
+            
+            uptime_record.last_boot_time = new_boot_time
+        
+        uptime_record.last_uptime_seconds = current_uptime_seconds
+        uptime_record.last_check = datetime.utcnow()
+        db.session.commit()
+        
+        return uptime_record
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error checking uptime for {bmc_ip}: {e}")
+        return None
 
 def save_events_to_db(bmc_ip, server_name, events):
     """Save collected events to database"""
@@ -4611,6 +4960,127 @@ def api_events():
         } for e in events],
         'total': len(events),
         'hours': hours
+    })
+
+@app.route('/api/maintenance')
+@view_required
+def api_maintenance_tasks():
+    """Get maintenance tasks"""
+    status = request.args.get('status')  # pending, scheduled, completed, all
+    server = request.args.get('server')
+    
+    query = MaintenanceTask.query
+    
+    if status and status != 'all':
+        query = query.filter_by(status=status)
+    if server:
+        query = query.filter(
+            db.or_(MaintenanceTask.server_name == server, MaintenanceTask.bmc_ip == server)
+        )
+    
+    tasks = query.order_by(MaintenanceTask.created_at.desc()).limit(50).all()
+    
+    return jsonify({
+        'tasks': [{
+            'id': t.id,
+            'bmc_ip': t.bmc_ip,
+            'server_name': t.server_name,
+            'task_type': t.task_type,
+            'description': t.description,
+            'severity': t.severity,
+            'status': t.status,
+            'created_at': t.created_at.isoformat() if t.created_at else None,
+            'scheduled_for': t.scheduled_for.isoformat() if t.scheduled_for else None,
+            'completed_at': t.completed_at.isoformat() if t.completed_at else None,
+            'recovery_attempts': t.recovery_attempts,
+            'notes': t.notes
+        } for t in tasks],
+        'total': len(tasks)
+    })
+
+@app.route('/api/maintenance/<int:task_id>', methods=['PUT'])
+@auth_required
+def api_update_maintenance_task(task_id):
+    """Update maintenance task status"""
+    task = MaintenanceTask.query.get_or_404(task_id)
+    data = request.get_json()
+    
+    if 'status' in data:
+        task.status = data['status']
+        if data['status'] == 'completed':
+            task.completed_at = datetime.utcnow()
+    if 'notes' in data:
+        task.notes = data['notes']
+    if 'scheduled_for' in data:
+        task.scheduled_for = datetime.fromisoformat(data['scheduled_for'])
+    
+    db.session.commit()
+    return jsonify({'success': True, 'task_id': task_id})
+
+@app.route('/api/recovery-logs')
+@view_required
+def api_recovery_logs():
+    """Get recovery action logs"""
+    server = request.args.get('server')
+    hours = request.args.get('hours', 72, type=int)
+    
+    query = RecoveryLog.query
+    
+    if server:
+        query = query.filter(
+            db.or_(RecoveryLog.server_name == server, RecoveryLog.bmc_ip == server)
+        )
+    
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    query = query.filter(RecoveryLog.created_at >= cutoff)
+    
+    logs = query.order_by(RecoveryLog.created_at.desc()).limit(100).all()
+    
+    return jsonify({
+        'logs': [{
+            'id': l.id,
+            'bmc_ip': l.bmc_ip,
+            'server_name': l.server_name,
+            'action_type': l.action_type,
+            'target_device': l.target_device,
+            'reason': l.reason,
+            'result': l.result,
+            'initiated_by': l.initiated_by,
+            'created_at': l.created_at.isoformat() if l.created_at else None,
+            'completed_at': l.completed_at.isoformat() if l.completed_at else None,
+            'error_message': l.error_message
+        } for l in logs],
+        'total': len(logs),
+        'hours': hours
+    })
+
+@app.route('/api/uptime')
+@view_required
+def api_server_uptime():
+    """Get server uptime information"""
+    server = request.args.get('server')
+    
+    query = ServerUptime.query
+    
+    if server:
+        query = query.filter(
+            db.or_(ServerUptime.server_name == server, ServerUptime.bmc_ip == server)
+        )
+    
+    uptimes = query.all()
+    
+    return jsonify({
+        'servers': [{
+            'bmc_ip': u.bmc_ip,
+            'server_name': u.server_name,
+            'uptime_seconds': u.last_uptime_seconds,
+            'uptime_days': round(u.last_uptime_seconds / 86400, 1) if u.last_uptime_seconds else None,
+            'last_boot_time': u.last_boot_time.isoformat() if u.last_boot_time else None,
+            'last_check': u.last_check.isoformat() if u.last_check else None,
+            'reboot_count': u.reboot_count,
+            'unexpected_reboot_count': u.unexpected_reboot_count
+        } for u in uptimes],
+        'total': len(uptimes)
     })
 
 @app.route('/api/stats')
@@ -5932,6 +6402,18 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                         # Try passwordless (default key from ~/.ssh) auth
                         return ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', remote_cmd]
                 
+                # ========== UPTIME CHECK (detect unexpected reboots) ==========
+                try:
+                    cmd = build_ssh_cmd('cat /proc/uptime')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        uptime_parts = result.stdout.strip().split()
+                        if uptime_parts:
+                            uptime_seconds = int(float(uptime_parts[0]))
+                            check_uptime_and_detect_reboot(bmc_ip, server_name, uptime_seconds)
+                except Exception as e:
+                    app.logger.debug(f"SSH uptime check failed for {bmc_ip}: {e}")
+                
                 # CPU info via /proc/cpuinfo (most complete and reliable)
                 try:
                     cmd = build_ssh_cmd('cat /proc/cpuinfo | grep -E "model name|vendor_id|physical id|cpu cores|siblings" | head -50')
@@ -6151,22 +6633,20 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                             ).first()
                                             
                                             if not recent_event:
-                                                # Create critical event for this Xid error
-                                                event_desc = f'GPU Xid {xid["xid_code"]} ({xid["description"]}) on PCI:{xid["pci_address"]}'
-                                                event_msg = xid['message'] or xid['description']
-                                                if xid['recovery_action']:
-                                                    event_msg += f' | Recovery: {xid["recovery_action"]}'
+                                                # User-friendly description (hides Xid code from clients)
+                                                event_desc = get_gpu_error_description(xid['xid_code'], xid.get('recovery_action'))
+                                                event_desc += f" (GPU:{xid['pci_address'][-5:]})"
                                                 
                                                 event = IPMIEvent(
                                                     bmc_ip=bmc_ip,
                                                     server_name=server_record.server_name,
                                                     sel_id=xid_sel_id,
                                                     event_date=datetime.utcnow(),
-                                                    sensor_type='GPU Xid Error',
+                                                    sensor_type='GPU Health',
                                                     sensor_id=xid['pci_address'],
                                                     event_description=event_desc,
                                                     severity='critical',
-                                                    raw_entry=event_msg
+                                                    raw_entry=json.dumps({'xid': xid['xid_code'], 'message': xid.get('message'), 'recovery': xid.get('recovery_action')})
                                                 )
                                                 db.session.add(event)
                                                 app.logger.warning(f"🔴 CRITICAL: {event_desc} on {server_record.server_name}")
@@ -6186,6 +6666,10 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                             raw['xid_errors'] = xid_events[-10:]  # Last 10 Xid errors
                             raw['xid_critical_count'] = critical_count
                             inventory.raw_inventory = json.dumps(raw)
+                            
+                            # Check if maintenance task should be created based on error patterns
+                            if critical_count >= 3:
+                                check_maintenance_needed(bmc_ip, server_name)
                             
                 except Exception as e:
                     app.logger.debug(f"SSH Xid collection failed for {bmc_ip}: {e}")
@@ -6485,20 +6969,22 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                     ).first()
                                     
                                     if not existing:
-                                        event_desc = f'GPU Xid {xid["xid_code"]} ({xid["description"]}) on PCI:{xid["pci_address"]}'
+                                        # User-friendly description (hides Xid code from clients)
+                                        event_desc = get_gpu_error_description(xid['xid_code'], xid.get('recovery_action'))
+                                        event_desc += f" (GPU:{xid['pci_address'][-5:]})"
                                         event = IPMIEvent(
                                             bmc_ip=bmc_ip,
                                             server_name=server_record.server_name,
                                             sel_id=xid_sel_id,
                                             event_date=datetime.utcnow(),
-                                            sensor_type='GPU Xid Error',
+                                            sensor_type='GPU Health',
                                             sensor_id=xid['pci_address'],
                                             event_description=event_desc,
                                             severity='critical',
-                                            raw_entry=xid['message']
+                                            raw_entry=json.dumps({'xid': xid['xid_code'], 'message': xid.get('message')})
                                         )
                                         db.session.add(event)
-                                        app.logger.warning(f"🔴 NEW: {event_desc} on {server_record.server_name}")
+                                        app.logger.warning(f"🔴 GPU Error: {event_desc} on {server_record.server_name}")
                             
                             try:
                                 db.session.commit()
