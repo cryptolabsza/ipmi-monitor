@@ -1,78 +1,122 @@
-# IPMI Monitor - Server Configuration
-# =====================================
+# =============================================================================
+# IPMI Monitor - Server Configuration File
+# =============================================================================
+# 
+# This file defines servers to monitor and their credentials.
+# Mount this file to /app/config/servers.yaml in the container.
 #
-# Copy this file to servers.yaml and configure your servers.
-# Mount to /app/config/servers.yaml in Docker.
+# Features:
+# - Global defaults section - applied to all servers
+# - Per-server credential overrides
+# - SSH key reference by name (keys must be added via UI first)
+# - OS IP (server_ip) for SSH-based inventory collection
 #
-# Minimal Required Fields:
-#   - name: Display name for the server
-#   - bmc_ip: BMC/IPMI management IP address
-#
-# Optional Fields:
-#   - server_ip: OS IP address (for SSH inventory collection)
-#   - public_ip: Public/external IP (for documentation/reference)
-#   - ipmi_user: IPMI username (uses default IPMI_USER if not set)
-#   - ipmi_pass: IPMI password (uses default IPMI_PASS if not set)
-#   - ssh_user: SSH username for OS access (default: root)
-#   - ssh_port: SSH port (default: 22)
-#   - notes: Any notes about this server
-#
-# Global SSH Key (for all servers without individual keys):
-#   Set ssh_key_name in defaults section to use a stored SSH key
-#
-# ==================== EXAMPLE CONFIGURATION ====================
+# =============================================================================
 
-# Global defaults (optional)
+# -----------------------------------------------------------------------------
+# GLOBAL DEFAULTS
+# -----------------------------------------------------------------------------
+# These values are applied to ALL servers unless overridden per-server.
+# Remove or comment out any defaults you don't want to set globally.
+
 defaults:
+  # IPMI/BMC Credentials
+  ipmi_user: admin
+  ipmi_pass: BBccc321
+  
+  # SSH Credentials for OS-level inventory (GPU detection, Xid errors, etc.)
   ssh_user: root
+  ssh_key_name: default-key       # Name of SSH key stored in IPMI Monitor
   ssh_port: 22
-  # ssh_key_name: production-key  # Name of stored SSH key to use for all servers
+  
+  # Alternative: SSH password instead of key
+  # ssh_pass: your_ssh_password
+
+# -----------------------------------------------------------------------------
+# SERVER LIST
+# -----------------------------------------------------------------------------
+# Each server requires:
+#   - name: Display name for the server
+#   - bmc_ip: BMC/IPMI IP address (usually ends in .0)
+#
+# Optional per-server:
+#   - server_ip: OS IP address for SSH (usually ends in .1)
+#   - ipmi_user/ipmi_pass: Override IPMI credentials
+#   - ssh_user/ssh_key_name/ssh_pass: Override SSH credentials
+#   - protocol: Force 'ipmi' or 'redfish' (default: auto-detect)
+#   - notes: Description or notes
 
 servers:
-  # Minimal configuration - just name and BMC IP
-  - name: web-server-01
-    bmc_ip: 192.168.1.100
+  # Basic server - uses all defaults
+  - name: brickbox-01
+    bmc_ip: 88.0.1.0
+    server_ip: 88.0.1.1
+    
+  - name: brickbox-02
+    bmc_ip: 88.0.2.0
+    server_ip: 88.0.2.1
 
   # Server with custom IPMI credentials
-  - name: database-server
-    bmc_ip: 192.168.1.101
-    ipmi_user: dbadmin
-    ipmi_pass: custompassword
+  - name: special-server
+    bmc_ip: 88.0.10.0
+    server_ip: 88.0.10.1
+    ipmi_user: custom_admin
+    ipmi_pass: custom_password
 
-  # Server with OS IP for SSH inventory
-  - name: app-server-01
-    bmc_ip: 192.168.1.102
-    server_ip: 192.168.1.12
-    notes: Primary application server
-
-  # Server with public IP documented
-  - name: edge-server-01
-    bmc_ip: 10.0.0.100
-    server_ip: 10.0.0.10
-    public_ip: 203.0.113.50
-    notes: Edge location - Chicago DC
-
-  # GPU server (NVIDIA DGX/HGX with 16-char password)
-  # Note: Set IPMI_PASS_NVIDIA environment variable for these
+  # Server with different SSH key
   - name: gpu-server-01
-    bmc_ip: 192.168.1.103
-    server_ip: 192.168.1.13
-    ipmi_user: admin
-    notes: ML training server - 8x A100
+    bmc_ip: 88.0.43.0
+    server_ip: 88.0.43.1
+    ssh_key_name: gpu-cluster-key
+    notes: GPU compute node with 4x RTX 3090
 
-  # Server with custom SSH settings
-  - name: secure-server
-    bmc_ip: 192.168.1.104
-    server_ip: 192.168.1.14
+  # Server using Redfish instead of IPMI
+  - name: redfish-server
+    bmc_ip: 88.0.50.0
+    server_ip: 88.0.50.1
+    protocol: redfish
+
+  # Server with all custom credentials
+  - name: isolated-server
+    bmc_ip: 192.168.1.100
+    server_ip: 192.168.1.101
+    ipmi_user: isolated_admin
+    ipmi_pass: isolated_pass
     ssh_user: ubuntu
+    ssh_key_name: isolated-key
     ssh_port: 2222
+    notes: Isolated network segment
 
-# ==================== IMPORT/EXPORT ====================
+# -----------------------------------------------------------------------------
+# SSH KEY SETUP
+# -----------------------------------------------------------------------------
+# SSH keys must be added via the IPMI Monitor web UI or API before they can
+# be referenced by name in this file.
 #
-# To export your current configuration:
-#   GET /api/config/export
+# To add an SSH key:
+# 1. Go to Settings > SSH Keys in the web UI
+# 2. Click "Add SSH Key"
+# 3. Enter a name (e.g., "default-key") and paste the private key content
+# 4. Reference the key by name in this file using ssh_key_name: default-key
 #
-# To import a configuration:
-#   POST /api/config/import
+# API method:
+# curl -X POST http://localhost:5001/api/ssh-keys \
+#   -H "Content-Type: application/json" \
+#   -d '{"name": "default-key", "key_content": "-----BEGIN OPENSSH PRIVATE KEY-----\n..."}'
+
+# -----------------------------------------------------------------------------
+# APPLYING DEFAULTS TO EXISTING SERVERS
+# -----------------------------------------------------------------------------
+# If you already have servers configured and want to apply defaults:
 #
-# Backups include: servers, settings, SSH keys, alert rules, users
+# 1. Via API - Apply to all servers:
+#    curl -X POST http://localhost:5001/api/settings/credentials/apply \
+#      -H "Content-Type: application/json" \
+#      -d '{"server_ips": "all", "apply_ipmi": true, "apply_ssh": true}'
+#
+# 2. Via API - Apply to specific servers:
+#    curl -X POST http://localhost:5001/api/settings/credentials/apply \
+#      -H "Content-Type: application/json" \
+#      -d '{"server_ips": ["88.0.1.0", "88.0.2.0"], "apply_ipmi": true}'
+#
+# 3. Via UI - Go to Settings > Credential Defaults

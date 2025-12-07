@@ -6625,47 +6625,114 @@ def parse_ini_servers(ini_content):
 
 
 def parse_yaml_servers(yaml_content):
-    """Parse YAML format server list"""
+    """
+    Parse YAML format server list with global defaults support.
+    
+    Example servers.yaml:
+    
+    # Global defaults - applied to all servers unless overridden
+    defaults:
+      ipmi_user: admin
+      ipmi_pass: BBccc321
+      ssh_user: root
+      ssh_key_name: bbmait          # Reference to stored SSH key by name
+      ssh_port: 22
+    
+    # Server list
+    servers:
+      - name: brickbox-01
+        bmc_ip: 88.0.1.0
+        server_ip: 88.0.1.1         # OS IP for SSH
+        
+      - name: brickbox-02
+        bmc_ip: 88.0.2.0
+        server_ip: 88.0.2.1
+        ipmi_user: custom_user      # Override default
+        ipmi_pass: custom_pass
+        
+      - name: gpu-server
+        bmc_ip: 88.0.43.0
+        server_ip: 88.0.43.1
+        ssh_key_name: gpu_key       # Different SSH key for this server
+        notes: GPU compute server
+    """
     servers = []
+    defaults = {}
     current_server = None
+    in_defaults = False
+    in_servers = False
+    
+    # Key mappings for both defaults and servers
+    key_map = {
+        'name': 'server_name', 'server_name': 'server_name', 'hostname': 'server_name',
+        'bmc_ip': 'bmc_ip', 'ip': 'bmc_ip', 'bmc': 'bmc_ip',
+        'ipmi_user': 'ipmi_user', 'username': 'ipmi_user', 'user': 'ipmi_user',
+        'ipmi_pass': 'ipmi_pass', 'password': 'ipmi_pass', 'pass': 'ipmi_pass',
+        'server_ip': 'server_ip', 'os_ip': 'server_ip',
+        'ssh_user': 'ssh_user', 'ssh_port': 'ssh_port', 
+        'ssh_key': 'ssh_key', 'ssh_key_name': 'ssh_key_name',
+        'ssh_pass': 'ssh_pass', 'ssh_password': 'ssh_pass',
+        'notes': 'notes', 'description': 'notes', 'protocol': 'protocol'
+    }
     
     for line in yaml_content.split('\n'):
         trimmed = line.strip()
         if not trimmed or trimmed.startswith('#'):
             continue
         
-        # Check for list item start
-        if trimmed.startswith('- name:') or trimmed.startswith('- server_name:'):
-            if current_server and current_server.get('bmc_ip'):
-                servers.append(current_server)
-            current_server = {'server_name': trimmed.split(':')[1].strip().strip('"\'').split('#')[0].strip()}
-        elif current_server and ':' in trimmed:
-            key_value = trimmed.replace('-', '').split(':', 1)
+        # Check for section headers
+        if trimmed == 'defaults:' or trimmed.startswith('defaults:'):
+            in_defaults = True
+            in_servers = False
+            continue
+        elif trimmed == 'servers:' or trimmed.startswith('servers:'):
+            in_defaults = False
+            in_servers = True
+            continue
+        
+        # Parse defaults section
+        if in_defaults and ':' in trimmed and not trimmed.startswith('-'):
+            key_value = trimmed.split(':', 1)
             if len(key_value) == 2:
                 key = key_value[0].strip()
                 value = key_value[1].strip().strip('"\'').split('#')[0].strip()
-                
-                key_map = {
-                    'name': 'server_name', 'server_name': 'server_name', 'hostname': 'server_name',
-                    'bmc_ip': 'bmc_ip', 'ip': 'bmc_ip', 'bmc': 'bmc_ip',
-                    'ipmi_user': 'ipmi_user', 'username': 'ipmi_user', 'user': 'ipmi_user',
-                    'ipmi_pass': 'ipmi_pass', 'password': 'ipmi_pass', 'pass': 'ipmi_pass',
-                    'server_ip': 'server_ip', 'os_ip': 'server_ip',
-                    'nvidia': 'use_nvidia_password', 'use_nvidia_password': 'use_nvidia_password',
-                    'ssh_user': 'ssh_user', 'ssh_port': 'ssh_port', 'ssh_key': 'ssh_key',
-                    'notes': 'notes', 'description': 'notes'
-                }
-                
-                if key in key_map:
+                if key in key_map and value:
                     mapped_key = key_map[key]
-                    if mapped_key == 'use_nvidia_password':
-                        current_server[mapped_key] = value.lower() == 'true'
-                    elif mapped_key == 'ssh_port':
-                        current_server[mapped_key] = int(value) if value.isdigit() else 22
+                    if mapped_key == 'ssh_port':
+                        defaults[mapped_key] = int(value) if value.isdigit() else 22
                     else:
-                        current_server[mapped_key] = value
+                        defaults[mapped_key] = value
+        
+        # Parse servers section
+        elif in_servers or (not in_defaults and not in_servers):
+            # Check for list item start
+            if trimmed.startswith('- name:') or trimmed.startswith('- server_name:'):
+                if current_server and current_server.get('bmc_ip'):
+                    # Apply defaults before appending
+                    for k, v in defaults.items():
+                        if k not in current_server:
+                            current_server[k] = v
+                    servers.append(current_server)
+                current_server = {'server_name': trimmed.split(':')[1].strip().strip('"\'').split('#')[0].strip()}
+                in_servers = True  # Auto-detect servers section
+            elif current_server and ':' in trimmed:
+                key_value = trimmed.replace('-', '').split(':', 1)
+                if len(key_value) == 2:
+                    key = key_value[0].strip()
+                    value = key_value[1].strip().strip('"\'').split('#')[0].strip()
+                    
+                    if key in key_map and value:
+                        mapped_key = key_map[key]
+                        if mapped_key == 'ssh_port':
+                            current_server[mapped_key] = int(value) if value.isdigit() else 22
+                        else:
+                            current_server[mapped_key] = value
     
+    # Don't forget the last server
     if current_server and current_server.get('bmc_ip'):
+        for k, v in defaults.items():
+            if k not in current_server:
+                current_server[k] = v
         servers.append(current_server)
     
     return servers
@@ -6822,26 +6889,52 @@ def import_servers_to_database(servers_data):
                 db.session.add(server)
                 added += 1
             
-            # Handle per-server credentials
-            if server_data.get('ipmi_user') or server_data.get('ipmi_pass') or server_data.get('ssh_key'):
+            # Handle per-server credentials (IPMI, SSH)
+            has_credentials = any([
+                server_data.get('ipmi_user'), server_data.get('ipmi_pass'),
+                server_data.get('ssh_key'), server_data.get('ssh_key_name'),
+                server_data.get('ssh_user'), server_data.get('ssh_pass'),
+                server_data.get('server_ip')
+            ])
+            
+            if has_credentials:
                 config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
                 if not config:
                     config = ServerConfig(bmc_ip=bmc_ip, server_name=server_name)
                     db.session.add(config)
                 
                 config.server_name = server_name
+                
+                # Server IP
                 if server_data.get('server_ip'):
                     config.server_ip = server_data['server_ip']
+                
+                # IPMI credentials
                 if server_data.get('ipmi_user'):
                     config.ipmi_user = server_data['ipmi_user']
                 if server_data.get('ipmi_pass'):
                     config.ipmi_pass = server_data['ipmi_pass']
+                
+                # SSH credentials
                 if server_data.get('ssh_user'):
                     config.ssh_user = server_data['ssh_user']
                 if server_data.get('ssh_port'):
-                    config.ssh_port = server_data['ssh_port']
+                    config.ssh_port = int(server_data['ssh_port'])
+                if server_data.get('ssh_pass'):
+                    config.ssh_pass = server_data['ssh_pass']
+                
+                # SSH key - can be inline content or reference by name
                 if server_data.get('ssh_key'):
+                    # Direct key content
                     config.ssh_key = server_data['ssh_key']
+                elif server_data.get('ssh_key_name'):
+                    # Look up SSH key by name
+                    ssh_key = SSHKey.query.filter_by(name=server_data['ssh_key_name']).first()
+                    if ssh_key:
+                        config.ssh_key_id = ssh_key.id
+                        app.logger.info(f"Assigned SSH key '{ssh_key.name}' to {bmc_ip}")
+                    else:
+                        app.logger.warning(f"SSH key '{server_data['ssh_key_name']}' not found for {bmc_ip}")
                     
         except Exception as e:
             errors.append(f"Error processing {bmc_ip}: {str(e)}")
@@ -9506,6 +9599,247 @@ def api_get_anonymous_setting():
     """Get anonymous access setting (public endpoint)"""
     return jsonify({
         'allow_anonymous_read': allow_anonymous_read()
+    })
+
+
+# ============== Credential Defaults API ==============
+
+@app.route('/api/settings/credentials/defaults', methods=['GET', 'PUT'])
+@admin_required
+def api_credential_defaults():
+    """
+    Get or update default credentials for IPMI and SSH.
+    
+    These defaults are applied to new servers and can be referenced in servers.yaml.
+    
+    Settings stored:
+    - ipmi_user: Default IPMI username
+    - ipmi_pass: Default IPMI password (stored encrypted in production)
+    - ssh_user: Default SSH username (usually 'root')
+    - default_ssh_key_id: ID of default SSH key
+    """
+    if request.method == 'GET':
+        # Get current defaults
+        default_ssh_key = None
+        default_key_id = SystemSettings.get('default_ssh_key_id')
+        if default_key_id:
+            key = SSHKey.query.get(int(default_key_id))
+            if key:
+                default_ssh_key = {'id': key.id, 'name': key.name, 'fingerprint': key.fingerprint}
+        
+        return jsonify({
+            'ipmi_user': SystemSettings.get('ipmi_user') or os.environ.get('IPMI_USER', 'admin'),
+            'ipmi_pass_set': bool(SystemSettings.get('ipmi_pass') or os.environ.get('IPMI_PASS')),
+            'ssh_user': SystemSettings.get('ssh_user') or 'root',
+            'ssh_port': int(SystemSettings.get('ssh_port') or 22),
+            'default_ssh_key': default_ssh_key,
+            'enable_ssh_inventory': SystemSettings.get('enable_ssh_inventory', 'false').lower() == 'true',
+            'available_ssh_keys': [{'id': k.id, 'name': k.name, 'fingerprint': k.fingerprint} 
+                                   for k in SSHKey.query.all()]
+        })
+    
+    # PUT - update defaults
+    data = request.get_json()
+    
+    try:
+        if 'ipmi_user' in data:
+            SystemSettings.set('ipmi_user', data['ipmi_user'])
+        if 'ipmi_pass' in data and data['ipmi_pass']:
+            SystemSettings.set('ipmi_pass', data['ipmi_pass'])
+        if 'ssh_user' in data:
+            SystemSettings.set('ssh_user', data['ssh_user'])
+        if 'ssh_port' in data:
+            SystemSettings.set('ssh_port', str(data['ssh_port']))
+        if 'default_ssh_key_id' in data:
+            SystemSettings.set('default_ssh_key_id', str(data['default_ssh_key_id']) if data['default_ssh_key_id'] else '')
+        if 'enable_ssh_inventory' in data:
+            SystemSettings.set('enable_ssh_inventory', 'true' if data['enable_ssh_inventory'] else 'false')
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Credential defaults updated'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/settings/credentials/apply', methods=['POST'])
+@admin_required
+def api_apply_credential_defaults():
+    """
+    Apply credential defaults to multiple servers.
+    
+    Request body:
+    {
+        "server_ips": ["88.0.1.0", "88.0.2.0"],  // List of BMC IPs, or "all"
+        "apply_ipmi": true,      // Apply IPMI credentials
+        "apply_ssh": true,       // Apply SSH credentials
+        "overwrite": false       // Overwrite existing credentials
+    }
+    """
+    data = request.get_json()
+    
+    server_ips = data.get('server_ips', [])
+    apply_ipmi = data.get('apply_ipmi', True)
+    apply_ssh = data.get('apply_ssh', True)
+    overwrite = data.get('overwrite', False)
+    
+    # Get defaults
+    default_ipmi_user = SystemSettings.get('ipmi_user') or os.environ.get('IPMI_USER', 'admin')
+    default_ipmi_pass = SystemSettings.get('ipmi_pass') or os.environ.get('IPMI_PASS')
+    default_ssh_user = SystemSettings.get('ssh_user') or 'root'
+    default_ssh_port = int(SystemSettings.get('ssh_port') or 22)
+    default_ssh_key_id = SystemSettings.get('default_ssh_key_id')
+    
+    # Get servers to update
+    if server_ips == 'all':
+        servers = Server.query.filter_by(enabled=True).all()
+    else:
+        servers = Server.query.filter(Server.bmc_ip.in_(server_ips)).all()
+    
+    updated = 0
+    skipped = 0
+    errors = []
+    
+    for server in servers:
+        try:
+            # Get or create config
+            config = ServerConfig.query.filter_by(bmc_ip=server.bmc_ip).first()
+            if not config:
+                config = ServerConfig(bmc_ip=server.bmc_ip, server_name=server.server_name)
+                db.session.add(config)
+            
+            changed = False
+            
+            # Apply IPMI credentials
+            if apply_ipmi:
+                if overwrite or not config.ipmi_user:
+                    config.ipmi_user = default_ipmi_user
+                    changed = True
+                if overwrite or not config.ipmi_pass:
+                    if default_ipmi_pass:
+                        config.ipmi_pass = default_ipmi_pass
+                        changed = True
+            
+            # Apply SSH credentials
+            if apply_ssh:
+                if overwrite or not config.ssh_user:
+                    config.ssh_user = default_ssh_user
+                    changed = True
+                if overwrite or not config.ssh_port:
+                    config.ssh_port = default_ssh_port
+                    changed = True
+                if default_ssh_key_id and (overwrite or not config.ssh_key_id):
+                    config.ssh_key_id = int(default_ssh_key_id)
+                    changed = True
+                
+                # Set server_ip if not set
+                if not config.server_ip:
+                    config.server_ip = server.server_ip or server.bmc_ip.replace('.0', '.1')
+                    changed = True
+            
+            if changed:
+                updated += 1
+            else:
+                skipped += 1
+                
+        except Exception as e:
+            errors.append(f"{server.bmc_ip}: {str(e)}")
+    
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'updated': updated,
+        'skipped': skipped,
+        'errors': errors,
+        'message': f'Applied defaults to {updated} servers ({skipped} skipped, {len(errors)} errors)'
+    })
+
+
+@app.route('/api/ssh-keys', methods=['GET', 'POST'])
+@admin_required
+def api_ssh_keys():
+    """Manage stored SSH keys"""
+    if request.method == 'GET':
+        keys = SSHKey.query.all()
+        return jsonify({
+            'keys': [{'id': k.id, 'name': k.name, 'fingerprint': k.fingerprint, 
+                     'created_at': k.created_at.isoformat() if k.created_at else None}
+                    for k in keys]
+        })
+    
+    # POST - add new key
+    data = request.get_json()
+    name = data.get('name')
+    key_content = data.get('key_content')
+    
+    if not name or not key_content:
+        return jsonify({'error': 'name and key_content are required'}), 400
+    
+    # Check if name exists
+    if SSHKey.query.filter_by(name=name).first():
+        return jsonify({'error': f'SSH key with name "{name}" already exists'}), 400
+    
+    try:
+        # Normalize key content
+        key_content = key_content.replace('\r\n', '\n').strip() + '\n'
+        fingerprint = SSHKey.get_fingerprint(key_content)
+        
+        key = SSHKey(name=name, key_content=key_content, fingerprint=fingerprint)
+        db.session.add(key)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'key': {'id': key.id, 'name': key.name, 'fingerprint': key.fingerprint}
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ssh-keys/<int:key_id>', methods=['GET', 'PUT', 'DELETE'])
+@admin_required
+def api_ssh_key_detail(key_id):
+    """Get, update, or delete an SSH key"""
+    key = SSHKey.query.get_or_404(key_id)
+    
+    if request.method == 'GET':
+        return jsonify({
+            'id': key.id,
+            'name': key.name,
+            'fingerprint': key.fingerprint,
+            'created_at': key.created_at.isoformat() if key.created_at else None,
+            'key_preview': key.key_content[:50] + '...' if key.key_content else None
+        })
+    
+    elif request.method == 'DELETE':
+        # Check if key is in use
+        in_use = ServerConfig.query.filter_by(ssh_key_id=key_id).count()
+        if in_use > 0:
+            return jsonify({'error': f'Cannot delete: key is assigned to {in_use} servers'}), 400
+        
+        db.session.delete(key)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'SSH key "{key.name}" deleted'})
+    
+    # PUT - update
+    data = request.get_json()
+    
+    if 'name' in data and data['name'] != key.name:
+        if SSHKey.query.filter_by(name=data['name']).first():
+            return jsonify({'error': f'Name "{data["name"]}" already exists'}), 400
+        key.name = data['name']
+    
+    if 'key_content' in data and data['key_content']:
+        key.key_content = data['key_content'].replace('\r\n', '\n').strip() + '\n'
+        key.fingerprint = SSHKey.get_fingerprint(key.key_content)
+    
+    db.session.commit()
+    return jsonify({
+        'status': 'success',
+        'key': {'id': key.id, 'name': key.name, 'fingerprint': key.fingerprint}
     })
 
 
