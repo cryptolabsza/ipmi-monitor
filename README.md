@@ -23,10 +23,12 @@
 ## ✨ Features
 
 ### 🆓 Free Self-Hosted Features
-- 🔍 **Event Collection** - Automatically collect IPMI SEL logs (parallel, 10 workers)
+- 🔍 **Event Collection** - Automatically collect IPMI SEL logs (parallel, 32 workers)
 - 📊 **Real-time Dashboard** - Auto-refreshing with server status cards
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
 - 💾 **ECC Memory Tracking** - Identify which DIMM has errors
+- 🎮 **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH (Xid errors)
+- 🔄 **Uptime & Reboot Detection** - Track unexpected server reboots
 - 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
 - 📈 **Prometheus Metrics** - Native `/metrics` endpoint for Grafana
 - 🔐 **User Management** - Admin and read-only access levels
@@ -39,6 +41,8 @@
 - 📈 Failure predictions
 - 🔍 Root cause analysis
 - 💬 AI chat assistant
+- 🤖 **AI Recovery Agent** - Autonomous GPU recovery with escalation
+- 🛠️ **Recovery Actions** - Clock limiting, soft resets, coordinated reboots
 
 ---
 
@@ -110,18 +114,28 @@ docker run -d \
 Create `servers.yaml` with your servers:
 
 ```yaml
+# Global defaults applied to all servers
+defaults:
+  ipmi_user: admin
+  ipmi_pass: YourDefaultPassword
+  ssh_user: root
+  ssh_key_name: production    # References a stored SSH key by name
+
 servers:
   - name: web-server-01
     bmc_ip: 192.168.1.100
+    server_ip: 192.168.1.101  # OS IP for SSH inventory
     
   - name: database-server
     bmc_ip: 192.168.1.101
-    ipmi_user: dbadmin
+    server_ip: 192.168.1.102
+    ipmi_user: dbadmin        # Override default
     ipmi_pass: custompass
     
   - name: gpu-server-01
     bmc_ip: 192.168.1.102
-    nvidia: true              # Uses 16-char NVIDIA password
+    server_ip: 192.168.1.103
+    # Uses defaults for IPMI and SSH
 ```
 
 Then mount it:
@@ -215,6 +229,100 @@ server-02,192.168.1.101,10.0.0.101,203.0.113.50,admin,pass123,Edge server
 |--------------|----------------|--------|
 | **Read-only** | No | View dashboard, events, sensors |
 | **Admin** | Yes | Add/delete servers, clear SEL, settings |
+
+---
+
+## 🎮 GPU Health Monitoring
+
+IPMI Monitor detects GPU errors via SSH using `dmesg` to find NVIDIA Xid errors.
+
+### What It Detects
+
+| Error Type | Display | Severity |
+|------------|---------|----------|
+| Memory errors | GPU Memory Error | Critical |
+| GPU unresponsive | GPU Not Responding | Critical |
+| GPU disconnected | GPU Disconnected | Critical |
+| Recovery required | GPU Requires Recovery | Critical |
+
+> 💡 **Note:** Technical Xid error codes are hidden from the UI. Events show user-friendly descriptions like "GPU Memory Error" instead of "Xid 48". Technical details are stored internally for debugging.
+
+### Requirements
+
+- SSH enabled in Settings
+- SSH credentials configured per-server or globally
+- Server has `dmesg` access (standard on Linux)
+
+### GPU Events in Dashboard
+
+GPU errors appear in the **Events** tab as:
+- **Sensor Type:** GPU Health
+- **Severity:** Critical (red)
+- **Description:** User-friendly error description
+
+---
+
+## 🔄 Uptime & Reboot Detection
+
+IPMI Monitor tracks server uptime via SSH and detects unexpected reboots.
+
+### How It Works
+
+1. Reads `/proc/uptime` via SSH each collection cycle
+2. Compares with previous uptime
+3. If uptime decreased → server rebooted
+4. Checks if reboot was initiated by recovery action
+5. Logs unexpected reboots as warning events
+
+### Events Generated
+
+| Event Type | Description |
+|------------|-------------|
+| `unexpected_reboot` | Server rebooted without recovery action |
+| `recovery_action` | Reboot initiated by AI agent or admin |
+
+### API Endpoint
+
+```
+GET /api/uptime - Get uptime for all servers
+```
+
+Response includes:
+- `uptime_seconds` - Current uptime
+- `uptime_days` - Uptime in days
+- `last_boot_time` - When server last booted
+- `reboot_count` - Total reboots detected
+- `unexpected_reboot_count` - Reboots not initiated by system
+
+---
+
+## 🔧 Maintenance Tasks
+
+IPMI Monitor automatically creates maintenance tasks based on error patterns.
+
+### Auto-Generated Tasks
+
+| Trigger | Task Created |
+|---------|--------------|
+| 3+ reboots in 24h | High severity maintenance |
+| 2+ power cycles in 24h | High severity maintenance |
+| 5+ GPU errors same device in 24h | Critical maintenance |
+
+### API Endpoints
+
+```
+GET /api/maintenance - List maintenance tasks
+PUT /api/maintenance/<id> - Update task status
+GET /api/recovery-logs - View recovery action history
+```
+
+### Task Statuses
+
+- `pending` - Needs attention
+- `scheduled` - Planned for maintenance window
+- `in_progress` - Being worked on
+- `completed` - Task finished
+- `cancelled` - No longer needed
 
 ---
 
@@ -352,11 +460,19 @@ docker restart ipmi-monitor
 |----------|-------------|
 | `GET /` | Dashboard |
 | `GET /api/servers` | List servers |
-| `GET /api/events` | Get events |
+| `GET /api/events` | Get events (filterable by severity, server, hours) |
 | `GET /api/stats` | Dashboard stats |
 | `GET /api/sensors/{bmc_ip}` | Sensor readings |
 | `GET /metrics` | Prometheus metrics |
 | `GET /health` | Health check |
+
+### New Monitoring Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/maintenance` | List maintenance tasks |
+| `GET /api/recovery-logs` | Get recovery action history |
+| `GET /api/uptime` | Get server uptime information |
 
 ### Admin Endpoints (login required)
 
@@ -366,6 +482,9 @@ docker restart ipmi-monitor
 | `POST /api/servers/add` | Add server |
 | `DELETE /api/servers/{bmc_ip}` | Delete server |
 | `POST /api/server/{bmc_ip}/clear_sel` | Clear BMC SEL |
+| `PUT /api/maintenance/{id}` | Update maintenance task status |
+| `PUT /api/settings/credentials/defaults` | Set global credential defaults |
+| `POST /api/settings/credentials/apply` | Apply defaults to multiple servers |
 
 ---
 

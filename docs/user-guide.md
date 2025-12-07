@@ -11,14 +11,20 @@
 - [Key Concepts](#key-concepts)
 - [Dashboard](#dashboard)
 - [Server Details](#server-details)
+- [GPU Health Monitoring](#gpu-health-monitoring)
+- [Uptime & Reboot Detection](#uptime--reboot-detection)
+- [Maintenance Tasks](#maintenance-tasks)
 - [Settings](#settings)
   - [Manage Servers](#manage-servers)
+  - [Global Credentials](#global-credentials)
   - [SSH Configuration](#ssh-configuration)
+  - [Recovery Permissions](#recovery-permissions)
   - [Alerts & Rules](#alerts--rules)
   - [Notifications](#notifications)
   - [Security & Users](#security--users)
 - [Prometheus & Grafana Integration](#prometheus--grafana-integration)
 - [AI Features](#ai-features)
+  - [AI Recovery Agent](#ai-recovery-agent)
 - [Troubleshooting](#troubleshooting)
 - [Glossary](#glossary)
 - [API Reference](#api-reference)
@@ -200,6 +206,112 @@ Hardware information collected via IPMI FRU, Redfish, and SSH:
 
 ---
 
+## GPU Health Monitoring
+
+IPMI Monitor detects NVIDIA GPU errors via SSH by parsing `dmesg` for Xid errors.
+
+### How It Works
+
+1. During each collection cycle, if SSH is enabled:
+2. IPMI Monitor runs `dmesg | grep "NVRM.*Xid"` on the server
+3. Parses Xid error codes from the output
+4. Creates events for critical errors
+
+### User-Friendly Display
+
+Technical Xid codes are hidden from the UI. Instead of "Xid 48", you'll see:
+
+| What You See | Technical Code | Meaning |
+|--------------|----------------|---------|
+| GPU Memory Error | Xid 48, 94, 95 | ECC or memory fault |
+| GPU Not Responding | Xid 43 | GPU hang |
+| GPU Disconnected | Xid 79 | GPU fell off PCIe bus |
+| GPU Requires Recovery | Xid 154 | Driver requests recovery |
+
+> 💡 Technical details are stored internally for admin debugging via the API.
+
+### Event Details
+
+GPU events appear in the Events tab with:
+- **Sensor Type:** GPU Health
+- **Severity:** Critical (red)
+- **Device ID:** PCI address of affected GPU
+
+### Requirements
+
+- SSH enabled in Settings
+- SSH credentials configured
+- Linux server with `dmesg` access
+
+---
+
+## Uptime & Reboot Detection
+
+IPMI Monitor tracks server uptime and detects unexpected reboots.
+
+### How It Works
+
+1. Reads `/proc/uptime` via SSH each collection cycle
+2. If uptime is less than last reading → reboot detected
+3. Checks if a recovery action (reboot/power cycle) was recently initiated
+4. If no recovery action → logs as "unexpected reboot"
+
+### Events
+
+| Event | Severity | Meaning |
+|-------|----------|---------|
+| Unexpected server reboot | Warning | Server rebooted without system initiation |
+
+### Viewing Uptime
+
+Go to the server details page or use the API:
+
+```
+GET /api/uptime?server={bmc_ip}
+```
+
+Returns:
+- `uptime_days` - Days since last boot
+- `last_boot_time` - When server last booted
+- `reboot_count` - Total detected reboots
+- `unexpected_reboot_count` - Reboots not initiated by system
+
+---
+
+## Maintenance Tasks
+
+IPMI Monitor automatically creates maintenance tasks when error patterns indicate hardware issues.
+
+### Auto-Generated Tasks
+
+| Pattern | Task Created |
+|---------|--------------|
+| 3+ reboots in 24 hours | High severity maintenance required |
+| 2+ power cycles in 24 hours | High severity maintenance required |
+| 5+ GPU errors for same device in 24 hours | Critical maintenance required |
+
+### Task Properties
+
+- **Task Type:** `automated_maintenance`
+- **Severity:** `medium`, `high`, or `critical`
+- **Status:** `pending`, `scheduled`, `in_progress`, `completed`, `cancelled`
+- **Recovery Attempts:** Count of reboots/power cycles
+
+### Managing Tasks
+
+View tasks at `/api/maintenance` or through the dashboard (when enabled).
+
+Update task status via API:
+```
+PUT /api/maintenance/{id}
+{
+  "status": "completed",
+  "notes": "Replaced GPU"
+}
+```
+
+---
+
 ## Settings
 
 ### Manage Servers
@@ -228,20 +340,27 @@ Import servers from a YAML/JSON file:
 
 ```yaml
 # servers.yaml example
+
+# Global defaults applied to all servers
+defaults:
+  ipmi_user: admin
+  ipmi_pass: YourDefaultPassword
+  ssh_user: root
+  ssh_key_name: production      # References a stored SSH key by name
+
 servers:
-  # Minimal - just name and BMC IP
+  # Minimal - just name and BMC IP (uses defaults)
   - name: server-01
     bmc_ip: 192.168.1.100
+    server_ip: 192.168.1.101
     
-  # Full configuration with all optional fields
+  # Override specific credentials
   - name: server-02
     bmc_ip: 192.168.1.102       # Required: BMC/IPMI IP
     server_ip: 10.0.0.102       # Optional: OS IP for SSH inventory
     public_ip: 203.0.113.50     # Optional: External/public IP (documentation)
-    ipmi_user: admin            # Optional: Per-server IPMI username
-    ipmi_pass: secretpass       # Optional: Per-server IPMI password
-    ssh_user: root              # Optional: SSH username (default: root)
-    ssh_key_name: production    # Optional: Name of stored SSH key
+    ipmi_user: custom_admin     # Override default
+    ipmi_pass: secretpass       # Override default
     notes: Production database  # Optional: Notes/description
 ```
 
@@ -257,7 +376,46 @@ servers:
 | `ipmi_pass` | No | IPMI password (uses default if not set) |
 | `ssh_user` | No | SSH username (default: root) |
 | `ssh_key_name` | No | Name of a stored SSH key to use |
+| `ssh_pass` | No | SSH password (if not using key auth) |
 | `notes` | No | Notes or description |
+
+### Global Credentials
+
+Set default credentials that apply to all servers unless overridden.
+
+#### Via API
+
+```
+GET /api/settings/credentials/defaults
+PUT /api/settings/credentials/defaults
+```
+
+Example:
+```json
+{
+  "ipmi_user": "admin",
+  "ipmi_pass": "DefaultPassword",
+  "ssh_user": "root",
+  "ssh_port": 22,
+  "default_ssh_key_id": 1
+}
+```
+
+#### Apply to Multiple Servers
+
+Apply defaults to multiple servers at once:
+
+```
+POST /api/settings/credentials/apply
+{
+  "server_ips": ["192.168.1.100", "192.168.1.101"],
+  "apply_ipmi": true,
+  "apply_ssh": true,
+  "overwrite": false
+}
+```
+
+Set `server_ips` to `"all"` to apply to all servers.
 
 ### SSH Configuration
 
@@ -370,6 +528,49 @@ Each server can have custom SSH settings:
 - Custom username
 - Different SSH key
 - Custom port
+
+### Recovery Permissions
+
+Control what recovery actions the AI agent can perform on your servers.
+
+#### Permission Levels
+
+| Permission | Description | Risk Level |
+|------------|-------------|------------|
+| `allow_soft_reset` | PCI unbind/rebind, restart NVIDIA services | Low |
+| `allow_clock_limit` | Reduce GPU clocks to stabilize | Low |
+| `allow_kill_workload` | Stop containers using failed GPU | Medium |
+| `allow_reboot` | Full server reboot | High |
+| `allow_power_cycle` | BMC power cycle | High |
+| `auto_maintenance_flag` | Auto-create maintenance tasks | Low |
+
+#### Setting Permissions
+
+**System-wide defaults:**
+```
+GET /api/recovery/permissions/default
+PUT /api/recovery/permissions/default
+```
+
+**Per-server overrides:**
+```
+GET /api/recovery/permissions/server/{bmc_ip}
+PUT /api/recovery/permissions/server/{bmc_ip}
+```
+
+**Apply to multiple servers:**
+```
+POST /api/recovery/permissions/apply
+{
+  "server_ips": ["192.168.1.100", "192.168.1.101"],
+  "permissions": {
+    "allow_soft_reset": true,
+    "allow_reboot": false
+  }
+}
+```
+
+> ⚠️ **Warning:** Enabling `allow_reboot` and `allow_power_cycle` gives the AI agent permission to reboot servers automatically. Use with caution.
 
 ### Alerts & Rules
 
@@ -518,6 +719,7 @@ Premium AI features provide intelligent analysis of your server fleet.
 - **Predictive Analytics** - Failure predictions before they happen
 - **Root Cause Analysis** - Deep analysis of specific events
 - **AI Chat** - Interactive assistant for questions
+- **AI Recovery Agent** - Autonomous GPU recovery with escalation
 
 ### Getting Started
 
@@ -553,6 +755,59 @@ Each task includes:
 - **Reason** - Why this task was generated
 - **Suggested Action** - What to do
 - **Evidence** - Supporting data
+
+### AI Recovery Agent
+
+The AI Recovery Agent autonomously handles GPU failures with an intelligent escalation ladder.
+
+#### How It Works
+
+1. **Detection**: IPMI Monitor detects GPU error via SSH (Xid error)
+2. **Analysis**: AI Agent analyzes error type and history
+3. **Decision**: Agent decides appropriate recovery action
+4. **Execution**: Action performed (if permissions allow)
+5. **Verification**: Agent checks if recovery succeeded
+6. **Escalation**: If failed, escalates to next level
+
+#### Recovery Stages
+
+| Stage | Action | Description | Cooldown |
+|-------|--------|-------------|----------|
+| 1 | Check Status | Verify GPU is actually failed | - |
+| 2 | Soft Reset | PCI unbind/rebind, restart NVIDIA services | 5 min |
+| 3 | Clock Limit | Reduce GPU clocks 20% to stabilize | 15 min |
+| 4 | Kill Workload | Stop containers/VMs using the GPU | 30 min |
+| 5 | Reboot | Full server reboot | 60 min |
+| 6 | Power Cycle | BMC power cycle | 120 min |
+| 7 | Maintenance | Flag for manual intervention | - |
+
+#### Safety Features
+
+- **Permission Checking**: Only performs actions you've enabled
+- **Cooldown Management**: Prevents recovery storms
+- **Workload Detection**: Identifies containers using GPUs before stopping them
+- **NVIDIA Driver Check**: Skips soft recovery if driver reports "Node Reboot Required"
+- **Persistent State**: Remembers recovery history per device
+
+#### Agent Events
+
+All agent actions are logged as events:
+
+| Event | Description |
+|-------|-------------|
+| GPU Requires Recovery | GPU error detected |
+| GPU Reset Attempted | Soft reset performed |
+| GPU Clock Limited | Clock reduction applied |
+| Server Rebooted | Reboot performed |
+| Maintenance Required | Device flagged for manual intervention |
+
+#### Enabling the Agent
+
+1. Enable AI features (Settings → AI Features)
+2. Configure recovery permissions (Settings → Recovery)
+3. Agent automatically processes GPU errors
+
+> 💡 **Tip:** Start with only `allow_soft_reset` and `allow_clock_limit` enabled. Enable reboot/power cycle only after testing.
 
 ---
 
@@ -607,6 +862,12 @@ Each task includes:
 | **VBAT** | Backup battery voltage (usually CR2032 for CMOS) |
 | **iDRAC** | Dell's BMC implementation |
 | **iLO** | HP's BMC implementation |
+| **Xid** | NVIDIA GPU driver error code (hidden from users in UI) |
+| **PCI Unbind/Rebind** | Soft GPU reset via Linux sysfs |
+| **Clock Limiting** | Reducing GPU clock speeds to improve stability |
+| **Recovery Agent** | AI system that autonomously handles GPU failures |
+| **Escalation Ladder** | Progressive recovery actions (soft → hard) |
+| **Cooldown** | Waiting period between recovery attempts |
 
 ---
 
@@ -634,6 +895,36 @@ GET  /metrics               - Prometheus metrics
 GET  /health                - Health check
 ```
 
+### Monitoring Endpoints
+
+```
+GET  /api/maintenance       - List maintenance tasks
+PUT  /api/maintenance/{id}  - Update maintenance task
+GET  /api/recovery-logs     - Get recovery action history
+GET  /api/uptime            - Get server uptime information
+```
+
+### Credential Management
+
+```
+GET  /api/settings/credentials/defaults  - Get global defaults
+PUT  /api/settings/credentials/defaults  - Set global defaults
+POST /api/settings/credentials/apply     - Apply to multiple servers
+GET  /api/ssh-keys                       - List stored SSH keys
+POST /api/ssh-keys                       - Add SSH key
+DELETE /api/ssh-keys/{id}                - Delete SSH key
+```
+
+### Recovery Permissions
+
+```
+GET  /api/recovery/permissions/default       - Get system defaults
+PUT  /api/recovery/permissions/default       - Set system defaults
+GET  /api/recovery/permissions/server/{ip}   - Get per-server overrides
+PUT  /api/recovery/permissions/server/{ip}   - Set per-server overrides
+POST /api/recovery/permissions/apply         - Apply to multiple servers
+```
+
 For complete API documentation, see the [GitHub repository](https://github.com/cryptolabsza/ipmi-monitor).
 
 ---
@@ -646,5 +937,5 @@ For complete API documentation, see the [GitHub repository](https://github.com/c
 
 ---
 
-*Last updated: December 2024*
+*Last updated: December 2025*
 
