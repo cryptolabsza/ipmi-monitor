@@ -1437,23 +1437,25 @@
                     <h1>{{ app_name }}</h1>
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <span class="version-badge" id="versionBadge" onclick="checkForUpdates()" style="cursor: pointer; font-size: 0.75rem; color: var(--text-secondary); background: var(--bg-secondary); padding: 2px 8px; border-radius: 4px; font-family: monospace;" title="Click to check for updates">{{ version_string }}</span>
-                        <span class="last-updated" id="lastUpdated">Loading...</span>
                         <span class="update-available" id="updateAvailable" style="display: none; font-size: 0.75rem; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 2px 8px; border-radius: 4px; cursor: pointer;" onclick="showUpdateInfo()">⬆️ Update available</span>
                     </div>
                 </div>
             </div>
             <div class="header-actions">
-                <!-- Auto-refresh countdown -->
-                <div class="refresh-timer">
-                    <div class="auto-refresh-toggle" onclick="toggleAutoRefresh()">
-                        <div class="toggle-switch" id="autoRefreshToggle"></div>
-                        <span class="timer-label">Auto</span>
+                <!-- Auto-refresh countdown with last updated -->
+                <div class="refresh-timer" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div class="auto-refresh-toggle" onclick="toggleAutoRefresh()">
+                            <div class="toggle-switch" id="autoRefreshToggle"></div>
+                            <span class="timer-label">Auto</span>
+                        </div>
+                        <div class="timer-label">Next refresh:</div>
+                        <div class="timer-value" id="countdownValue">60s</div>
+                        <div class="timer-progress">
+                            <div class="timer-progress-bar" id="countdownBar" style="width: 100%;"></div>
+                        </div>
                     </div>
-                    <div class="timer-label">Next refresh:</div>
-                    <div class="timer-value" id="countdownValue">60s</div>
-                    <div class="timer-progress">
-                        <div class="timer-progress-bar" id="countdownBar" style="width: 100%;"></div>
-                    </div>
+                    <div class="last-updated" id="lastUpdated" style="font-size: 0.75rem; color: var(--text-secondary);">Loading...</div>
                 </div>
                 
                 <div class="time-selector">
