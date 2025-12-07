@@ -5797,6 +5797,128 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 except Exception as e:
                     app.logger.debug(f"SSH GPU collection failed for {bmc_ip}: {e}")
                 
+                # NVIDIA Xid error detection via dmesg (CRITICAL GPU health events)
+                try:
+                    # Get Xid errors from dmesg - look for NVRM Xid messages
+                    cmd = build_ssh_cmd('dmesg 2>/dev/null | grep -i "NVRM.*Xid" | tail -50')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        # Parse Xid errors
+                        xid_pattern = r'\[([\d.]+)\].*Xid.*\(PCI:([0-9a-f:]+)\).*?(\d+),?\s*(.*)'
+                        
+                        # Xid severity mapping
+                        critical_xids = {
+                            31: 'GPU memory page fault',
+                            43: 'GPU stopped responding', 
+                            45: 'Preemptive cleanup',
+                            48: 'Double bit ECC error',
+                            61: 'Internal micro-controller breakpoint',
+                            62: 'Internal micro-controller halt',
+                            63: 'ECC page retirement',
+                            64: 'ECC page retirement (DBE)',
+                            74: 'GPU exception',
+                            79: 'GPU fell off the bus',
+                            92: 'High single-bit ECC error rate',
+                            94: 'Contained ECC error',
+                            95: 'Uncontained ECC error',
+                            119: 'GSP error',
+                            154: 'GPU recovery action required'
+                        }
+                        
+                        xid_events = []
+                        for line in result.stdout.strip().split('\n'):
+                            match = re.search(xid_pattern, line, re.IGNORECASE)
+                            if match:
+                                kernel_time = match.group(1)
+                                pci_address = match.group(2)
+                                xid_code = int(match.group(3))
+                                message = match.group(4).strip()
+                                
+                                # Check if this is a critical Xid
+                                severity = 'critical' if xid_code in critical_xids else 'warning'
+                                description = critical_xids.get(xid_code, f'Xid {xid_code} error')
+                                
+                                # Check for recovery action in message
+                                recovery_action = None
+                                if 'recovery action' in message.lower():
+                                    if 'Node Reboot Required' in message or '0x2' in message:
+                                        recovery_action = 'node_reboot'
+                                    elif 'Power Cycle' in message or '0x3' in message:
+                                        recovery_action = 'power_cycle'
+                                    elif 'GPU Reset' in message or '0x1' in message:
+                                        recovery_action = 'gpu_reset'
+                                
+                                xid_events.append({
+                                    'kernel_time': kernel_time,
+                                    'pci_address': pci_address,
+                                    'xid_code': xid_code,
+                                    'severity': severity,
+                                    'description': description,
+                                    'message': message,
+                                    'recovery_action': recovery_action
+                                })
+                        
+                        # Log critical Xid errors as events
+                        if xid_events:
+                            critical_count = sum(1 for x in xid_events if x['severity'] == 'critical')
+                            app.logger.info(f"SSH Xid for {bmc_ip}: {len(xid_events)} errors ({critical_count} critical)")
+                            
+                            # Create events for critical Xid errors (deduplicated by PCI + code)
+                            seen = set()
+                            for xid in xid_events:
+                                if xid['severity'] == 'critical':
+                                    key = f"{xid['pci_address']}:{xid['xid_code']}"
+                                    if key not in seen:
+                                        seen.add(key)
+                                        
+                                        # Get server record
+                                        server_record = Server.query.filter_by(bmc_ip=bmc_ip).first()
+                                        if server_record:
+                                            # Check if we already logged this recently (prevent duplicates)
+                                            recent_event = Event.query.filter(
+                                                Event.server_id == server_record.id,
+                                                Event.description.contains(f'Xid {xid["xid_code"]}'),
+                                                Event.description.contains(xid['pci_address']),
+                                                Event.timestamp >= datetime.utcnow() - timedelta(hours=4)
+                                            ).first()
+                                            
+                                            if not recent_event:
+                                                # Create critical event for this Xid error
+                                                event_desc = f'GPU Xid {xid["xid_code"]} ({xid["description"]}) on PCI:{xid["pci_address"]}'
+                                                event_msg = xid['message'] or xid['description']
+                                                if xid['recovery_action']:
+                                                    event_msg += f' | Recovery: {xid["recovery_action"]}'
+                                                
+                                                event = Event(
+                                                    server_id=server_record.id,
+                                                    description=event_desc,
+                                                    message=event_msg,
+                                                    severity='critical',
+                                                    timestamp=datetime.utcnow(),
+                                                    event_type='GPU_XID_ERROR'
+                                                )
+                                                db.session.add(event)
+                                                app.logger.warning(f"🔴 CRITICAL: {event_desc} on {server_record.name}")
+                            
+                            try:
+                                db.session.commit()
+                            except Exception as e:
+                                db.session.rollback()
+                                app.logger.error(f"Failed to save Xid events for {bmc_ip}: {e}")
+                            
+                            # Store Xid summary in inventory for display
+                            inventory.raw_inventory = inventory.raw_inventory or '{}'
+                            try:
+                                raw = json.loads(inventory.raw_inventory)
+                            except:
+                                raw = {}
+                            raw['xid_errors'] = xid_events[-10:]  # Last 10 Xid errors
+                            raw['xid_critical_count'] = critical_count
+                            inventory.raw_inventory = json.dumps(raw)
+                            
+                except Exception as e:
+                    app.logger.debug(f"SSH Xid collection failed for {bmc_ip}: {e}")
+                
                 # NIC info via lspci (Ethernet controllers)
                 try:
                     cmd = build_ssh_cmd('lspci 2>/dev/null | grep -i ethernet')
@@ -8594,6 +8716,232 @@ def api_ai_agent_recovery_history():
             
     except Exception as e:
         return jsonify({'history': [], 'error': str(e)})
+
+
+@app.route('/api/ai/agent/recovery/execute', methods=['POST'])
+@admin_required
+def api_ai_agent_execute_recovery():
+    """
+    Execute a recovery action on a server (Admin only)
+    
+    Supported actions:
+    - kill_vm: Stop/destroy a KVM VM to recover GPU
+    - stop_container: Stop a Docker container to recover GPU
+    - soft_reset_gpu: Attempt nvidia-smi soft reset
+    - pci_reset_gpu: Remove and rescan PCI device
+    """
+    data = request.get_json()
+    
+    server_id = data.get('server_id')
+    action = data.get('action')
+    target = data.get('target')  # VM name, container name, GPU ID, or PCI address
+    force = data.get('force', False)
+    
+    if not server_id or not action:
+        return jsonify({'error': 'server_id and action are required'}), 400
+    
+    # Get server
+    server = Server.query.get(server_id)
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    # Get SSH credentials
+    config = ServerConfig.query.filter_by(bmc_ip=server.bmc_ip).first()
+    if not config or not config.ssh_user:
+        return jsonify({'error': 'SSH not configured for this server'}), 400
+    
+    # Get server OS IP
+    server_ip = server.server_ip or server.bmc_ip.replace('.0', '.1')  # Guess OS IP if not set
+    
+    # Build SSH command helper
+    def run_ssh(cmd, timeout=60):
+        ssh_opts = ['-o', 'StrictHostKeyChecking=no', '-o', 'ConnectTimeout=10']
+        
+        if config.ssh_key_id:
+            stored_key = SSHKey.query.get(config.ssh_key_id)
+            if stored_key:
+                import tempfile
+                key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
+                key_file.write(stored_key.key_content)
+                key_file.close()
+                os.chmod(key_file.name, 0o600)
+                ssh_cmd = ['ssh'] + ssh_opts + ['-i', key_file.name, f'{config.ssh_user}@{server_ip}', cmd]
+            else:
+                return {'success': False, 'error': 'SSH key not found'}
+        elif config.ssh_key:
+            import tempfile
+            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
+            key_file.write(config.ssh_key)
+            key_file.close()
+            os.chmod(key_file.name, 0o600)
+            ssh_cmd = ['ssh'] + ssh_opts + ['-i', key_file.name, f'{config.ssh_user}@{server_ip}', cmd]
+        elif config.ssh_pass:
+            ssh_cmd = ['sshpass', '-p', config.ssh_pass, 'ssh'] + ssh_opts + [f'{config.ssh_user}@{server_ip}', cmd]
+        else:
+            ssh_cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{config.ssh_user}@{server_ip}', cmd]
+        
+        try:
+            result = subprocess.run(ssh_cmd, capture_output=True, text=True, timeout=timeout)
+            return {'success': result.returncode == 0, 'stdout': result.stdout, 'stderr': result.stderr}
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'SSH command timeout'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+    
+    result = {'success': False, 'action': action, 'target': target}
+    
+    try:
+        if action == 'kill_vm':
+            # Kill KVM VM to recover GPU
+            if not target:
+                return jsonify({'error': 'target (VM name) is required'}), 400
+            
+            # Check VM state first
+            check = run_ssh(f'virsh domstate {target} 2>&1')
+            if not check['success'] or 'running' not in check.get('stdout', ''):
+                result['error'] = f'VM {target} is not running'
+                return jsonify(result), 400
+            
+            # Kill the VM
+            if force:
+                kill_result = run_ssh(f'virsh destroy {target}')
+                action_name = 'destroyed'
+            else:
+                kill_result = run_ssh(f'virsh shutdown {target}')
+                action_name = 'shutdown initiated'
+            
+            if kill_result['success']:
+                # Log the action
+                event = Event(
+                    server_id=server.id,
+                    description=f'GPU Recovery: VM {target} {action_name}',
+                    message=f'VM {target} was {action_name} to allow GPU recovery',
+                    severity='warning',
+                    timestamp=datetime.utcnow(),
+                    event_type='RECOVERY_ACTION'
+                )
+                db.session.add(event)
+                db.session.commit()
+                
+                result['success'] = True
+                result['message'] = f'VM {target} {action_name}. GPU may now be recoverable.'
+                
+                # Check GPU status
+                gpu_check = run_ssh('nvidia-smi -L 2>&1')
+                result['gpu_status'] = gpu_check.get('stdout', '')
+            else:
+                result['error'] = kill_result.get('error', kill_result.get('stderr', 'Unknown error'))
+        
+        elif action == 'stop_container':
+            # Stop Docker container
+            if not target:
+                return jsonify({'error': 'target (container name) is required'}), 400
+            
+            stop_result = run_ssh(f'docker stop {target}')
+            
+            if stop_result['success']:
+                event = Event(
+                    server_id=server.id,
+                    description=f'GPU Recovery: Container {target} stopped',
+                    message=f'Container {target} was stopped to allow GPU recovery',
+                    severity='warning',
+                    timestamp=datetime.utcnow(),
+                    event_type='RECOVERY_ACTION'
+                )
+                db.session.add(event)
+                db.session.commit()
+                
+                result['success'] = True
+                result['message'] = f'Container {target} stopped. GPU may now be recoverable.'
+            else:
+                result['error'] = stop_result.get('error', stop_result.get('stderr', 'Unknown error'))
+        
+        elif action == 'soft_reset_gpu':
+            # nvidia-smi GPU reset
+            gpu_id = target or '0'
+            reset_result = run_ssh(f'nvidia-smi -r -i {gpu_id} 2>&1')
+            
+            result['success'] = reset_result['success']
+            result['output'] = reset_result.get('stdout', '') + reset_result.get('stderr', '')
+            if reset_result['success']:
+                result['message'] = f'GPU {gpu_id} soft reset attempted'
+        
+        elif action == 'pci_reset_gpu':
+            # PCI device reset
+            if not target:
+                return jsonify({'error': 'target (PCI address like 0000:01:00.0) is required'}), 400
+            
+            # WARNING: This is disruptive!
+            remove_result = run_ssh(f'echo 1 > /sys/bus/pci/devices/{target}/remove && sleep 2')
+            if not remove_result['success']:
+                result['error'] = f'Failed to remove PCI device: {remove_result.get("stderr")}'
+                return jsonify(result), 500
+            
+            rescan_result = run_ssh('echo 1 > /sys/bus/pci/rescan && sleep 3')
+            
+            event = Event(
+                server_id=server.id,
+                description=f'GPU Recovery: PCI {target} reset',
+                message=f'PCI device {target} was removed and rescanned',
+                severity='warning',
+                timestamp=datetime.utcnow(),
+                event_type='RECOVERY_ACTION'
+            )
+            db.session.add(event)
+            db.session.commit()
+            
+            # Check if GPU came back
+            gpu_check = run_ssh('nvidia-smi -L 2>&1')
+            
+            result['success'] = True
+            result['message'] = f'PCI device {target} removed and rescanned'
+            result['gpu_status'] = gpu_check.get('stdout', '')
+        
+        else:
+            return jsonify({'error': f'Unknown action: {action}'}), 400
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f"Recovery action failed: {e}")
+        result['error'] = str(e)
+        return jsonify(result), 500
+
+
+@app.route('/api/servers/<int:server_id>/xid-errors')
+@login_required
+def api_server_xid_errors(server_id):
+    """Get Xid errors for a specific server"""
+    server = Server.query.get_or_404(server_id)
+    
+    # Get from events
+    xid_events = Event.query.filter(
+        Event.server_id == server_id,
+        Event.event_type == 'GPU_XID_ERROR'
+    ).order_by(Event.timestamp.desc()).limit(50).all()
+    
+    # Also check inventory for recent Xid errors
+    inventory = ServerInventory.query.filter_by(server_name=server.name).first()
+    raw_xid = []
+    if inventory and inventory.raw_inventory:
+        try:
+            raw = json.loads(inventory.raw_inventory)
+            raw_xid = raw.get('xid_errors', [])
+        except:
+            pass
+    
+    return jsonify({
+        'server_name': server.name,
+        'events': [{
+            'id': e.id,
+            'description': e.description,
+            'message': e.message,
+            'severity': e.severity,
+            'timestamp': e.timestamp.isoformat()
+        } for e in xid_events],
+        'recent_xid_errors': raw_xid,
+        'critical_count': len([e for e in xid_events if e.severity == 'critical'])
+    })
 
 
 # ============== System Settings ==============
