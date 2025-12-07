@@ -602,6 +602,55 @@
             color: var(--text-secondary);
         }
         
+        /* AI Summary content styles */
+        #aiSummaryContent, #aiRcaContent, #agentContent {
+            line-height: 1.6;
+        }
+        
+        #aiSummaryContent h2, #aiRcaContent h2, #agentContent h2 {
+            font-size: 1.1rem;
+            margin: 20px 0 10px 0;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+        
+        #aiSummaryContent h2:first-child, #aiRcaContent h2:first-child, #agentContent h2:first-child {
+            margin-top: 10px;
+        }
+        
+        #aiSummaryContent .info, #aiRcaContent .info, #agentContent .info {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid var(--accent-blue);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        #aiSummaryContent .critical, #aiRcaContent .critical, #agentContent .critical {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid var(--accent-red);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        #aiSummaryContent .warning, #aiRcaContent .warning, #agentContent .warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid var(--accent-yellow);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
+        #aiSummaryContent .success, #aiRcaContent .success, #agentContent .success {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 4px solid var(--accent-green);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        
         /* Task cards */
         .ai-task-card {
             background: var(--bg-secondary);
@@ -2627,7 +2676,18 @@
         }
         
         function formatAiContent(content) {
-            // Convert markdown-like content to HTML
+            // Check if content already has HTML tags - if so, return as-is
+            if (content.includes('<div') || content.includes('<h2') || content.includes('<p>')) {
+                // Content has HTML, just clean up any intro text before the first tag
+                // and ensure proper line breaks in plain text sections
+                return content
+                    .replace(/^([^<]+)(<)/s, (match, text, tag) => {
+                        // Format intro text before first HTML tag
+                        return text.replace(/\n/g, '<br>').replace(/^- /gm, '• ') + tag;
+                    });
+            }
+            
+            // Plain text content - convert markdown-like syntax to HTML
             return content
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 .replace(/\n/g, '<br>')
