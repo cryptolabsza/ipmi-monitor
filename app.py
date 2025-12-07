@@ -1565,6 +1565,133 @@ class ServerInventory(db.Model):
         }
 
 
+class RecoveryPermissions(db.Model):
+    """
+    System-wide and per-server GPU recovery action permissions.
+    Controls what automated recovery actions the agent can take.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), unique=True, nullable=True)  # NULL = system default
+    server_name = db.Column(db.String(50))
+    
+    # Soft recovery (non-disruptive)
+    allow_kill_workload = db.Column(db.Boolean, default=True)    # Kill container/VM
+    allow_soft_reset = db.Column(db.Boolean, default=True)       # nvidia-smi reset
+    allow_clock_limit = db.Column(db.Boolean, default=True)      # Reduce GPU clocks
+    
+    # Moderate recovery (may affect other workloads)
+    allow_pci_reset = db.Column(db.Boolean, default=False)       # PCI device reset
+    
+    # Aggressive recovery (affects all workloads)
+    allow_reboot = db.Column(db.Boolean, default=False)          # System reboot
+    allow_power_cycle = db.Column(db.Boolean, default=False)     # IPMI power cycle
+    
+    # Maintenance flag
+    allow_maintenance_flag = db.Column(db.Boolean, default=True)
+    
+    # Limits
+    max_soft_attempts = db.Column(db.Integer, default=3)
+    max_reboot_per_day = db.Column(db.Integer, default=2)
+    max_power_cycle_per_day = db.Column(db.Integer, default=1)
+    
+    # Notifications
+    notify_on_action = db.Column(db.Boolean, default=True)
+    notify_on_escalation = db.Column(db.Boolean, default=True)
+    
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @classmethod
+    def get_system_default(cls):
+        """Get or create system-wide default permissions"""
+        default = cls.query.filter_by(bmc_ip=None).first()
+        if not default:
+            default = cls(bmc_ip=None, server_name='SYSTEM_DEFAULT')
+            db.session.add(default)
+            db.session.commit()
+        return default
+    
+    @classmethod
+    def get_for_server(cls, bmc_ip):
+        """Get permissions for a server (falls back to system default)"""
+        server_perms = cls.query.filter_by(bmc_ip=bmc_ip).first()
+        if server_perms:
+            return server_perms
+        return cls.get_system_default()
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bmc_ip': self.bmc_ip,
+            'server_name': self.server_name,
+            'is_default': self.bmc_ip is None,
+            'allow_kill_workload': self.allow_kill_workload,
+            'allow_soft_reset': self.allow_soft_reset,
+            'allow_clock_limit': self.allow_clock_limit,
+            'allow_pci_reset': self.allow_pci_reset,
+            'allow_reboot': self.allow_reboot,
+            'allow_power_cycle': self.allow_power_cycle,
+            'allow_maintenance_flag': self.allow_maintenance_flag,
+            'max_soft_attempts': self.max_soft_attempts,
+            'max_reboot_per_day': self.max_reboot_per_day,
+            'max_power_cycle_per_day': self.max_power_cycle_per_day,
+            'notify_on_action': self.notify_on_action,
+            'notify_on_escalation': self.notify_on_escalation,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class RecoveryActionLog(db.Model):
+    """Audit log for GPU recovery actions taken"""
+    id = db.Column(db.Integer, primary_key=True)
+    bmc_ip = db.Column(db.String(20), nullable=False, index=True)
+    server_name = db.Column(db.String(50))
+    gpu_pci_address = db.Column(db.String(20))
+    xid_code = db.Column(db.Integer)
+    action_taken = db.Column(db.String(30), nullable=False)  # kill_workload, soft_reset, clock_limit, pci_reset, reboot, power_cycle
+    action_result = db.Column(db.String(20))  # success, failed, skipped
+    error_message = db.Column(db.Text)
+    triggered_by = db.Column(db.String(20))  # auto, manual, escalation
+    executed_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bmc_ip': self.bmc_ip,
+            'server_name': self.server_name,
+            'gpu_pci_address': self.gpu_pci_address,
+            'xid_code': self.xid_code,
+            'action_taken': self.action_taken,
+            'action_result': self.action_result,
+            'error_message': self.error_message,
+            'triggered_by': self.triggered_by,
+            'executed_at': self.executed_at.isoformat() if self.executed_at else None
+        }
+
+
+# XID error configurations for UI display
+XID_RECOVERY_CONFIGS = {
+    8: {'name': 'GPU Reset Detected', 'severity': 'warning', 'actions': ['none']},
+    13: {'name': 'Graphics Exception', 'severity': 'warning', 'actions': ['kill_workload', 'soft_reset']},
+    31: {'name': 'GPU Memory Page Fault', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'reboot']},
+    32: {'name': 'Invalid Push Buffer', 'severity': 'warning', 'actions': ['kill_workload', 'soft_reset']},
+    43: {'name': 'GPU Stopped Responding', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'pci_reset', 'reboot']},
+    45: {'name': 'Preemptive Cleanup', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset']},
+    48: {'name': 'Double-Bit ECC Error', 'severity': 'critical', 'actions': ['kill_workload', 'reboot', 'maintenance']},
+    61: {'name': 'Internal uC Breakpoint', 'severity': 'critical', 'actions': ['power_cycle', 'maintenance']},
+    62: {'name': 'Internal uC Halt', 'severity': 'critical', 'actions': ['power_cycle', 'maintenance']},
+    63: {'name': 'ECC Page Retirement', 'severity': 'warning', 'actions': ['none']},
+    64: {'name': 'ECC DBE Page Retirement', 'severity': 'critical', 'actions': ['reboot', 'maintenance']},
+    69: {'name': 'Video Processor Exception', 'severity': 'warning', 'actions': ['kill_workload', 'soft_reset']},
+    74: {'name': 'GPU Exception', 'severity': 'critical', 'actions': ['kill_workload', 'soft_reset', 'clock_limit', 'pci_reset', 'reboot']},
+    79: {'name': 'GPU Fell Off Bus', 'severity': 'critical', 'actions': ['pci_reset', 'reboot', 'power_cycle', 'maintenance']},
+    92: {'name': 'High Single-Bit ECC Rate', 'severity': 'warning', 'actions': ['clock_limit', 'maintenance']},
+    94: {'name': 'Contained ECC Error', 'severity': 'warning', 'actions': ['none']},
+    95: {'name': 'Uncontained ECC Error', 'severity': 'critical', 'actions': ['reboot', 'maintenance']},
+    119: {'name': 'GSP Error', 'severity': 'critical', 'actions': ['soft_reset', 'pci_reset', 'reboot']},
+    154: {'name': 'GPU Recovery Action Required', 'severity': 'critical', 'actions': ['soft_reset', 'reboot', 'power_cycle', 'maintenance']},
+}
+
+
 def sync_to_cloud(initial_sync=False):
     """
     Sync data to CryptoLabs AI service.
@@ -8952,22 +9079,161 @@ def api_ai_agent_recovery_status():
 @app.route('/api/ai/agent/recovery/history')
 @login_required
 def api_ai_agent_recovery_history():
-    """Get recovery action history"""
-    config = CloudSync.get_config()
-    
-    if not CloudSync.is_ai_enabled():
-        return jsonify({'history': [], 'error': 'AI features not enabled'})
-    
+    """Get recovery action history from local database"""
     try:
-        # For now, return empty history - this will be populated from AI service
-        # In production, this would query the AI service for recovery history
+        # Get from local recovery log
+        history = RecoveryActionLog.query.order_by(
+            RecoveryActionLog.executed_at.desc()
+        ).limit(100).all()
+        
         return jsonify({
-            'history': [],
-            'message': 'Recovery history will appear here after agent actions'
+            'history': [h.to_dict() for h in history],
+            'count': len(history)
         })
             
     except Exception as e:
         return jsonify({'history': [], 'error': str(e)})
+
+
+# ============== Recovery Permissions API ==============
+
+@app.route('/api/recovery/permissions', methods=['GET'])
+@login_required
+def api_get_recovery_permissions():
+    """Get system-wide and all per-server recovery permissions"""
+    try:
+        system_default = RecoveryPermissions.get_system_default()
+        server_overrides = RecoveryPermissions.query.filter(
+            RecoveryPermissions.bmc_ip != None
+        ).all()
+        
+        return jsonify({
+            'system_default': system_default.to_dict(),
+            'server_overrides': [s.to_dict() for s in server_overrides],
+            'xid_configs': XID_RECOVERY_CONFIGS
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/recovery/permissions/default', methods=['GET', 'PUT'])
+@admin_required
+def api_recovery_permissions_default():
+    """Get or update system-wide default recovery permissions"""
+    try:
+        default = RecoveryPermissions.get_system_default()
+        
+        if request.method == 'GET':
+            return jsonify(default.to_dict())
+        
+        # PUT - update defaults
+        data = request.get_json()
+        
+        # Update boolean fields
+        bool_fields = [
+            'allow_kill_workload', 'allow_soft_reset', 'allow_clock_limit',
+            'allow_pci_reset', 'allow_reboot', 'allow_power_cycle',
+            'allow_maintenance_flag', 'notify_on_action', 'notify_on_escalation'
+        ]
+        for field in bool_fields:
+            if field in data:
+                setattr(default, field, bool(data[field]))
+        
+        # Update integer fields
+        int_fields = ['max_soft_attempts', 'max_reboot_per_day', 'max_power_cycle_per_day']
+        for field in int_fields:
+            if field in data:
+                setattr(default, field, int(data[field]))
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'System default permissions updated',
+            'permissions': default.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/recovery/permissions/server/<bmc_ip>', methods=['GET', 'PUT', 'DELETE'])
+@admin_required
+def api_recovery_permissions_server(bmc_ip):
+    """Get, update, or delete per-server recovery permissions"""
+    try:
+        if request.method == 'GET':
+            perms = RecoveryPermissions.get_for_server(bmc_ip)
+            return jsonify(perms.to_dict())
+        
+        elif request.method == 'DELETE':
+            # Delete server override (will fall back to default)
+            perms = RecoveryPermissions.query.filter_by(bmc_ip=bmc_ip).first()
+            if perms:
+                db.session.delete(perms)
+                db.session.commit()
+                return jsonify({'status': 'success', 'message': f'Permissions for {bmc_ip} deleted'})
+            return jsonify({'status': 'success', 'message': 'No override existed'})
+        
+        # PUT - create or update server-specific permissions
+        data = request.get_json()
+        
+        perms = RecoveryPermissions.query.filter_by(bmc_ip=bmc_ip).first()
+        if not perms:
+            server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            perms = RecoveryPermissions(
+                bmc_ip=bmc_ip,
+                server_name=server.server_name if server else bmc_ip
+            )
+            db.session.add(perms)
+        
+        # Update boolean fields
+        bool_fields = [
+            'allow_kill_workload', 'allow_soft_reset', 'allow_clock_limit',
+            'allow_pci_reset', 'allow_reboot', 'allow_power_cycle',
+            'allow_maintenance_flag', 'notify_on_action', 'notify_on_escalation'
+        ]
+        for field in bool_fields:
+            if field in data:
+                setattr(perms, field, bool(data[field]))
+        
+        # Update integer fields
+        int_fields = ['max_soft_attempts', 'max_reboot_per_day', 'max_power_cycle_per_day']
+        for field in int_fields:
+            if field in data:
+                setattr(perms, field, int(data[field]))
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Permissions for {bmc_ip} updated',
+            'permissions': perms.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/recovery/xid-configs')
+@login_required
+def api_xid_configs():
+    """Get all XID error configurations with recovery actions"""
+    return jsonify({
+        'configs': XID_RECOVERY_CONFIGS,
+        'action_descriptions': {
+            'none': 'Monitor only - no action taken',
+            'kill_workload': 'Kill container/VM using the GPU',
+            'soft_reset': 'NVIDIA soft reset (nvidia-smi -r)',
+            'clock_limit': 'Reduce GPU clocks for stability',
+            'pci_reset': 'PCI device remove and rescan',
+            'reboot': 'System reboot',
+            'power_cycle': 'IPMI power cycle',
+            'maintenance': 'Flag for manual maintenance'
+        }
+    })
 
 
 @app.route('/api/ai/agent/recovery/execute', methods=['POST'])
