@@ -4994,12 +4994,17 @@ def api_servers():
             IPMIEvent.event_date >= cutoff
         ).count()
         
+        # Get OS reachability from inventory
+        inventory = ServerInventory.query.filter_by(bmc_ip=s.bmc_ip).first()
+        primary_ip_reachable = inventory.primary_ip_reachable if inventory else None
+        
         result.append({
             'bmc_ip': s.bmc_ip,
             'server_name': s.server_name,
             'power_status': s.power_status,
             'last_check': s.last_check.isoformat() if s.last_check else None,
             'is_reachable': s.is_reachable,
+            'primary_ip_reachable': primary_ip_reachable,
             'total_events': s.total_events,
             'critical': critical,
             'warning': warning,

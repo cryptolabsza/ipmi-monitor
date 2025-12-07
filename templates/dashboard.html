@@ -1114,6 +1114,11 @@
             color: var(--accent-green);
         }
         
+        .status-partial {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--accent-yellow);
+        }
+        
         .status-offline {
             background: rgba(255, 71, 87, 0.15);
             color: var(--accent-red);
@@ -3011,6 +3016,21 @@
             }
         }
         
+        // Helper functions for server status display
+        function getStatusClass(server) {
+            if (!server.is_reachable) return 'status-offline';
+            // BMC is online - check OS status
+            if (server.primary_ip_reachable === false) return 'status-partial';
+            return 'status-online';
+        }
+        
+        function getStatusText(server) {
+            if (!server.is_reachable) return 'Offline';
+            // BMC is online - check OS status
+            if (server.primary_ip_reachable === false) return 'OS Offline';
+            return 'Online';
+        }
+        
         function renderServers() {
             const grid = document.getElementById('serverGrid');
             
@@ -3070,8 +3090,8 @@
                             <div class="server-name">${server.server_name}</div>
                             <div class="server-ip">${server.bmc_ip}</div>
                         </div>
-                        <span class="status-badge ${server.is_reachable ? 'status-online' : 'status-offline'}">
-                            ${server.is_reachable ? 'Online' : 'Offline'}
+                        <span class="status-badge ${getStatusClass(server)}">
+                            ${getStatusText(server)}
                         </span>
                     </div>
                     <div class="server-stats">
