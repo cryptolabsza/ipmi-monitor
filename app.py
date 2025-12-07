@@ -5652,9 +5652,11 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     # Key-based auth takes priority
                     if ssh_key_content:
                         # Write key to temp file for use
+                        # Ensure proper line endings and trailing newline
                         import tempfile
-                        key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
-                        key_file.write(ssh_key_content)
+                        key_content_clean = ssh_key_content.replace('\r\n', '\n').strip() + '\n'
+                        key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+                        key_file.write(key_content_clean)
                         key_file.close()
                         os.chmod(key_file.name, 0o600)
                         return ['ssh'] + ssh_opts + ['-i', key_file.name, '-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', remote_cmd]
@@ -7101,9 +7103,10 @@ def api_test_ssh():
         key_file_path = None
         
         if ssh_key_content:
-            # Write key to temp file
-            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
-            key_file.write(ssh_key_content)
+            # Write key to temp file with proper formatting
+            key_content_clean = ssh_key_content.replace('\r\n', '\n').strip() + '\n'
+            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+            key_file.write(key_content_clean)
             key_file.close()
             os.chmod(key_file.name, 0o600)
             key_file_path = key_file.name
@@ -8765,8 +8768,9 @@ def api_ai_agent_execute_recovery():
             stored_key = SSHKey.query.get(config.ssh_key_id)
             if stored_key:
                 import tempfile
-                key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
-                key_file.write(stored_key.key_content)
+                key_content = stored_key.key_content.replace('\r\n', '\n').strip() + '\n'
+                key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+                key_file.write(key_content)
                 key_file.close()
                 os.chmod(key_file.name, 0o600)
                 ssh_cmd = ['ssh'] + ssh_opts + ['-i', key_file.name, f'{config.ssh_user}@{server_ip}', cmd]
@@ -8774,8 +8778,9 @@ def api_ai_agent_execute_recovery():
                 return {'success': False, 'error': 'SSH key not found'}
         elif config.ssh_key:
             import tempfile
-            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.key')
-            key_file.write(config.ssh_key)
+            key_content = config.ssh_key.replace('\r\n', '\n').strip() + '\n'
+            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+            key_file.write(key_content)
             key_file.close()
             os.chmod(key_file.name, 0o600)
             ssh_cmd = ['ssh'] + ssh_opts + ['-i', key_file.name, f'{config.ssh_user}@{server_ip}', cmd]
