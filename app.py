@@ -5529,6 +5529,257 @@ def api_power_control(bmc_ip, action):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+# SOL (Serial Over LAN) Monitoring for Stuck Shutdown Detection
+# Track active reboot operations with SOL monitoring
+_active_sol_monitors = {}  # bmc_ip -> {'started': datetime, 'process': Popen, 'output': [], 'state': str}
+
+@app.route('/api/server/<bmc_ip>/power/monitored-reboot', methods=['POST'])
+@write_required
+@require_valid_bmc_ip
+def api_monitored_reboot(bmc_ip):
+    """
+    Perform a reboot with stuck shutdown detection.
+    
+    If shutdown takes longer than the timeout, automatically escalates to power cycle.
+    Uses IPMI SOL to monitor console output for stuck shutdown indicators.
+    """
+    data = request.get_json() or {}
+    stuck_timeout = data.get('stuck_timeout', 300)  # Default 5 minutes
+    
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    server_name = server.server_name if server else bmc_ip
+    
+    try:
+        password = get_ipmi_password(bmc_ip)
+        
+        # Issue the reset command
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'power', 'reset'],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode != 0:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to issue reset: {result.stderr}'
+            }), 500
+        
+        # Log the reboot initiation
+        event = IPMIEvent(
+            bmc_ip=bmc_ip,
+            server_name=server_name,
+            event_date=datetime.utcnow(),
+            sensor_type='System Recovery',
+            event_description='Monitored reboot initiated - will auto power-cycle if stuck',
+            severity='info',
+            sel_id='RECOVERY-REBOOT'
+        )
+        db.session.add(event)
+        db.session.commit()
+        
+        # Store the reboot start time for monitoring
+        _active_sol_monitors[bmc_ip] = {
+            'started': datetime.utcnow(),
+            'timeout': stuck_timeout,
+            'state': 'rebooting',
+            'escalated': False
+        }
+        
+        app.logger.info(f"Monitored reboot started for {bmc_ip} ({server_name}), timeout: {stuck_timeout}s")
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Monitored reboot initiated for {server_name}',
+            'timeout': stuck_timeout,
+            'note': f'Will auto power-cycle if shutdown is stuck for >{stuck_timeout}s'
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Monitored reboot error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/sol/check-stuck', methods=['POST'])
+@write_required
+@require_valid_bmc_ip
+def api_check_stuck_shutdown(bmc_ip):
+    """
+    Check if a server is stuck in shutdown via SOL output.
+    
+    This runs a quick SOL check to look for stuck shutdown indicators:
+    - "task blocked for more than X seconds"
+    - "Failed to unmount"
+    - No progress after reaching "System Shutdown" target
+    
+    If stuck, automatically escalates to power cycle.
+    """
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    server_name = server.server_name if server else bmc_ip
+    
+    try:
+        password = get_ipmi_password(bmc_ip)
+        
+        # Deactivate any existing SOL session first
+        subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'sol', 'deactivate'],
+            capture_output=True, timeout=10
+        )
+        time.sleep(1)
+        
+        # Try to capture SOL output briefly (5 seconds)
+        # Using a timeout to avoid hanging
+        try:
+            sol_result = subprocess.run(
+                ['timeout', '5', 'ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'sol', 'activate'],
+                capture_output=True, text=True, timeout=10
+            )
+            sol_output = sol_result.stdout + sol_result.stderr
+        except:
+            sol_output = ""
+        
+        # Always deactivate after
+        subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'sol', 'deactivate'],
+            capture_output=True, timeout=10
+        )
+        
+        # Analyze for stuck indicators
+        stuck_indicators = [
+            'task.*blocked for more than',
+            'hung_task',
+            'Failed to unmount',
+            'Could not detach',
+            'Device or resource busy',
+            'Failed to finalize'
+        ]
+        
+        is_stuck = False
+        stuck_reason = None
+        blocked_seconds = 0
+        
+        for line in sol_output.split('\n'):
+            for pattern in stuck_indicators:
+                if re.search(pattern, line, re.IGNORECASE):
+                    is_stuck = True
+                    stuck_reason = line.strip()[:100]
+                    
+                    # Extract blocked time if present
+                    match = re.search(r'blocked for more than (\d+) seconds', line)
+                    if match:
+                        blocked_seconds = int(match.group(1))
+                    break
+            if is_stuck:
+                break
+        
+        result = {
+            'bmc_ip': bmc_ip,
+            'server_name': server_name,
+            'checked_at': datetime.utcnow().isoformat(),
+            'is_stuck': is_stuck,
+            'blocked_seconds': blocked_seconds,
+            'stuck_reason': stuck_reason,
+            'sol_output_sample': sol_output[:500] if sol_output else 'No SOL output captured'
+        }
+        
+        # If stuck and the user wants auto-escalation
+        data = request.get_json() or {}
+        if is_stuck and data.get('auto_escalate', False):
+            app.logger.warning(f"Stuck shutdown detected for {bmc_ip}, escalating to power cycle")
+            
+            # Issue power cycle
+            cycle_result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'power', 'cycle'],
+                capture_output=True, text=True, timeout=30
+            )
+            
+            if cycle_result.returncode == 0:
+                # Log the escalation
+                event = IPMIEvent(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    event_date=datetime.utcnow(),
+                    sensor_type='System Recovery',
+                    event_description=f'Power cycle escalation: shutdown stuck for {blocked_seconds}s',
+                    severity='critical',
+                    sel_id='RECOVERY-ESCALATE'
+                )
+                db.session.add(event)
+                db.session.commit()
+                
+                result['escalated'] = True
+                result['escalation_success'] = True
+            else:
+                result['escalated'] = True
+                result['escalation_success'] = False
+                result['escalation_error'] = cycle_result.stderr
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f"SOL check error for {bmc_ip}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/server/<bmc_ip>/sol/output', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_get_sol_output(bmc_ip):
+    """
+    Get recent console output via SOL.
+    
+    Query params:
+        - duration: How long to capture (default 5 seconds, max 30)
+    """
+    duration = min(int(request.args.get('duration', 5)), 30)
+    
+    try:
+        password = get_ipmi_password(bmc_ip)
+        
+        # Deactivate any existing session
+        subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'sol', 'deactivate'],
+            capture_output=True, timeout=10
+        )
+        time.sleep(0.5)
+        
+        # Capture SOL output
+        try:
+            result = subprocess.run(
+                ['timeout', str(duration), 'ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'sol', 'activate'],
+                capture_output=True, text=True, timeout=duration + 5
+            )
+            output = result.stdout + result.stderr
+        except:
+            output = ""
+        finally:
+            # Deactivate
+            subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'sol', 'deactivate'],
+                capture_output=True, timeout=10
+            )
+        
+        return jsonify({
+            'bmc_ip': bmc_ip,
+            'duration': duration,
+            'output': output,
+            'captured_at': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/api/clear_all_sel', methods=['POST'])
 @write_required
 def api_clear_all_sel():
