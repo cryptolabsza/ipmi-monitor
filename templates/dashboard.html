@@ -1621,38 +1621,130 @@
                                 </div>
                             </div>
                             
-                            <!-- Recovery Permissions -->
-                            <div class="ai-option-group" id="recoveryPermissions" style="margin-bottom: 15px;">
-                                <label class="ai-option-label">Recovery Permissions:</label>
-                                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px;">
-                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <span>🎮 GPU Soft Reset (Xid 43)</span>
-                                            <input type="checkbox" name="agentPermission" value="xid_43" checked>
+                            <!-- Experimental Warning Banner -->
+                            <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(220, 38, 38, 0.1)); border: 1px solid var(--accent-yellow); border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                                <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                    <span style="font-size: 1.5rem;">⚠️</span>
+                                    <div>
+                                        <div style="font-weight: 600; color: var(--accent-yellow); margin-bottom: 4px;">EXPERIMENTAL FEATURE</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
+                                            Autonomous recovery actions are experimental. By enabling these features, you accept that:
+                                            <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+                                                <li>Recovery actions may affect running workloads</li>
+                                                <li>Reboots and power cycles will cause downtime</li>
+                                                <li>Use at your own risk - no guarantees provided</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recovery Actions - Soft (Low Risk) -->
+                            <div class="ai-option-group" style="margin-bottom: 15px;">
+                                <label class="ai-option-label" style="color: var(--accent-green);">🟢 Low Risk Actions (Recommended)</label>
+                                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; border-left: 3px solid var(--accent-green);">
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
+                                        These actions only affect the specific GPU workload, not the entire system.
+                                    </div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">🛑 Kill Workload</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Stop container/VM using affected GPU</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_kill_workload" checked>
                                         </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <span>🔌 GPU PCI Reset (Xid 79)</span>
-                                            <input type="checkbox" name="agentPermission" value="xid_79">
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">🔄 GPU Soft Reset</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">nvidia-smi reset for Xid 13, 31, 43, 45, 69, 74, 119, 154</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_soft_reset" checked>
                                         </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <span>⚡ GPU Recovery (Xid 154)</span>
-                                            <input type="checkbox" name="agentPermission" value="xid_154">
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <span>🌡️ Temperature Management</span>
-                                            <input type="checkbox" name="agentPermission" value="high_temp" checked>
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <span>💾 Disk Cleanup</span>
-                                            <input type="checkbox" name="agentPermission" value="disk_full" checked>
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <span>🧠 Memory Error Reset</span>
-                                            <input type="checkbox" name="agentPermission" value="memory_error" checked>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">📉 Clock Limit</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Reduce GPU clocks for stability (Xid 31, 43, 74, 92)</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_clock_limit" checked>
                                         </label>
                                     </div>
                                 </div>
                             </div>
+                            
+                            <!-- Recovery Actions - Moderate Risk -->
+                            <div class="ai-option-group" style="margin-bottom: 15px;">
+                                <label class="ai-option-label" style="color: var(--accent-yellow);">🟡 Moderate Risk Actions</label>
+                                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; border-left: 3px solid var(--accent-yellow);">
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
+                                        May briefly affect other workloads on the same system.
+                                    </div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">🔌 PCI Reset</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Remove and rescan PCI device for Xid 43, 74, 79, 119</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_pci_reset">
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Recovery Actions - High Risk -->
+                            <div class="ai-option-group" style="margin-bottom: 15px;">
+                                <label class="ai-option-label" style="color: var(--accent-red);">🔴 High Risk Actions (Causes Downtime)</label>
+                                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; border-left: 3px solid var(--accent-red);">
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
+                                        <strong>⚠️ WARNING:</strong> These actions will cause system downtime and affect ALL workloads!
+                                    </div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">🔁 System Reboot</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">IPMI warm reset for Xid 31, 43, 48, 64, 74, 79, 95, 119, 154</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_reboot">
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">⚡ Power Cycle</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">IPMI hard power cycle for Xid 61, 62, 79, 154</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_power_cycle">
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Other Agent Features -->
+                            <div class="ai-option-group" style="margin-bottom: 15px;">
+                                <label class="ai-option-label">🛠️ Other Features</label>
+                                <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px;">
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">💾 Disk Cleanup</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Auto-clean logs, dangling images, build cache when disk is full</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_disk_cleanup" checked>
+                                        </label>
+                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+                                            <div>
+                                                <span style="font-weight: 500;">🏷️ Maintenance Flag</span>
+                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Auto-flag devices for maintenance when recovery fails</div>
+                                            </div>
+                                            <input type="checkbox" id="perm_maintenance" checked>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Save Button -->
+                            <button onclick="saveRecoveryPermissions()" class="ai-generate-btn" style="background: var(--accent-green); margin-bottom: 15px;">
+                                <span>💾</span> Save Permissions
+                            </button>
+                            <div id="permissionsSaveStatus" style="text-align: center; font-size: 0.85rem; margin-bottom: 15px; display: none;"></div>
                         </div>
                         
                         <button class="ai-generate-btn" onclick="analyzeWithAgent()" id="agentAnalyzeBtn">
@@ -2238,6 +2330,80 @@
                 summaryEl.textContent = 'Agent is not available';
             }
         }
+        
+        // Recovery permissions management
+        async function loadRecoveryPermissions() {
+            try {
+                const response = await fetch('/api/recovery/permissions', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const perms = data.system_default || {};
+                
+                // Set checkbox states
+                document.getElementById('perm_kill_workload').checked = perms.allow_kill_workload !== false;
+                document.getElementById('perm_soft_reset').checked = perms.allow_soft_reset !== false;
+                document.getElementById('perm_clock_limit').checked = perms.allow_clock_limit !== false;
+                document.getElementById('perm_pci_reset').checked = perms.allow_pci_reset === true;
+                document.getElementById('perm_reboot').checked = perms.allow_reboot === true;
+                document.getElementById('perm_power_cycle').checked = perms.allow_power_cycle === true;
+                // Disk cleanup is a local preference (not stored in permissions yet)
+                document.getElementById('perm_maintenance').checked = perms.allow_maintenance_flag !== false;
+            } catch (e) {
+                console.error('Failed to load recovery permissions:', e);
+            }
+        }
+        
+        async function saveRecoveryPermissions() {
+            const statusEl = document.getElementById('permissionsSaveStatus');
+            
+            const permissions = {
+                allow_kill_workload: document.getElementById('perm_kill_workload').checked,
+                allow_soft_reset: document.getElementById('perm_soft_reset').checked,
+                allow_clock_limit: document.getElementById('perm_clock_limit').checked,
+                allow_pci_reset: document.getElementById('perm_pci_reset').checked,
+                allow_reboot: document.getElementById('perm_reboot').checked,
+                allow_power_cycle: document.getElementById('perm_power_cycle').checked,
+                allow_maintenance_flag: document.getElementById('perm_maintenance').checked
+            };
+            
+            // Check if high-risk actions are being enabled
+            if (permissions.allow_reboot || permissions.allow_power_cycle) {
+                if (!confirm('⚠️ WARNING: You are enabling high-risk recovery actions (Reboot/Power Cycle).\n\nThese actions WILL cause system downtime and affect ALL running workloads.\n\nAre you sure you want to enable these experimental features?\n\nYou accept all risks by proceeding.')) {
+                    return;
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/recovery/permissions/default', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(permissions)
+                });
+                
+                if (response.ok) {
+                    statusEl.style.display = 'block';
+                    statusEl.style.color = 'var(--accent-green)';
+                    statusEl.textContent = '✅ Permissions saved successfully';
+                    setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+                } else {
+                    throw new Error('Save failed');
+                }
+            } catch (e) {
+                statusEl.style.display = 'block';
+                statusEl.style.color = 'var(--accent-red)';
+                statusEl.textContent = '❌ Failed to save permissions: ' + e.message;
+            }
+        }
+        
+        // Load permissions when Agent tab is shown
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if perm elements exist (agent tab may not be visible to all users)
+            if (document.getElementById('perm_kill_workload')) {
+                loadRecoveryPermissions();
+            }
+        });
         
         async function analyzeWithAgent() {
             const btn = document.getElementById('agentAnalyzeBtn');
