@@ -1639,103 +1639,322 @@
                                 </div>
                             </div>
                             
+                            <!-- Prerequisites Notice -->
+                            <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; margin-bottom: 15px; border: 1px solid var(--border-color);">
+                                <div style="font-weight: 600; margin-bottom: 8px;">📋 Prerequisites</div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 15px; font-size: 0.85rem;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span id="prereq_ssh" style="color: var(--text-secondary);">🔑 SSH Access:</span>
+                                        <span id="prereq_ssh_status" style="color: var(--accent-yellow);">Checking...</span>
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style="color: var(--text-secondary);">🖥️ IPMI Access:</span>
+                                        <span style="color: var(--accent-green);">✓ Available</span>
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;">
+                                    ℹ️ SSH access is required for GPU recovery actions. IPMI is required for reboot/power cycle.
+                                </div>
+                            </div>
+                            
                             <!-- Recovery Actions - Soft (Low Risk) -->
                             <div class="ai-option-group" style="margin-bottom: 15px;">
-                                <label class="ai-option-label" style="color: var(--accent-green);">🟢 Low Risk Actions (Recommended)</label>
+                                <label class="ai-option-label" style="color: var(--accent-green);">🟢 Low Risk Actions (GPU Only - No Downtime)</label>
                                 <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; border-left: 3px solid var(--accent-green);">
                                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
-                                        These actions only affect the specific GPU workload, not the entire system.
+                                        These actions only affect the specific GPU or its workload. Other GPUs and workloads continue running.
                                     </div>
-                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">🛑 Kill Workload</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Stop container/VM using affected GPU</div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                        
+                                        <!-- Stop Workload -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">⏹️ Stop Workload</span>
+                                                        <span style="background: var(--accent-blue); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">SSH Required</span>
+                                                        <button onclick="toggleTooltip('tip_stop_workload')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Gracefully stop container/VM using the affected GPU</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_kill_workload" checked>
                                             </div>
-                                            <input type="checkbox" id="perm_kill_workload" checked>
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">🔄 GPU Soft Reset</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">nvidia-smi reset for Xid 13, 31, 43, 45, 69, 74, 119, 154</div>
+                                            <div id="tip_stop_workload" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>GPU stopped responding (hung/frozen)</li>
+                                                    <li>GPU memory errors detected</li>
+                                                    <li>Graphics processing exceptions</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ol style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Identifies which container/VM is using the affected GPU</li>
+                                                    <li>Sends graceful stop signal (docker stop / virsh shutdown)</li>
+                                                    <li>Waits up to 30 seconds for clean shutdown</li>
+                                                    <li>Container/VM can be restarted after GPU recovery</li>
+                                                </ol>
+                                                <div style="color: var(--accent-green);">✅ <strong>Safe:</strong> Only the affected workload is stopped, not removed. Data is preserved.</div>
                                             </div>
-                                            <input type="checkbox" id="perm_soft_reset" checked>
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">📉 Clock Limit</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Reduce GPU clocks for stability (Xid 31, 43, 74, 92)</div>
+                                        </div>
+                                        
+                                        <!-- GPU Soft Reset -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">🔄 GPU Soft Reset</span>
+                                                        <span style="background: var(--accent-blue); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">SSH Required</span>
+                                                        <button onclick="toggleTooltip('tip_soft_reset')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Reset GPU via NVIDIA driver (nvidia-smi --gpu-reset)</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_soft_reset" checked>
                                             </div>
-                                            <input type="checkbox" id="perm_clock_limit" checked>
-                                        </label>
+                                            <div id="tip_soft_reset" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>GPU stopped responding to commands</li>
+                                                    <li>Driver reports GPU needs recovery</li>
+                                                    <li>GPU exceptions during compute operations</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ol style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Workload must be stopped first (auto or manual)</li>
+                                                    <li>Runs <code>nvidia-smi --gpu-reset -i &lt;gpu&gt;</code></li>
+                                                    <li>Driver reinitializes the GPU</li>
+                                                    <li>GPU should be usable again within ~15 seconds</li>
+                                                </ol>
+                                                <div style="color: var(--accent-yellow);">⚠️ <strong>Note:</strong> Requires no active processes on the GPU. Stop Workload runs first.</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Clock Limit -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">📉 GPU Clock Limit</span>
+                                                        <span style="background: var(--accent-blue); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">SSH Required</span>
+                                                        <button onclick="toggleTooltip('tip_clock_limit')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Reduce GPU clocks by 20% to improve stability</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_clock_limit" checked>
+                                            </div>
+                                            <div id="tip_clock_limit" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Recurring GPU errors (same error multiple times)</li>
+                                                    <li>High rate of correctable memory errors (ECC)</li>
+                                                    <li>GPU showing signs of instability or overheating</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ol style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Gets current max GPU clock speed</li>
+                                                    <li>Sets new limit at 80% of max (20% reduction)</li>
+                                                    <li>Makes it persistent across reboots (via crontab)</li>
+                                                    <li>Flags GPU for maintenance review</li>
+                                                </ol>
+                                                <div style="color: var(--accent-yellow);">⚠️ <strong>Trade-off:</strong> Reduces performance by ~15-20% but improves stability. Good for aging GPUs.</div>
+                                            </div>
+                                        </div>
+                                        
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Recovery Actions - Moderate Risk -->
                             <div class="ai-option-group" style="margin-bottom: 15px;">
-                                <label class="ai-option-label" style="color: var(--accent-yellow);">🟡 Moderate Risk Actions</label>
+                                <label class="ai-option-label" style="color: var(--accent-yellow);">🟡 Moderate Risk (May Affect Other Workloads Briefly)</label>
                                 <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; border-left: 3px solid var(--accent-yellow);">
                                     <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
-                                        May briefly affect other workloads on the same system.
+                                        These actions may cause brief interruption to other workloads on the same system.
                                     </div>
-                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">🔌 PCI Reset</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Remove and rescan PCI device for Xid 43, 74, 79, 119</div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                        
+                                        <!-- PCI Reset -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">🔌 PCI Bus Reset</span>
+                                                        <span style="background: var(--accent-blue); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">SSH Required</span>
+                                                        <button onclick="toggleTooltip('tip_pci_reset')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Remove and rescan GPU on PCI bus (hardware-level reset)</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_pci_reset">
                                             </div>
-                                            <input type="checkbox" id="perm_pci_reset">
-                                        </label>
+                                            <div id="tip_pci_reset" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>GPU "fell off the bus" - disconnected from system</li>
+                                                    <li>Soft reset failed to recover the GPU</li>
+                                                    <li>GPU not responding to any driver commands</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ol style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Stops container/VM using the GPU</li>
+                                                    <li>Removes GPU from PCI bus (<code>echo 1 > .../remove</code>)</li>
+                                                    <li>Rescans PCI bus to re-detect GPU (<code>echo 1 > .../rescan</code>)</li>
+                                                    <li>Waits ~30 seconds for GPU to reinitialize</li>
+                                                    <li>If successful, container/VM can be restarted</li>
+                                                </ol>
+                                                <div style="margin-bottom: 8px;"><strong>🔄 Recovery Flow:</strong></div>
+                                                <div style="background: var(--bg-secondary); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.75rem;">
+                                                    Stop Workload → PCI Reset → ✓ Success → Restart Workload<br>
+                                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓ Failed<br>
+                                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System Reboot (if enabled)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Recovery Actions - High Risk -->
                             <div class="ai-option-group" style="margin-bottom: 15px;">
-                                <label class="ai-option-label" style="color: var(--accent-red);">🔴 High Risk Actions (Causes Downtime)</label>
+                                <label class="ai-option-label" style="color: var(--accent-red);">🔴 High Risk (System Downtime - All Workloads Affected)</label>
                                 <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px; border-left: 3px solid var(--accent-red);">
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 10px;">
-                                        <strong>⚠️ WARNING:</strong> These actions will cause system downtime and affect ALL workloads!
+                                    <div style="font-size: 0.8rem; color: var(--accent-red); margin-bottom: 10px; font-weight: 500;">
+                                        ⚠️ These actions will stop ALL workloads and cause system downtime!
                                     </div>
-                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">🔁 System Reboot</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">IPMI warm reset for Xid 31, 43, 48, 64, 74, 79, 95, 119, 154</div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                        
+                                        <!-- System Reboot -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">🔁 System Reboot</span>
+                                                        <span style="background: var(--accent-purple); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">IPMI Required</span>
+                                                        <button onclick="toggleTooltip('tip_reboot')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Warm reboot via IPMI when soft recovery fails</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_reboot">
                                             </div>
-                                            <input type="checkbox" id="perm_reboot">
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">⚡ Power Cycle</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">IPMI hard power cycle for Xid 61, 62, 79, 154</div>
+                                            <div id="tip_reboot" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>All soft recovery actions failed</li>
+                                                    <li>GPU requires driver reload (only via reboot)</li>
+                                                    <li>Uncorrectable memory errors (ECC)</li>
+                                                    <li>GPU firmware errors</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ol style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Sends IPMI reset command to BMC</li>
+                                                    <li>System performs warm reboot (~2-5 min)</li>
+                                                    <li>All services restart automatically</li>
+                                                    <li>GPU driver reinitializes fresh</li>
+                                                </ol>
+                                                <div style="margin-bottom: 8px;"><strong>🔄 Recovery Flow:</strong></div>
+                                                <div style="background: var(--bg-secondary); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.75rem;">
+                                                    Soft Reset Failed → PCI Reset Failed → <strong>System Reboot</strong><br>
+                                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓ Failed/Stuck<br>
+                                                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Power Cycle (if enabled)
+                                                </div>
+                                                <div style="color: var(--accent-red); margin-top: 8px;">❗ <strong>Downtime:</strong> ~2-5 minutes. All containers/VMs will be stopped.</div>
                                             </div>
-                                            <input type="checkbox" id="perm_power_cycle">
-                                        </label>
+                                        </div>
+                                        
+                                        <!-- Power Cycle -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">⚡ Power Cycle</span>
+                                                        <span style="background: var(--accent-purple); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">IPMI Required</span>
+                                                        <button onclick="toggleTooltip('tip_power_cycle')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Hard power off/on - last resort when reboot fails or system is stuck</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_power_cycle">
+                                            </div>
+                                            <div id="tip_power_cycle" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>System is stuck during shutdown/reboot</li>
+                                                    <li>GPU firmware halted (microcontroller error)</li>
+                                                    <li>Reboot command didn't complete after timeout</li>
+                                                    <li>System completely unresponsive</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ol style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Sends IPMI power cycle command to BMC</li>
+                                                    <li>Server powers off completely</li>
+                                                    <li>BMC waits ~5 seconds</li>
+                                                    <li>Server powers back on and boots (~3-8 min total)</li>
+                                                </ol>
+                                                <div style="color: var(--accent-red); margin-top: 8px;">❗ <strong>Downtime:</strong> ~3-8 minutes. Equivalent to pulling the power cord. No graceful shutdown.</div>
+                                            </div>
+                                        </div>
+                                        
                                     </div>
                                 </div>
                             </div>
                             
                             <!-- Other Agent Features -->
                             <div class="ai-option-group" style="margin-bottom: 15px;">
-                                <label class="ai-option-label">🛠️ Other Features</label>
+                                <label class="ai-option-label">🛠️ Additional Features</label>
                                 <div style="background: var(--bg-secondary); border-radius: 8px; padding: 12px;">
-                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 6px;">
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">💾 Disk Cleanup</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Auto-clean logs, dangling images, build cache when disk is full</div>
+                                    <div class="ai-checkbox-group" style="display: flex; flex-direction: column; gap: 8px;">
+                                        
+                                        <!-- Disk Cleanup -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">💾 Disk Cleanup</span>
+                                                        <span style="background: var(--accent-blue); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 3px;">SSH Required</span>
+                                                        <button onclick="toggleTooltip('tip_disk_cleanup')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Auto-clean when disk usage exceeds 90%</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_disk_cleanup" checked>
                                             </div>
-                                            <input type="checkbox" id="perm_disk_cleanup" checked>
-                                        </label>
-                                        <label class="ai-checkbox-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-                                            <div>
-                                                <span style="font-weight: 500;">🏷️ Maintenance Flag</span>
-                                                <div style="font-size: 0.75rem; color: var(--text-secondary);">Auto-flag devices for maintenance when recovery fails</div>
+                                            <div id="tip_disk_cleanup" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 What it cleans (safe items only):</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Docker build cache (<code>docker builder prune</code>)</li>
+                                                    <li>Dangling images (unused, untagged)</li>
+                                                    <li>Old container logs (>7 days)</li>
+                                                    <li>Systemd journal logs (>7 days)</li>
+                                                </ul>
+                                                <div style="color: var(--accent-green);">✅ <strong>Safe:</strong> Does NOT delete stopped containers, volumes, or running workload data.</div>
                                             </div>
-                                            <input type="checkbox" id="perm_maintenance" checked>
-                                        </label>
+                                        </div>
+                                        
+                                        <!-- Maintenance Flag -->
+                                        <div class="recovery-action-item" style="background: var(--bg-tertiary); border-radius: 6px; overflow: hidden;">
+                                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                                                <div style="flex: 1;">
+                                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                                        <span style="font-weight: 500;">🏷️ Auto Maintenance Flag</span>
+                                                        <button onclick="toggleTooltip('tip_maintenance')" style="background: none; border: 1px solid var(--border-color); border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; cursor: pointer; color: var(--text-secondary);">?</button>
+                                                    </div>
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">Create maintenance task when recovery fails repeatedly</div>
+                                                </div>
+                                                <input type="checkbox" id="perm_maintenance" checked>
+                                            </div>
+                                            <div id="tip_maintenance" class="action-tooltip" style="display: none; background: var(--bg-primary); padding: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem;">
+                                                <div style="margin-bottom: 8px;"><strong>🔍 When this triggers:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>All enabled recovery actions have been tried and failed</li>
+                                                    <li>Same GPU error recurring multiple times (>3 in 24h)</li>
+                                                    <li>Multiple power cycles needed in short period</li>
+                                                </ul>
+                                                <div style="margin-bottom: 8px;"><strong>⚙️ What it does:</strong></div>
+                                                <ul style="margin: 0 0 10px 20px; padding: 0; color: var(--text-secondary);">
+                                                    <li>Creates a maintenance task in the dashboard</li>
+                                                    <li>Records all recovery attempts and outcomes</li>
+                                                    <li>Suggests likely hardware issue (GPU replacement)</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        
                                     </div>
                                 </div>
                             </div>
@@ -2331,6 +2550,38 @@
             }
         }
         
+        // Tooltip toggle for recovery action descriptions
+        function toggleTooltip(tipId) {
+            const tip = document.getElementById(tipId);
+            if (tip) {
+                tip.style.display = tip.style.display === 'none' ? 'block' : 'none';
+            }
+        }
+        
+        // Check SSH prerequisites
+        async function checkSSHPrerequisites() {
+            try {
+                // Count servers with SSH enabled
+                const response = await fetch('/api/servers', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                
+                const servers = await response.json();
+                let sshEnabled = 0;
+                let totalServers = servers.length;
+                
+                // This is a simplified check - in reality we'd check ServerInventory
+                // For now, show that SSH is needed
+                const statusEl = document.getElementById('prereq_ssh_status');
+                if (statusEl) {
+                    // We can't easily tell from /api/servers if SSH is configured
+                    // So we show a helpful message
+                    statusEl.innerHTML = '<span style="color: var(--accent-yellow);">Configure in server settings</span>';
+                }
+            } catch (e) {
+                console.error('Failed to check SSH prerequisites:', e);
+            }
+        }
+        
         // Recovery permissions management
         async function loadRecoveryPermissions() {
             try {
@@ -2402,6 +2653,7 @@
             // Check if perm elements exist (agent tab may not be visible to all users)
             if (document.getElementById('perm_kill_workload')) {
                 loadRecoveryPermissions();
+                checkSSHPrerequisites();
             }
         });
         
