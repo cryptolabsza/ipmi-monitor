@@ -1139,10 +1139,108 @@
         
         <!-- Import/Export Tab -->
         <div id="import" class="tab-content">
-            <div class="card">
-                <div class="card-title">📥 Import Servers from INI File</div>
+            <!-- Full Configuration Export -->
+            <div class="card" style="border: 2px solid var(--accent-green);">
+                <div class="card-title">📦 Full Configuration Backup</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    Paste INI content or upload a file. Format: <code>bmc_ip = server_name # optional comment</code>
+                    Export everything needed to set up IPMI Monitor on another system.
+                </p>
+                
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 10px 0;">📋 What's Included:</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 0.9rem;">
+                        <div>✅ Server list (BMC IPs, names)</div>
+                        <div>✅ OS IPs (server_ip)</div>
+                        <div>✅ IPMI/BMC credentials</div>
+                        <div>✅ SSH usernames & ports</div>
+                        <div>✅ SSH private keys</div>
+                        <div>✅ Per-server key assignments</div>
+                        <div>✅ Alert rules</div>
+                        <div>✅ System settings</div>
+                    </div>
+                </div>
+                
+                <div style="background: var(--accent-yellow)15; border: 1px solid var(--accent-yellow); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <span style="font-size: 1.2rem;">⚠️</span>
+                        <strong>Security Warning</strong>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">
+                        The exported file contains <strong>sensitive credentials</strong> (IPMI passwords, SSH private keys).
+                        Store it securely and do not share it publicly.
+                    </p>
+                </div>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="exportFullConfig(true)">
+                        🔐 Export with Secrets (Full Backup)
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportFullConfig(false)">
+                        📄 Export without Secrets (Server List Only)
+                    </button>
+                </div>
+                
+                <div id="fullExportResult" style="margin-top: 15px;"></div>
+            </div>
+            
+            <!-- Full Configuration Import -->
+            <div class="card" style="border: 2px solid var(--accent-blue);">
+                <div class="card-title">📥 Restore Configuration</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Import a previously exported configuration backup.
+                </p>
+                
+                <div class="form-group">
+                    <label>Upload Backup File</label>
+                    <input type="file" id="configFileInput" accept=".json" onchange="previewConfigImport()" 
+                           style="padding: 10px; background: var(--bg-secondary); border: 1px dashed var(--border-color); border-radius: 8px; width: 100%;">
+                </div>
+                
+                <div id="importPreviewSection" style="display: none;">
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0;">📋 Import Preview:</h4>
+                        <div id="importPreviewContent" style="font-size: 0.9rem;"></div>
+                    </div>
+                    
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 10px 0;">⚙️ Import Options:</h4>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="importMerge" checked>
+                                <span>Merge with existing data (update if exists)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="importServers" checked>
+                                <span>Import servers (BMC IPs, names, credentials)</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="importSshKeys" checked>
+                                <span>Import SSH keys</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="importAlerts" checked>
+                                <span>Import alert rules</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" id="importSettings" checked>
+                                <span>Import system settings</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary" onclick="importFullConfig()">
+                        📥 Import Configuration
+                    </button>
+                </div>
+                
+                <div id="fullImportResult" style="margin-top: 15px;"></div>
+            </div>
+            
+            <!-- Simple INI Import (legacy) -->
+            <div class="card">
+                <div class="card-title">📝 Quick Import (INI Format)</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Simple server list import. Format: <code>bmc_ip = server_name</code>
                 </p>
                 
                 <div class="form-group">
@@ -1157,10 +1255,11 @@
                 <button class="btn btn-primary" onclick="importServers()">📥 Import Servers</button>
             </div>
             
+            <!-- Simple Export (legacy) -->
             <div class="card">
-                <div class="card-title">📤 Export Servers</div>
+                <div class="card-title">📤 Quick Export (Server List Only)</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    Download current server list as INI or JSON file.
+                    Export server list only (no credentials).
                 </p>
                 
                 <div style="display: flex; gap: 10px;">
@@ -1170,7 +1269,7 @@
                 
                 <div class="form-group" style="margin-top: 20px;">
                     <label>Preview</label>
-                    <textarea id="exportPreview" readonly style="height: 200px;"></textarea>
+                    <textarea id="exportPreview" readonly style="height: 150px;"></textarea>
                 </div>
             </div>
         </div>
@@ -2410,6 +2509,194 @@
                 document.getElementById('exportPreview').value = await response.text();
             } catch (e) {
                 console.error('Failed to load export preview:', e);
+            }
+        }
+        
+        // ============== Full Configuration Export/Import ==============
+        
+        async function exportFullConfig(includeSecrets) {
+            const resultDiv = document.getElementById('fullExportResult');
+            resultDiv.innerHTML = '<span style="color: var(--accent-blue);">⏳ Preparing export...</span>';
+            
+            try {
+                const params = new URLSearchParams({
+                    include_secrets: includeSecrets,
+                    download: 'true'
+                });
+                
+                const response = await fetch(`/api/config/export?${params}`, { 
+                    credentials: 'same-origin' 
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${error.error || 'Export failed'}</span>`;
+                    return;
+                }
+                
+                const config = await response.json();
+                
+                // Show summary
+                const serverCount = config.servers?.length || 0;
+                const keyCount = config.ssh_keys?.length || 0;
+                const alertCount = config.alert_rules?.length || 0;
+                
+                let summary = `<div style="background: var(--accent-green)15; padding: 12px; border-radius: 8px;">`;
+                summary += `<span style="color: var(--accent-green);">✅ Export ready!</span>`;
+                summary += `<div style="margin-top: 8px; font-size: 0.9rem; color: var(--text-secondary);">`;
+                summary += `${serverCount} servers, ${keyCount} SSH keys, ${alertCount} alert rules`;
+                if (includeSecrets) {
+                    summary += ` <span style="color: var(--accent-yellow);">(includes credentials)</span>`;
+                }
+                summary += `</div></div>`;
+                resultDiv.innerHTML = summary;
+                
+                // Download file
+                const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const date = new Date().toISOString().split('T')[0];
+                a.download = `ipmi-monitor-backup-${date}${includeSecrets ? '-full' : ''}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+            } catch (e) {
+                resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${e.message}</span>`;
+            }
+        }
+        
+        let pendingImportConfig = null;
+        
+        async function previewConfigImport() {
+            const fileInput = document.getElementById('configFileInput');
+            const previewSection = document.getElementById('importPreviewSection');
+            const previewContent = document.getElementById('importPreviewContent');
+            const resultDiv = document.getElementById('fullImportResult');
+            
+            resultDiv.innerHTML = '';
+            
+            if (!fileInput.files || !fileInput.files[0]) {
+                previewSection.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const file = fileInput.files[0];
+                const text = await file.text();
+                const config = JSON.parse(text);
+                pendingImportConfig = config;
+                
+                // Show preview
+                const serverCount = config.servers?.length || 0;
+                const keyCount = config.ssh_keys?.length || 0;
+                const alertCount = config.alert_rules?.length || 0;
+                const settingsCount = Object.keys(config.settings || {}).length;
+                
+                // Check if secrets are included
+                const hasSecrets = config.ssh_keys?.some(k => k.key_content) || 
+                                   config.servers?.some(s => s.ipmi_pass || s.ssh_pass);
+                
+                let html = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">`;
+                html += `<div>📁 <strong>${serverCount}</strong> servers</div>`;
+                html += `<div>🔐 <strong>${keyCount}</strong> SSH keys</div>`;
+                html += `<div>🔔 <strong>${alertCount}</strong> alert rules</div>`;
+                html += `<div>⚙️ <strong>${settingsCount}</strong> settings</div>`;
+                html += `</div>`;
+                
+                if (hasSecrets) {
+                    html += `<div style="margin-top: 10px; padding: 8px; background: var(--accent-green)15; border-radius: 4px;">`;
+                    html += `<span style="color: var(--accent-green);">✅ Credentials included</span>`;
+                    html += `</div>`;
+                } else {
+                    html += `<div style="margin-top: 10px; padding: 8px; background: var(--accent-yellow)15; border-radius: 4px;">`;
+                    html += `<span style="color: var(--accent-yellow);">⚠️ No credentials in file (servers only)</span>`;
+                    html += `</div>`;
+                }
+                
+                // Show export date if available
+                if (config.exported_at) {
+                    const date = new Date(config.exported_at).toLocaleString();
+                    html += `<div style="margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary);">`;
+                    html += `Exported: ${date}`;
+                    html += `</div>`;
+                }
+                
+                previewContent.innerHTML = html;
+                previewSection.style.display = 'block';
+                
+            } catch (e) {
+                previewSection.style.display = 'none';
+                resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ Invalid JSON file: ${e.message}</span>`;
+            }
+        }
+        
+        async function importFullConfig() {
+            if (!pendingImportConfig) {
+                showAlert('No configuration file loaded', 'error');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('fullImportResult');
+            resultDiv.innerHTML = '<span style="color: var(--accent-blue);">⏳ Importing...</span>';
+            
+            const merge = document.getElementById('importMerge').checked;
+            const skipServers = !document.getElementById('importServers').checked;
+            const skipSshKeys = !document.getElementById('importSshKeys').checked;
+            const skipAlerts = !document.getElementById('importAlerts').checked;
+            const skipSettings = !document.getElementById('importSettings').checked;
+            
+            try {
+                const params = new URLSearchParams({
+                    merge: merge,
+                    skip_servers: skipServers,
+                    skip_ssh_keys: skipSshKeys,
+                    skip_alerts: skipAlerts,
+                    skip_settings: skipSettings
+                });
+                
+                const response = await fetch(`/api/config/import?${params}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(pendingImportConfig)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    let html = `<div style="background: var(--accent-green)15; padding: 12px; border-radius: 8px;">`;
+                    html += `<span style="color: var(--accent-green);">✅ Import complete!</span>`;
+                    html += `<div style="margin-top: 8px; font-size: 0.9rem;">`;
+                    
+                    const r = result.results;
+                    if (r.servers) html += `Servers: ${r.servers.imported} imported, ${r.servers.updated} updated<br>`;
+                    if (r.ssh_keys) html += `SSH Keys: ${r.ssh_keys.imported} imported, ${r.ssh_keys.updated} updated<br>`;
+                    if (r.alert_rules) html += `Alert Rules: ${r.alert_rules.imported} imported, ${r.alert_rules.updated} updated<br>`;
+                    if (r.settings) html += `Settings: ${r.settings.imported} imported<br>`;
+                    
+                    if (r.errors && r.errors.length > 0) {
+                        html += `<div style="margin-top: 8px; color: var(--accent-yellow);">`;
+                        html += `⚠️ ${r.errors.length} warnings: ${r.errors.slice(0, 3).join(', ')}`;
+                        if (r.errors.length > 3) html += ` (+${r.errors.length - 3} more)`;
+                        html += `</div>`;
+                    }
+                    
+                    html += `</div></div>`;
+                    resultDiv.innerHTML = html;
+                    
+                    // Refresh data
+                    loadServers();
+                    loadManagedServers();
+                    loadSshKeys();
+                    loadBulkServerList();
+                    
+                } else {
+                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${result.error || 'Import failed'}</span>`;
+                }
+                
+            } catch (e) {
+                resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${e.message}</span>`;
             }
         }
         
