@@ -738,6 +738,94 @@
                     </div>
                 </div>
             </div> <!-- End sshConfigSection -->
+            
+            <!-- Bulk Apply Section -->
+            <div class="card" style="border: 2px solid var(--accent-green); margin-top: 20px;">
+                <div class="card-title">🚀 Bulk Apply Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Apply your default SSH/IPMI settings to multiple servers at once.
+                    First configure defaults above, then select servers to apply them to.
+                </p>
+                
+                <!-- What to Apply -->
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">📋 What to Apply</h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="bulkApplySSH" checked>
+                            <span>🔐 SSH Credentials</span>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(user, port, key)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="bulkApplyIPMI" checked>
+                            <span>🖥️ IPMI Credentials</span>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(user, password)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="bulkOverwrite">
+                            <span style="color: var(--accent-yellow);">⚠️ Overwrite existing</span>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(replace current config)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Server Selection -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: var(--text-primary);">🖥️ Select Servers</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="bulkSelectAll()" style="padding: 6px 12px; font-size: 0.85rem;">
+                            ✅ Select All
+                        </button>
+                        <button class="btn btn-secondary" onclick="bulkSelectNone()" style="padding: 6px 12px; font-size: 0.85rem;">
+                            ❌ Clear
+                        </button>
+                        <button class="btn btn-secondary" onclick="bulkSelectNoSSH()" style="padding: 6px 12px; font-size: 0.85rem;">
+                            🔍 Without SSH
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="bulkServerList" style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+                    <p style="padding: 20px; color: var(--text-secondary);">Loading servers...</p>
+                </div>
+                
+                <!-- Selection Count & Apply Button -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <div>
+                        <span style="font-size: 1.1rem; font-weight: 600;" id="bulkSelectedCount">0</span>
+                        <span style="color: var(--text-secondary);"> servers selected</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="bulkApplyCredentials()" id="bulkApplyBtn" style="padding: 12px 24px;">
+                        🚀 Apply to Selected Servers
+                    </button>
+                </div>
+                
+                <!-- Results -->
+                <div id="bulkApplyResult" style="display: none; margin-top: 15px; padding: 15px; border-radius: 8px;"></div>
+            </div>
+            
+            <!-- IPMI Defaults (for bulk apply) -->
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-title">🔧 IPMI Credential Defaults</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Configure default IPMI credentials used when bulk-applying to servers.
+                </p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>IPMI Username</label>
+                        <input type="text" id="defaultIpmiUser" value="admin" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>IPMI Password</label>
+                        <input type="password" id="defaultIpmiPass" placeholder="Enter IPMI password">
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveDefaultIpmi()">
+                    💾 Save Default IPMI Config
+                </button>
+            </div>
         </div>
         
         <!-- Alerts Tab -->
@@ -3151,6 +3239,227 @@
                 showAlert('Failed to save SSH config: ' + e.message, 'error');
             }
         }
+        
+        // ============== Bulk Apply Credentials ==============
+        
+        let BULK_SERVERS = [];
+        
+        async function loadBulkServerList() {
+            try {
+                const response = await fetch('/api/servers', { credentials: 'same-origin' });
+                const servers = await response.json();
+                BULK_SERVERS = servers;
+                
+                const container = document.getElementById('bulkServerList');
+                if (!container) return;
+                
+                if (servers.length === 0) {
+                    container.innerHTML = '<p style="padding: 20px; color: var(--text-secondary);">No servers configured yet.</p>';
+                    return;
+                }
+                
+                // Get config status for each server
+                let configsResponse;
+                try {
+                    configsResponse = await fetch('/api/config/servers', { credentials: 'same-origin' });
+                } catch (e) {
+                    // Fallback: no config info available
+                    configsResponse = { ok: false };
+                }
+                
+                let serverConfigs = {};
+                if (configsResponse.ok) {
+                    const configs = await configsResponse.json();
+                    configs.forEach(c => { serverConfigs[c.bmc_ip] = c; });
+                }
+                
+                container.innerHTML = servers.map(s => {
+                    const config = serverConfigs[s.bmc_ip] || {};
+                    const hasSSH = config.ssh_user || config.ssh_key_id;
+                    const hasIPMI = config.ipmi_user;
+                    
+                    return `
+                        <label class="bulk-server-item" style="display: flex; align-items: center; gap: 12px; padding: 10px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer;" 
+                               data-bmc="${s.bmc_ip}" data-has-ssh="${hasSSH ? 'true' : 'false'}">
+                            <input type="checkbox" class="bulk-server-check" value="${s.bmc_ip}" onchange="updateBulkCount()">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 500;">${s.server_name || s.bmc_ip}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">BMC: ${s.bmc_ip}</div>
+                            </div>
+                            <div style="display: flex; gap: 6px;">
+                                ${hasSSH ? '<span style="background: var(--accent-green)22; color: var(--accent-green); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">SSH ✓</span>' : '<span style="background: var(--accent-yellow)22; color: var(--accent-yellow); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">No SSH</span>'}
+                                ${hasIPMI ? '<span style="background: var(--accent-blue)22; color: var(--accent-blue); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">IPMI ✓</span>' : ''}
+                            </div>
+                        </label>
+                    `;
+                }).join('');
+                
+                updateBulkCount();
+            } catch (e) {
+                console.error('Failed to load bulk server list:', e);
+                const container = document.getElementById('bulkServerList');
+                if (container) {
+                    container.innerHTML = '<p style="padding: 20px; color: var(--accent-red);">Failed to load servers.</p>';
+                }
+            }
+        }
+        
+        function updateBulkCount() {
+            const checkboxes = document.querySelectorAll('.bulk-server-check:checked');
+            const countEl = document.getElementById('bulkSelectedCount');
+            if (countEl) {
+                countEl.textContent = checkboxes.length;
+            }
+            
+            const btn = document.getElementById('bulkApplyBtn');
+            if (btn) {
+                btn.disabled = checkboxes.length === 0;
+            }
+        }
+        
+        function bulkSelectAll() {
+            document.querySelectorAll('.bulk-server-check').forEach(cb => cb.checked = true);
+            updateBulkCount();
+        }
+        
+        function bulkSelectNone() {
+            document.querySelectorAll('.bulk-server-check').forEach(cb => cb.checked = false);
+            updateBulkCount();
+        }
+        
+        function bulkSelectNoSSH() {
+            document.querySelectorAll('.bulk-server-item').forEach(item => {
+                const hasSSH = item.dataset.hasSsh === 'true';
+                const cb = item.querySelector('.bulk-server-check');
+                if (cb) cb.checked = !hasSSH;
+            });
+            updateBulkCount();
+        }
+        
+        async function bulkApplyCredentials() {
+            const checkboxes = document.querySelectorAll('.bulk-server-check:checked');
+            const serverIps = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (serverIps.length === 0) {
+                showAlert('Please select at least one server', 'error');
+                return;
+            }
+            
+            const applySSH = document.getElementById('bulkApplySSH').checked;
+            const applyIPMI = document.getElementById('bulkApplyIPMI').checked;
+            const overwrite = document.getElementById('bulkOverwrite').checked;
+            
+            if (!applySSH && !applyIPMI) {
+                showAlert('Please select what to apply (SSH, IPMI, or both)', 'error');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('bulkApplyResult');
+            resultDiv.style.display = 'block';
+            resultDiv.style.background = 'var(--bg-secondary)';
+            resultDiv.innerHTML = `<span style="color: var(--accent-blue);">⏳ Applying to ${serverIps.length} servers...</span>`;
+            
+            try {
+                const response = await fetch('/api/settings/credentials/apply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        server_ips: serverIps,
+                        apply_ssh: applySSH,
+                        apply_ipmi: applyIPMI,
+                        overwrite: overwrite
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.style.background = 'var(--accent-green)15';
+                    let msg = `<span style="color: var(--accent-green);">✅ Applied to ${result.updated || 0} servers</span>`;
+                    if (result.skipped > 0) {
+                        msg += `<br><span style="color: var(--text-secondary); font-size: 0.85rem;">(${result.skipped} skipped - already configured)</span>`;
+                    }
+                    if (result.errors && result.errors.length > 0) {
+                        msg += `<br><span style="color: var(--accent-red); font-size: 0.85rem;">Errors: ${result.errors.join(', ')}</span>`;
+                    }
+                    resultDiv.innerHTML = msg;
+                    
+                    // Refresh the list to show updated status
+                    setTimeout(() => loadBulkServerList(), 1000);
+                } else {
+                    resultDiv.style.background = 'var(--accent-red)15';
+                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${result.error || 'Failed to apply'}</span>`;
+                }
+            } catch (e) {
+                resultDiv.style.background = 'var(--accent-red)15';
+                resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${e.message}</span>`;
+            }
+        }
+        
+        async function saveDefaultIpmi() {
+            const user = document.getElementById('defaultIpmiUser').value;
+            const pass = document.getElementById('defaultIpmiPass').value;
+            
+            try {
+                const response = await fetch('/api/settings/credentials/defaults', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({
+                        ipmi_user: user,
+                        ipmi_pass: pass
+                    })
+                });
+                
+                if (response.ok) {
+                    showAlert('Default IPMI credentials saved', 'success');
+                } else {
+                    const result = await response.json();
+                    showAlert(result.error || 'Failed to save', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to save IPMI config: ' + e.message, 'error');
+            }
+        }
+        
+        async function loadDefaultCredentials() {
+            try {
+                const response = await fetch('/api/settings/credentials/defaults', { credentials: 'same-origin' });
+                if (!response.ok) return;
+                
+                const defaults = await response.json();
+                
+                // SSH defaults
+                if (defaults.ssh_user) {
+                    const sshUserEl = document.getElementById('defaultSshUser');
+                    if (sshUserEl) sshUserEl.value = defaults.ssh_user;
+                }
+                if (defaults.ssh_port) {
+                    const sshPortEl = document.getElementById('defaultSshPort');
+                    if (sshPortEl) sshPortEl.value = defaults.ssh_port;
+                }
+                if (defaults.default_ssh_key_id) {
+                    const sshKeyEl = document.getElementById('defaultSshKeyId');
+                    if (sshKeyEl) sshKeyEl.value = defaults.default_ssh_key_id;
+                }
+                
+                // IPMI defaults
+                if (defaults.ipmi_user) {
+                    const ipmiUserEl = document.getElementById('defaultIpmiUser');
+                    if (ipmiUserEl) ipmiUserEl.value = defaults.ipmi_user;
+                }
+            } catch (e) {
+                console.error('Failed to load default credentials:', e);
+            }
+        }
+        
+        // Load bulk server list when SSH tab is shown
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load on page load (in case SSH tab is default)
+            loadBulkServerList();
+            loadDefaultCredentials();
+        });
         
         // ============== Alerts ==============
         
