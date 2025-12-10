@@ -8378,7 +8378,8 @@ def api_config_servers():
         'ipmi_user': c.ipmi_user,
         'has_ipmi_pass': bool(c.ipmi_pass),
         'ssh_user': c.ssh_user,
-        'has_ssh_key': bool(c.ssh_key),
+        'has_ssh_key': bool(c.ssh_key_id) or bool(c.ssh_key),  # Check both ssh_key_id (reference) and ssh_key (inline)
+        'ssh_key_id': c.ssh_key_id,
         'ssh_port': c.ssh_port,
         'updated_at': c.updated_at.isoformat() if c.updated_at else None
     } for c in configs])
