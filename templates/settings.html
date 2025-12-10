@@ -370,12 +370,12 @@
                     </p>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Default Username</label>
-                            <input type="text" id="defaultIpmiUser" placeholder="admin">
+                            <label for="defaultIpmiUser">Default Username</label>
+                            <input type="text" id="defaultIpmiUser" name="defaultIpmiUser" placeholder="admin" autocomplete="username">
                         </div>
                         <div class="form-group">
-                            <label>Default Password</label>
-                            <input type="password" id="defaultIpmiPass" placeholder="••••••••">
+                            <label for="defaultIpmiPass">Default Password</label>
+                            <input type="password" id="defaultIpmiPass" name="defaultIpmiPass" placeholder="••••••••" autocomplete="current-password">
                         </div>
                         <div class="form-group" style="align-self: flex-end;">
                             <button class="btn btn-primary" onclick="saveDefaultCredentials()">💾 Save</button>
@@ -813,12 +813,12 @@
                 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>IPMI Username</label>
-                        <input type="text" id="defaultIpmiUser" value="admin" placeholder="admin">
+                        <label for="bulkIpmiUser">IPMI Username</label>
+                        <input type="text" id="bulkIpmiUser" name="bulkIpmiUser" value="admin" placeholder="admin" autocomplete="username">
                     </div>
                     <div class="form-group">
-                        <label>IPMI Password</label>
-                        <input type="password" id="defaultIpmiPass" placeholder="Enter IPMI password">
+                        <label for="bulkIpmiPass">IPMI Password</label>
+                        <input type="password" id="bulkIpmiPass" name="bulkIpmiPass" placeholder="Enter IPMI password" autocomplete="current-password">
                     </div>
                 </div>
                 
@@ -3710,8 +3710,8 @@
         }
         
         async function saveDefaultIpmi() {
-            const user = document.getElementById('defaultIpmiUser').value;
-            const pass = document.getElementById('defaultIpmiPass').value;
+            const user = document.getElementById('bulkIpmiUser').value;
+            const pass = document.getElementById('bulkIpmiPass').value;
             
             try {
                 const response = await fetch('/api/settings/credentials/defaults', {

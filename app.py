@@ -12236,6 +12236,14 @@ def _run_migrations(inspector):
             ''')
             app.logger.info("Migration: server_inventory table created")
         
+        # Migration 15: Add ssh_pass column to server_config
+        if 'server_config' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_config')]
+            if 'ssh_pass' not in columns:
+                app.logger.info("Migration: Adding ssh_pass to server_config...")
+                execute_sql('ALTER TABLE server_config ADD COLUMN ssh_pass TEXT')
+                app.logger.info("Migration: ssh_pass column added")
+        
         app.logger.info("Migrations complete")
     except Exception as e:
         app.logger.warning(f"Migration warning (may already be applied): {e}")
