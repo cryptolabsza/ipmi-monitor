@@ -11733,6 +11733,384 @@ def api_import_config():
         return jsonify({'error': str(e), 'results': results}), 500
 
 
+@app.route('/api/backup', methods=['GET'])
+@admin_required
+def api_backup_full():
+    """
+    Create a complete backup of all IPMI Monitor data.
+    
+    This includes everything needed to restore the system:
+    - All servers and their configurations
+    - SSH keys (with private key content)
+    - System settings
+    - Alert rules
+    - Users (with password hashes)
+    - Notification configs
+    - AI sync configuration
+    
+    Query params:
+    - download: Return as downloadable file (default: false)
+    """
+    try:
+        backup = {
+            'backup_version': '2.0',
+            'app_version': get_version_string(),
+            'created_at': datetime.utcnow().isoformat(),
+            'servers': [],
+            'server_configs': [],
+            'ssh_keys': [],
+            'system_settings': [],
+            'alert_rules': [],
+            'users': [],
+            'notification_configs': [],
+            'ai_config': None,
+        }
+        
+        # Servers
+        for s in Server.query.all():
+            backup['servers'].append({
+                'bmc_ip': s.bmc_ip,
+                'server_name': s.server_name,
+                'server_ip': s.server_ip,
+                'public_ip': s.public_ip,
+                'enabled': s.enabled,
+                'notes': s.notes,
+                'status': getattr(s, 'status', None),
+            })
+        
+        # Server configs (with credentials)
+        for c in ServerConfig.query.all():
+            backup['server_configs'].append({
+                'bmc_ip': c.bmc_ip,
+                'server_name': c.server_name,
+                'server_ip': c.server_ip,
+                'ipmi_user': c.ipmi_user,
+                'ipmi_pass': c.ipmi_pass,
+                'ssh_user': c.ssh_user,
+                'ssh_pass': getattr(c, 'ssh_pass', None),
+                'ssh_key_id': c.ssh_key_id,
+                'ssh_port': c.ssh_port,
+            })
+        
+        # SSH keys (with content)
+        for k in SSHKey.query.all():
+            backup['ssh_keys'].append({
+                'id': k.id,
+                'name': k.name,
+                'key_content': k.key_content,
+                'fingerprint': k.fingerprint,
+            })
+        
+        # System settings
+        for s in SystemSettings.query.all():
+            backup['system_settings'].append({
+                'key': s.key,
+                'value': s.value,
+            })
+        
+        # Alert rules
+        for a in AlertRule.query.all():
+            backup['alert_rules'].append({
+                'name': a.name,
+                'description': a.description,
+                'alert_type': getattr(a, 'alert_type', None),
+                'condition': getattr(a, 'condition', None),
+                'threshold': getattr(a, 'threshold', None),
+                'threshold_str': getattr(a, 'threshold_str', None),
+                'severity': a.severity,
+                'enabled': a.enabled,
+                'cooldown_minutes': getattr(a, 'cooldown_minutes', 30),
+                'notify_telegram': getattr(a, 'notify_telegram', True),
+                'notify_email': getattr(a, 'notify_email', False),
+                'notify_webhook': getattr(a, 'notify_webhook', False),
+                'notify_on_resolve': getattr(a, 'notify_on_resolve', False),
+                'confirm_count': getattr(a, 'confirm_count', 1),
+            })
+        
+        # Users (with password hashes for restore)
+        for u in User.query.all():
+            backup['users'].append({
+                'username': u.username,
+                'password_hash': u.password_hash,
+                'role': u.role,
+                'enabled': u.enabled,
+            })
+        
+        # Notification configs
+        for n in NotificationConfig.query.all():
+            backup['notification_configs'].append({
+                'channel_type': n.channel_type,
+                'enabled': n.enabled,
+                'config_json': n.config_json,
+            })
+        
+        # AI config
+        ai_config = CloudSync.get_config()
+        backup['ai_config'] = {
+            'sync_enabled': ai_config.sync_enabled,
+            'license_key': ai_config.license_key,
+            'subscription_tier': ai_config.subscription_tier,
+        }
+        
+        # Return as downloadable file if requested
+        if request.args.get('download', 'false').lower() == 'true':
+            response = make_response(json.dumps(backup, indent=2, default=str))
+            response.headers['Content-Type'] = 'application/json'
+            response.headers['Content-Disposition'] = f'attachment; filename=ipmi-monitor-backup-{datetime.utcnow().strftime("%Y%m%d-%H%M%S")}.json'
+            return response
+        
+        return jsonify(backup)
+        
+    except Exception as e:
+        app.logger.error(f"Backup failed: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/restore', methods=['POST'])
+@admin_required
+def api_restore_full():
+    """
+    Restore IPMI Monitor from a complete backup.
+    
+    This will:
+    1. Clear existing data (optional)
+    2. Restore all servers, configs, keys, settings, rules, users
+    3. Recreate server_status entries
+    
+    Request body: Backup JSON from /api/backup
+    
+    Query params:
+    - clear_existing: Clear all existing data first (default: true)
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No backup data provided'}), 400
+    
+    # Validate backup version
+    backup_version = data.get('backup_version', '1.0')
+    if backup_version not in ['1.0', '2.0']:
+        return jsonify({'error': f'Unsupported backup version: {backup_version}'}), 400
+    
+    clear_existing = request.args.get('clear_existing', 'true').lower() == 'true'
+    
+    results = {
+        'servers': 0,
+        'server_configs': 0,
+        'ssh_keys': 0,
+        'system_settings': 0,
+        'alert_rules': 0,
+        'users': 0,
+        'notification_configs': 0,
+        'errors': []
+    }
+    
+    try:
+        # Clear existing data if requested
+        if clear_existing:
+            db.session.query(ServerStatus).delete()
+            db.session.query(ServerConfig).delete()
+            db.session.query(Server).delete()
+            db.session.query(AlertRule).delete()
+            db.session.query(NotificationConfig).delete()
+            db.session.query(SystemSettings).delete()
+            # Don't clear users or SSH keys to avoid lockout
+            db.session.commit()
+            app.logger.info("Cleared existing data for restore")
+        
+        # Restore SSH keys first (configs may reference them)
+        ssh_key_map = {}  # old_id -> new_id
+        for k in data.get('ssh_keys', []):
+            try:
+                existing = SSHKey.query.filter_by(name=k['name']).first()
+                if existing:
+                    existing.key_content = k.get('key_content', existing.key_content)
+                    existing.fingerprint = k.get('fingerprint', existing.fingerprint)
+                    ssh_key_map[k.get('id')] = existing.id
+                else:
+                    new_key = SSHKey(
+                        name=k['name'],
+                        key_content=k.get('key_content'),
+                        fingerprint=k.get('fingerprint')
+                    )
+                    db.session.add(new_key)
+                    db.session.flush()
+                    ssh_key_map[k.get('id')] = new_key.id
+                results['ssh_keys'] += 1
+            except Exception as e:
+                results['errors'].append(f"SSH key {k.get('name')}: {str(e)}")
+        
+        # Restore servers
+        for s in data.get('servers', []):
+            try:
+                existing = Server.query.filter_by(bmc_ip=s['bmc_ip']).first()
+                if existing:
+                    existing.server_name = s.get('server_name', existing.server_name)
+                    existing.server_ip = s.get('server_ip')
+                    existing.public_ip = s.get('public_ip')
+                    existing.enabled = s.get('enabled', True)
+                    existing.notes = s.get('notes')
+                else:
+                    new_server = Server(
+                        bmc_ip=s['bmc_ip'],
+                        server_name=s.get('server_name', s['bmc_ip']),
+                        server_ip=s.get('server_ip'),
+                        public_ip=s.get('public_ip'),
+                        enabled=s.get('enabled', True),
+                        notes=s.get('notes')
+                    )
+                    db.session.add(new_server)
+                results['servers'] += 1
+            except Exception as e:
+                results['errors'].append(f"Server {s.get('bmc_ip')}: {str(e)}")
+        
+        db.session.flush()
+        
+        # Restore server configs
+        for c in data.get('server_configs', []):
+            try:
+                existing = ServerConfig.query.filter_by(bmc_ip=c['bmc_ip']).first()
+                if existing:
+                    existing.ipmi_user = c.get('ipmi_user')
+                    existing.ipmi_pass = c.get('ipmi_pass')
+                    existing.ssh_user = c.get('ssh_user')
+                    existing.ssh_pass = c.get('ssh_pass')
+                    existing.ssh_port = c.get('ssh_port', 22)
+                    if c.get('ssh_key_id') and c['ssh_key_id'] in ssh_key_map:
+                        existing.ssh_key_id = ssh_key_map[c['ssh_key_id']]
+                else:
+                    new_config = ServerConfig(
+                        bmc_ip=c['bmc_ip'],
+                        server_name=c.get('server_name', c['bmc_ip']),
+                        server_ip=c.get('server_ip'),
+                        ipmi_user=c.get('ipmi_user'),
+                        ipmi_pass=c.get('ipmi_pass'),
+                        ssh_user=c.get('ssh_user'),
+                        ssh_pass=c.get('ssh_pass'),
+                        ssh_port=c.get('ssh_port', 22)
+                    )
+                    if c.get('ssh_key_id') and c['ssh_key_id'] in ssh_key_map:
+                        new_config.ssh_key_id = ssh_key_map[c['ssh_key_id']]
+                    db.session.add(new_config)
+                results['server_configs'] += 1
+            except Exception as e:
+                results['errors'].append(f"Server config {c.get('bmc_ip')}: {str(e)}")
+        
+        # Restore system settings
+        for s in data.get('system_settings', []):
+            try:
+                SystemSettings.set(s['key'], s.get('value'))
+                results['system_settings'] += 1
+            except Exception as e:
+                results['errors'].append(f"Setting {s.get('key')}: {str(e)}")
+        
+        # Restore alert rules
+        for a in data.get('alert_rules', []):
+            try:
+                existing = AlertRule.query.filter_by(name=a['name']).first()
+                if not existing:
+                    new_rule = AlertRule(name=a['name'])
+                    db.session.add(new_rule)
+                    existing = new_rule
+                
+                existing.description = a.get('description')
+                existing.severity = a.get('severity', 'warning')
+                existing.enabled = a.get('enabled', True)
+                if hasattr(existing, 'alert_type'):
+                    existing.alert_type = a.get('alert_type')
+                if hasattr(existing, 'condition'):
+                    existing.condition = a.get('condition')
+                if hasattr(existing, 'threshold'):
+                    existing.threshold = a.get('threshold')
+                if hasattr(existing, 'cooldown_minutes'):
+                    existing.cooldown_minutes = a.get('cooldown_minutes', 30)
+                if hasattr(existing, 'notify_telegram'):
+                    existing.notify_telegram = a.get('notify_telegram', True)
+                if hasattr(existing, 'notify_on_resolve'):
+                    existing.notify_on_resolve = a.get('notify_on_resolve', False)
+                if hasattr(existing, 'confirm_count'):
+                    existing.confirm_count = a.get('confirm_count', 1)
+                
+                results['alert_rules'] += 1
+            except Exception as e:
+                results['errors'].append(f"Alert rule {a.get('name')}: {str(e)}")
+        
+        # Restore users (but don't overwrite current admin to avoid lockout)
+        for u in data.get('users', []):
+            try:
+                existing = User.query.filter_by(username=u['username']).first()
+                if existing:
+                    # Only update non-admin users or if explicitly included
+                    if u['username'] != 'admin':
+                        existing.password_hash = u.get('password_hash', existing.password_hash)
+                        existing.role = u.get('role', existing.role)
+                        existing.enabled = u.get('enabled', True)
+                else:
+                    new_user = User(
+                        username=u['username'],
+                        password_hash=u.get('password_hash'),
+                        role=u.get('role', 'view'),
+                        enabled=u.get('enabled', True)
+                    )
+                    db.session.add(new_user)
+                results['users'] += 1
+            except Exception as e:
+                results['errors'].append(f"User {u.get('username')}: {str(e)}")
+        
+        # Restore notification configs
+        for n in data.get('notification_configs', []):
+            try:
+                existing = NotificationConfig.query.filter_by(channel_type=n['channel_type']).first()
+                if existing:
+                    existing.enabled = n.get('enabled', True)
+                    existing.config_json = n.get('config_json')
+                else:
+                    new_config = NotificationConfig(
+                        channel_type=n['channel_type'],
+                        enabled=n.get('enabled', True),
+                        config_json=n.get('config_json')
+                    )
+                    db.session.add(new_config)
+                results['notification_configs'] += 1
+            except Exception as e:
+                results['errors'].append(f"Notification config {n.get('channel_type')}: {str(e)}")
+        
+        # Restore AI config if present
+        if data.get('ai_config'):
+            try:
+                ai_config = CloudSync.get_config()
+                ai = data['ai_config']
+                if ai.get('license_key'):
+                    ai_config.license_key = ai['license_key']
+                if ai.get('sync_enabled') is not None:
+                    ai_config.sync_enabled = ai['sync_enabled']
+            except Exception as e:
+                results['errors'].append(f"AI config: {str(e)}")
+        
+        db.session.commit()
+        
+        # Create server_status entries for all servers
+        servers = Server.query.all()
+        for s in servers:
+            existing_status = ServerStatus.query.filter_by(bmc_ip=s.bmc_ip).first()
+            if not existing_status:
+                status = ServerStatus(bmc_ip=s.bmc_ip, server_name=s.server_name)
+                db.session.add(status)
+        db.session.commit()
+        
+        app.logger.info(f"Restore complete: {results}")
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Backup restored successfully',
+            'results': results
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Restore failed: {e}")
+        return jsonify({'error': str(e), 'results': results}), 500
+
+
 @app.route('/api/config/backup-to-cloud', methods=['POST'])
 @admin_required
 def api_backup_to_cloud():

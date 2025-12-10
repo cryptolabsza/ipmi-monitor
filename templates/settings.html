@@ -2541,37 +2541,38 @@
         
         async function exportFullConfig(includeSecrets) {
             const resultDiv = document.getElementById('fullExportResult');
-            resultDiv.innerHTML = '<span style="color: var(--accent-blue);">⏳ Preparing export...</span>';
+            resultDiv.innerHTML = '<span style="color: var(--accent-blue);">⏳ Preparing backup...</span>';
             
             try {
-                const params = new URLSearchParams({
-                    include_secrets: includeSecrets,
-                    download: 'true'
-                });
+                // Use the new /api/backup endpoint for full backups with secrets
+                // or /api/config/export for config-only exports
+                const endpoint = includeSecrets ? '/api/backup' : '/api/config/export?include_secrets=false';
                 
-                const response = await fetch(`/api/config/export?${params}`, { 
+                const response = await fetch(endpoint, { 
                     credentials: 'same-origin' 
                 });
                 
                 if (!response.ok) {
                     const error = await response.json();
-                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${error.error || 'Export failed'}</span>`;
+                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${error.error || 'Backup failed'}</span>`;
                     return;
                 }
                 
                 const config = await response.json();
                 
-                // Show summary
+                // Show summary - handle both backup formats
                 const serverCount = config.servers?.length || 0;
+                const configCount = config.server_configs?.length || 0;
                 const keyCount = config.ssh_keys?.length || 0;
                 const alertCount = config.alert_rules?.length || 0;
+                const settingsCount = config.system_settings?.length || Object.keys(config.settings || {}).length;
                 
                 let summary = `<div style="background: var(--accent-green)15; padding: 12px; border-radius: 8px;">`;
-                summary += `<span style="color: var(--accent-green);">✅ Export ready!</span>`;
+                summary += `<span style="color: var(--accent-green);">✅ Backup ready!</span>`;
                 summary += `<div style="margin-top: 8px; font-size: 0.9rem; color: var(--text-secondary);">`;
-                summary += `${serverCount} servers, ${keyCount} SSH keys, ${alertCount} alert rules`;
+                summary += `📦 ${serverCount} servers, ${configCount} configs, ${keyCount} SSH keys, ${alertCount} alerts, ${settingsCount} settings`;
                 if (includeSecrets) {
-                    summary += ` <span style="color: var(--accent-yellow);">(includes credentials)</span>`;
+                    summary += `<br><span style="color: var(--accent-yellow);">🔐 Includes: passwords, SSH private keys, notification configs</span>`;
                 }
                 summary += `</div></div>`;
                 resultDiv.innerHTML = summary;
@@ -2663,7 +2664,7 @@
             }
             
             const resultDiv = document.getElementById('fullImportResult');
-            resultDiv.innerHTML = '<span style="color: var(--accent-blue);">⏳ Importing...</span>';
+            resultDiv.innerHTML = '<span style="color: var(--accent-blue);">⏳ Restoring...</span>';
             
             const merge = document.getElementById('importMerge').checked;
             const skipServers = !document.getElementById('importServers').checked;
@@ -2672,33 +2673,59 @@
             const skipSettings = !document.getElementById('importSettings').checked;
             
             try {
-                const params = new URLSearchParams({
-                    merge: merge,
-                    skip_servers: skipServers,
-                    skip_ssh_keys: skipSshKeys,
-                    skip_alerts: skipAlerts,
-                    skip_settings: skipSettings
-                });
+                // Detect if this is a full backup (v2.0) or config export (v1.0)
+                const isFullBackup = pendingImportConfig.backup_version === '2.0' || 
+                                     pendingImportConfig.server_configs;
                 
-                const response = await fetch(`/api/config/import?${params}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'same-origin',
-                    body: JSON.stringify(pendingImportConfig)
-                });
+                let response;
+                if (isFullBackup) {
+                    // Use the new restore endpoint for full backups
+                    const params = new URLSearchParams({
+                        clear_existing: !merge
+                    });
+                    response = await fetch(`/api/restore?${params}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(pendingImportConfig)
+                    });
+                } else {
+                    // Use legacy import for old exports
+                    const params = new URLSearchParams({
+                        merge: merge,
+                        skip_servers: skipServers,
+                        skip_ssh_keys: skipSshKeys,
+                        skip_alerts: skipAlerts,
+                        skip_settings: skipSettings
+                    });
+                    response = await fetch(`/api/config/import?${params}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(pendingImportConfig)
+                    });
+                }
                 
                 const result = await response.json();
                 
                 if (response.ok) {
                     let html = `<div style="background: var(--accent-green)15; padding: 12px; border-radius: 8px;">`;
-                    html += `<span style="color: var(--accent-green);">✅ Import complete!</span>`;
+                    html += `<span style="color: var(--accent-green);">✅ Restore complete!</span>`;
                     html += `<div style="margin-top: 8px; font-size: 0.9rem;">`;
                     
                     const r = result.results;
-                    if (r.servers) html += `Servers: ${r.servers.imported} imported, ${r.servers.updated} updated<br>`;
-                    if (r.ssh_keys) html += `SSH Keys: ${r.ssh_keys.imported} imported, ${r.ssh_keys.updated} updated<br>`;
-                    if (r.alert_rules) html += `Alert Rules: ${r.alert_rules.imported} imported, ${r.alert_rules.updated} updated<br>`;
-                    if (r.settings) html += `Settings: ${r.settings.imported} imported<br>`;
+                    // Handle both formats
+                    if (typeof r.servers === 'number') {
+                        // New format (counts)
+                        html += `📦 Restored: ${r.servers} servers, ${r.server_configs || 0} configs, `;
+                        html += `${r.ssh_keys} SSH keys, ${r.alert_rules} alerts, ${r.system_settings} settings<br>`;
+                    } else if (r.servers) {
+                        // Old format (objects with imported/updated)
+                        html += `Servers: ${r.servers.imported} imported, ${r.servers.updated} updated<br>`;
+                        if (r.ssh_keys) html += `SSH Keys: ${r.ssh_keys.imported} imported, ${r.ssh_keys.updated} updated<br>`;
+                        if (r.alert_rules) html += `Alert Rules: ${r.alert_rules.imported} imported, ${r.alert_rules.updated} updated<br>`;
+                        if (r.settings) html += `Settings: ${r.settings.imported} imported<br>`;
+                    }
                     
                     if (r.errors && r.errors.length > 0) {
                         html += `<div style="margin-top: 8px; color: var(--accent-yellow);">`;
@@ -2717,7 +2744,7 @@
                     loadBulkServerList();
                     
                 } else {
-                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${result.error || 'Import failed'}</span>`;
+                    resultDiv.innerHTML = `<span style="color: var(--accent-red);">❌ ${result.error || 'Restore failed'}</span>`;
                 }
                 
             } catch (e) {
