@@ -1382,6 +1382,7 @@ class AlertRule(db.Model):
     notify_telegram = db.Column(db.Boolean, default=True)
     notify_email = db.Column(db.Boolean, default=False)
     notify_webhook = db.Column(db.Boolean, default=False)
+    notify_on_resolve = db.Column(db.Boolean, default=True)  # Send notification when alert is resolved
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -1407,6 +1408,9 @@ class AlertHistory(db.Model):
     acknowledged_at = db.Column(db.DateTime)
     resolved = db.Column(db.Boolean, default=False)
     resolved_at = db.Column(db.DateTime)
+    resolved_notified_telegram = db.Column(db.Boolean, default=False)
+    resolved_notified_email = db.Column(db.Boolean, default=False)
+    resolved_notified_webhook = db.Column(db.Boolean, default=False)
     fired_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 class ECCErrorTracker(db.Model):
@@ -2710,6 +2714,110 @@ Time: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
         if send_webhook_notification(alert_data):
             alert_history.notified_webhook = True
 
+def send_resolved_notifications(alert_history, rule):
+    """Send resolved notifications for an alert"""
+    duration = ""
+    if alert_history.fired_at and alert_history.resolved_at:
+        delta = alert_history.resolved_at - alert_history.fired_at
+        hours, remainder = divmod(int(delta.total_seconds()), 3600)
+        minutes, seconds = divmod(remainder, 60)
+        if hours > 0:
+            duration = f"{hours}h {minutes}m"
+        elif minutes > 0:
+            duration = f"{minutes}m {seconds}s"
+        else:
+            duration = f"{seconds}s"
+    
+    message = f"""
+✅ RESOLVED: {alert_history.rule_name}
+
+Server: {alert_history.server_name} ({alert_history.bmc_ip})
+Alert: {alert_history.rule_name}
+Original Severity: {alert_history.severity.upper()}
+Type: {alert_history.alert_type}
+
+Duration: {duration}
+Fired At: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
+Resolved At: {alert_history.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
+"""
+    
+    # Telegram
+    if rule.notify_telegram and rule.notify_on_resolve:
+        if send_telegram_notification(message, 'info'):
+            alert_history.resolved_notified_telegram = True
+    
+    # Email
+    if rule.notify_email and rule.notify_on_resolve:
+        subject = f"✅ RESOLVED: {alert_history.rule_name} - {alert_history.server_name}"
+        if send_email_notification(subject, message, 'info'):
+            alert_history.resolved_notified_email = True
+    
+    # Webhook
+    if rule.notify_webhook and rule.notify_on_resolve:
+        alert_data = {
+            'status': 'resolved',
+            'rule_name': alert_history.rule_name,
+            'server_name': alert_history.server_name,
+            'bmc_ip': alert_history.bmc_ip,
+            'severity': alert_history.severity,
+            'alert_type': alert_history.alert_type,
+            'duration': duration,
+            'fired_at': alert_history.fired_at.isoformat() if alert_history.fired_at else None,
+            'resolved_at': alert_history.resolved_at.isoformat() if alert_history.resolved_at else None
+        }
+        if send_webhook_notification(alert_data):
+            alert_history.resolved_notified_webhook = True
+
+def resolve_alert(alert_id):
+    """Mark an alert as resolved and send notifications"""
+    try:
+        with app.app_context():
+            alert = AlertHistory.query.get(alert_id)
+            if not alert or alert.resolved:
+                return False
+            
+            alert.resolved = True
+            alert.resolved_at = datetime.utcnow()
+            
+            # Get the rule to check notification settings
+            rule = AlertRule.query.get(alert.rule_id)
+            if rule and rule.notify_on_resolve:
+                send_resolved_notifications(alert, rule)
+            
+            db.session.commit()
+            app.logger.info(f"Alert resolved: {alert.rule_name} for {alert.server_name} ({alert.bmc_ip})")
+            return True
+            
+    except Exception as e:
+        app.logger.error(f"Error resolving alert: {e}")
+        db.session.rollback()
+        return False
+
+def check_and_resolve_alerts(bmc_ip, alert_type, is_condition_ok):
+    """Check if there are active alerts that should be resolved
+    
+    Args:
+        bmc_ip: Server BMC IP
+        alert_type: Type of alert (server, temperature, fan, etc.)
+        is_condition_ok: True if the condition is now OK (alert should be resolved)
+    """
+    if not is_condition_ok:
+        return
+    
+    try:
+        # Find active (unresolved) alerts for this server and type
+        active_alerts = AlertHistory.query.filter(
+            AlertHistory.bmc_ip == bmc_ip,
+            AlertHistory.alert_type == alert_type,
+            AlertHistory.resolved == False
+        ).all()
+        
+        for alert in active_alerts:
+            resolve_alert(alert.id)
+            
+    except Exception as e:
+        app.logger.error(f"Error checking alert resolution: {e}")
+
 def check_alert_cooldown(rule_id, bmc_ip, cooldown_minutes):
     """Check if alert is in cooldown period"""
     with _alert_lock:
@@ -2863,19 +2971,23 @@ def evaluate_alerts_for_server(bmc_ip, server_name, is_reachable, power_status):
         rules = AlertRule.query.filter_by(enabled=True).all()
         
         for rule in rules:
-            if check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
-                continue
-            
             triggered = False
             value_str = ''
             
-            if rule.alert_type == 'server' and not is_reachable:
-                triggered = evaluate_alert_condition('eq', 0, rule.threshold)
-                value_str = 'Unreachable'
+            if rule.alert_type == 'server':
+                if not is_reachable:
+                    # Server is unreachable - check if we should fire alert
+                    if not check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
+                        triggered = evaluate_alert_condition('eq', 0, rule.threshold)
+                        value_str = 'Unreachable'
+                else:
+                    # Server is reachable - check if we should resolve any active alerts
+                    check_and_resolve_alerts(bmc_ip, 'server', True)
                 
             elif rule.alert_type == 'server_power' and power_status:
-                triggered = evaluate_alert_condition('contains', power_status, None, rule.threshold_str)
-                value_str = power_status
+                if not check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
+                    triggered = evaluate_alert_condition('contains', power_status, None, rule.threshold_str)
+                    value_str = power_status
             
             if triggered:
                 fire_alert(rule, bmc_ip, server_name, value_str, f"Server status: {value_str}")
@@ -8659,7 +8771,8 @@ def api_get_alert_rules():
         'cooldown_minutes': r.cooldown_minutes,
         'notify_telegram': r.notify_telegram,
         'notify_email': r.notify_email,
-        'notify_webhook': r.notify_webhook
+        'notify_webhook': r.notify_webhook,
+        'notify_on_resolve': r.notify_on_resolve if hasattr(r, 'notify_on_resolve') else True
     } for r in rules])
 
 @app.route('/api/alerts/rules/<int:rule_id>', methods=['GET', 'PUT', 'DELETE'])
@@ -8683,7 +8796,8 @@ def api_manage_alert_rule(rule_id):
             'cooldown_minutes': rule.cooldown_minutes,
             'notify_telegram': rule.notify_telegram,
             'notify_email': rule.notify_email,
-            'notify_webhook': rule.notify_webhook
+            'notify_webhook': rule.notify_webhook,
+            'notify_on_resolve': rule.notify_on_resolve if hasattr(rule, 'notify_on_resolve') else True
         })
     
     elif request.method == 'PUT':
@@ -8715,6 +8829,8 @@ def api_manage_alert_rule(rule_id):
             rule.notify_email = data['notify_email']
         if 'notify_webhook' in data:
             rule.notify_webhook = data['notify_webhook']
+        if 'notify_on_resolve' in data:
+            rule.notify_on_resolve = data['notify_on_resolve']
         
         db.session.commit()
         return jsonify({'status': 'success', 'message': f'Updated rule: {rule.name}'})
@@ -8752,7 +8868,8 @@ def api_create_alert_rule():
         cooldown_minutes=data.get('cooldown_minutes', 30),
         notify_telegram=data.get('notify_telegram', True),
         notify_email=data.get('notify_email', False),
-        notify_webhook=data.get('notify_webhook', False)
+        notify_webhook=data.get('notify_webhook', False),
+        notify_on_resolve=data.get('notify_on_resolve', True)
     )
     
     db.session.add(rule)
@@ -8766,6 +8883,8 @@ def api_get_alert_history():
     severity = request.args.get('severity')
     bmc_ip = request.args.get('bmc_ip')
     acknowledged = request.args.get('acknowledged')
+    resolved = request.args.get('resolved')
+    active_only = request.args.get('active_only')  # Only unresolved alerts
     
     query = AlertHistory.query
     
@@ -8775,6 +8894,10 @@ def api_get_alert_history():
         query = query.filter_by(bmc_ip=bmc_ip)
     if acknowledged is not None:
         query = query.filter_by(acknowledged=acknowledged.lower() == 'true')
+    if resolved is not None:
+        query = query.filter_by(resolved=resolved.lower() == 'true')
+    if active_only and active_only.lower() == 'true':
+        query = query.filter_by(resolved=False)
     
     alerts = query.order_by(AlertHistory.fired_at.desc()).limit(limit).all()
     
@@ -8798,7 +8921,9 @@ def api_get_alert_history():
         'acknowledged_at': a.acknowledged_at.isoformat() if a.acknowledged_at else None,
         'resolved': a.resolved,
         'resolved_at': a.resolved_at.isoformat() if a.resolved_at else None,
-        'fired_at': a.fired_at.isoformat()
+        'resolved_notified': a.resolved_notified_telegram or a.resolved_notified_email or a.resolved_notified_webhook,
+        'fired_at': a.fired_at.isoformat(),
+        'duration': str(a.resolved_at - a.fired_at) if a.resolved_at and a.fired_at else None
     } for a in alerts])
 
 @app.route('/api/alerts/history/<int:alert_id>/acknowledge', methods=['POST'])
@@ -8819,16 +8944,30 @@ def api_acknowledge_alert(alert_id):
 @app.route('/api/alerts/history/<int:alert_id>/resolve', methods=['POST'])
 @write_required
 def api_resolve_alert(alert_id):
-    """Mark an alert as resolved"""
+    """Mark an alert as resolved and send notifications"""
     alert = AlertHistory.query.get(alert_id)
     if not alert:
         return jsonify({'error': 'Alert not found'}), 404
     
+    if alert.resolved:
+        return jsonify({'status': 'success', 'message': 'Alert already resolved'})
+    
+    # Mark as resolved
     alert.resolved = True
     alert.resolved_at = datetime.utcnow()
+    
+    # Get the rule to check notification settings
+    rule = AlertRule.query.get(alert.rule_id)
+    if rule and rule.notify_on_resolve:
+        send_resolved_notifications(alert, rule)
+    
     db.session.commit()
     
-    return jsonify({'status': 'success', 'message': 'Alert resolved'})
+    return jsonify({
+        'status': 'success', 
+        'message': 'Alert resolved',
+        'notified': rule.notify_on_resolve if rule else False
+    })
 
 @app.route('/api/alerts/notifications')
 def api_get_notification_config():

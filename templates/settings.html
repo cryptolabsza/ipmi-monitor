@@ -980,6 +980,16 @@
                         </div>
                     </div>
                     
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 10px;">
+                            <input type="checkbox" id="ruleNotifyOnResolve" checked>
+                            <span>✅ Send notification when alert is resolved</span>
+                        </label>
+                        <small style="color: var(--text-secondary); margin-left: 25px;">
+                            Get notified when an issue is fixed (e.g., server comes back online)
+                        </small>
+                    </div>
+                    
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button class="btn btn-primary" onclick="saveRule()">💾 Save</button>
                         <button class="btn btn-secondary" onclick="closeRuleModal()">Cancel</button>
@@ -3918,6 +3928,7 @@
             document.getElementById('ruleNotifyTelegram').checked = true;
             document.getElementById('ruleNotifyEmail').checked = false;
             document.getElementById('ruleNotifyWebhook').checked = false;
+            document.getElementById('ruleNotifyOnResolve').checked = true;
             document.getElementById('deleteRuleBtn').style.display = 'none';
             document.getElementById('ruleModal').style.display = 'flex';
         }
@@ -3940,6 +3951,7 @@
             document.getElementById('ruleNotifyTelegram').checked = rule.notify_telegram;
             document.getElementById('ruleNotifyEmail').checked = rule.notify_email;
             document.getElementById('ruleNotifyWebhook').checked = rule.notify_webhook;
+            document.getElementById('ruleNotifyOnResolve').checked = rule.notify_on_resolve !== false;
             document.getElementById('deleteRuleBtn').style.display = 'block';
             document.getElementById('ruleModal').style.display = 'flex';
         }
@@ -3962,7 +3974,8 @@
                 enabled: document.getElementById('ruleEnabled').checked,
                 notify_telegram: document.getElementById('ruleNotifyTelegram').checked,
                 notify_email: document.getElementById('ruleNotifyEmail').checked,
-                notify_webhook: document.getElementById('ruleNotifyWebhook').checked
+                notify_webhook: document.getElementById('ruleNotifyWebhook').checked,
+                notify_on_resolve: document.getElementById('ruleNotifyOnResolve').checked
             };
             
             try {
