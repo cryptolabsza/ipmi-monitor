@@ -2143,6 +2143,13 @@
             
             document.getElementById('redfishStatus').style.display = 'none';
             
+            // Clear previous test results when switching servers
+            const testResultsDiv = document.getElementById('connectionTestResults');
+            if (testResultsDiv) {
+                testResultsDiv.style.display = 'none';
+                testResultsDiv.innerHTML = '';
+            }
+            
             // Load server-specific credentials
             try {
                 const response = await fetch(`/api/config/server/${bmc_ip}`, { credentials: 'same-origin' });
