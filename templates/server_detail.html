@@ -431,6 +431,17 @@
                             <span style="color: var(--accent-purple);">🔁</span> Power Cycle
                         </button>
                         <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
+                        <div style="padding: 4px 16px; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">BMC Management</div>
+                        <button class="power-option" onclick="bmcAction('reset-cold')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;" title="Reboots BMC only - server keeps running">
+                            <span style="color: var(--accent-cyan);">🔧</span> BMC Cold Reset
+                        </button>
+                        <button class="power-option" onclick="bmcAction('reset-warm')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;" title="Soft restart of BMC - server keeps running">
+                            <span style="color: var(--accent-cyan);">🔄</span> BMC Warm Reset
+                        </button>
+                        <button class="power-option" onclick="bmcAction('info')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>ℹ️</span> BMC Info
+                        </button>
+                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
                         <button class="power-option" onclick="powerAction('off')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--accent-red); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
                             <span>🔴</span> Force Power Off
                         </button>
@@ -849,6 +860,66 @@
                 
             } catch (e) {
                 alert('Failed to execute power command: ' + e.message);
+                loadPowerStatus();
+            }
+        }
+        
+        async function bmcAction(action) {
+            const actionNames = {
+                'reset-cold': 'BMC Cold Reset',
+                'reset-warm': 'BMC Warm Reset',
+                'info': 'BMC Info'
+            };
+            
+            const descriptions = {
+                'reset-cold': '🔧 BMC Cold Reset\n\nThis will fully reboot the BMC (Baseboard Management Controller).\n\n✅ Server/workloads WILL KEEP RUNNING\n✅ Only the management interface restarts\n⚠️ BMC will be offline for ~60-120 seconds\n\nThis is safe and does NOT affect running workloads.',
+                'reset-warm': '🔄 BMC Warm Reset\n\nThis will perform a soft restart of the BMC.\n\n✅ Server/workloads WILL KEEP RUNNING\n✅ Faster than cold reset\n⚠️ BMC will be offline briefly\n\nThis is safe and does NOT affect running workloads.',
+                'info': 'Get BMC firmware and version information.'
+            };
+            
+            // Close the menu
+            document.getElementById('powerMenu').style.display = 'none';
+            
+            // Show confirmation for reset actions
+            if (action !== 'info') {
+                if (!confirm(`${descriptions[action]}\n\nProceed with ${actionNames[action]}?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                const btn = document.getElementById('powerMenuBtn');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Executing...';
+                
+                const response = await fetch(`/api/server/${bmcIp}/bmc/${action}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+                
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    if (action === 'info' && data.bmc_info) {
+                        // Format BMC info nicely
+                        let infoText = '📋 BMC Information\n\n';
+                        for (const [key, value] of Object.entries(data.bmc_info)) {
+                            infoText += `${key}: ${value}\n`;
+                        }
+                        alert(infoText);
+                    } else {
+                        alert(`✅ ${data.message}\n\n${data.output || ''}\n\n⏳ BMC will be offline for ~60-120 seconds.`);
+                    }
+                } else {
+                    alert(`❌ Error: ${data.message}`);
+                }
+                
+                // Restore button
+                loadPowerStatus();
+                
+            } catch (e) {
+                alert('Failed to execute BMC command: ' + e.message);
                 loadPowerStatus();
             }
         }

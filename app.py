@@ -5750,6 +5750,140 @@ def api_power_control(bmc_ip, action):
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+# ============== BMC Management API ==============
+
+@app.route('/api/server/<bmc_ip>/bmc/<action>', methods=['POST'])
+@write_required
+@require_valid_bmc_ip
+def api_bmc_control(bmc_ip, action):
+    """Control BMC (Baseboard Management Controller) - Requires write access
+    
+    Actions:
+        - reset-cold: Cold reset BMC (full reboot of BMC, server keeps running)
+        - reset-warm: Warm reset BMC (soft restart of BMC, server keeps running)
+        - info: Get BMC information
+        
+    Note: BMC reset does NOT affect the running server/workloads.
+    It only restarts the management controller.
+    """
+    valid_actions = ['reset-cold', 'reset-warm', 'info']
+    
+    if action not in valid_actions:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid action. Valid actions: {", ".join(valid_actions)}'
+        }), 400
+    
+    try:
+        password = get_ipmi_password(bmc_ip)
+        
+        # Map actions to ipmitool commands
+        if action == 'reset-cold':
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', IPMI_USER, '-P', password, 'mc', 'reset', 'cold']
+        elif action == 'reset-warm':
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', IPMI_USER, '-P', password, 'mc', 'reset', 'warm']
+        elif action == 'info':
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', IPMI_USER, '-P', password, 'mc', 'info']
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            # Log the BMC action as an event
+            server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            server_name = server.server_name if server else bmc_ip
+            
+            action_names = {
+                'reset-cold': 'BMC Cold Reset',
+                'reset-warm': 'BMC Warm Reset',
+                'info': 'BMC Info Query'
+            }
+            
+            # Only log reset actions (not info queries)
+            if action != 'info':
+                event = IPMIEvent(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    event_date=datetime.utcnow(),
+                    sensor_type='BMC Management',
+                    event_description=f'{action_names[action]} initiated via dashboard',
+                    severity='info',
+                    sel_id='ADMIN-BMC'
+                )
+                db.session.add(event)
+                db.session.commit()
+                
+                app.logger.info(f"BMC {action} executed on {bmc_ip} ({server_name})")
+            
+            response_data = {
+                'status': 'success',
+                'message': f'{action_names[action]} command sent to {server_name}',
+                'output': result.stdout.strip()
+            }
+            
+            # For info command, parse and return structured data
+            if action == 'info':
+                info_lines = result.stdout.strip().split('\n')
+                bmc_info = {}
+                for line in info_lines:
+                    if ':' in line:
+                        key, value = line.split(':', 1)
+                        bmc_info[key.strip()] = value.strip()
+                response_data['bmc_info'] = bmc_info
+            
+            return jsonify(response_data)
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'BMC {action} failed: {result.stderr}'
+            }), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': f'Timeout executing BMC {action}'}), 500
+    except Exception as e:
+        app.logger.error(f"BMC {action} error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/bmc/status', methods=['GET'])
+@require_valid_bmc_ip
+def api_bmc_status(bmc_ip):
+    """Get BMC status and information"""
+    try:
+        password = get_ipmi_password(bmc_ip)
+        
+        # Get BMC info
+        result = subprocess.run(
+            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+             '-U', IPMI_USER, '-P', password, 'mc', 'info'],
+            capture_output=True, text=True, timeout=15
+        )
+        
+        if result.returncode == 0:
+            info_lines = result.stdout.strip().split('\n')
+            bmc_info = {}
+            for line in info_lines:
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    bmc_info[key.strip()] = value.strip()
+            
+            return jsonify({
+                'status': 'success',
+                'bmc_info': bmc_info,
+                'raw_output': result.stdout.strip()
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to get BMC info: {result.stderr}'
+            }), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Timeout getting BMC info'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 # SOL (Serial Over LAN) Monitoring for Stuck Shutdown Detection
 # Track active reboot operations with SOL monitoring
 _active_sol_monitors = {}  # bmc_ip -> {'started': datetime, 'process': Popen, 'output': [], 'state': str}
