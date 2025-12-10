@@ -6416,10 +6416,30 @@ def api_add_server():
         enabled=data.get('enabled', True),
         use_nvidia_password=data.get('use_nvidia_password', False),
         protocol=protocol,
-        notes=data.get('notes', '')
+        notes=data.get('notes', ''),
+        status='active'  # Explicitly set to prevent NULL status issues
     )
     
     db.session.add(server)
+    db.session.flush()  # Get server.id before creating related records
+    
+    # Create ServerStatus entry for dashboard
+    server_status = ServerStatus(
+        bmc_ip=bmc_ip,
+        server_name=server_name,
+        is_reachable=True,
+        power_status='unknown'
+    )
+    db.session.add(server_status)
+    
+    # Create ServerInventory entry
+    server_inventory = ServerInventory(
+        bmc_ip=bmc_ip,
+        server_name=server_name,
+        primary_ip_reachable=True
+    )
+    db.session.add(server_inventory)
+    
     db.session.commit()
     
     # Also update NVIDIA_BMCS set if needed (thread-safe)
@@ -6427,6 +6447,7 @@ def api_add_server():
         with _nvidia_bmcs_lock:
             NVIDIA_BMCS.add(bmc_ip)
     
+    app.logger.info(f"Added new server: {server_name} ({bmc_ip}) with status, inventory entries")
     return jsonify({'status': 'success', 'message': f'Added server {server_name} ({bmc_ip})', 'id': server.id})
 
 @app.route('/api/servers/<bmc_ip>', methods=['GET', 'PUT', 'DELETE'])
@@ -12089,13 +12110,33 @@ def api_restore_full():
         
         db.session.commit()
         
-        # Create server_status entries for all servers
+        # Ensure all servers have status='active' if NULL
+        Server.query.filter(Server.status.is_(None)).update({'status': 'active'})
+        
+        # Create server_status and server_inventory entries for all servers
         servers = Server.query.all()
         for s in servers:
+            # ServerStatus entry
             existing_status = ServerStatus.query.filter_by(bmc_ip=s.bmc_ip).first()
             if not existing_status:
-                status = ServerStatus(bmc_ip=s.bmc_ip, server_name=s.server_name)
+                status = ServerStatus(
+                    bmc_ip=s.bmc_ip, 
+                    server_name=s.server_name,
+                    is_reachable=True,
+                    power_status='unknown'
+                )
                 db.session.add(status)
+            
+            # ServerInventory entry
+            existing_inv = ServerInventory.query.filter_by(bmc_ip=s.bmc_ip).first()
+            if not existing_inv:
+                inv = ServerInventory(
+                    bmc_ip=s.bmc_ip,
+                    server_name=s.server_name,
+                    primary_ip_reachable=True
+                )
+                db.session.add(inv)
+        
         db.session.commit()
         
         app.logger.info(f"Restore complete: {results}")
