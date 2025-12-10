@@ -351,6 +351,50 @@
             .ai-panel {
                 width: 100vw;
                 max-width: 100vw;
+                min-width: unset;
+            }
+            
+            /* Fix chat container on mobile */
+            .ai-chat-container {
+                height: calc(100vh - 200px); /* Account for header and tabs */
+                min-height: unset;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .ai-chat-messages {
+                flex: 1;
+                min-height: 150px;
+                max-height: calc(100vh - 350px);
+            }
+            
+            .ai-chat-input-container {
+                position: sticky;
+                bottom: 0;
+                background: var(--bg-card);
+                padding: 10px;
+                margin: 0 -10px -10px -10px;
+                border-top: 1px solid var(--border-color);
+                z-index: 10;
+            }
+            
+            .ai-chat-input-container input {
+                font-size: 16px; /* Prevent iOS zoom on focus */
+            }
+            
+            .ai-chat-examples {
+                display: none; /* Hide examples on mobile to save space */
+            }
+            
+            .ai-panel-content {
+                padding-bottom: 80px; /* Space for input */
+            }
+            
+            .ai-tab-content.active {
+                display: flex;
+                flex-direction: column;
+                height: calc(100vh - 150px);
+                overflow: hidden;
             }
         }
         
