@@ -519,3 +519,4 @@ def get_preset(name: str) -> RecoveryPermissions:
     """Get a permission preset by name"""
     return PERMISSION_PRESETS.get(name, PERMISSION_PRESETS['conservative'])
 
+

@@ -643,6 +643,98 @@
             margin: 10px 0;
         }
         
+        /* Recommendation styling - priority-based cards without numbered lists */
+        #aiSummaryContent .recommendation,
+        #aiRcaContent .recommendation {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 8px 0;
+            background: rgba(30, 41, 59, 0.5);
+            border-left: 4px solid var(--text-secondary);
+        }
+        
+        #aiSummaryContent .recommendation.critical,
+        #aiRcaContent .recommendation.critical {
+            border-left-color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        #aiSummaryContent .recommendation.high,
+        #aiRcaContent .recommendation.high {
+            border-left-color: #ff6b35;
+            background: rgba(255, 107, 53, 0.1);
+        }
+        
+        #aiSummaryContent .recommendation.medium,
+        #aiRcaContent .recommendation.medium {
+            border-left-color: var(--accent-yellow);
+            background: rgba(245, 158, 11, 0.1);
+        }
+        
+        #aiSummaryContent .recommendation.low,
+        #aiRcaContent .recommendation.low {
+            border-left-color: var(--accent-green);
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .priority-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        
+        .recommendation.critical .priority-badge {
+            background: var(--accent-red);
+            color: white;
+        }
+        
+        .recommendation.high .priority-badge {
+            background: #ff6b35;
+            color: white;
+        }
+        
+        .recommendation.medium .priority-badge {
+            background: var(--accent-yellow);
+            color: black;
+        }
+        
+        .recommendation.low .priority-badge {
+            background: var(--accent-green);
+            color: white;
+        }
+        
+        /* Override numbered list styling in AI content */
+        #aiSummaryContent ol,
+        #aiRcaContent ol {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        
+        #aiSummaryContent ol li,
+        #aiRcaContent ol li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 8px 0;
+            background: rgba(30, 41, 59, 0.5);
+            border-left: 4px solid var(--text-secondary);
+        }
+        
+        #aiSummaryContent ol li .priority-badge,
+        #aiRcaContent ol li .priority-badge {
+            flex-shrink: 0;
+        }
+        
         #aiSummaryContent .success, #aiRcaContent .success, #agentContent .success {
             background: rgba(16, 185, 129, 0.1);
             border-left: 4px solid var(--accent-green);

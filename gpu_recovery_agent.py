@@ -698,3 +698,4 @@ class GPURecoveryAgent:
         """Manually clear a recovery state"""
         self._clear_state(bmc_ip, gpu_pci)
 
+
