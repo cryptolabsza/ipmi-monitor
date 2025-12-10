@@ -2261,6 +2261,7 @@ def check_and_report_connectivity_changes():
                     event = IPMIEvent(
                         bmc_ip=server.bmc_ip,
                         server_name=server.server_name,
+                        sel_id=f'CONN-{int(datetime.utcnow().timestamp())}',
                         event_date=datetime.utcnow(),
                         event_description=description,
                         sensor_type="Connectivity",
