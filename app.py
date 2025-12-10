@@ -54,7 +54,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.6.0'  # Semantic version - update on releases
+APP_VERSION = '0.7.0'  # Semantic version - update on releases (pre-release until v1.0.0)
 
 def get_build_info():
     """
@@ -70,10 +70,20 @@ def get_build_info():
     }
 
 def get_version_string():
-    """Get formatted version string like: v1.6.0 (main@8d7150c, 2025-12-07 05:47 UTC)"""
+    """
+    Get formatted version string.
+    Examples:
+      - Production: v0.7.0 (main@8d7150c, 2025-12-07 05:47 UTC)
+      - Development: v0.7.0-dev (develop@8d7150c, 2025-12-07 05:47 UTC)
+      - Local: v0.7.0 (development)
+    """
     info = get_build_info()
+    branch = info['git_branch']
+    
     if info['git_commit'] != 'dev' and info['git_commit'] != 'unknown':
-        return f"v{info['version']} ({info['git_branch']}@{info['git_commit']}, {info['build_time']})"
+        # Add -dev suffix when running from develop branch
+        version_suffix = '-dev' if branch in ['develop', 'dev'] else ''
+        return f"v{info['version']}{version_suffix} ({branch}@{info['git_commit']}, {info['build_time']})"
     return f"v{info['version']} (development)"
 
 def check_for_updates():
