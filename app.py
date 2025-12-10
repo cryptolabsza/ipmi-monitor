@@ -12091,6 +12091,150 @@ def _run_migrations(inspector):
                 app.logger.info("Migration: Adding confirm_count to alert_rule...")
                 execute_sql('ALTER TABLE alert_rule ADD COLUMN confirm_count INTEGER DEFAULT 3')
                 app.logger.info("Migration: confirm_count column added")
+            if 'notify_on_resolve' not in columns:
+                app.logger.info("Migration: Adding notify_on_resolve to alert_rule...")
+                execute_sql('ALTER TABLE alert_rule ADD COLUMN notify_on_resolve BOOLEAN DEFAULT 1')
+                app.logger.info("Migration: notify_on_resolve column added")
+        
+        # Migration 8: Add user columns for WordPress linking
+        if 'user' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('user')]
+            for col, col_type in [('wp_user_id', 'INTEGER'), ('wp_email', 'VARCHAR(100)'), ('wp_linked_at', 'DATETIME')]:
+                if col not in columns:
+                    app.logger.info(f"Migration: Adding {col} to user...")
+                    execute_sql(f'ALTER TABLE user ADD COLUMN {col} {col_type}')
+                    app.logger.info(f"Migration: {col} column added")
+        
+        # Migration 9: Add server status/deprecation columns
+        if 'server' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server')]
+            for col, col_type in [('status', 'VARCHAR(20)'), ('deprecated_at', 'DATETIME'), ('deprecated_reason', 'TEXT')]:
+                if col not in columns:
+                    app.logger.info(f"Migration: Adding {col} to server...")
+                    execute_sql(f'ALTER TABLE server ADD COLUMN {col} {col_type}')
+                    app.logger.info(f"Migration: {col} column added")
+        
+        # Migration 10: Add alert_history resolution columns
+        if 'alert_history' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('alert_history')]
+            for col, col_type in [
+                ('resolved', 'BOOLEAN DEFAULT 0'),
+                ('resolved_at', 'DATETIME'),
+                ('resolved_notified_telegram', 'BOOLEAN DEFAULT 0'),
+                ('resolved_notified_email', 'BOOLEAN DEFAULT 0'),
+                ('resolved_notified_webhook', 'BOOLEAN DEFAULT 0')
+            ]:
+                col_name = col.split()[0]
+                if col_name not in columns:
+                    app.logger.info(f"Migration: Adding {col_name} to alert_history...")
+                    execute_sql(f'ALTER TABLE alert_history ADD COLUMN {col}')
+                    app.logger.info(f"Migration: {col_name} column added")
+        
+        # Migration 11: Create recovery_permissions table
+        if 'recovery_permissions' not in existing_tables:
+            app.logger.info("Migration: Creating recovery_permissions table...")
+            execute_sql('''
+                CREATE TABLE IF NOT EXISTS recovery_permissions (
+                    id INTEGER PRIMARY KEY,
+                    bmc_ip VARCHAR(20),
+                    server_name VARCHAR(50),
+                    allow_kill_workload BOOLEAN DEFAULT 0,
+                    allow_soft_reset BOOLEAN DEFAULT 0,
+                    allow_clock_limit BOOLEAN DEFAULT 0,
+                    allow_pci_reset BOOLEAN DEFAULT 0,
+                    allow_reboot BOOLEAN DEFAULT 0,
+                    allow_power_cycle BOOLEAN DEFAULT 0,
+                    allow_maintenance_flag BOOLEAN DEFAULT 1,
+                    max_soft_attempts INTEGER DEFAULT 3,
+                    max_reboot_per_day INTEGER DEFAULT 2,
+                    max_power_cycle_per_day INTEGER DEFAULT 1,
+                    notify_on_action BOOLEAN DEFAULT 1,
+                    notify_on_escalation BOOLEAN DEFAULT 1,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            execute_sql('CREATE UNIQUE INDEX IF NOT EXISTS idx_recovery_permissions_bmc ON recovery_permissions(bmc_ip)')
+            app.logger.info("Migration: recovery_permissions table created")
+        
+        # Migration 12: Create recovery_log table
+        if 'recovery_log' not in existing_tables:
+            app.logger.info("Migration: Creating recovery_log table...")
+            execute_sql('''
+                CREATE TABLE IF NOT EXISTS recovery_log (
+                    id INTEGER PRIMARY KEY,
+                    bmc_ip VARCHAR(20) NOT NULL,
+                    server_name VARCHAR(50) NOT NULL,
+                    action_type VARCHAR(50) NOT NULL,
+                    target_device VARCHAR(100),
+                    reason TEXT,
+                    result VARCHAR(20),
+                    initiated_by VARCHAR(50) DEFAULT 'system',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    completed_at DATETIME,
+                    error_message TEXT
+                )
+            ''')
+            app.logger.info("Migration: recovery_log table created")
+        
+        # Migration 13: Create recovery_action_log table
+        if 'recovery_action_log' not in existing_tables:
+            app.logger.info("Migration: Creating recovery_action_log table...")
+            execute_sql('''
+                CREATE TABLE IF NOT EXISTS recovery_action_log (
+                    id INTEGER PRIMARY KEY,
+                    bmc_ip VARCHAR(20) NOT NULL,
+                    server_name VARCHAR(50),
+                    gpu_pci_address VARCHAR(20),
+                    xid_code INTEGER,
+                    action_taken VARCHAR(30) NOT NULL,
+                    action_result VARCHAR(20),
+                    error_message TEXT,
+                    triggered_by VARCHAR(20),
+                    executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            app.logger.info("Migration: recovery_action_log table created")
+        
+        # Migration 14: Create server_inventory table if missing
+        if 'server_inventory' not in existing_tables:
+            app.logger.info("Migration: Creating server_inventory table...")
+            execute_sql('''
+                CREATE TABLE IF NOT EXISTS server_inventory (
+                    id INTEGER PRIMARY KEY,
+                    bmc_ip VARCHAR(45) NOT NULL UNIQUE,
+                    server_name VARCHAR(50) NOT NULL,
+                    manufacturer VARCHAR(100),
+                    product_name VARCHAR(100),
+                    serial_number VARCHAR(50),
+                    part_number VARCHAR(50),
+                    bmc_mac_address VARCHAR(20),
+                    bmc_firmware VARCHAR(50),
+                    board_manufacturer VARCHAR(100),
+                    board_product VARCHAR(100),
+                    board_serial VARCHAR(50),
+                    cpu_model VARCHAR(100),
+                    cpu_count INTEGER,
+                    cpu_cores INTEGER,
+                    memory_total_gb FLOAT,
+                    memory_slots_used INTEGER,
+                    memory_slots_total INTEGER,
+                    network_macs TEXT,
+                    storage_info TEXT,
+                    gpu_info TEXT,
+                    gpu_count INTEGER,
+                    nic_info TEXT,
+                    nic_count INTEGER,
+                    pcie_health TEXT,
+                    pcie_errors_count INTEGER DEFAULT 0,
+                    primary_ip VARCHAR(45),
+                    primary_ip_reachable BOOLEAN,
+                    primary_ip_last_check DATETIME,
+                    fru_data TEXT,
+                    collected_at DATETIME,
+                    updated_at DATETIME
+                )
+            ''')
+            app.logger.info("Migration: server_inventory table created")
         
         app.logger.info("Migrations complete")
     except Exception as e:
