@@ -491,6 +491,70 @@
                 </div>
             </div>
             
+            <!-- Bulk Apply Credentials Section (moved from SSH tab) -->
+            <div class="card" style="border: 2px solid var(--accent-green); margin-top: 20px;">
+                <div class="card-title">🚀 Bulk Apply Credentials</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Apply SSH and IPMI credentials to multiple servers at once. Configure defaults in the SSH tab first.
+                </p>
+                
+                <!-- What to Apply -->
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">📋 What to Apply</h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="bulkApplySSH" checked>
+                            <span>🔐 SSH Credentials</span>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(user, port, key)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="bulkApplyIPMI" checked>
+                            <span>🖥️ IPMI Credentials</span>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(user, password)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="bulkOverwrite">
+                            <span style="color: var(--accent-yellow);">⚠️ Overwrite existing</span>
+                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(replace current config)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Server Selection -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0; color: var(--text-primary);">🖥️ Select Servers</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" onclick="bulkSelectAll()" style="padding: 6px 12px; font-size: 0.85rem;">
+                            ✅ Select All
+                        </button>
+                        <button class="btn btn-secondary" onclick="bulkSelectNone()" style="padding: 6px 12px; font-size: 0.85rem;">
+                            ❌ Clear
+                        </button>
+                        <button class="btn btn-secondary" onclick="bulkSelectNoSSH()" style="padding: 6px 12px; font-size: 0.85rem;">
+                            🔍 Without SSH
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="bulkServerList" style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
+                    <p style="padding: 20px; color: var(--text-secondary);">Loading servers...</p>
+                </div>
+                
+                <!-- Selection Count & Apply Button -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <div>
+                        <span style="font-size: 1.1rem; font-weight: 600;" id="bulkSelectedCount">0</span>
+                        <span style="color: var(--text-secondary);"> servers selected</span>
+                    </div>
+                    <button class="btn btn-primary" onclick="bulkApplyCredentials()" id="bulkApplyBtn" style="padding: 12px 24px;">
+                        🚀 Apply to Selected Servers
+                    </button>
+                </div>
+                
+                <!-- Results -->
+                <div id="bulkApplyResult" style="display: none; margin-top: 15px; padding: 15px; border-radius: 8px;"></div>
+            </div>
+            
             <!-- Edit Server Modal -->
             <div id="editModal" class="modal" style="display: none;">
                 <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
@@ -738,94 +802,6 @@
                     </div>
                 </div>
             </div> <!-- End sshConfigSection -->
-            
-            <!-- Bulk Apply Section -->
-            <div class="card" style="border: 2px solid var(--accent-green); margin-top: 20px;">
-                <div class="card-title">🚀 Bulk Apply Credentials</div>
-                <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    Apply your default SSH/IPMI settings to multiple servers at once.
-                    First configure defaults above, then select servers to apply them to.
-                </p>
-                
-                <!-- What to Apply -->
-                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                    <h4 style="margin: 0 0 12px 0; color: var(--text-primary);">📋 What to Apply</h4>
-                    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="bulkApplySSH" checked>
-                            <span>🔐 SSH Credentials</span>
-                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(user, port, key)</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="bulkApplyIPMI" checked>
-                            <span>🖥️ IPMI Credentials</span>
-                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(user, password)</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="bulkOverwrite">
-                            <span style="color: var(--accent-yellow);">⚠️ Overwrite existing</span>
-                            <span style="font-size: 0.75rem; color: var(--text-secondary);">(replace current config)</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <!-- Server Selection -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin: 0; color: var(--text-primary);">🖥️ Select Servers</h4>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="btn btn-secondary" onclick="bulkSelectAll()" style="padding: 6px 12px; font-size: 0.85rem;">
-                            ✅ Select All
-                        </button>
-                        <button class="btn btn-secondary" onclick="bulkSelectNone()" style="padding: 6px 12px; font-size: 0.85rem;">
-                            ❌ Clear
-                        </button>
-                        <button class="btn btn-secondary" onclick="bulkSelectNoSSH()" style="padding: 6px 12px; font-size: 0.85rem;">
-                            🔍 Without SSH
-                        </button>
-                    </div>
-                </div>
-                
-                <div id="bulkServerList" style="max-height: 350px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary);">
-                    <p style="padding: 20px; color: var(--text-secondary);">Loading servers...</p>
-                </div>
-                
-                <!-- Selection Count & Apply Button -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
-                    <div>
-                        <span style="font-size: 1.1rem; font-weight: 600;" id="bulkSelectedCount">0</span>
-                        <span style="color: var(--text-secondary);"> servers selected</span>
-                    </div>
-                    <button class="btn btn-primary" onclick="bulkApplyCredentials()" id="bulkApplyBtn" style="padding: 12px 24px;">
-                        🚀 Apply to Selected Servers
-                    </button>
-                </div>
-                
-                <!-- Results -->
-                <div id="bulkApplyResult" style="display: none; margin-top: 15px; padding: 15px; border-radius: 8px;"></div>
-            </div>
-            
-            <!-- IPMI Defaults (for bulk apply) -->
-            <div class="card" style="margin-top: 20px;">
-                <div class="card-title">🔧 IPMI Credential Defaults</div>
-                <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    Configure default IPMI credentials used when bulk-applying to servers.
-                </p>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="bulkIpmiUser">IPMI Username</label>
-                        <input type="text" id="bulkIpmiUser" name="bulkIpmiUser" value="admin" placeholder="admin" autocomplete="username">
-                    </div>
-                    <div class="form-group">
-                        <label for="bulkIpmiPass">IPMI Password</label>
-                        <input type="password" id="bulkIpmiPass" name="bulkIpmiPass" placeholder="Enter IPMI password" autocomplete="current-password">
-                    </div>
-                </div>
-                
-                <button class="btn btn-primary" onclick="saveDefaultIpmi()">
-                    💾 Save Default IPMI Config
-                </button>
-            </div>
         </div>
         
         <!-- Alerts Tab -->
@@ -1723,7 +1699,7 @@
             event.target.classList.add('active');
             document.getElementById(tabId).classList.add('active');
             
-            if (tabId === 'manage') loadManagedServers();
+            if (tabId === 'manage') { loadManagedServers(); loadBulkServerList(); }
             if (tabId === 'ssh') { loadSshSettings(); loadSshKeys(); }
             if (tabId === 'import') loadExportPreview();
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }

@@ -1208,17 +1208,18 @@
                 
                 ${(!inv.cpu_model || !inv.memory_total_gb || !inv.storage_info || inv.storage_info.length === 0) ? `
                 <div style="margin-top: 15px; padding: 15px; background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(138, 43, 226, 0.1)); border: 1px solid var(--accent-blue); border-radius: 10px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <span style="font-size: 1.5rem;">💡</span>
-                        <div>
-                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Want more detailed inventory?</div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Missing detailed inventory data</div>
                             <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                Enable <strong>SSH to OS</strong> in Settings → SSH tab for CPU model, exact memory, and storage details.
+                                Click <strong>Collect Inventory</strong> above to gather CPU, memory, and storage details via SSH.
+                                If SSH isn't configured, set it up in Settings → SSH tab first.
                             </div>
                         </div>
-                        <a href="/settings" onclick="sessionStorage.setItem('openTab', 'ssh')" style="margin-left: auto; padding: 8px 16px; background: var(--accent-blue); color: white; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 600;">
-                            Enable SSH →
-                        </a>
+                        <button onclick="collectInventory()" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem;">
+                            🔄 Collect Now
+                        </button>
                     </div>
                 </div>
                 ` : ''}
