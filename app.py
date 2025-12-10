@@ -12623,6 +12623,15 @@ def _run_migrations(inspector):
                 execute_sql('ALTER TABLE server_config ADD COLUMN ssh_pass TEXT')
                 app.logger.info("Migration: ssh_pass column added")
         
+        # Migration 16: Add primary_ip_reachable to server_status
+        if 'server_status' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_status')]
+            if 'primary_ip_reachable' not in columns:
+                app.logger.info("Migration: Adding primary_ip_reachable to server_status...")
+                execute_sql('ALTER TABLE server_status ADD COLUMN primary_ip_reachable BOOLEAN DEFAULT 1')
+                execute_sql('ALTER TABLE server_status ADD COLUMN primary_ip_last_check DATETIME')
+                app.logger.info("Migration: primary_ip columns added to server_status")
+        
         app.logger.info("Migrations complete")
     except Exception as e:
         app.logger.warning(f"Migration warning (may already be applied): {e}")
