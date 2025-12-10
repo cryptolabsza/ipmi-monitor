@@ -1173,7 +1173,7 @@ def get_servers(include_deprecated=False):
                 # Only active servers (not deprecated, not in maintenance)
                 servers = Server.query.filter(
                     Server.enabled == True,
-                    Server.status.in_(['active', None])  # None for backwards compat
+                    db.or_(Server.status == 'active', Server.status.is_(None))  # None for backwards compat
                 ).all()
             if servers:
                 return {s.bmc_ip: s.server_name for s in servers}
@@ -6361,9 +6361,9 @@ def api_managed_servers():
     elif status_filter == 'deprecated':
         servers = Server.query.filter_by(status='deprecated').all()
     else:
-        # Default: only active servers
+        # Default: only active servers (NULL status treated as active for backwards compat)
         servers = Server.query.filter(
-            Server.status.in_(['active', None])
+            db.or_(Server.status == 'active', Server.status.is_(None))
         ).all()
     
     return jsonify([{
