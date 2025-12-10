@@ -7,9 +7,10 @@ Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS produ
 | Tier | Price | Servers | Tokens/mo | What's Included |
 |------|-------|---------|-----------|-----------------|
 | **Free** | $0 | Unlimited | - | Monitoring, dashboard, CSV export, Prometheus/Grafana |
-| **Standard** | $100/mo | 50 | 1M | + AI summaries, predictions, RCA, chat, alerting |
-| **Standard+** | +$15/10 servers | 51+ | +100K | Additional servers at $15/10 servers |
-| **Professional** | $500/mo | 500 | 10M | All features + priority support |
+| **Standard** | $50/mo | 10 | 100K | + AI summaries, predictions, RCA, chat, alerting |
+| **Standard+** | +$15/10 servers | 11-400 | +100K | Additional servers ($100 for 50 servers = sweet spot!) |
+| **Professional** | $650/mo | 500 | 10M | All features + priority support |
+| **Enterprise** | Custom | 500+ | Custom | Dedicated support, SLA, custom invoicing |
 
 **Key Principle**: All AI logic, prompts, and playbooks remain on CryptoLabs servers. Customers cannot bypass by adding their own LLM tokens.
 
@@ -111,12 +112,14 @@ Transform the IPMI Monitor from a free self-hosted tool into a tiered SaaS produ
 
 ---
 
-### 💎 STANDARD TIER ($100/month) - PHASE 2
+### 💼 STANDARD TIER ($50-$625/month) - PHASE 2
 
 **Pricing:**
-- $29/month for up to 50 servers
-- $1/server/month for additional servers (51+)
-- Example: 75 servers = $29 + (25 × $1) = $54/month
+- $50/month for 10 servers + 100K tokens (base)
+- +$15 per 10 additional servers + 100K tokens each
+- **Sweet Spot:** 50 servers = $100/month + 1M tokens (saves $10, 2x tokens!)
+- Example: 100 servers = $175/month, 1.5M tokens
+- Example: 400 servers = $625/month, 4.5M tokens (slider max)
 
 **What's Included:**
 - Everything in Free +
@@ -684,14 +687,22 @@ GET /ipmi/v1/subscription/status
 
 ## Pricing & Monetization
 
-### WooCommerce Products
+### Subscription Products
 
 | Product | Price | Description |
 |---------|-------|-------------|
-| IPMI Monitor Standard | $100/mo | 50 servers, 1M tokens, AI features |
-| IPMI Monitor Standard+ | +$15/10 servers | Additional servers + 100K tokens each |
-| IPMI Monitor Professional | $500/mo | 500 servers, 10M tokens, priority support |
-| Additional Servers | $1/server/mo | For 51+ servers |
+| IPMI Monitor Standard | $50/mo | 10 servers, 100K tokens, AI features |
+| IPMI Monitor Standard+ | +$15/10 servers | 11-400 servers (slider), +100K tokens each |
+| Sweet Spot (50 servers) | $100/mo | 50 servers, 1M tokens (bonus!) |
+| IPMI Monitor Professional | $650/mo | 500 servers, 10M tokens, priority support |
+| Enterprise | Custom | 500+ servers, dedicated support, SLA |
+
+### Token Top-Up Products
+
+| Product | Price | Description |
+|---------|-------|-------------|
+| 100K Token Pack | $2 | One-time purchase, expires in 60 days |
+| 1M Token Pack | $15 | One-time purchase, expires in 60 days (save 25%) |
 
 ### Revenue Projections
 
