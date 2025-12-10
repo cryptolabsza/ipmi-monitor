@@ -2,11 +2,16 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
   workflow_dispatch:
+    inputs:
+      tag_override:
+        description: 'Override tag (e.g., beta, rc1)'
+        required: false
+        default: ''
 
 env:
   REGISTRY: ghcr.io
@@ -37,18 +42,56 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine version info
+        id: version
+        run: |
+          # Get version from tag or generate from branch
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${{ github.ref_name }}"
+            CHANNEL="stable"
+          elif [[ "${{ github.ref }}" == refs/heads/main ]] || [[ "${{ github.ref }}" == refs/heads/master ]]; then
+            VERSION="latest"
+            CHANNEL="stable"
+          elif [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+            VERSION="dev"
+            CHANNEL="development"
+          else
+            VERSION="${{ github.ref_name }}"
+            CHANNEL="feature"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "📦 Building: $VERSION ($CHANNEL channel)"
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
+            # For version tags (v1.6.0): create v1.6.0, 1.6.0, 1.6, latest
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            
+            # For main branch: just 'main' tag (latest only from version tags)
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            
+            # For develop branch: 'dev' and 'develop' tags
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            
+            # For PRs: pr-{number}
+            type=ref,event=pr
+            
+            # SHA for all builds (for debugging)
+            type=sha,prefix=sha-
+            
+            # Manual override tag
+            type=raw,value=${{ github.event.inputs.tag_override }},enable=${{ github.event.inputs.tag_override != '' }}
 
       - name: Get build info
         id: build_info
@@ -56,6 +99,7 @@ jobs:
           echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           echo "build_time=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
+          echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -71,4 +115,17 @@ jobs:
             GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
             GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
             BUILD_TIME=${{ steps.build_info.outputs.build_time }}
+            APP_VERSION=${{ steps.build_info.outputs.version }}
 
+      - name: Summary
+        run: |
+          echo "## 🐳 Docker Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Channel:** ${{ steps.version.outputs.channel }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags pushed:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

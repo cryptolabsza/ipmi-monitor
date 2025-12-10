@@ -1,0 +1,40 @@
+# Production Docker Compose - Uses stable releases
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+#
+# This uses version-tagged images for stability.
+# Update IMAGE_TAG to upgrade to a new version.
+
+version: '3.8'
+
+services:
+  ipmi-monitor:
+    image: ghcr.io/cryptolabsza/ipmi-monitor:${IMAGE_TAG:-v1.6.0}
+    container_name: ipmi-monitor
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    volumes:
+      - ipmi-data:/app/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - ADMIN_SECRET=${ADMIN_SECRET:-}
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-}
+      - AI_SERVICE_KEY=${AI_SERVICE_KEY:-}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  ipmi-data:
+    name: ipmi-monitor-prod-data
+
+# Example .env file for production:
+# IMAGE_TAG=v1.6.0
+# SECRET_KEY=your-production-secret-key
+# ADMIN_SECRET=your-admin-password
+# AI_SERVICE_URL=https://ipmi-ai.cryptolabs.co.za
+# AI_SERVICE_KEY=your-ai-key
+
