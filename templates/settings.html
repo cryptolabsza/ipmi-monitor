@@ -965,6 +965,14 @@
                             <small style="color: var(--text-secondary);">Don't re-alert for this period</small>
                         </div>
                         <div class="form-group">
+                            <label>Confirm After (checks)</label>
+                            <input type="number" id="ruleConfirmCount" value="3" min="1" max="10">
+                            <small style="color: var(--text-secondary);">Consecutive failures before alerting (prevents false positives)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
                             <label>
                                 <input type="checkbox" id="ruleEnabled" checked> Enabled
                             </label>
@@ -3931,6 +3939,7 @@
             document.getElementById('ruleThresholdStr').value = '';
             document.getElementById('ruleSeverity').value = 'warning';
             document.getElementById('ruleCooldown').value = '30';
+            document.getElementById('ruleConfirmCount').value = '3';
             document.getElementById('ruleEnabled').checked = true;
             document.getElementById('ruleNotifyTelegram').checked = true;
             document.getElementById('ruleNotifyEmail').checked = false;
@@ -3954,6 +3963,7 @@
             document.getElementById('ruleThresholdStr').value = rule.threshold_str || '';
             document.getElementById('ruleSeverity').value = rule.severity;
             document.getElementById('ruleCooldown').value = rule.cooldown_minutes;
+            document.getElementById('ruleConfirmCount').value = rule.confirm_count || 3;
             document.getElementById('ruleEnabled').checked = rule.enabled;
             document.getElementById('ruleNotifyTelegram').checked = rule.notify_telegram;
             document.getElementById('ruleNotifyEmail').checked = rule.notify_email;
@@ -3978,6 +3988,7 @@
                 threshold_str: document.getElementById('ruleThresholdStr').value || null,
                 severity: document.getElementById('ruleSeverity').value,
                 cooldown_minutes: parseInt(document.getElementById('ruleCooldown').value) || 30,
+                confirm_count: parseInt(document.getElementById('ruleConfirmCount').value) || 3,
                 enabled: document.getElementById('ruleEnabled').checked,
                 notify_telegram: document.getElementById('ruleNotifyTelegram').checked,
                 notify_email: document.getElementById('ruleNotifyEmail').checked,

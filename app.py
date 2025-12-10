@@ -1242,6 +1242,8 @@ class ServerStatus(db.Model):
     power_status = db.Column(db.String(20))
     last_check = db.Column(db.DateTime)
     is_reachable = db.Column(db.Boolean, default=True)
+    consecutive_failures = db.Column(db.Integer, default=0)  # Track consecutive check failures
+    last_failure_time = db.Column(db.DateTime)  # When first failure in current streak occurred
     total_events = db.Column(db.Integer, default=0)
     total_events_24h = db.Column(db.Integer, default=0)
     critical_events_24h = db.Column(db.Integer, default=0)
@@ -1379,6 +1381,7 @@ class AlertRule(db.Model):
     severity = db.Column(db.String(20), default='warning')  # info, warning, critical
     enabled = db.Column(db.Boolean, default=True)
     cooldown_minutes = db.Column(db.Integer, default=30)  # Don't re-alert for X minutes
+    confirm_count = db.Column(db.Integer, default=3)  # Consecutive failures before alerting (prevents false positives)
     notify_telegram = db.Column(db.Boolean, default=True)
     notify_email = db.Column(db.Boolean, default=False)
     notify_webhook = db.Column(db.Boolean, default=False)
@@ -2515,12 +2518,13 @@ DEFAULT_ALERT_RULES = [
     # Server availability
     {
         'name': 'Server Unreachable',
-        'description': 'BMC not responding - server may be down or network issue',
+        'description': 'BMC not responding - server may be down or network issue (confirmed after 3 checks)',
         'alert_type': 'server',
         'condition': 'eq',
         'threshold': 0,  # is_reachable = 0
         'severity': 'critical',
-        'cooldown_minutes': 5
+        'cooldown_minutes': 5,
+        'confirm_count': 3  # Only alert after 3 consecutive failures (~15 min with 5 min checks)
     },
     {
         'name': 'Server Power Off',
@@ -2966,8 +2970,16 @@ def evaluate_alerts_for_sensor(sensor, bmc_ip, server_name):
         app.logger.error(f"Error evaluating alerts for sensor: {e}")
 
 def evaluate_alerts_for_server(bmc_ip, server_name, is_reachable, power_status):
-    """Evaluate alert rules for server status"""
+    """Evaluate alert rules for server status
+    
+    Uses consecutive failure tracking to prevent false positives from brief
+    network blips or container restarts. Only fires alerts after confirm_count
+    consecutive failures (default 3).
+    """
     try:
+        # Get or create server status for tracking consecutive failures
+        status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+        
         rules = AlertRule.query.filter_by(enabled=True).all()
         
         for rule in rules:
@@ -2975,13 +2987,52 @@ def evaluate_alerts_for_server(bmc_ip, server_name, is_reachable, power_status):
             value_str = ''
             
             if rule.alert_type == 'server':
+                # Get confirmation threshold (default to 3 if not set)
+                confirm_count = getattr(rule, 'confirm_count', None) or 3
+                
                 if not is_reachable:
-                    # Server is unreachable - check if we should fire alert
-                    if not check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
-                        triggered = evaluate_alert_condition('eq', 0, rule.threshold)
-                        value_str = 'Unreachable'
+                    # Server is unreachable - increment failure counter
+                    if status:
+                        # Update consecutive failure count
+                        current_failures = (status.consecutive_failures or 0) + 1
+                        status.consecutive_failures = current_failures
+                        if current_failures == 1:
+                            status.last_failure_time = datetime.utcnow()
+                        
+                        try:
+                            db.session.commit()
+                        except:
+                            db.session.rollback()
+                        
+                        # Only fire alert if we've hit the confirmation threshold
+                        if current_failures >= confirm_count:
+                            if not check_alert_cooldown(rule.id, bmc_ip, rule.cooldown_minutes):
+                                triggered = evaluate_alert_condition('eq', 0, rule.threshold)
+                                value_str = 'Unreachable'
+                                # Log confirmation info
+                                app.logger.info(
+                                    f"Alert confirmed for {server_name} ({bmc_ip}): "
+                                    f"{current_failures} consecutive failures (threshold: {confirm_count})"
+                                )
+                        else:
+                            app.logger.debug(
+                                f"Server {server_name} ({bmc_ip}) unreachable - "
+                                f"failure {current_failures}/{confirm_count}, waiting for confirmation"
+                            )
                 else:
-                    # Server is reachable - check if we should resolve any active alerts
+                    # Server is reachable - reset failure counter and resolve alerts
+                    if status and (status.consecutive_failures or 0) > 0:
+                        app.logger.info(
+                            f"Server {server_name} ({bmc_ip}) recovered after "
+                            f"{status.consecutive_failures} consecutive failures"
+                        )
+                        status.consecutive_failures = 0
+                        status.last_failure_time = None
+                        try:
+                            db.session.commit()
+                        except:
+                            db.session.rollback()
+                    
                     check_and_resolve_alerts(bmc_ip, 'server', True)
                 
             elif rule.alert_type == 'server_power' and power_status:
@@ -8906,7 +8957,8 @@ def api_get_alert_rules():
         'notify_telegram': r.notify_telegram,
         'notify_email': r.notify_email,
         'notify_webhook': r.notify_webhook,
-        'notify_on_resolve': r.notify_on_resolve if hasattr(r, 'notify_on_resolve') else True
+        'notify_on_resolve': r.notify_on_resolve if hasattr(r, 'notify_on_resolve') else True,
+        'confirm_count': r.confirm_count if hasattr(r, 'confirm_count') else 3
     } for r in rules])
 
 @app.route('/api/alerts/rules/<int:rule_id>', methods=['GET', 'PUT', 'DELETE'])
@@ -8931,7 +8983,8 @@ def api_manage_alert_rule(rule_id):
             'notify_telegram': rule.notify_telegram,
             'notify_email': rule.notify_email,
             'notify_webhook': rule.notify_webhook,
-            'notify_on_resolve': rule.notify_on_resolve if hasattr(rule, 'notify_on_resolve') else True
+            'notify_on_resolve': rule.notify_on_resolve if hasattr(rule, 'notify_on_resolve') else True,
+            'confirm_count': rule.confirm_count if hasattr(rule, 'confirm_count') else 3
         })
     
     elif request.method == 'PUT':
@@ -8965,6 +9018,8 @@ def api_manage_alert_rule(rule_id):
             rule.notify_webhook = data['notify_webhook']
         if 'notify_on_resolve' in data:
             rule.notify_on_resolve = data['notify_on_resolve']
+        if 'confirm_count' in data:
+            rule.confirm_count = max(1, int(data['confirm_count']))  # Minimum 1
         
         db.session.commit()
         return jsonify({'status': 'success', 'message': f'Updated rule: {rule.name}'})
@@ -9003,7 +9058,8 @@ def api_create_alert_rule():
         notify_telegram=data.get('notify_telegram', True),
         notify_email=data.get('notify_email', False),
         notify_webhook=data.get('notify_webhook', False),
-        notify_on_resolve=data.get('notify_on_resolve', True)
+        notify_on_resolve=data.get('notify_on_resolve', True),
+        confirm_count=data.get('confirm_count', 3)
     )
     
     db.session.add(rule)
@@ -12005,6 +12061,26 @@ def _run_migrations(inspector):
                 app.logger.info("Migration: Adding nic_count to server_inventory...")
                 execute_sql('ALTER TABLE server_inventory ADD COLUMN nic_count INTEGER')
                 app.logger.info("Migration: nic_count column added")
+        
+        # Migration 6: Add consecutive_failures to server_status
+        if 'server_status' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_status')]
+            if 'consecutive_failures' not in columns:
+                app.logger.info("Migration: Adding consecutive_failures to server_status...")
+                execute_sql('ALTER TABLE server_status ADD COLUMN consecutive_failures INTEGER DEFAULT 0')
+                app.logger.info("Migration: consecutive_failures column added")
+            if 'last_failure_time' not in columns:
+                app.logger.info("Migration: Adding last_failure_time to server_status...")
+                execute_sql('ALTER TABLE server_status ADD COLUMN last_failure_time DATETIME')
+                app.logger.info("Migration: last_failure_time column added")
+        
+        # Migration 7: Add confirm_count to alert_rule
+        if 'alert_rule' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('alert_rule')]
+            if 'confirm_count' not in columns:
+                app.logger.info("Migration: Adding confirm_count to alert_rule...")
+                execute_sql('ALTER TABLE alert_rule ADD COLUMN confirm_count INTEGER DEFAULT 3')
+                app.logger.info("Migration: confirm_count column added")
         
         app.logger.info("Migrations complete")
     except Exception as e:
