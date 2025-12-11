@@ -2768,17 +2768,39 @@ def check_and_report_connectivity_changes():
             return True
         return False
     
+    def check_single_server(server_data):
+        """Check connectivity for a single server (for parallel execution)"""
+        bmc_ip, server_name, server_ip = server_data
+        try:
+            bmc_reachable = check_bmc_reachable(bmc_ip, timeout=2)
+            primary_reachable = check_port(server_ip, 22, timeout=2) if server_ip else None
+            return (bmc_ip, server_name, server_ip, bmc_reachable, primary_reachable)
+        except:
+            return (bmc_ip, server_name, server_ip, False, None)
+    
     with app.app_context():
         servers = Server.query.filter(Server.status == 'active').all()
+        server_list = [(s.bmc_ip, s.server_name, s.server_ip) for s in servers]
         
-        for server in servers:
-            try:
-                # Check BMC connectivity (tries ping, TCP 623, then web ports)
-                bmc_reachable = check_bmc_reachable(server.bmc_ip, timeout=2)
+        # Parallel connectivity checks - 20 workers for fast checking
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        results = []
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = {executor.submit(check_single_server, s): s for s in server_list}
+            for future in as_completed(futures):
+                try:
+                    results.append(future.result())
+                except:
+                    pass
+        
+        # Process results
+        for bmc_ip, server_name, server_ip, bmc_reachable, primary_reachable in results:
+            server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            if not server:
+                continue
                 
-                # Check Primary/OS IP (SSH port 22)
-                primary_ip = server.server_ip
-                primary_reachable = check_port(primary_ip, 22, timeout=2) if primary_ip else None
+            try:
+                primary_ip = server_ip
                 
                 # Get previous states
                 bmc_key = f"{server.bmc_ip}_bmc"
@@ -2878,6 +2900,17 @@ def check_and_report_connectivity_changes():
                 # Track offline start time
                 if current_status != 'online' and prev_status == 'online':
                     _connectivity_states[f"{server.bmc_ip}_offline_time"] = datetime.utcnow()
+                
+                # Update ServerStatus in database so dashboard reflects current status
+                server_status = ServerStatus.query.filter_by(bmc_ip=server.bmc_ip).first()
+                if server_status:
+                    server_status.is_reachable = bmc_reachable
+                    server_status.last_check = datetime.utcnow()
+                    if bmc_reachable:
+                        server_status.consecutive_failures = 0
+                    else:
+                        server_status.consecutive_failures = (server_status.consecutive_failures or 0) + 1
+                    db.session.commit()
                     
             except Exception as e:
                 app.logger.debug(f"Connectivity check failed for {server.bmc_ip}: {e}")
