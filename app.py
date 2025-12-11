@@ -54,7 +54,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '0.7.0'  # Semantic version - update on releases (pre-release until v1.0.0)
+APP_VERSION = '0.7.1'  # Semantic version - update on releases (pre-release until v1.0.0)
 
 def get_build_info():
     """
@@ -4849,7 +4849,7 @@ def collect_sensors_redfish(bmc_ip, server_name):
         
         return sensors, power_data
     except Exception as e:
-        app.logger.debug(f"Redfish sensor collection failed for {bmc_ip}: {e}")
+        app.logger.warning(f"Redfish sensor collection failed for {bmc_ip}: {e}")
         return sensors, None
 
 def collect_sensors(bmc_ip, server_name):
@@ -5182,6 +5182,7 @@ def collection_worker(worker_id):
                 break
                 
             job_type, bmc_ip, server_name = job
+            print(f"[Worker {worker_id}] Processing {job_type} for {bmc_ip}", flush=True)
             
             try:
                 # Check if server is reachable before attempting collection
@@ -5202,8 +5203,10 @@ def collection_worker(worker_id):
                         with app.app_context():
                             check_ssh_xid_errors(bmc_ip, server_name)
                     elif job_type == 'sensor':
+                        print(f"[Worker {worker_id}] Collecting sensors for {bmc_ip}...", flush=True)
                         with app.app_context():
-                            collect_single_server_sensors(bmc_ip, server_name)
+                            result = collect_single_server_sensors(bmc_ip, server_name)
+                        print(f"[Worker {worker_id}] Sensor result for {bmc_ip}: {result}", flush=True)
             except Exception as e:
                 print(f"[Worker {worker_id}] Error processing {bmc_ip}: {e}", flush=True)
             finally:
@@ -9421,11 +9424,13 @@ def collect_single_server_sensors(bmc_ip, server_name):
         source = 'none'
         
         # Try Redfish first (much faster, especially over high-latency connections)
-        if should_use_redfish(bmc_ip):
+        use_redfish = should_use_redfish(bmc_ip)
+        if use_redfish:
             try:
                 sensors, power_data = collect_sensors_redfish(bmc_ip, server_name)
                 if sensors:
                     source = 'redfish'
+                    app.logger.debug(f"Redfish returned {len(sensors)} sensors for {bmc_ip}")
                 if power_data:
                     power = PowerReading(
                         bmc_ip=bmc_ip,
@@ -9438,9 +9443,12 @@ def collect_single_server_sensors(bmc_ip, server_name):
                     )
             except Exception as e:
                 app.logger.warning(f"Redfish sensor collection failed for {bmc_ip}, falling back to IPMI: {e}")
+        else:
+            app.logger.debug(f"Not using Redfish for {bmc_ip}")
         
         # Fall back to IPMI if no sensors from Redfish
         if not sensors:
+            app.logger.debug(f"Falling back to IPMI for {bmc_ip}")
             sensors = collect_sensors(bmc_ip, server_name)
             if sensors:
                 source = 'ipmi'
