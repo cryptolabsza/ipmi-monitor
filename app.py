@@ -461,46 +461,57 @@ class RedfishClient:
             return None
     
     def get_sel_entries(self):
-        """Get System Event Log entries via Redfish"""
+        """Get System Event Log entries via Redfish - checks multiple paths for vendor compatibility"""
         events = []
         try:
+            # Try multiple LogServices paths (vendor-specific)
+            log_services_paths = []
+            
+            # Path 1: Under Managers (Dell, HPE, Supermicro)
             managers_uri = self.get_managers_uri()
-            if not managers_uri:
-                return events
+            if managers_uri:
+                managers = self._get(managers_uri)
+                if managers and 'Members' in managers and managers['Members']:
+                    manager_uri = managers['Members'][0].get('@odata.id')
+                    manager = self._get(manager_uri)
+                    if manager and 'LogServices' in manager:
+                        log_services_paths.append(manager['LogServices'].get('@odata.id'))
             
-            managers = self._get(managers_uri)
-            if not managers or 'Members' not in managers or not managers['Members']:
-                return events
+            # Path 2: Under Systems (Lenovo, some others)
+            systems_uri = self.get_systems_uri()
+            if systems_uri:
+                systems = self._get(systems_uri)
+                if systems and 'Members' in systems and systems['Members']:
+                    system_uri = systems['Members'][0].get('@odata.id')
+                    system = self._get(system_uri)
+                    if system and 'LogServices' in system:
+                        log_services_paths.append(system['LogServices'].get('@odata.id'))
             
-            # Get first manager
-            manager_uri = managers['Members'][0].get('@odata.id')
-            manager = self._get(manager_uri)
-            
-            if not manager or 'LogServices' not in manager:
-                return events
-            
-            # Get LogServices
-            log_services_uri = manager['LogServices'].get('@odata.id')
-            log_services = self._get(log_services_uri)
-            
-            if not log_services or 'Members' not in log_services:
-                return events
-            
-            # Look for SEL or Log service
-            for member in log_services['Members']:
-                log_uri = member.get('@odata.id', '')
-                if 'SEL' in log_uri.upper() or 'LOG' in log_uri.upper():
-                    log_service = self._get(log_uri)
-                    if log_service and 'Entries' in log_service:
-                        entries_uri = log_service['Entries'].get('@odata.id')
-                        # Allow longer timeout for large logs
-                        entries_resp = self._get(entries_uri, timeout=120)
-                        if entries_resp and 'Members' in entries_resp:
-                            for entry in entries_resp['Members']:
-                                event = self._parse_log_entry(entry)
-                                if event:
-                                    events.append(event)
-                    break
+            # Try each LogServices path
+            for log_services_uri in log_services_paths:
+                if not log_services_uri:
+                    continue
+                    
+                log_services = self._get(log_services_uri)
+                if not log_services or 'Members' not in log_services:
+                    continue
+                
+                # Look for SEL or PlatformLog service
+                for member in log_services['Members']:
+                    log_uri = member.get('@odata.id', '')
+                    log_name = log_uri.upper()
+                    if 'SEL' in log_name or 'PLATFORMLOG' in log_name:
+                        log_service = self._get(log_uri)
+                        if log_service and 'Entries' in log_service:
+                            entries_uri = log_service['Entries'].get('@odata.id')
+                            entries_resp = self._get(entries_uri, timeout=120)
+                            if entries_resp and 'Members' in entries_resp:
+                                for entry in entries_resp['Members']:
+                                    event = self._parse_log_entry(entry)
+                                    if event:
+                                        events.append(event)
+                                if events:
+                                    return events  # Found events, return
             
             return events
         except Exception as e:
@@ -4671,12 +4682,23 @@ def decode_dimm_from_event_data(event_data_hex):
         return ''
 
 def collect_ipmi_sel(bmc_ip, server_name):
-    """Collect IPMI SEL from a single server using elist for timestamps and verbose for details"""
+    """Collect SEL from a single server - tries Redfish first (faster), falls back to IPMI"""
+    
+    # Try Redfish first - much faster for high-latency connections
+    if should_use_redfish(bmc_ip):
+        try:
+            events = collect_sel_redfish(bmc_ip, server_name)
+            if events:
+                app.logger.debug(f"Collected {len(events)} SEL events from {bmc_ip} via Redfish")
+                return events
+        except Exception as e:
+            app.logger.debug(f"Redfish SEL failed for {bmc_ip}, falling back to IPMI: {e}")
+    
+    # Fall back to IPMI
     try:
         user, password = get_ipmi_credentials(bmc_ip)
         
         # Use elist format first - it has proper timestamps with time
-        # Allow 600 seconds (10 min) for large SEL logs - some BMCs are very slow
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
              '-U', user, '-P', password, 'sel', 'elist'],
