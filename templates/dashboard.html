@@ -434,8 +434,25 @@
             font-weight: 600;
         }
         
+        .ai-badge.trial {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+        }
+        
         .ai-badge.standard {
             background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+        }
+        
+        .ai-badge.standard-plus {
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        }
+        
+        .ai-badge.pro {
+            background: linear-gradient(90deg, #8b5cf6, #ec4899);
+        }
+        
+        .ai-badge.enterprise {
+            background: linear-gradient(90deg, #f59e0b, #ef4444);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
         }
         
         .ai-btn {
@@ -2941,6 +2958,37 @@
             window.open(signupUrl, '_blank');
         }
         
+        // Map subscription tiers to display names
+        function getTierDisplayName(tier) {
+            const tierNames = {
+                'free': 'FREE',
+                'trial': 'TRIAL',
+                'standard': 'STANDARD',
+                'standard_plus': 'STANDARD+',
+                'pro': 'PRO',
+                'enterprise': 'ENTERPRISE',
+                // Legacy mappings
+                'starter': 'STANDARD',
+                'professional': 'PRO'
+            };
+            return tierNames[tier?.toLowerCase()] || tier?.toUpperCase() || 'FREE';
+        }
+        
+        // Get CSS class for tier badge
+        function getTierClass(tier) {
+            const tierClasses = {
+                'free': '',
+                'trial': 'trial',
+                'standard': 'standard',
+                'standard_plus': 'standard-plus',
+                'pro': 'pro',
+                'enterprise': 'enterprise',
+                'starter': 'standard',
+                'professional': 'pro'
+            };
+            return tierClasses[tier?.toLowerCase()] || '';
+        }
+        
         async function loadAiStatus() {
             try {
                 const response = await fetch('/api/ai/status');
@@ -2953,15 +3001,19 @@
                 const results = document.getElementById('aiResults');
                 
                 if (aiEnabled) {
-                    badge.textContent = data.subscription_tier.toUpperCase();
-                    badge.classList.add('standard');
+                    const tier = data.subscription_tier || 'standard';
+                    badge.textContent = getTierDisplayName(tier);
+                    // Remove old classes and add new tier class
+                    badge.classList.remove('standard', 'standard-plus', 'pro', 'enterprise', 'trial');
+                    const tierClass = getTierClass(tier);
+                    if (tierClass) badge.classList.add(tierClass);
                     upgradePrompt.style.display = 'none';
                     results.style.display = 'block';
                     updateSyncStatus(data);
                     loadCachedAiResults();
                 } else {
                     badge.textContent = 'FREE';
-                    badge.classList.remove('standard');
+                    badge.classList.remove('standard', 'standard-plus', 'pro', 'enterprise', 'trial');
                     upgradePrompt.style.display = 'block';
                     results.style.display = 'none';
                 }

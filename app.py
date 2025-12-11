@@ -2932,10 +2932,12 @@ def validate_license_key(license_key):
         
         if response.ok:
             result = response.json()
+            # Normalize tier name to current naming convention
+            tier = normalize_tier_name(result.get('tier', 'free'))
             return {
                 'valid': result.get('valid', False),
-                'tier': result.get('tier', 'free'),
-                'max_servers': result.get('max_servers', 50),
+                'tier': tier,
+                'max_servers': result.get('max_servers') or get_tier_max_servers(tier),
                 'features': result.get('features', [])
             }
     except Exception as e:
@@ -10505,6 +10507,32 @@ def api_delete_user(user_id):
 
 # ============== AI Cloud Features ==============
 
+# Subscription tier configuration - must match WordPress plugin and AI service
+SUBSCRIPTION_TIERS = {
+    'free': {'max_servers': 5, 'data_retention_days': 7, 'ai_enabled': False},
+    'trial': {'max_servers': 25, 'data_retention_days': 14, 'ai_enabled': True},
+    'standard': {'max_servers': 25, 'data_retention_days': 90, 'ai_enabled': True},
+    'standard_plus': {'max_servers': 50, 'data_retention_days': 180, 'ai_enabled': True},
+    'pro': {'max_servers': 100, 'data_retention_days': 365, 'ai_enabled': True},
+    'enterprise': {'max_servers': -1, 'data_retention_days': 730, 'ai_enabled': True},  # -1 = unlimited
+    # Legacy tier mappings
+    'starter': {'max_servers': 25, 'data_retention_days': 90, 'ai_enabled': True},  # maps to standard
+    'professional': {'max_servers': 100, 'data_retention_days': 365, 'ai_enabled': True},  # maps to pro
+}
+
+def get_tier_max_servers(tier: str) -> int:
+    """Get max servers for a subscription tier. Returns -1 for unlimited."""
+    tier_config = SUBSCRIPTION_TIERS.get(tier, SUBSCRIPTION_TIERS['free'])
+    return tier_config['max_servers']
+
+def normalize_tier_name(tier: str) -> str:
+    """Normalize legacy tier names to current names."""
+    mappings = {
+        'starter': 'standard',
+        'professional': 'pro',
+    }
+    return mappings.get(tier, tier) if tier else 'free'
+
 @app.route('/api/ai/status')
 def api_ai_status():
     """Get AI cloud sync status"""
@@ -10512,17 +10540,20 @@ def api_ai_status():
         config = CloudSync.get_config()
         server_count = Server.query.count()
         
+        # Normalize tier name to current naming convention
+        tier = normalize_tier_name(config.subscription_tier)
+        
         return jsonify({
             'enabled': config.sync_enabled,
             'subscription_valid': config.subscription_valid,
-            'subscription_tier': config.subscription_tier or 'free',
+            'subscription_tier': tier,
             'features': config.get_features_list(),
             # Add 'Z' suffix to indicate UTC time so browser interprets correctly
             'last_sync': (config.last_sync.isoformat() + 'Z') if config.last_sync else None,
             'last_sync_status': config.last_sync_status,
             'last_sync_message': config.last_sync_message,
             'server_count': server_count,
-            'max_servers': config.max_servers,
+            'max_servers': config.max_servers if config.max_servers else get_tier_max_servers(tier),
             'has_license': bool(config.license_key)
         })
     except Exception as e:
@@ -10684,9 +10715,11 @@ def api_oauth_callback():
         config = CloudSync.get_config()
         config.license_key = api_key
         config.sync_enabled = True
-        config.subscription_tier = subscription
+        # Normalize tier name and store
+        normalized_tier = normalize_tier_name(subscription)
+        config.subscription_tier = normalized_tier
         config.subscription_valid = True
-        config.max_servers = 500 if subscription == 'professional' else 50
+        config.max_servers = get_tier_max_servers(normalized_tier)
         
         # Link the current IPMI Monitor admin to the WordPress account
         current_username = session.get('username')
