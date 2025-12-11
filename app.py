@@ -9402,10 +9402,33 @@ def api_collect_sensors():
     return jsonify({'status': 'Sensor collection started'})
 
 def collect_single_server_sensors(bmc_ip, server_name):
-    """Collect sensors from a single server"""
+    """Collect sensors from a single server (tries Redfish first, falls back to IPMI)"""
     try:
-        sensors = collect_sensors(bmc_ip, server_name)
-        power = collect_power_reading(bmc_ip, server_name)
+        sensors = []
+        power = None
+        
+        # Try Redfish first (much faster, especially over high-latency connections)
+        if should_use_redfish(bmc_ip):
+            try:
+                sensors, power_data = collect_sensors_redfish(bmc_ip, server_name)
+                if power_data:
+                    power = PowerReading(
+                        bmc_ip=bmc_ip,
+                        server_name=server_name,
+                        current_watts=power_data.get('current'),
+                        min_watts=power_data.get('min'),
+                        max_watts=power_data.get('max'),
+                        avg_watts=power_data.get('avg'),
+                        collected_at=datetime.utcnow()
+                    )
+            except Exception as e:
+                app.logger.debug(f"Redfish sensor collection failed for {bmc_ip}, falling back to IPMI: {e}")
+        
+        # Fall back to IPMI if no sensors from Redfish
+        if not sensors:
+            sensors = collect_sensors(bmc_ip, server_name)
+            if not power:
+                power = collect_power_reading(bmc_ip, server_name)
         
         with app.app_context():
             for sensor in sensors:
