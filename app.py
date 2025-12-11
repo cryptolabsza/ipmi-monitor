@@ -1106,7 +1106,7 @@ class RedfishClient:
         """Get all PCIe devices (NICs, storage controllers, GPUs, etc.)"""
         devices = []
         try:
-            # Try Systems path
+            # Method 1: PCIeDevices as list of URIs under System (Lenovo, some HPE)
             systems_uri = self.get_systems_uri()
             if systems_uri:
                 systems = self._get(systems_uri)
@@ -1114,28 +1114,60 @@ class RedfishClient:
                     system_uri = systems['Members'][0].get('@odata.id')
                     system = self._get(system_uri)
                     if system and 'PCIeDevices' in system:
-                        pcie_uri = system['PCIeDevices'].get('@odata.id') if isinstance(system['PCIeDevices'], dict) else None
-                        if pcie_uri:
-                            pcie_coll = self._get(pcie_uri)
+                        pcie_refs = system['PCIeDevices']
+                        # Lenovo: PCIeDevices is a list of device URIs directly
+                        if isinstance(pcie_refs, list):
+                            for ref in pcie_refs:
+                                device = self._get(ref.get('@odata.id'))
+                                if device and device.get('Name'):
+                                    devices.append(self._parse_pcie_device(device))
+                        # Other vendors: PCIeDevices has @odata.id to collection
+                        elif isinstance(pcie_refs, dict) and '@odata.id' in pcie_refs:
+                            pcie_coll = self._get(pcie_refs['@odata.id'])
                             if pcie_coll and 'Members' in pcie_coll:
                                 for member in pcie_coll['Members']:
                                     device = self._get(member.get('@odata.id'))
-                                    if device:
-                                        devices.append({
-                                            'Id': device.get('Id', ''),
-                                            'Name': device.get('Name', ''),
-                                            'DeviceType': device.get('DeviceType', ''),
-                                            'Manufacturer': device.get('Manufacturer', ''),
-                                            'Model': device.get('Model', ''),
-                                            'SerialNumber': device.get('SerialNumber', ''),
-                                            'PartNumber': device.get('PartNumber', ''),
-                                            'FirmwareVersion': device.get('FirmwareVersion', ''),
-                                            'Status': device.get('Status', {}).get('Health', 'OK'),
-                                        })
+                                    if device and device.get('Name'):
+                                        devices.append(self._parse_pcie_device(device))
+            
+            # Method 2: Try Chassis PCIeDevices (some vendors)
+            if not devices:
+                chassis_resp = self._get('/redfish/v1/Chassis')
+                if chassis_resp and 'Members' in chassis_resp:
+                    for chassis in chassis_resp['Members']:
+                        pcie_uri = f"{chassis['@odata.id']}/PCIeDevices"
+                        pcie_coll = self._get(pcie_uri)
+                        if pcie_coll and 'Members' in pcie_coll:
+                            for member in pcie_coll['Members']:
+                                device = self._get(member.get('@odata.id'))
+                                if device and device.get('Name'):
+                                    devices.append(self._parse_pcie_device(device))
+            
+            if devices:
+                app.logger.info(f"Redfish PCIe for {self.host}: {len(devices)} devices")
             return devices
         except Exception as e:
             app.logger.debug(f"Redfish PCIe collection failed for {self.host}: {e}")
             return devices
+    
+    def _parse_pcie_device(self, device):
+        """Parse a PCIe device response into a standardized dict"""
+        slot_info = device.get('Slot', {}).get('Location', {}).get('Info', '')
+        pcie_iface = device.get('PCIeInterface', {})
+        return {
+            'Id': device.get('Id', ''),
+            'Name': device.get('Name', ''),
+            'DeviceType': device.get('DeviceType', ''),
+            'Manufacturer': device.get('Manufacturer', ''),
+            'Model': device.get('Model', ''),
+            'SerialNumber': device.get('SerialNumber', ''),
+            'PartNumber': device.get('PartNumber', ''),
+            'FirmwareVersion': device.get('FirmwareVersion', ''),
+            'SlotInfo': slot_info,
+            'PCIeType': pcie_iface.get('PCIeType', ''),
+            'Lanes': pcie_iface.get('LanesInUse', ''),
+            'Status': device.get('Status', {}).get('Health', 'OK'),
+        }
     
     def get_network_interfaces(self):
         """Get system network interfaces (NICs)"""
