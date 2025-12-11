@@ -7687,17 +7687,18 @@ def api_collect_all_inventory():
     
     def collect_one(bmc_ip, server_name, server_ip):
         """Collect inventory for a single server"""
-        try:
-            # Skip unreachable servers
-            status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
-            if status and not status.is_reachable:
-                return None  # Skip
-            
-            ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
-            collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip)
-            return True
-        except Exception as e:
-            return str(e)
+        with app.app_context():
+            try:
+                # Skip unreachable servers
+                status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+                if status and not status.is_reachable:
+                    return None  # Skip
+                
+                ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+                collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip)
+                return True
+            except Exception as e:
+                return str(e)
     
     # Use parallel workers (same as collection workers)
     num_workers = get_collection_workers()
