@@ -3869,7 +3869,7 @@ def build_sensor_cache(bmc_ip):
         # Allow 600 seconds - some BMCs are very slow
         cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
                '-U', user, '-P', password, 'sdr', 'elist']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
         
         cache_data = {}
         for line in result.stdout.strip().split('\n'):
@@ -4680,7 +4680,7 @@ def collect_ipmi_sel(bmc_ip, server_name):
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
              '-U', user, '-P', password, 'sel', 'elist'],
-            capture_output=True, text=True, timeout=600
+            capture_output=True, text=True, timeout=30
         )
         
         if result.returncode != 0:
@@ -4861,7 +4861,7 @@ def collect_sensors(bmc_ip, server_name):
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
              '-U', user, '-P', password, 'sensor', 'list'],
-            capture_output=True, text=True, timeout=120
+            capture_output=True, text=True, timeout=60
         )
         if result.returncode != 0:
             return sensors
