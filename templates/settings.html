@@ -650,7 +650,7 @@
                         <button class="btn" style="background: var(--accent-yellow); color: #000;" onclick="testBmcConnection()">🔌 Test BMC</button>
                         <button class="btn" style="background: var(--accent-blue);" onclick="testSshConnection()">🖥️ Test SSH</button>
                         <button class="btn" style="background: var(--accent-purple);" onclick="checkRedfishStatus()">🔗 Check Redfish</button>
-                        <button class="btn" style="background: var(--accent-cyan); color: #000;" onclick="toggleRedfish(true)" title="Try to enable Redfish via OEM IPMI commands">⚡ Enable Redfish</button>
+                        <button class="btn" style="background: var(--accent-cyan); color: var(--text-primary);" onclick="toggleRedfish(true)" title="Try to enable Redfish via OEM IPMI commands">⚡ Enable Redfish</button>
                         <button class="btn btn-danger" onclick="deleteServer()" style="margin-left: auto;">🗑️ Delete</button>
                     </div>
                 </div>
@@ -2479,68 +2479,54 @@
             const errorsDiv = document.getElementById('inventoryErrors');
             
             // Confirm action
-            if (!confirm('This will collect hardware inventory from ALL enabled servers. This may take several minutes. Continue?')) {
+            if (!confirm('This will collect hardware inventory from ALL enabled servers in parallel. This may take a minute. Continue?')) {
                 return;
             }
             
             // Disable button and show progress
             btn.disabled = true;
-            btn.innerHTML = '⏳ Collecting...';
+            btn.innerHTML = '⏳ Collecting in parallel...';
             progressDiv.style.display = 'block';
             errorsDiv.style.display = 'none';
             errorsDiv.innerHTML = '';
+            progressText.textContent = 'Collecting inventory from all servers in parallel...';
+            progressCount.textContent = 'Please wait...';
+            progressBar.style.width = '50%';
             
             try {
-                // Get list of servers first
-                const serversResp = await fetch('/api/servers', { credentials: 'same-origin' });
-                const servers = await serversResp.json();
-                const enabledServers = servers.filter(s => s.enabled !== false);
-                const total = enabledServers.length;
-                let completed = 0;
-                let errors = [];
+                // Use the parallel collection endpoint
+                const response = await fetch('/api/inventory/collect-all', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
                 
-                progressCount.textContent = `0 / ${total}`;
-                progressBar.style.width = '0%';
+                const result = await response.json();
                 
-                // Collect inventory for each server sequentially
-                for (const server of enabledServers) {
-                    progressText.textContent = `Collecting: ${server.server_name || server.bmc_ip}`;
-                    
-                    try {
-                        const response = await fetch(`/api/servers/${server.bmc_ip}/inventory`, {
-                            method: 'POST',
-                            credentials: 'same-origin'
-                        });
-                        
-                        if (!response.ok) {
-                            const data = await response.json();
-                            errors.push(`${server.server_name || server.bmc_ip}: ${data.error || 'Failed'}`);
-                        }
-                    } catch (e) {
-                        errors.push(`${server.server_name || server.bmc_ip}: ${e.message}`);
-                    }
-                    
-                    completed++;
-                    progressCount.textContent = `${completed} / ${total}`;
-                    progressBar.style.width = `${(completed / total) * 100}%`;
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to collect inventory');
                 }
                 
-                // Show results
+                // Update progress
+                progressBar.style.width = '100%';
+                progressCount.textContent = `${result.success} / ${result.total}`;
                 progressText.textContent = '✅ Collection complete!';
                 
-                if (errors.length > 0) {
+                // Show errors if any
+                if (result.errors && result.errors.length > 0) {
                     errorsDiv.style.display = 'block';
-                    errorsDiv.innerHTML = `<strong>⚠️ ${errors.length} errors:</strong><br>` + 
-                        errors.slice(0, 10).join('<br>') + 
-                        (errors.length > 10 ? `<br>... and ${errors.length - 10} more` : '');
-                    showAlert(`Inventory collected with ${errors.length} errors`, 'warning');
+                    const errorList = result.errors.slice(0, 10).map(e => `${e.bmc_ip}: ${e.error}`);
+                    errorsDiv.innerHTML = `<strong>⚠️ ${result.failed} errors:</strong><br>` + 
+                        errorList.join('<br>') + 
+                        (result.errors.length > 10 ? `<br>... and ${result.errors.length - 10} more` : '');
+                    showAlert(`Inventory collected: ${result.success} success, ${result.failed} failed`, 'warning');
                 } else {
-                    showAlert(`Successfully collected inventory for ${total} servers!`, 'success');
+                    showAlert(`Successfully collected inventory for ${result.success} servers in parallel!`, 'success');
                 }
                 
             } catch (e) {
                 showAlert('Failed to collect inventory: ' + e.message, 'error');
                 progressText.textContent = '❌ Collection failed';
+                progressBar.style.width = '0%';
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '📦 Collect All Inventory';
