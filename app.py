@@ -5697,8 +5697,8 @@ def sync_timer():
     """Independent sync timer - runs on its own schedule, doesn't block collection"""
     print(f"[Sync Timer] Started (interval: {SYNC_INTERVAL}s)", flush=True)
     
-    # Initial delay to let first collection complete
-    _shutdown_event.wait(60)
+    # Short initial delay to let database initialize
+    _shutdown_event.wait(10)
     
     while not _shutdown_event.is_set():
         try:
@@ -5732,8 +5732,8 @@ def connectivity_timer():
     """Independent connectivity check timer - monitors server availability"""
     print(f"[Connectivity Timer] Started (interval: 60s)", flush=True)
     
-    # Initial delay to let system stabilize
-    _shutdown_event.wait(120)
+    # Short initial delay to let database initialize, then check immediately
+    _shutdown_event.wait(5)
     
     while not _shutdown_event.is_set():
         try:
