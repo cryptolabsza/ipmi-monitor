@@ -5192,6 +5192,7 @@ def collection_worker(worker_id):
                     status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
                     if status and not status.is_reachable:
                         skip = True
+                        print(f"[Worker {worker_id}] Skipping {job_type} for {bmc_ip} (unreachable)", flush=True)
                 
                 if not skip:
                     if job_type == 'sel':
