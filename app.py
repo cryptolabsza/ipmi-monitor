@@ -5104,15 +5104,15 @@ def cleanup_old_data():
             
             # Delete old sensor readings (keep last 7 days only for sensors)
             sensor_cutoff = datetime.utcnow() - timedelta(days=7)
-            old_sensors = SensorReading.query.filter(SensorReading.timestamp < sensor_cutoff).count()
+            old_sensors = SensorReading.query.filter(SensorReading.collected_at < sensor_cutoff).count()
             if old_sensors > 0:
-                SensorReading.query.filter(SensorReading.timestamp < sensor_cutoff).delete()
+                SensorReading.query.filter(SensorReading.collected_at < sensor_cutoff).delete()
                 print(f"[IPMI Monitor] Data cleanup: Deleted {old_sensors} old sensor readings", flush=True)
             
             # Delete old power readings (keep last 7 days)
-            old_power = PowerReading.query.filter(PowerReading.timestamp < sensor_cutoff).count()
+            old_power = PowerReading.query.filter(PowerReading.collected_at < sensor_cutoff).count()
             if old_power > 0:
-                PowerReading.query.filter(PowerReading.timestamp < sensor_cutoff).delete()
+                PowerReading.query.filter(PowerReading.collected_at < sensor_cutoff).delete()
                 print(f"[IPMI Monitor] Data cleanup: Deleted {old_power} old power readings", flush=True)
             
             # Delete old alert history (keep last 30 days)
