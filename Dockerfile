@@ -10,11 +10,13 @@ ENV GIT_COMMIT=${GIT_COMMIT}
 ENV GIT_BRANCH=${GIT_BRANCH}
 ENV BUILD_TIME=${BUILD_TIME}
 
-# Install ipmitool, openssh-client, and sshpass (for detailed OS inventory via SSH)
+# Install ipmitool, openssh-client, sshpass, and iputils-ping (for connectivity checks)
 RUN apt-get update && apt-get install -y \
     ipmitool \
     openssh-client \
     sshpass \
+    iputils-ping \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

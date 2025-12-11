@@ -2732,13 +2732,30 @@ def check_and_report_connectivity_changes():
         except:
             return False
     
+    def check_ping(ip, timeout=2):
+        """Check if host is reachable via ping (ICMP)"""
+        if not ip:
+            return False
+        try:
+            import subprocess
+            # Use ping with count=1 and timeout
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', str(timeout), ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout + 1
+            )
+            return result.returncode == 0
+        except:
+            return False
+    
     with app.app_context():
         servers = Server.query.filter(Server.status == 'active').all()
         
         for server in servers:
             try:
-                # Check BMC connectivity (IPMI port 623)
-                bmc_reachable = check_port(server.bmc_ip, 623, timeout=2)
+                # Check BMC connectivity via ping (IPMI uses UDP, not TCP)
+                bmc_reachable = check_ping(server.bmc_ip, timeout=2)
                 
                 # Check Primary/OS IP (SSH port 22)
                 primary_ip = server.server_ip
@@ -8343,9 +8360,10 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
 def api_check_server_connectivity(bmc_ip):
     """Check both BMC and primary IP connectivity"""
     import socket
+    import subprocess
     
     def check_port(ip, port, timeout=2):
-        """Check if a port is reachable"""
+        """Check if a port is reachable via TCP"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(timeout)
@@ -8355,13 +8373,20 @@ def api_check_server_connectivity(bmc_ip):
         except:
             return False
     
-    def check_host(ip, timeout=2):
-        """Check if host is reachable via common ports"""
-        # Try IPMI port 623 for BMC, SSH port 22 for OS
-        for port in [623, 22, 80, 443]:
-            if check_port(ip, port, timeout):
-                return True
-        return False
+    def check_ping(ip, timeout=2):
+        """Check if host is reachable via ping (ICMP)"""
+        if not ip:
+            return False
+        try:
+            result = subprocess.run(
+                ['ping', '-c', '1', '-W', str(timeout), ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=timeout + 1
+            )
+            return result.returncode == 0
+        except:
+            return False
     
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     if not server:
@@ -8377,9 +8402,9 @@ def api_check_server_connectivity(bmc_ip):
         'checked_at': datetime.utcnow().isoformat()
     }
     
-    # Check BMC via IPMI port (623)
+    # Check BMC via ping (IPMI uses UDP port 623, not TCP)
     try:
-        results['bmc_reachable'] = check_port(bmc_ip, 623, timeout=3)
+        results['bmc_reachable'] = check_ping(bmc_ip, timeout=3)
     except:
         pass
     
@@ -8709,10 +8734,26 @@ def import_servers_to_database(servers_data):
                     public_ip=server_data.get('public_ip'),
                     enabled=server_data.get('enabled', True),
                     use_nvidia_password=server_data.get('use_nvidia_password', False),
-                    notes=server_data.get('notes', '')
+                    notes=server_data.get('notes', ''),
+                    status='active'
                 )
                 db.session.add(server)
                 added += 1
+            
+            # Ensure ServerStatus entry exists (required for dashboard API)
+            status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+            if not status:
+                status = ServerStatus(
+                    bmc_ip=bmc_ip,
+                    server_name=server_name,
+                    is_reachable=False,
+                    power_status='Unknown',
+                    consecutive_failures=0
+                )
+                db.session.add(status)
+            else:
+                # Update server_name if changed
+                status.server_name = server_name
             
             # Handle per-server credentials (IPMI, SSH)
             has_credentials = any([

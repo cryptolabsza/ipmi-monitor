@@ -2383,9 +2383,16 @@
         <div class="main-content">
             <div>
                 <div class="section-header">
-                    <h2 class="section-title">Server Status</h2>
+                    <h2 class="section-title">Server Status <span id="serverCount" style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;"></span></h2>
                     <div class="sort-controls">
-                        <label>Sort by:</label>
+                        <label>Filter:</label>
+                        <select class="sort-select" id="statusFilter" onchange="filterServers()" style="min-width: 120px;">
+                            <option value="all">All Servers</option>
+                            <option value="online">Online Only</option>
+                            <option value="offline">Offline Only</option>
+                            <option value="issues">With Issues</option>
+                        </select>
+                        <label style="margin-left: 15px;">Sort by:</label>
                         <select class="sort-select" id="sortField" onchange="sortServers()">
                             <option value="name">Name</option>
                             <option value="ip">IP Address</option>
@@ -2535,6 +2542,7 @@
         let serversData = [];  // Store servers for sorting
         let sortField = 'name';
         let sortAscending = true;
+        let statusFilter = 'all';  // Filter for online/offline/all
         
         function getTimeRange() {
             return document.getElementById('timeRange').value;
@@ -3666,8 +3674,28 @@
                 return;
             }
             
+            // Filter servers based on statusFilter
+            let filteredServers = [...serversData];
+            switch (statusFilter) {
+                case 'online':
+                    filteredServers = filteredServers.filter(s => s.is_reachable === true);
+                    break;
+                case 'offline':
+                    filteredServers = filteredServers.filter(s => s.is_reachable === false);
+                    break;
+                case 'issues':
+                    filteredServers = filteredServers.filter(s => (s.critical || 0) > 0 || (s.warning || 0) > 0);
+                    break;
+                // 'all' shows everything
+            }
+            
+            if (filteredServers.length === 0) {
+                grid.innerHTML = `<div class="loading">No servers match the "${statusFilter}" filter.</div>`;
+                return;
+            }
+            
             // Sort the servers
-            const sortedServers = [...serversData].sort((a, b) => {
+            const sortedServers = [...filteredServers].sort((a, b) => {
                 let aVal, bVal;
                 
                 switch (sortField) {
@@ -3710,6 +3738,17 @@
                 return 0;
             });
             
+            // Update server count display
+            const countEl = document.getElementById('serverCount');
+            if (countEl) {
+                const onlineCount = filteredServers.filter(s => s.is_reachable).length;
+                if (statusFilter === 'all') {
+                    countEl.textContent = `(${onlineCount} online / ${filteredServers.length} total)`;
+                } else {
+                    countEl.textContent = `(${filteredServers.length} shown)`;
+                }
+            }
+            
             grid.innerHTML = sortedServers.map(server => `
                 <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'">
                     <div class="server-header">
@@ -3737,6 +3776,11 @@
                     </div>
                 </div>
             `).join('');
+        }
+        
+        function filterServers() {
+            statusFilter = document.getElementById('statusFilter').value;
+            renderServers();
         }
         
         function sortServers() {
