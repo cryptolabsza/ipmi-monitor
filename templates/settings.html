@@ -484,11 +484,19 @@
                         <span id="inventoryProgressText">Collecting inventory...</span>
                         <span id="inventoryProgressCount">0 / 0</span>
                     </div>
-                    <div style="background: var(--bg-card); border-radius: 4px; height: 8px; overflow: hidden;">
+                    <div style="background: var(--bg-card); border-radius: 4px; height: 8px; overflow: hidden; position: relative;">
                         <div id="inventoryProgressBar" style="background: var(--accent-purple); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                        <div id="inventoryProgressBarAnimated" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(90deg, var(--accent-purple) 0%, var(--accent-cyan) 50%, var(--accent-purple) 100%); background-size: 200% 100%; animation: inventoryShimmer 1.5s infinite;"></div>
                     </div>
+                    <div id="inventoryElapsed" style="margin-top: 8px; font-size: 0.85rem; color: var(--text-secondary);"></div>
                     <div id="inventoryErrors" style="margin-top: 10px; color: var(--accent-red); font-size: 0.85rem; display: none;"></div>
                 </div>
+                <style>
+                    @keyframes inventoryShimmer {
+                        0% { background-position: 200% 0; }
+                        100% { background-position: -200% 0; }
+                    }
+                </style>
             </div>
             
             <!-- Bulk Apply Credentials Section (moved from SSH tab) -->
@@ -2476,6 +2484,8 @@
             const progressText = document.getElementById('inventoryProgressText');
             const progressCount = document.getElementById('inventoryProgressCount');
             const progressBar = document.getElementById('inventoryProgressBar');
+            const progressBarAnimated = document.getElementById('inventoryProgressBarAnimated');
+            const elapsedDiv = document.getElementById('inventoryElapsed');
             const errorsDiv = document.getElementById('inventoryErrors');
             
             // Confirm action
@@ -2489,9 +2499,30 @@
             progressDiv.style.display = 'block';
             errorsDiv.style.display = 'none';
             errorsDiv.innerHTML = '';
-            progressText.textContent = 'Collecting inventory from all servers in parallel...';
-            progressCount.textContent = 'Please wait...';
-            progressBar.style.width = '50%';
+            
+            // Show animated progress bar
+            progressBar.style.display = 'none';
+            progressBarAnimated.style.display = 'block';
+            
+            // Start elapsed time counter
+            const startTime = Date.now();
+            const elapsedTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                elapsedDiv.textContent = `⏱️ Elapsed: ${mins}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+            
+            // Get server count first for display
+            let totalServers = '...';
+            try {
+                const serversResp = await fetch('/api/servers', { credentials: 'same-origin' });
+                const servers = await serversResp.json();
+                totalServers = servers.filter(s => s.enabled !== false).length;
+            } catch (e) {}
+            
+            progressText.textContent = `🔄 Collecting inventory from ${totalServers} servers in parallel...`;
+            progressCount.textContent = `0 / ${totalServers} (running in parallel)`;
             
             try {
                 // Use the parallel collection endpoint
@@ -2506,7 +2537,15 @@
                     throw new Error(result.error || 'Failed to collect inventory');
                 }
                 
-                // Update progress
+                // Stop timer and show static progress bar
+                clearInterval(elapsedTimer);
+                const totalElapsed = Math.floor((Date.now() - startTime) / 1000);
+                const mins = Math.floor(totalElapsed / 60);
+                const secs = totalElapsed % 60;
+                elapsedDiv.textContent = `✅ Completed in ${mins}:${secs.toString().padStart(2, '0')}`;
+                
+                progressBarAnimated.style.display = 'none';
+                progressBar.style.display = 'block';
                 progressBar.style.width = '100%';
                 progressCount.textContent = `${result.success} / ${result.total}`;
                 progressText.textContent = '✅ Collection complete!';
@@ -2524,8 +2563,11 @@
                 }
                 
             } catch (e) {
+                clearInterval(elapsedTimer);
                 showAlert('Failed to collect inventory: ' + e.message, 'error');
                 progressText.textContent = '❌ Collection failed';
+                progressBarAnimated.style.display = 'none';
+                progressBar.style.display = 'block';
                 progressBar.style.width = '0%';
             } finally {
                 btn.disabled = false;
