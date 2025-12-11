@@ -5149,7 +5149,9 @@ _sensor_queue = Queue()
 # Configuration
 # Default workers to CPU count, can be overridden by env var or settings
 CPU_COUNT = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
-COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', CPU_COUNT))
+# Use more workers for high-latency connections - default to max(CPU_COUNT * 4, 10)
+DEFAULT_WORKERS = max(CPU_COUNT * 4, 10)
+COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', DEFAULT_WORKERS))
 SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', 300))  # 5 minutes
 
 def get_collection_workers():
