@@ -6781,12 +6781,16 @@ def api_clear_all_sel():
     """Clear SEL logs on all BMCs - Requires write access"""
     results = {'success': [], 'failed': []}
     
-    for bmc_ip, server_name in SERVERS.items():
+    # Get servers from database, not empty SERVERS dict
+    servers = Server.query.filter(Server.status == 'active', Server.enabled == True).all()
+    
+    for server in servers:
+        bmc_ip = server.bmc_ip
         try:
-            password = get_ipmi_password(bmc_ip)
+            user, password = get_ipmi_credentials(bmc_ip)
             result = subprocess.run(
                 ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-                 '-U', IPMI_USER, '-P', password, 'sel', 'clear'],
+                 '-U', user, '-P', password, 'sel', 'clear'],
                 capture_output=True, text=True, timeout=30
             )
             
@@ -9337,15 +9341,21 @@ def api_collect_sensors():
     """Trigger sensor collection for all servers"""
     def collect_all_sensors():
         with app.app_context():
-            app.logger.info("Starting sensor collection...")
+            # Get servers from database, not empty SERVERS dict
+            servers = Server.query.filter(Server.status == 'active', Server.enabled == True).all()
+            server_list = [(s.bmc_ip, s.server_name) for s in servers]
+            
+            app.logger.info(f"Starting sensor collection for {len(server_list)} servers...")
+            collected = 0
             with ThreadPoolExecutor(max_workers=get_collection_workers()) as executor:
                 futures = {
                     executor.submit(collect_single_server_sensors, bmc_ip, server_name): bmc_ip
-                    for bmc_ip, server_name in SERVERS.items()
+                    for bmc_ip, server_name in server_list
                 }
                 for future in as_completed(futures):
-                    pass
-            app.logger.info("Sensor collection complete")
+                    if future.result():
+                        collected += 1
+            app.logger.info(f"Sensor collection complete: {collected}/{len(server_list)} servers")
     
     thread = threading.Thread(target=collect_all_sensors, daemon=True)
     thread.start()
