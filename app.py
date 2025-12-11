@@ -5156,17 +5156,18 @@ SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', 300))  # 5 minutes
 
 def get_collection_workers():
     """Get the configured number of collection workers.
-    Priority: SystemSettings > Environment > CPU count
-    Returns: int - number of workers, or 0 for 'auto' (use CPU count)
+    Priority: SystemSettings > Environment > Default (max of CPU*4 or 10)
+    Returns: int - number of workers
     """
     try:
         with app.app_context():
             setting = SystemSettings.get('collection_workers', 'auto')
             if setting == 'auto' or setting == '0':
-                return CPU_COUNT
+                # Auto mode: use a reasonable default for high-latency connections
+                return DEFAULT_WORKERS
             return int(setting)
     except:
-        return COLLECTION_WORKERS
+        return DEFAULT_WORKERS
 
 def collection_worker(worker_id):
     """Worker thread that processes collection jobs from the queue"""
