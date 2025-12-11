@@ -2782,6 +2782,8 @@ def check_and_report_connectivity_changes():
         servers = Server.query.filter(Server.status == 'active').all()
         server_list = [(s.bmc_ip, s.server_name, s.server_ip) for s in servers]
         
+        print(f"[Connectivity] Checking {len(server_list)} servers with 20 workers...", flush=True)
+        
         # Parallel connectivity checks - 20 workers for fast checking
         from concurrent.futures import ThreadPoolExecutor, as_completed
         results = []
@@ -2792,6 +2794,9 @@ def check_and_report_connectivity_changes():
                     results.append(future.result())
                 except:
                     pass
+        
+        online_count = sum(1 for r in results if r[3])  # r[3] is bmc_reachable
+        print(f"[Connectivity] Check complete: {online_count} online / {len(results)} checked", flush=True)
         
         # Process results
         for bmc_ip, server_name, server_ip, bmc_reachable, primary_reachable in results:
