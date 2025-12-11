@@ -3850,7 +3850,7 @@
         }
         
         // ============ Countdown Timer ============
-        const REFRESH_INTERVAL = 5; // seconds - fast refresh, just local DB queries
+        const REFRESH_INTERVAL = 1; // seconds - instant refresh, just local SQLite queries (microseconds)
         let countdownSeconds = REFRESH_INTERVAL;
         let autoRefreshEnabled = true;
         let countdownInterval = null;
