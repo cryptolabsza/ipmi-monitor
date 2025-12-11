@@ -4680,7 +4680,7 @@ def collect_ipmi_sel(bmc_ip, server_name):
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
              '-U', user, '-P', password, 'sel', 'elist'],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True, timeout=90  # 90s for high-latency networks
         )
         
         if result.returncode != 0:
@@ -4861,7 +4861,7 @@ def collect_sensors(bmc_ip, server_name):
         result = subprocess.run(
             ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
              '-U', user, '-P', password, 'sensor', 'list'],
-            capture_output=True, text=True, timeout=60
+            capture_output=True, text=True, timeout=120  # 120s for high-latency networks
         )
         if result.returncode != 0:
             return sensors
