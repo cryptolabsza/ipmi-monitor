@@ -2749,13 +2749,32 @@ def check_and_report_connectivity_changes():
         except:
             return False
     
+    def check_bmc_reachable(ip, timeout=2):
+        """
+        Check if BMC is reachable using multiple methods.
+        Some DCs allow ICMP, some allow TCP 623, some allow both.
+        Returns True if ANY method succeeds.
+        """
+        if not ip:
+            return False
+        # Try ping first (fastest, works for IPMI over UDP)
+        if check_ping(ip, timeout):
+            return True
+        # Fall back to TCP port 623 (some BMCs respond to TCP too)
+        if check_port(ip, 623, timeout):
+            return True
+        # Try web interface ports as last resort
+        if check_port(ip, 443, timeout) or check_port(ip, 80, timeout):
+            return True
+        return False
+    
     with app.app_context():
         servers = Server.query.filter(Server.status == 'active').all()
         
         for server in servers:
             try:
-                # Check BMC connectivity via ping (IPMI uses UDP, not TCP)
-                bmc_reachable = check_ping(server.bmc_ip, timeout=2)
+                # Check BMC connectivity (tries ping, TCP 623, then web ports)
+                bmc_reachable = check_bmc_reachable(server.bmc_ip, timeout=2)
                 
                 # Check Primary/OS IP (SSH port 22)
                 primary_ip = server.server_ip
@@ -8388,6 +8407,25 @@ def api_check_server_connectivity(bmc_ip):
         except:
             return False
     
+    def check_bmc_reachable(ip, timeout=2):
+        """
+        Check if BMC is reachable using multiple methods.
+        Some DCs allow ICMP, some allow TCP 623, some allow both.
+        Returns True if ANY method succeeds.
+        """
+        if not ip:
+            return False
+        # Try ping first (fastest, works for IPMI over UDP)
+        if check_ping(ip, timeout):
+            return True
+        # Fall back to TCP port 623 (some BMCs respond to TCP too)
+        if check_port(ip, 623, timeout):
+            return True
+        # Try web interface ports as last resort
+        if check_port(ip, 443, timeout) or check_port(ip, 80, timeout):
+            return True
+        return False
+    
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     if not server:
         return jsonify({'error': 'Server not found'}), 404
@@ -8402,9 +8440,9 @@ def api_check_server_connectivity(bmc_ip):
         'checked_at': datetime.utcnow().isoformat()
     }
     
-    # Check BMC via ping (IPMI uses UDP port 623, not TCP)
+    # Check BMC via multiple methods (ping, TCP 623, web ports)
     try:
-        results['bmc_reachable'] = check_ping(bmc_ip, timeout=3)
+        results['bmc_reachable'] = check_bmc_reachable(bmc_ip, timeout=2)
     except:
         pass
     
