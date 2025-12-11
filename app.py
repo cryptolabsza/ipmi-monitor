@@ -891,17 +891,19 @@ class RedfishClient:
                 if mem_coll and 'Members' in mem_coll:
                     for member in mem_coll['Members']:
                         dimm = self._get(member.get('@odata.id'))
-                        if dimm:
+                        if dimm and dimm.get('CapacityMiB', 0) > 0:  # Skip empty slots
                             memory.append({
                                 'Id': dimm.get('Id'),
                                 'Name': dimm.get('Name', ''),
+                                'DeviceLocator': dimm.get('DeviceLocator', ''),
                                 'CapacityMiB': dimm.get('CapacityMiB', 0),
                                 'Manufacturer': dimm.get('Manufacturer', ''),
                                 'PartNumber': dimm.get('PartNumber', ''),
                                 'SerialNumber': dimm.get('SerialNumber', ''),
                                 'MemoryType': dimm.get('MemoryDeviceType', dimm.get('MemoryType', '')),
+                                'RankCount': dimm.get('RankCount'),
                                 'OperatingSpeedMhz': dimm.get('OperatingSpeedMhz'),
-                                'Status': dimm.get('Status', {}).get('Health', 'OK')
+                                'Status': dimm.get('Status', {}).get('Health', 'OK'),
                             })
             
             return memory
@@ -1034,7 +1036,7 @@ class RedfishClient:
                                     'state': gpu_chassis.get('Status', {}).get('State', 'Enabled'),
                                 })
             
-            # Method 3: PCIeDevices - look for NVIDIA/GPU devices
+            # Method 3: PCIeDevices under System - look for NVIDIA/GPU devices
             if not gpus and systems_uri:
                 systems = self._get(systems_uri)
                 if systems and 'Members' in systems and systems['Members']:
@@ -1053,14 +1055,44 @@ class RedfishClient:
                                         manufacturer = device.get('Manufacturer', '').upper()
                                         name = device.get('Name', '').upper()
                                         
-                                        if 'GPU' in dev_type or 'NVIDIA' in manufacturer or 'GPU' in name:
+                                        if 'GPU' in dev_type or 'NVIDIA' in manufacturer or 'GPU' in name or 'H100' in name or 'A100' in name:
                                             gpus.append({
                                                 'name': device.get('Name', 'GPU'),
                                                 'manufacturer': device.get('Manufacturer', 'NVIDIA'),
                                                 'id': device.get('Id', ''),
-                                                'pci_id': device.get('PCIeInterface', {}).get('PCIeType', ''),
+                                                'serial': device.get('SerialNumber', ''),
+                                                'part_number': device.get('PartNumber', ''),
+                                                'firmware': device.get('FirmwareVersion', ''),
+                                                'pci_slot': device.get('Slot', {}).get('Location', {}).get('PartLocation', {}).get('ServiceLabel', ''),
                                                 'status': device.get('Status', {}).get('Health', 'OK'),
                                             })
+            
+            # Method 4: PCIeDevices under Chassis (Lenovo, Dell, HPE)
+            if not gpus:
+                chassis_resp = self._get('/redfish/v1/Chassis')
+                if chassis_resp and 'Members' in chassis_resp:
+                    for chassis_member in chassis_resp['Members']:
+                        chassis_uri = chassis_member.get('@odata.id', '')
+                        # Try PCIeDevices under each chassis
+                        pcie_uri = f"{chassis_uri}/PCIeDevices"
+                        pcie_coll = self._get(pcie_uri)
+                        if pcie_coll and 'Members' in pcie_coll:
+                            for member in pcie_coll['Members']:
+                                device = self._get(member.get('@odata.id'))
+                                if device:
+                                    name = (device.get('Name', '') or device.get('Model', '')).upper()
+                                    if 'GPU' in name or 'NVIDIA' in name or 'H100' in name or 'A100' in name or 'A10' in name:
+                                        gpus.append({
+                                            'name': device.get('Name', device.get('Model', 'GPU')),
+                                            'manufacturer': device.get('Manufacturer', 'NVIDIA'),
+                                            'model': device.get('Model', ''),
+                                            'id': device.get('Id', ''),
+                                            'serial': device.get('SerialNumber', ''),
+                                            'part_number': device.get('PartNumber', device.get('SKU', '')),
+                                            'firmware': device.get('FirmwareVersion', ''),
+                                            'pci_slot': device.get('Slot', {}).get('Location', {}).get('PartLocation', {}).get('ServiceLabel', ''),
+                                            'status': device.get('Status', {}).get('Health', 'OK'),
+                                        })
             
             if gpus:
                 app.logger.info(f"Redfish GPUs for {self.host}: {len(gpus)} found")
@@ -1069,6 +1101,72 @@ class RedfishClient:
         except Exception as e:
             app.logger.debug(f"Redfish GPU collection failed for {self.host}: {e}")
             return gpus
+    
+    def get_pcie_devices(self):
+        """Get all PCIe devices (NICs, storage controllers, GPUs, etc.)"""
+        devices = []
+        try:
+            # Try Systems path
+            systems_uri = self.get_systems_uri()
+            if systems_uri:
+                systems = self._get(systems_uri)
+                if systems and 'Members' in systems and systems['Members']:
+                    system_uri = systems['Members'][0].get('@odata.id')
+                    system = self._get(system_uri)
+                    if system and 'PCIeDevices' in system:
+                        pcie_uri = system['PCIeDevices'].get('@odata.id') if isinstance(system['PCIeDevices'], dict) else None
+                        if pcie_uri:
+                            pcie_coll = self._get(pcie_uri)
+                            if pcie_coll and 'Members' in pcie_coll:
+                                for member in pcie_coll['Members']:
+                                    device = self._get(member.get('@odata.id'))
+                                    if device:
+                                        devices.append({
+                                            'Id': device.get('Id', ''),
+                                            'Name': device.get('Name', ''),
+                                            'DeviceType': device.get('DeviceType', ''),
+                                            'Manufacturer': device.get('Manufacturer', ''),
+                                            'Model': device.get('Model', ''),
+                                            'SerialNumber': device.get('SerialNumber', ''),
+                                            'PartNumber': device.get('PartNumber', ''),
+                                            'FirmwareVersion': device.get('FirmwareVersion', ''),
+                                            'Status': device.get('Status', {}).get('Health', 'OK'),
+                                        })
+            return devices
+        except Exception as e:
+            app.logger.debug(f"Redfish PCIe collection failed for {self.host}: {e}")
+            return devices
+    
+    def get_network_interfaces(self):
+        """Get system network interfaces (NICs)"""
+        nics = []
+        try:
+            systems_uri = self.get_systems_uri()
+            if systems_uri:
+                systems = self._get(systems_uri)
+                if systems and 'Members' in systems and systems['Members']:
+                    system_uri = systems['Members'][0].get('@odata.id')
+                    system = self._get(system_uri)
+                    if system and 'EthernetInterfaces' in system:
+                        eth_uri = system['EthernetInterfaces'].get('@odata.id')
+                        eth_coll = self._get(eth_uri)
+                        if eth_coll and 'Members' in eth_coll:
+                            for member in eth_coll['Members']:
+                                nic = self._get(member.get('@odata.id'))
+                                if nic:
+                                    nics.append({
+                                        'Id': nic.get('Id', ''),
+                                        'Name': nic.get('Name', ''),
+                                        'MACAddress': nic.get('MACAddress', ''),
+                                        'SpeedMbps': nic.get('SpeedMbps'),
+                                        'LinkStatus': nic.get('LinkStatus', ''),
+                                        'IPv4': [a.get('Address') for a in nic.get('IPv4Addresses', []) if a.get('Address')],
+                                        'Status': nic.get('Status', {}).get('Health', 'OK'),
+                                    })
+            return nics
+        except Exception as e:
+            app.logger.debug(f"Redfish NIC collection failed for {self.host}: {e}")
+            return nics
 
 
 def check_redfish_available(bmc_ip):
@@ -1749,6 +1847,7 @@ class ServerInventory(db.Model):
     memory_total_gb = db.Column(db.Float)
     memory_slots_used = db.Column(db.Integer)
     memory_slots_total = db.Column(db.Integer)
+    memory_dimms = db.Column(db.Text)  # JSON: detailed DIMM info from Redfish
     # Network MACs (JSON list)
     network_macs = db.Column(db.Text)  # JSON: [{"interface": "eth0", "mac": "aa:bb:cc:dd:ee:ff"}]
     # Storage info (JSON)
@@ -1759,6 +1858,8 @@ class ServerInventory(db.Model):
     # NIC info (JSON) - collected via lspci
     nic_info = db.Column(db.Text)  # JSON: [{"pci_address": "04:00.0", "model": "Intel I350..."}]
     nic_count = db.Column(db.Integer)
+    # PCIe devices (JSON) - collected via Redfish
+    pcie_devices = db.Column(db.Text)  # JSON: [{"Id": "GPU1", "Name": "NVIDIA H100", ...}]
     # PCIe health (JSON) - collected via lspci -vvv and setpci
     pcie_health = db.Column(db.Text)  # JSON: [{"device": "01:00.0", "name": "GPU", "status": "ok|error", "errors": [...]}]
     pcie_errors_count = db.Column(db.Integer, default=0)  # Count of devices with errors
@@ -7810,11 +7911,11 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 memory_info = client.get_memory()
                 if memory_info:
                     total_gb = sum(m.get('CapacityMiB', 0) for m in memory_info) / 1024
-                    slots_used = len([m for m in memory_info if m.get('CapacityMiB', 0) > 0])
+                    slots_used = len(memory_info)
                     inventory.memory_total_gb = round(total_gb, 1)
                     inventory.memory_slots_used = slots_used
-                    inventory.memory_slots_total = len(memory_info)
-                    app.logger.info(f"Redfish Memory for {bmc_ip}: {inventory.memory_total_gb}GB, {slots_used}/{len(memory_info)} slots")
+                    inventory.memory_dimms = json.dumps(memory_info)  # Store detailed DIMM info
+                    app.logger.info(f"Redfish Memory for {bmc_ip}: {inventory.memory_total_gb}GB, {slots_used} DIMMs")
             except Exception as e:
                 app.logger.debug(f"Redfish memory collection failed for {bmc_ip}: {e}")
             
@@ -7836,6 +7937,25 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     app.logger.info(f"Redfish GPU for {bmc_ip}: {len(gpu_info)} GPUs - {gpu_info[0].get('name', 'GPU')}")
             except Exception as e:
                 app.logger.debug(f"Redfish GPU collection failed for {bmc_ip}: {e}")
+            
+            # Get PCIe devices from Redfish (all types: NICs, storage, GPUs)
+            try:
+                pcie_devices = client.get_pcie_devices()
+                if pcie_devices:
+                    inventory.pcie_devices = json.dumps(pcie_devices)
+                    app.logger.info(f"Redfish PCIe for {bmc_ip}: {len(pcie_devices)} devices")
+            except Exception as e:
+                app.logger.debug(f"Redfish PCIe collection failed for {bmc_ip}: {e}")
+            
+            # Get network interfaces from Redfish
+            try:
+                nics = client.get_network_interfaces()
+                if nics:
+                    inventory.nic_info = json.dumps(nics)
+                    inventory.nic_count = len(nics)
+                    app.logger.info(f"Redfish NICs for {bmc_ip}: {len(nics)} interfaces")
+            except Exception as e:
+                app.logger.debug(f"Redfish NIC collection failed for {bmc_ip}: {e}")
                 
     except Exception as e:
         app.logger.debug(f"Redfish inventory collection failed for {bmc_ip}: {e}")
