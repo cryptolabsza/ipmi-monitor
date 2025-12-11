@@ -1556,6 +1556,26 @@
                     </div>
                 </div>
                 
+                <!-- Multi-Site Configuration -->
+                <div style="background: rgba(88, 166, 255, 0.1); border: 1px solid rgba(88, 166, 255, 0.3); border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 12px 0; color: var(--accent);">🏢 Site Configuration</h4>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+                        If you have multiple IPMI Monitor instances (e.g., different datacenters), 
+                        give each one a unique site name. All sites will share the same account/billing.
+                    </p>
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>Site Name</label>
+                            <input type="text" id="aiSiteName" placeholder="e.g., NYC Datacenter, London Office">
+                        </div>
+                        <div class="form-group">
+                            <label>Location (optional)</label>
+                            <input type="text" id="aiSiteLocation" placeholder="e.g., New York, USA">
+                        </div>
+                    </div>
+                    <p id="aiSiteId" style="font-size: 0.75rem; color: var(--text-muted); margin: 0;"></p>
+                </div>
+                
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
                     <button class="btn btn-primary" onclick="saveAiConfig()">💾 Save</button>
                     <button class="btn btn-secondary" onclick="testAiConnection()">🧪 Test Connection</button>
@@ -1920,6 +1940,13 @@
                 // Fill settings form
                 document.getElementById('aiSyncEnabled').checked = config.sync_enabled || false;
                 
+                // Fill site configuration
+                document.getElementById('aiSiteName').value = config.site_name || '';
+                document.getElementById('aiSiteLocation').value = config.site_location || '';
+                if (config.site_id) {
+                    document.getElementById('aiSiteId').textContent = `Site ID: ${config.site_id}`;
+                }
+                
             } catch (e) {
                 console.error('Failed to load AI config:', e);
                 updateAiUI(null);
@@ -1929,6 +1956,8 @@
         async function saveAiConfig() {
             const licenseKey = document.getElementById('aiLicenseKey').value.trim();
             const syncEnabled = document.getElementById('aiSyncEnabled').checked;
+            const siteName = document.getElementById('aiSiteName').value.trim();
+            const siteLocation = document.getElementById('aiSiteLocation').value.trim();
             
             try {
                 const response = await fetch('/api/ai/config', {
@@ -1936,7 +1965,9 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         license_key: licenseKey || undefined,
-                        sync_enabled: syncEnabled
+                        sync_enabled: syncEnabled,
+                        site_name: siteName || undefined,
+                        site_location: siteLocation || undefined
                     })
                 });
                 

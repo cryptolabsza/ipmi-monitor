@@ -1587,6 +1587,10 @@ class CloudSync(db.Model):
     subscription_valid = db.Column(db.Boolean, default=False)
     max_servers = db.Column(db.Integer, default=50)
     features = db.Column(db.Text, nullable=True)  # JSON array of enabled features
+    # Multi-site support: One customer can have multiple IPMI Monitor instances at different sites
+    site_id = db.Column(db.String(64), nullable=True)  # Auto-generated unique site ID
+    site_name = db.Column(db.String(128), nullable=True)  # Human-friendly name: "NYC Datacenter", "London Office"
+    site_location = db.Column(db.String(256), nullable=True)  # Optional location details
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -1630,7 +1634,11 @@ class CloudSync(db.Model):
             'subscription_tier': self.subscription_tier,
             'subscription_valid': self.subscription_valid,
             'max_servers': self.max_servers,
-            'features': self.get_features_list()
+            'features': self.get_features_list(),
+            # Multi-site support
+            'site_id': self.site_id,
+            'site_name': self.site_name,
+            'site_location': self.site_location
         }
 
 
@@ -2000,6 +2008,37 @@ def get_public_ip():
     except:
         return None
 
+def get_or_create_site_id():
+    """Get or create a unique site ID for this IPMI Monitor instance"""
+    import hashlib
+    
+    config = CloudSync.get_config()
+    
+    # If site_id exists, use it
+    if config.site_id:
+        return config.site_id, config.site_name
+    
+    # Generate new site ID based on instance characteristics
+    import socket
+    hostname = socket.gethostname()
+    public_ip = get_public_ip() or 'unknown'
+    
+    # Create a deterministic site ID
+    site_hash = hashlib.sha256(f"{public_ip}:{hostname}".encode()).hexdigest()[:16]
+    site_id = f"site_{site_hash}"
+    
+    # Set default site name if not configured
+    site_name = config.site_name or f"Site at {public_ip}"
+    
+    # Save to database
+    config.site_id = site_id
+    if not config.site_name:
+        config.site_name = site_name
+    db.session.commit()
+    
+    return site_id, site_name
+
+
 def generate_instance_fingerprint():
     """
     Generate a unique fingerprint for this IPMI Monitor instance.
@@ -2020,6 +2059,10 @@ def generate_instance_fingerprint():
         ssh_keys = SSHKey.query.all()
         users = User.query.all()
         
+        # Get site info
+        site_id, site_name = get_or_create_site_id()
+        config = CloudSync.get_config()
+        
         # Get BMC IPs sorted for consistency
         bmc_ips = sorted([s.bmc_ip for s in servers])
         server_names = sorted([s.server_name for s in servers])
@@ -2030,10 +2073,13 @@ def generate_instance_fingerprint():
         # Get admin username
         admin_user = next((u.username for u in users if u.role == 'admin'), 'admin')
         
-        # Build fingerprint data
+        # Build fingerprint data with site info
         fingerprint_data = {
             'public_ip': get_public_ip(),
             'hostname': socket.gethostname(),
+            'site_id': site_id,
+            'site_name': site_name,
+            'site_location': config.site_location,
             'server_count': len(servers),
             'server_names': server_names[:20],  # First 20 for privacy
             'bmc_ip_range': f"{bmc_ips[0]}-{bmc_ips[-1]}" if bmc_ips else None,
@@ -2045,8 +2091,9 @@ def generate_instance_fingerprint():
         }
         
         # Generate stable fingerprint hash
-        # Uses: public IP, BMC IPs, server names (main identifiers)
+        # Uses: site_id, public IP, BMC IPs, server names (main identifiers)
         fingerprint_str = json.dumps({
+            'site_id': site_id,
             'public_ip': fingerprint_data['public_ip'],
             'bmc_ips': bmc_ips,
             'server_names': server_names,
@@ -2056,7 +2103,7 @@ def generate_instance_fingerprint():
         _instance_fingerprint = hashlib.sha256(fingerprint_str.encode()).hexdigest()[:32]
         _instance_fingerprint_data = fingerprint_data
         
-        app.logger.info(f"Instance fingerprint generated: {_instance_fingerprint[:8]}...")
+        app.logger.info(f"Instance fingerprint generated: {_instance_fingerprint[:8]}... (site: {site_name})")
         
         return _instance_fingerprint, _instance_fingerprint_data
 
@@ -10553,7 +10600,19 @@ def api_update_ai_config():
         if 'sync_enabled' in data:
             config.sync_enabled = data['sync_enabled']
         
+        # Update site configuration (multi-site support)
+        if 'site_name' in data:
+            config.site_name = data['site_name']
+        if 'site_location' in data:
+            config.site_location = data['site_location']
+        
         db.session.commit()
+        
+        # Regenerate fingerprint if site info changed
+        global _instance_fingerprint, _instance_fingerprint_data
+        if 'site_name' in data or 'site_location' in data:
+            _instance_fingerprint = None
+            _instance_fingerprint_data = None
         
         # Trigger initial sync if just enabled
         if config.sync_enabled and config.license_key:
@@ -13235,6 +13294,16 @@ def _run_migrations(inspector):
                 execute_sql('ALTER TABLE server_status ADD COLUMN primary_ip_reachable BOOLEAN DEFAULT 1')
                 execute_sql('ALTER TABLE server_status ADD COLUMN primary_ip_last_check DATETIME')
                 app.logger.info("Migration: primary_ip columns added to server_status")
+        
+        # Migration 17: Add multi-site support columns to cloud_sync
+        if 'cloud_sync' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('cloud_sync')]
+            if 'site_id' not in columns:
+                app.logger.info("Migration: Adding multi-site columns to cloud_sync...")
+                execute_sql('ALTER TABLE cloud_sync ADD COLUMN site_id VARCHAR(64)')
+                execute_sql('ALTER TABLE cloud_sync ADD COLUMN site_name VARCHAR(128)')
+                execute_sql('ALTER TABLE cloud_sync ADD COLUMN site_location VARCHAR(256)')
+                app.logger.info("Migration: Multi-site columns added to cloud_sync")
         
         app.logger.info("Migrations complete")
     except Exception as e:
