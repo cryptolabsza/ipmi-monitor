@@ -9406,11 +9406,14 @@ def collect_single_server_sensors(bmc_ip, server_name):
     try:
         sensors = []
         power = None
+        source = 'none'
         
         # Try Redfish first (much faster, especially over high-latency connections)
         if should_use_redfish(bmc_ip):
             try:
                 sensors, power_data = collect_sensors_redfish(bmc_ip, server_name)
+                if sensors:
+                    source = 'redfish'
                 if power_data:
                     power = PowerReading(
                         bmc_ip=bmc_ip,
@@ -9422,22 +9425,26 @@ def collect_single_server_sensors(bmc_ip, server_name):
                         collected_at=datetime.utcnow()
                     )
             except Exception as e:
-                app.logger.debug(f"Redfish sensor collection failed for {bmc_ip}, falling back to IPMI: {e}")
+                app.logger.warning(f"Redfish sensor collection failed for {bmc_ip}, falling back to IPMI: {e}")
         
         # Fall back to IPMI if no sensors from Redfish
         if not sensors:
             sensors = collect_sensors(bmc_ip, server_name)
+            if sensors:
+                source = 'ipmi'
             if not power:
                 power = collect_power_reading(bmc_ip, server_name)
         
-        with app.app_context():
-            for sensor in sensors:
-                db.session.add(sensor)
-            if power:
-                db.session.add(power)
-            db.session.commit()
+        if sensors:
+            with app.app_context():
+                for sensor in sensors:
+                    db.session.add(sensor)
+                if power:
+                    db.session.add(power)
+                db.session.commit()
+            app.logger.info(f"Collected {len(sensors)} sensors from {bmc_ip} via {source}")
         
-        return True
+        return len(sensors) > 0
     except Exception as e:
         app.logger.error(f"Error collecting sensors from {bmc_ip}: {e}")
         return False
