@@ -5184,17 +5184,26 @@ def collection_worker(worker_id):
             job_type, bmc_ip, server_name = job
             
             try:
-                if job_type == 'sel':
-                    events = collect_ipmi_sel(bmc_ip, server_name)
-                    if events:
+                # Check if server is reachable before attempting collection
+                # Skip unreachable servers to avoid blocking the queue with timeouts
+                skip = False
+                with app.app_context():
+                    status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+                    if status and not status.is_reachable:
+                        skip = True
+                
+                if not skip:
+                    if job_type == 'sel':
+                        events = collect_ipmi_sel(bmc_ip, server_name)
+                        if events:
+                            with app.app_context():
+                                save_events_to_db(bmc_ip, server_name, events)
+                        # Also check for GPU Xid errors via SSH (after SEL collection)
                         with app.app_context():
-                            save_events_to_db(bmc_ip, server_name, events)
-                    # Also check for GPU Xid errors via SSH (after SEL collection)
-                    with app.app_context():
-                        check_ssh_xid_errors(bmc_ip, server_name)
-                elif job_type == 'sensor':
-                    with app.app_context():
-                        collect_single_server_sensors(bmc_ip, server_name)
+                            check_ssh_xid_errors(bmc_ip, server_name)
+                    elif job_type == 'sensor':
+                        with app.app_context():
+                            collect_single_server_sensors(bmc_ip, server_name)
             except Exception as e:
                 print(f"[Worker {worker_id}] Error processing {bmc_ip}: {e}", flush=True)
             finally:
