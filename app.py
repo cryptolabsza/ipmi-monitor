@@ -1988,6 +1988,130 @@ RECOVERY_ACTION_DESCRIPTIONS = {
 }
 
 
+# ============== Instance Fingerprinting ==============
+_instance_fingerprint = None
+_instance_fingerprint_data = None
+
+def get_public_ip():
+    """Get public IP address for fingerprinting"""
+    try:
+        import urllib.request
+        return urllib.request.urlopen('https://api.ipify.org', timeout=5).read().decode('utf8')
+    except:
+        return None
+
+def generate_instance_fingerprint():
+    """
+    Generate a unique fingerprint for this IPMI Monitor instance.
+    Used to track instances and prevent trial abuse.
+    """
+    global _instance_fingerprint, _instance_fingerprint_data
+    
+    if _instance_fingerprint:
+        return _instance_fingerprint, _instance_fingerprint_data
+    
+    with app.app_context():
+        import hashlib
+        import socket
+        
+        # Collect fingerprint components
+        servers = Server.query.all()
+        configs = ServerConfig.query.all()
+        ssh_keys = SSHKey.query.all()
+        users = User.query.all()
+        
+        # Get BMC IPs sorted for consistency
+        bmc_ips = sorted([s.bmc_ip for s in servers])
+        server_names = sorted([s.server_name for s in servers])
+        
+        # Check SSH usage
+        ssh_configured_count = sum(1 for c in configs if c.ssh_key_id or c.ssh_key)
+        
+        # Get admin username
+        admin_user = next((u.username for u in users if u.role == 'admin'), 'admin')
+        
+        # Build fingerprint data
+        fingerprint_data = {
+            'public_ip': get_public_ip(),
+            'hostname': socket.gethostname(),
+            'server_count': len(servers),
+            'server_names': server_names[:20],  # First 20 for privacy
+            'bmc_ip_range': f"{bmc_ips[0]}-{bmc_ips[-1]}" if bmc_ips else None,
+            'bmc_ip_hash': hashlib.sha256(','.join(bmc_ips).encode()).hexdigest()[:16],
+            'admin_user': admin_user,
+            'uses_ssh': ssh_configured_count > 0,
+            'ssh_key_count': len(ssh_keys),
+            'ssh_coverage': f"{ssh_configured_count}/{len(servers)}" if servers else "0/0",
+        }
+        
+        # Generate stable fingerprint hash
+        # Uses: public IP, BMC IPs, server names (main identifiers)
+        fingerprint_str = json.dumps({
+            'public_ip': fingerprint_data['public_ip'],
+            'bmc_ips': bmc_ips,
+            'server_names': server_names,
+            'admin_user': admin_user,
+        }, sort_keys=True)
+        
+        _instance_fingerprint = hashlib.sha256(fingerprint_str.encode()).hexdigest()[:32]
+        _instance_fingerprint_data = fingerprint_data
+        
+        app.logger.info(f"Instance fingerprint generated: {_instance_fingerprint[:8]}...")
+        
+        return _instance_fingerprint, _instance_fingerprint_data
+
+
+def sync_telemetry():
+    """
+    Send basic telemetry for ALL instances (free or paid).
+    This helps track usage and prevent trial abuse.
+    Only sends: fingerprint, server count, basic stats.
+    """
+    with app.app_context():
+        try:
+            instance_id, fingerprint_data = generate_instance_fingerprint()
+            
+            # Get basic stats
+            servers = Server.query.all()
+            server_statuses = ServerStatus.query.all()
+            
+            healthy = sum(1 for s in server_statuses if s.is_reachable)
+            critical = sum(1 for s in server_statuses if not s.is_reachable)
+            
+            # Get tier info
+            config = CloudSync.get_config()
+            tier = 'free'
+            if config.license_key:
+                tier = config.subscription_tier or 'trial'
+            
+            telemetry = {
+                'instance_id': instance_id,
+                'fingerprint': fingerprint_data,
+                'app_version': get_version_string(),
+                'tier': tier,
+                'stats': {
+                    'server_count': len(servers),
+                    'healthy': healthy,
+                    'critical': critical,
+                    'uses_ssh': fingerprint_data.get('uses_ssh', False),
+                },
+                'timestamp': datetime.utcnow().isoformat(),
+            }
+            
+            # Send to telemetry endpoint (doesn't require auth)
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/telemetry",
+                json=telemetry,
+                timeout=10
+            )
+            
+            if response.ok:
+                app.logger.debug(f"Telemetry sent: {instance_id[:8]}...")
+            
+        except Exception as e:
+            app.logger.debug(f"Telemetry failed (non-critical): {e}")
+
+
 def sync_to_cloud(initial_sync=False):
     """
     Sync data to CryptoLabs AI service.
@@ -1997,6 +2121,9 @@ def sync_to_cloud(initial_sync=False):
         initial_sync: If True, sends 30 days of data instead of 72 hours
     """
     with app.app_context():
+        # Always send telemetry (even if full sync fails)
+        sync_telemetry()
+        
         config = CloudSync.get_config()
         
         if not config.sync_enabled or not config.license_key:
@@ -2041,7 +2168,16 @@ def sync_to_cloud(initial_sync=False):
             # Get inventory data for all servers
             inventories = ServerInventory.query.all()
             
+            # Generate instance fingerprint
+            instance_id, fingerprint_data = generate_instance_fingerprint()
+            
             payload = {
+                # Instance identification (always sent)
+                'instance_id': instance_id,
+                'fingerprint': fingerprint_data,
+                'app_version': get_version_string(),
+                'sync_type': 'initial' if is_first_sync else 'regular',
+                
                 'servers': [{
                     'name': s.server_name,
                     'bmc_ip': s.bmc_ip,
@@ -2120,6 +2256,358 @@ def sync_to_cloud(initial_sync=False):
             db.session.commit()
             app.logger.error(f"Cloud sync failed: {e}")
             return {'success': False, 'message': str(e)}
+
+
+def poll_agent_tasks():
+    """
+    Poll the AI service for pending agent tasks and execute them.
+    Part of v0.7.5 Agent Task Queue feature.
+    """
+    with app.app_context():
+        config = CloudSync.get_config()
+        
+        if not config.sync_enabled or not config.license_key:
+            return
+        
+        try:
+            instance_id, _ = generate_instance_fingerprint()
+            
+            # Get pending tasks
+            response = requests.get(
+                f"{config.AI_SERVICE_URL}/api/v1/agent/tasks/pending",
+                params={'instance_id': instance_id, 'limit': 5},
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=10
+            )
+            
+            if not response.ok:
+                return
+            
+            tasks = response.json().get('tasks', [])
+            
+            for task in tasks:
+                try:
+                    execute_agent_task(task, config, instance_id)
+                except Exception as e:
+                    app.logger.error(f"Task {task.get('id')} failed: {e}")
+                    
+        except Exception as e:
+            app.logger.debug(f"Task poll failed (non-critical): {e}")
+
+
+def execute_agent_task(task, config, instance_id):
+    """Execute a single agent task from the AI service"""
+    task_id = task.get('id')
+    action = task.get('action')
+    bmc_ip = task.get('target_bmc_ip')
+    server_name = task.get('target_server')
+    params = json.loads(task.get('parameters', '{}'))
+    
+    app.logger.info(f"Executing task {task_id}: {action} on {bmc_ip or server_name}")
+    
+    # Claim the task
+    requests.post(
+        f"{config.AI_SERVICE_URL}/api/v1/agent/tasks/{task_id}/claim",
+        json={'instance_id': instance_id},
+        headers={'Authorization': f'Bearer {config.license_key}'},
+        timeout=10
+    )
+    
+    result = None
+    success = False
+    error = None
+    start_time = datetime.utcnow()
+    
+    try:
+        # Route to appropriate action handler
+        if action == 'power_cycle':
+            result = execute_power_action(bmc_ip, 'cycle')
+            success = True
+        elif action == 'power_reset':
+            result = execute_power_action(bmc_ip, 'reset')
+            success = True
+        elif action == 'bmc_reset':
+            result = execute_bmc_reset(bmc_ip, params.get('reset_type', 'cold'))
+            success = True
+        elif action == 'collect_inventory':
+            result = collect_server_inventory(bmc_ip)
+            success = True
+        elif action == 'ssh_command':
+            result = execute_ssh_command_for_task(bmc_ip, params.get('command'))
+            success = True
+        elif action == 'check_connectivity':
+            # Use existing check function
+            server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+            if server:
+                result = f"Server {server.server_name} check initiated"
+            success = True
+        else:
+            error = f"Unknown action: {action}"
+            
+    except Exception as e:
+        error = str(e)
+        app.logger.error(f"Task {task_id} execution error: {e}")
+    
+    duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+    
+    # Report completion
+    requests.post(
+        f"{config.AI_SERVICE_URL}/api/v1/agent/tasks/{task_id}/complete",
+        json={'success': success, 'result': str(result), 'error': error},
+        headers={'Authorization': f'Bearer {config.license_key}'},
+        timeout=10
+    )
+    
+    # Log the action
+    requests.post(
+        f"{config.AI_SERVICE_URL}/api/v1/agent/actions",
+        json={
+            'instance_id': instance_id,
+            'server_name': server_name,
+            'bmc_ip': bmc_ip,
+            'action': action,
+            'trigger_reason': 'remote_task',
+            'result': str(result) if success else error,
+            'success': success,
+            'duration_ms': duration_ms
+        },
+        headers={'Authorization': f'Bearer {config.license_key}'},
+        timeout=10
+    )
+    
+    app.logger.info(f"Task {task_id} completed: {'success' if success else 'failed'}")
+
+
+def execute_power_action(bmc_ip, action):
+    """Execute power action via IPMI"""
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config:
+        raise Exception(f"No config for {bmc_ip}")
+    
+    cmd = [
+        'ipmitool', '-I', 'lanplus',
+        '-H', bmc_ip,
+        '-U', config.ipmi_user,
+        '-P', config.ipmi_pass,
+        'chassis', 'power', action
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    return result.stdout or result.stderr
+
+
+def execute_bmc_reset(bmc_ip, reset_type='cold'):
+    """Execute BMC reset via IPMI"""
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config:
+        raise Exception(f"No config for {bmc_ip}")
+    
+    cmd = [
+        'ipmitool', '-I', 'lanplus',
+        '-H', bmc_ip,
+        '-U', config.ipmi_user,
+        '-P', config.ipmi_pass,
+        'mc', 'reset', reset_type
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    return result.stdout or result.stderr
+
+
+def run_ssh_command(server_ip, command, ssh_user='root', ssh_key_content=None, ssh_pass=None):
+    """
+    Run SSH command on a server using key or password.
+    Returns stdout on success, raises exception on failure.
+    """
+    import tempfile
+    
+    ssh_opts = ['-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=no']
+    key_file_path = None
+    
+    try:
+        if ssh_key_content:
+            # Write key to temp file
+            key_content_clean = ssh_key_content.replace('\r\n', '\n').strip() + '\n'
+            key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+            key_file.write(key_content_clean)
+            key_file.close()
+            os.chmod(key_file.name, 0o600)
+            key_file_path = key_file.name
+            cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', '-i', key_file_path, 
+                   f'{ssh_user}@{server_ip}', command]
+        elif ssh_pass:
+            cmd = ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+        else:
+            # Try default SSH key
+            cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', command]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            raise Exception(f"SSH failed: {result.stderr}")
+            
+    finally:
+        if key_file_path:
+            try:
+                os.unlink(key_file_path)
+            except:
+                pass
+
+
+def execute_ssh_command_for_task(bmc_ip, command):
+    """Execute SSH command on server (for agent tasks)"""
+    if not command:
+        raise Exception("No command specified")
+    
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config or not config.server_ip:
+        raise Exception(f"No SSH config for {bmc_ip}")
+    
+    # Get SSH key if configured
+    ssh_key_content = None
+    if config.ssh_key_id:
+        key = SSHKey.query.get(config.ssh_key_id)
+        if key:
+            ssh_key_content = key.key_content
+    
+    return run_ssh_command(
+        config.server_ip,
+        command,
+        config.ssh_user or 'root',
+        ssh_key_content=ssh_key_content,
+        ssh_pass=getattr(config, 'ssh_pass', None)
+    )
+
+
+def investigate_dark_recovery(bmc_ip, server_name, downtime_start, downtime_end):
+    """
+    v0.7.6: Post-Event RCA - Investigate what happened during a DARK period.
+    Called when a server recovers from an unreachable state.
+    
+    Checks:
+    1. SSH uptime - Did the OS reboot?
+    2. SEL logs - Any power/voltage events?
+    3. IPMI Monitor logs - What did we see?
+    
+    Returns dict with investigation results.
+    """
+    investigation = {
+        'server': server_name,
+        'bmc_ip': bmc_ip,
+        'downtime_start': downtime_start.isoformat() if downtime_start else None,
+        'downtime_end': downtime_end.isoformat() if downtime_end else None,
+        'duration_seconds': (downtime_end - downtime_start).total_seconds() if downtime_start and downtime_end else None,
+        'findings': [],
+        'likely_cause': 'unknown',
+        'confidence': 0
+    }
+    
+    try:
+        config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+        if not config:
+            investigation['findings'].append('No configuration found for server')
+            return investigation
+        
+        # 1. Check OS uptime via SSH
+        if config.server_ip:
+            try:
+                ssh_key_content = None
+                if config.ssh_key_id:
+                    stored_key = SSHKey.query.get(config.ssh_key_id)
+                    if stored_key:
+                        ssh_key_content = stored_key.key_content
+                
+                uptime_result = run_ssh_command(
+                    config.server_ip,
+                    'uptime -s 2>/dev/null || cat /proc/uptime',
+                    config.ssh_user or 'root',
+                    ssh_key_content=ssh_key_content,
+                    ssh_pass=getattr(config, 'ssh_pass', None)
+                )
+                
+                if uptime_result:
+                    investigation['ssh_uptime_raw'] = uptime_result.strip()
+                    
+                    # Parse uptime to see if reboot occurred during downtime
+                    # uptime -s gives boot time like "2024-01-15 10:30:00"
+                    import re
+                    boot_match = re.search(r'(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})', uptime_result)
+                    if boot_match:
+                        boot_time = datetime.strptime(boot_match.group(1), '%Y-%m-%d %H:%M:%S')
+                        investigation['os_boot_time'] = boot_time.isoformat()
+                        
+                        if downtime_start and boot_time > downtime_start:
+                            investigation['findings'].append(f'OS rebooted at {boot_time}')
+                            investigation['likely_cause'] = 'reboot'
+                            investigation['confidence'] = 0.8
+                    else:
+                        # /proc/uptime gives seconds since boot
+                        try:
+                            uptime_secs = float(uptime_result.split()[0])
+                            boot_time = datetime.utcnow() - timedelta(seconds=uptime_secs)
+                            investigation['os_boot_time'] = boot_time.isoformat()
+                            
+                            if downtime_start and boot_time > downtime_start:
+                                investigation['findings'].append(f'OS rebooted during downtime')
+                                investigation['likely_cause'] = 'reboot'
+                                investigation['confidence'] = 0.8
+                        except:
+                            pass
+                            
+            except Exception as ssh_err:
+                investigation['findings'].append(f'SSH check failed: {str(ssh_err)[:100]}')
+        
+        # 2. Check SEL for power/voltage events during downtime
+        try:
+            events_during = IPMIEvent.query.filter(
+                IPMIEvent.bmc_ip == bmc_ip,
+                IPMIEvent.event_date >= downtime_start,
+                IPMIEvent.event_date <= downtime_end
+            ).order_by(IPMIEvent.event_date.desc()).limit(20).all()
+            
+            power_events = [e for e in events_during if any(kw in e.event_description.lower() 
+                           for kw in ['power', 'voltage', 'reset', 'ac lost', 'power off', 'power on'])]
+            
+            if power_events:
+                investigation['findings'].append(f'{len(power_events)} power-related events in SEL')
+                investigation['power_events'] = [{'time': e.event_date.isoformat(), 
+                                                   'desc': e.event_description} for e in power_events[:5]]
+                
+                if any('ac lost' in e.event_description.lower() for e in power_events):
+                    investigation['likely_cause'] = 'power_outage'
+                    investigation['confidence'] = 0.9
+                elif any('reset' in e.event_description.lower() for e in power_events):
+                    investigation['likely_cause'] = 'bmc_reset'
+                    investigation['confidence'] = 0.7
+                    
+        except Exception as sel_err:
+            investigation['findings'].append(f'SEL check failed: {str(sel_err)[:100]}')
+        
+        # 3. If no clear cause, might be network issue
+        if investigation['likely_cause'] == 'unknown':
+            # Check if any other servers went offline at same time
+            concurrent_offline = ServerStatus.query.filter(
+                ServerStatus.bmc_ip != bmc_ip,
+                ServerStatus.last_failure_time >= downtime_start - timedelta(minutes=5),
+                ServerStatus.last_failure_time <= downtime_start + timedelta(minutes=5)
+            ).count()
+            
+            if concurrent_offline > 0:
+                investigation['findings'].append(f'{concurrent_offline} other servers went offline simultaneously')
+                investigation['likely_cause'] = 'network_issue'
+                investigation['confidence'] = 0.7
+            else:
+                investigation['likely_cause'] = 'bmc_unresponsive'
+                investigation['confidence'] = 0.5
+                investigation['findings'].append('BMC was unresponsive, no other clear cause found')
+        
+    except Exception as e:
+        investigation['error'] = str(e)
+        app.logger.error(f"Dark recovery investigation failed for {bmc_ip}: {e}")
+    
+    return investigation
 
 
 def report_connectivity_to_ai(server_name, bmc_ip, event_type, last_event=None, duration=None):
@@ -5107,6 +5595,12 @@ def sync_timer():
                         print(f"[Sync Timer] Sync complete: {result.get('message')}", flush=True)
                     else:
                         print(f"[Sync Timer] Sync failed: {result.get('message')}", flush=True)
+                    
+                    # v0.7.5: Poll for agent tasks after sync
+                    try:
+                        poll_agent_tasks()
+                    except Exception as task_err:
+                        print(f"[Sync Timer] Task poll error: {task_err}", flush=True)
                         
         except Exception as e:
             print(f"[Sync Timer] Error: {e}", flush=True)
@@ -9184,6 +9678,75 @@ def api_resolve_alert(alert_id):
         send_resolved_notifications(alert, rule)
     
     db.session.commit()
+
+
+@app.route('/api/server/<bmc_ip>/investigate', methods=['POST'])
+@write_required
+def api_investigate_recovery(bmc_ip):
+    """
+    v0.7.6: Post-Event RCA - Investigate what happened during a downtime period.
+    
+    Request body:
+    - downtime_start: ISO timestamp when server went offline
+    - downtime_end: ISO timestamp when server came back (optional, defaults to now)
+    """
+    data = request.get_json() or {}
+    
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    # Get downtime window
+    downtime_start = None
+    downtime_end = datetime.utcnow()
+    
+    if data.get('downtime_start'):
+        try:
+            downtime_start = datetime.fromisoformat(data['downtime_start'].replace('Z', '+00:00'))
+        except:
+            return jsonify({'error': 'Invalid downtime_start format'}), 400
+    else:
+        # Use last failure time from ServerStatus
+        status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+        if status and status.last_failure_time:
+            downtime_start = status.last_failure_time
+        else:
+            # Default to 1 hour ago
+            downtime_start = datetime.utcnow() - timedelta(hours=1)
+    
+    if data.get('downtime_end'):
+        try:
+            downtime_end = datetime.fromisoformat(data['downtime_end'].replace('Z', '+00:00'))
+        except:
+            pass
+    
+    # Run investigation
+    investigation = investigate_dark_recovery(bmc_ip, server.server_name, downtime_start, downtime_end)
+    
+    # Store investigation result
+    try:
+        # Log as an event
+        event = IPMIEvent(
+            bmc_ip=bmc_ip,
+            server_name=server.server_name,
+            sel_id='INVESTIGATION',
+            event_date=datetime.utcnow(),
+            event_type='Recovery Investigation',
+            sensor_type='System',
+            sensor_name='Post-Event RCA',
+            event_direction='',
+            event_description=f"Likely cause: {investigation['likely_cause']} (confidence: {investigation['confidence']*100:.0f}%). Findings: {'; '.join(investigation['findings'])}",
+            severity='info'
+        )
+        db.session.add(event)
+        db.session.commit()
+    except Exception as e:
+        app.logger.error(f"Failed to log investigation: {e}")
+    
+    return jsonify({
+        'status': 'success',
+        'investigation': investigation
+    })
     
     return jsonify({
         'status': 'success', 
