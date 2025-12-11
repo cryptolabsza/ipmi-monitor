@@ -759,6 +759,41 @@ class RedfishClient:
             app.logger.debug(f"Redfish system info failed for {self.host}: {e}")
             return None
     
+    def get_bmc_info(self):
+        """Get BMC/Manager info (firmware version, MAC) via Redfish"""
+        try:
+            managers_uri = self.get_managers_uri()
+            if not managers_uri:
+                return None
+            
+            managers = self._get(managers_uri)
+            if not managers or 'Members' not in managers or not managers['Members']:
+                return None
+            
+            manager_uri = managers['Members'][0].get('@odata.id')
+            manager = self._get(manager_uri)
+            
+            if manager:
+                # Try to get MAC from EthernetInterfaces
+                mac = None
+                eth_uri = manager.get('EthernetInterfaces', {}).get('@odata.id')
+                if eth_uri:
+                    eth_list = self._get(eth_uri)
+                    if eth_list and 'Members' in eth_list and eth_list['Members']:
+                        eth_member = self._get(eth_list['Members'][0].get('@odata.id'))
+                        if eth_member:
+                            mac = eth_member.get('MACAddress') or eth_member.get('PermanentMACAddress')
+                
+                return {
+                    'FirmwareVersion': manager.get('FirmwareVersion'),
+                    'Model': manager.get('Model'),
+                    'MAC': mac,
+                }
+            return None
+        except Exception as e:
+            app.logger.debug(f"Redfish BMC info failed for {self.host}: {e}")
+            return None
+    
     def get_processors(self):
         """Get processor (CPU) information via Redfish"""
         processors = []
@@ -7507,19 +7542,55 @@ def api_collect_server_inventory(bmc_ip):
 @app.route('/api/inventory/collect-all', methods=['POST'])
 @write_required
 def api_collect_all_inventory():
-    """Collect inventory for all servers - Requires write access"""
+    """Collect inventory for all servers in parallel - Requires write access"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    
     servers = Server.query.filter_by(enabled=True).all()
-    results = {'success': 0, 'failed': 0, 'errors': []}
+    server_list = [(s.bmc_ip, s.server_name, s.server_ip) for s in servers]
     
-    for server in servers:
+    results = {'success': 0, 'failed': 0, 'errors': [], 'total': len(server_list)}
+    results_lock = threading.Lock()
+    
+    def collect_one(bmc_ip, server_name, server_ip):
+        """Collect inventory for a single server"""
         try:
-            ipmi_user, ipmi_pass = get_ipmi_credentials(server.bmc_ip)  # Pass bmc_ip string
-            collect_server_inventory(server.bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
-            results['success'] += 1
+            # Skip unreachable servers
+            status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+            if status and not status.is_reachable:
+                return None  # Skip
+            
+            ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+            collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip)
+            return True
         except Exception as e:
-            results['failed'] += 1
-            results['errors'].append({'bmc_ip': server.bmc_ip, 'error': str(e)})
+            return str(e)
     
+    # Use parallel workers (same as collection workers)
+    num_workers = get_collection_workers()
+    print(f"[Inventory] Starting parallel collection for {len(server_list)} servers with {num_workers} workers...", flush=True)
+    
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        futures = {executor.submit(collect_one, bmc, name, ip): bmc for bmc, name, ip in server_list}
+        
+        for future in as_completed(futures):
+            bmc_ip = futures[future]
+            try:
+                result = future.result(timeout=120)
+                with results_lock:
+                    if result is True:
+                        results['success'] += 1
+                    elif result is None:
+                        pass  # Skipped
+                    else:
+                        results['failed'] += 1
+                        results['errors'].append({'bmc_ip': bmc_ip, 'error': result})
+            except Exception as e:
+                with results_lock:
+                    results['failed'] += 1
+                    results['errors'].append({'bmc_ip': bmc_ip, 'error': str(e)})
+    
+    print(f"[Inventory] Complete: {results['success']} success, {results['failed']} failed", flush=True)
     return jsonify(results)
 
 
@@ -7600,7 +7671,7 @@ def infer_manufacturer(product_name, board_product=None):
 
 
 def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip=None):
-    """Collect hardware inventory from a server via IPMI FRU, Redfish, and SDR"""
+    """Collect hardware inventory - tries Redfish first (faster), falls back to IPMI"""
     import subprocess
     import json
     
@@ -7612,44 +7683,71 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
     inventory.server_name = server_name
     inventory.primary_ip = server_ip
     
-    # Collect FRU data (device 0 = builtin FRU)
-    try:
-        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print', '0']
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        fru_output = result.stdout
-        inventory.fru_data = fru_output
-        
-        # Parse FRU data
-        for line in fru_output.split('\n'):
-            line = line.strip()
-            if ':' in line:
-                key, _, value = line.partition(':')
-                key = key.strip().lower()
-                value = value.strip()
-                
-                if 'product manufacturer' in key:
-                    inventory.manufacturer = value
-                elif 'chassis manufacturer' in key and not inventory.manufacturer:
-                    inventory.manufacturer = value
-                elif 'product name' in key:
-                    inventory.product_name = value
-                elif 'product serial' in key:
-                    inventory.serial_number = value
-                elif 'product part' in key:
-                    inventory.part_number = value
-                elif 'board mfg' in key and 'date' not in key:
-                    inventory.board_manufacturer = value
-                elif 'board product' in key:
-                    inventory.board_product = value
-                elif 'board serial' in key:
-                    inventory.board_serial = value
-        
-        # Infer manufacturer from product name if not explicitly set
-        if not inventory.manufacturer and inventory.product_name:
-            inventory.manufacturer = infer_manufacturer(inventory.product_name, inventory.board_product)
+    redfish_success = False
+    
+    # ========== Try Redfish FIRST (much faster) ==========
+    if should_use_redfish(bmc_ip):
+        try:
+            client = get_redfish_client(bmc_ip)
             
-    except Exception as e:
-        app.logger.warning(f"FRU collection failed for {bmc_ip}: {e}")
+            # Get System info from Redfish
+            sys_info = client.get_system_info()
+            if sys_info:
+                inventory.manufacturer = sys_info.get('Manufacturer') or inventory.manufacturer
+                inventory.product_name = sys_info.get('Model') or inventory.product_name
+                inventory.serial_number = sys_info.get('SerialNumber') or inventory.serial_number
+                inventory.part_number = sys_info.get('SKU') or inventory.part_number
+                redfish_success = True
+                app.logger.debug(f"Redfish inventory for {bmc_ip}: {inventory.manufacturer} {inventory.product_name}")
+            
+            # Get BMC info from Redfish
+            bmc_info = client.get_bmc_info()
+            if bmc_info:
+                inventory.bmc_firmware = bmc_info.get('FirmwareVersion') or inventory.bmc_firmware
+                inventory.bmc_mac_address = bmc_info.get('MAC') or inventory.bmc_mac_address
+                
+        except Exception as e:
+            app.logger.debug(f"Redfish basic inventory failed for {bmc_ip}: {e}")
+    
+    # ========== Fall back to IPMI FRU if Redfish didn't get basic info ==========
+    if not redfish_success or not inventory.manufacturer:
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print', '0']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            fru_output = result.stdout
+            inventory.fru_data = fru_output
+            
+            # Parse FRU data
+            for line in fru_output.split('\n'):
+                line = line.strip()
+                if ':' in line:
+                    key, _, value = line.partition(':')
+                    key = key.strip().lower()
+                    value = value.strip()
+                    
+                    if 'product manufacturer' in key and not inventory.manufacturer:
+                        inventory.manufacturer = value
+                    elif 'chassis manufacturer' in key and not inventory.manufacturer:
+                        inventory.manufacturer = value
+                    elif 'product name' in key and not inventory.product_name:
+                        inventory.product_name = value
+                    elif 'product serial' in key and not inventory.serial_number:
+                        inventory.serial_number = value
+                    elif 'product part' in key and not inventory.part_number:
+                        inventory.part_number = value
+                    elif 'board mfg' in key and 'date' not in key:
+                        inventory.board_manufacturer = value
+                    elif 'board product' in key:
+                        inventory.board_product = value
+                    elif 'board serial' in key:
+                        inventory.board_serial = value
+            
+            # Infer manufacturer from product name if not explicitly set
+            if not inventory.manufacturer and inventory.product_name:
+                inventory.manufacturer = infer_manufacturer(inventory.product_name, inventory.board_product)
+                
+        except Exception as e:
+            app.logger.warning(f"FRU collection failed for {bmc_ip}: {e}")
     
     # Get BMC MAC address
     try:
