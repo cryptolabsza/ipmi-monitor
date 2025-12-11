@@ -13758,6 +13758,18 @@ def _run_migrations(inspector):
                 execute_sql('ALTER TABLE cloud_sync ADD COLUMN site_location VARCHAR(256)')
                 app.logger.info("Migration: Multi-site columns added to cloud_sync")
         
+        # Migration 18: Add memory_dimms and pcie_devices to server_inventory
+        if 'server_inventory' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_inventory')]
+            if 'memory_dimms' not in columns:
+                app.logger.info("Migration: Adding memory_dimms to server_inventory...")
+                execute_sql('ALTER TABLE server_inventory ADD COLUMN memory_dimms TEXT')
+                app.logger.info("Migration: memory_dimms column added")
+            if 'pcie_devices' not in columns:
+                app.logger.info("Migration: Adding pcie_devices to server_inventory...")
+                execute_sql('ALTER TABLE server_inventory ADD COLUMN pcie_devices TEXT')
+                app.logger.info("Migration: pcie_devices column added")
+        
         app.logger.info("Migrations complete")
     except Exception as e:
         app.logger.warning(f"Migration warning (may already be applied): {e}")
