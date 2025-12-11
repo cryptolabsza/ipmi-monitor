@@ -9926,6 +9926,147 @@ def api_redfish_status(bmc_ip):
         'effective_protocol': 'redfish' if should_use_redfish(bmc_ip) else 'ipmi'
     })
 
+
+@app.route('/api/redfish/enable/<bmc_ip>', methods=['POST'])
+@write_required
+def api_enable_redfish(bmc_ip):
+    """Attempt to enable Redfish on a BMC via IPMI raw commands (OEM-specific)
+    
+    Different vendors have different methods:
+    - Supermicro: ipmitool raw 0x30 0x70 0x0f 0x00 (enable) / 0x01 (disable)
+    - Dell iDRAC: Usually enabled by default, racadm set iDRAC.Redfish.Enable 1
+    - HPE iLO: Usually enabled by default
+    - Lenovo XCC: Usually enabled by default, may need web interface
+    """
+    if not validate_ip_address(bmc_ip):
+        return jsonify({'error': 'Invalid IP address'}), 400
+    
+    data = request.get_json() or {}
+    enable = data.get('enable', True)
+    
+    user, password = get_ipmi_credentials(bmc_ip)
+    if not user or not password:
+        return jsonify({'error': 'No BMC credentials configured'}), 400
+    
+    # Detect manufacturer from inventory
+    inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+    manufacturer = (inventory.manufacturer or '').upper() if inventory else ''
+    
+    results = {'bmc_ip': bmc_ip, 'action': 'enable' if enable else 'disable', 'attempts': []}
+    
+    # OEM-specific Redfish enable/disable commands
+    oem_commands = {
+        'SUPERMICRO': {
+            'enable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password, 
+                       'raw', '0x30', '0x70', '0x0f', '0x00'],
+            'disable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password, 
+                        'raw', '0x30', '0x70', '0x0f', '0x01'],
+            'description': 'Supermicro BMC Redfish toggle'
+        },
+        'DELL': {
+            # Dell iDRAC doesn't have a simple IPMI raw command, but we can try racadm-style
+            'enable': None,  # Not available via IPMI
+            'disable': None,
+            'description': 'Dell iDRAC - Redfish usually enabled by default. Use iDRAC web interface if needed.'
+        },
+        'HPE': {
+            'enable': None,  # iLO Redfish usually enabled by default
+            'disable': None,
+            'description': 'HPE iLO - Redfish usually enabled by default. Use iLO web interface if needed.'
+        },
+        'LENOVO': {
+            # Lenovo XCC - try standard IPMI OEM commands
+            'enable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password,
+                       'raw', '0x3a', '0x0e', '0x01'],  # XCC enable Redfish (may vary)
+            'disable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password,
+                        'raw', '0x3a', '0x0e', '0x00'],
+            'description': 'Lenovo XCC Redfish toggle (may require web interface for some models)'
+        },
+        'ASUS': {
+            'enable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password,
+                       'raw', '0x30', '0x70', '0x0f', '0x00'],  # Similar to Supermicro
+            'disable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password,
+                        'raw', '0x30', '0x70', '0x0f', '0x01'],
+            'description': 'ASUS BMC Redfish toggle (similar to Supermicro)'
+        },
+        'GIGABYTE': {
+            'enable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password,
+                       'raw', '0x30', '0x70', '0x0f', '0x00'],
+            'disable': ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', user, '-P', password,
+                        'raw', '0x30', '0x70', '0x0f', '0x01'],
+            'description': 'Gigabyte BMC Redfish toggle'
+        }
+    }
+    
+    # Find matching OEM
+    oem_config = None
+    detected_oem = 'UNKNOWN'
+    for oem, config in oem_commands.items():
+        if oem in manufacturer:
+            oem_config = config
+            detected_oem = oem
+            break
+    
+    results['detected_manufacturer'] = manufacturer or 'Unknown'
+    results['detected_oem'] = detected_oem
+    
+    if not oem_config:
+        # Try common Supermicro-style command as fallback
+        app.logger.info(f"Unknown OEM for {bmc_ip}, trying Supermicro-style command")
+        oem_config = oem_commands['SUPERMICRO']
+        results['attempts'].append({'method': 'fallback', 'note': 'Using Supermicro-style command as fallback'})
+    
+    cmd = oem_config.get('enable' if enable else 'disable')
+    
+    if cmd is None:
+        return jsonify({
+            'success': False,
+            'bmc_ip': bmc_ip,
+            'message': f'{oem_config["description"]}. Cannot toggle via IPMI.',
+            'detected_oem': detected_oem,
+            'suggestion': 'Access the BMC web interface to enable/disable Redfish.'
+        })
+    
+    try:
+        # Execute the command
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        success = result.returncode == 0
+        results['attempts'].append({
+            'command': 'IPMI raw OEM command',
+            'success': success,
+            'stdout': result.stdout.strip() if result.stdout else None,
+            'stderr': result.stderr.strip() if result.stderr else None
+        })
+        
+        if success:
+            # Clear Redfish cache to re-check
+            with _redfish_cache_lock:
+                if bmc_ip in _redfish_cache:
+                    del _redfish_cache[bmc_ip]
+            
+            # Wait a moment and re-check
+            import time
+            time.sleep(2)
+            new_status = check_redfish_available(bmc_ip)
+            
+            results['success'] = True
+            results['new_redfish_status'] = new_status
+            results['message'] = f"Command executed. Redfish is now {'available' if new_status else 'not available (may need BMC reboot)'}."
+        else:
+            results['success'] = False
+            results['message'] = f"Command failed: {result.stderr or 'Unknown error'}. Try BMC web interface."
+            
+    except subprocess.TimeoutExpired:
+        results['success'] = False
+        results['message'] = 'Command timed out'
+    except Exception as e:
+        results['success'] = False
+        results['message'] = str(e)
+    
+    return jsonify(results)
+
+
 @app.route('/api/redfish/check_all', methods=['POST'])
 def api_check_all_redfish():
     """Check Redfish availability for all servers"""

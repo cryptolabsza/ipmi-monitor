@@ -650,6 +650,7 @@
                         <button class="btn" style="background: var(--accent-yellow); color: #000;" onclick="testBmcConnection()">🔌 Test BMC</button>
                         <button class="btn" style="background: var(--accent-blue);" onclick="testSshConnection()">🖥️ Test SSH</button>
                         <button class="btn" style="background: var(--accent-purple);" onclick="checkRedfishStatus()">🔗 Check Redfish</button>
+                        <button class="btn" style="background: var(--accent-cyan); color: #000;" onclick="toggleRedfish(true)" title="Try to enable Redfish via OEM IPMI commands">⚡ Enable Redfish</button>
                         <button class="btn btn-danger" onclick="deleteServer()" style="margin-left: auto;">🗑️ Delete</button>
                     </div>
                 </div>
@@ -2300,12 +2301,66 @@
                     statusDiv.style.background = 'rgba(255, 71, 87, 0.2)';
                     statusDiv.innerHTML = `
                         ❌ <strong>Redfish Not Available</strong><br>
-                        <small>This BMC does not support Redfish. IPMI will be used.</small>
+                        <small>This BMC does not support Redfish or it may be disabled. Try "Enable Redfish" button.</small>
                     `;
                 }
             } catch (e) {
                 statusDiv.style.background = 'rgba(255, 170, 0, 0.2)';
                 statusDiv.innerHTML = '⚠️ Could not check Redfish status';
+            }
+        }
+        
+        async function toggleRedfish(enable = true) {
+            const bmc_ip = document.getElementById('editBmcIp').value;
+            const statusDiv = document.getElementById('redfishStatus');
+            
+            if (!bmc_ip) {
+                alert('No BMC IP configured');
+                return;
+            }
+            
+            const action = enable ? 'enable' : 'disable';
+            statusDiv.innerHTML = `⏳ Attempting to ${action} Redfish via IPMI OEM commands...<br><small>This uses vendor-specific commands (Supermicro, Lenovo, Dell, HPE, etc.)</small>`;
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'var(--bg-secondary)';
+            
+            try {
+                const response = await fetch(`/api/redfish/enable/${bmc_ip}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enable: enable })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    statusDiv.style.background = 'rgba(0, 214, 143, 0.2)';
+                    statusDiv.innerHTML = `
+                        ✅ <strong>${data.message}</strong><br>
+                        <small>Detected OEM: ${data.detected_oem || 'Unknown'} | Manufacturer: ${data.detected_manufacturer || 'Unknown'}</small>
+                        ${data.new_redfish_status ? '<br><span style="color: var(--accent-green);">Redfish is now available!</span>' : '<br><span style="color: var(--accent-yellow);">Note: BMC may need a reboot for changes to take effect.</span>'}
+                    `;
+                } else {
+                    statusDiv.style.background = 'rgba(255, 170, 0, 0.2)';
+                    let html = `
+                        ⚠️ <strong>${data.message}</strong><br>
+                        <small>Detected OEM: ${data.detected_oem || 'Unknown'}</small>
+                    `;
+                    if (data.suggestion) {
+                        html += `<br><small>💡 ${data.suggestion}</small>`;
+                    }
+                    // Show OEM-specific guidance
+                    html += `<br><br><strong>OEM-Specific Notes:</strong><ul style="margin: 5px 0; padding-left: 20px; font-size: 12px;">
+                        <li><strong>Supermicro:</strong> Usually works via IPMI raw commands</li>
+                        <li><strong>Lenovo XCC:</strong> Access BMC web UI → Network → Redfish Settings</li>
+                        <li><strong>Dell iDRAC:</strong> Usually enabled by default. Check iDRAC Settings → Network</li>
+                        <li><strong>HPE iLO:</strong> Usually enabled by default. Check iLO → Administration → Access Settings</li>
+                        <li><strong>ASUS:</strong> Access BMC web UI → Configuration → Network → Redfish</li>
+                    </ul>`;
+                    statusDiv.innerHTML = html;
+                }
+            } catch (e) {
+                statusDiv.style.background = 'rgba(255, 71, 87, 0.2)';
+                statusDiv.innerHTML = `❌ Error: ${e.message || 'Could not toggle Redfish'}`;
             }
         }
         
