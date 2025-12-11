@@ -8646,7 +8646,9 @@ def parse_yaml_servers(yaml_content):
                 current_server = {'server_name': trimmed.split(':')[1].strip().strip('"\'').split('#')[0].strip()}
                 in_servers = True  # Auto-detect servers section
             elif current_server and ':' in trimmed:
-                key_value = trimmed.replace('-', '').split(':', 1)
+                # Strip leading '- ' from list items but preserve hyphens in values
+                line_content = trimmed.lstrip('- ')
+                key_value = line_content.split(':', 1)
                 if len(key_value) == 2:
                     key = key_value[0].strip()
                     value = key_value[1].strip().strip('"\'').split('#')[0].strip()
