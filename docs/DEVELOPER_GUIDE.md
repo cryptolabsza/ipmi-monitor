@@ -2,6 +2,9 @@
 
 This guide covers the development workflow, CI/CD pipeline, and release process for IPMI Monitor.
 
+> **Current Version:** v0.7.x (pre-release development)  
+> **Last Updated:** 2025-12-11
+
 ---
 
 ## Table of Contents

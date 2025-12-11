@@ -24,27 +24,70 @@
 
 ### 🆓 Free Self-Hosted Features
 - 🔍 **Event Collection** - Automatically collect IPMI SEL logs (parallel, 32 workers)
-- 📊 **Real-time Dashboard** - Auto-refreshing with server status cards
+- 📊 **Real-time Dashboard** - Auto-refreshing every second with server status cards
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
 - 💾 **ECC Memory Tracking** - Identify which DIMM has errors
 - 🎮 **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH (Xid errors)
 - 🔄 **Uptime & Reboot Detection** - Track unexpected server reboots
 - 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
+- ✅ **Alert Resolution** - Notifications when issues are resolved
+- ⏱️ **Alert Confirmation** - Threshold checks to avoid false positives
 - 📈 **Prometheus Metrics** - Native `/metrics` endpoint for Grafana
 - 🔐 **User Management** - Admin and read-only access levels
-- 📥 **Export** - CSV export of event logs
+- 📥 **Full Backup/Restore** - Export everything: servers, credentials, SSH keys, alerts
 - 🐳 **Docker Ready** - Multi-arch images (amd64/arm64)
 - 🔄 **Version Display** - Shows version, git commit, and build time in header
 - ⬆️ **Update Notifications** - Checks GitHub for newer releases
+- 🔧 **Bulk Credentials** - Apply SSH/IPMI credentials to multiple servers at once
+- 🔃 **BMC Reset** - Cold/warm reset BMC without affecting host OS
 
 ### 🤖 Optional AI Features (via CryptoLabs)
-- 📊 Daily health summaries
+- 📊 Daily health summaries with GPU error detection
 - 🔧 AI-generated maintenance tasks
 - 📈 Failure predictions
-- 🔍 Root cause analysis
+- 🔍 Root cause analysis with severity filtering
 - 💬 AI chat assistant
 - 🤖 **AI Recovery Agent** - Autonomous GPU recovery with escalation
 - 🛠️ **Recovery Actions** - Clock limiting, soft resets, coordinated reboots
+- 🏢 **Multi-Site Support** - One account, multiple datacenter locations
+- 🔗 **Instance Fingerprinting** - Track all installations automatically
+- 📋 **Remote Task Queue** - AI service sends tasks, Monitor executes
+
+---
+
+## 🆕 What's New in v0.7.x
+
+### v0.7.6 - Post-Event RCA
+- **Dark Recovery Investigation** - When a server recovers, AI investigates what happened
+- Checks SSH uptime, SEL logs, and concurrent failures to determine root cause
+- `/api/server/<bmc_ip>/investigate` endpoint for manual RCA
+
+### v0.7.5 - Agent Task Queue
+- AI service can now send tasks to IPMI Monitor for execution
+- Remote power cycles, BMC resets, SSH commands
+- Automatic task polling and execution
+
+### v0.7.4 - Modular AI Tabs
+- Embeddable AI views for iframe integration
+- `/embed/summary`, `/embed/chat`, `/embed/rca`, `/embed/agent`
+
+### v0.7.3 - Admin Instance Dashboard
+- View all IPMI Monitor instances (free and paid)
+- Trial abuse detection via fingerprinting
+- Block/unblock instances
+
+### v0.7.2 - All-Instance Telemetry
+- Free users now send basic stats for tracking
+- No authentication required for telemetry
+
+### v0.7.1 - Instance Fingerprinting
+- Unique ID for each IPMI Monitor installation
+- Based on public IP, BMC IPs, server names
+
+### v0.7.0 - Multi-Site Support
+- One customer can have multiple IPMI Monitor instances at different locations
+- Configure site name in Settings → AI tab
+- All sites share the same license and billing
 
 ---
 
@@ -111,43 +154,29 @@ docker run -d \
 
 ---
 
-### Option 3: Pre-configured Server List
+## 🏢 Multi-Site Deployment
 
-Create `servers.yaml` with your servers:
+If you have servers in multiple datacenters, deploy an IPMI Monitor instance at each location:
 
-```yaml
-# Global defaults applied to all servers
-defaults:
-  ipmi_user: admin
-  ipmi_pass: YourDefaultPassword
-  ssh_user: root
-  ssh_key_name: production    # References a stored SSH key by name
+```
+Customer: Your Company
+├── Site: NYC Datacenter (50 servers)
+│   └── IPMI Monitor instance with site_name="NYC Datacenter"
+├── Site: London Office (30 servers)
+│   └── IPMI Monitor instance with site_name="London Office"
+└── Site: Singapore Colo (20 servers)
+    └── IPMI Monitor instance with site_name="Singapore Colo"
 
-servers:
-  - name: web-server-01
-    bmc_ip: 192.168.1.100
-    server_ip: 192.168.1.101  # OS IP for SSH inventory
-    
-  - name: database-server
-    bmc_ip: 192.168.1.101
-    server_ip: 192.168.1.102
-    ipmi_user: dbadmin        # Override default
-    ipmi_pass: custompass
-    
-  - name: gpu-server-01
-    bmc_ip: 192.168.1.102
-    server_ip: 192.168.1.103
-    # Uses defaults for IPMI and SSH
+Total: 100 servers, 1 license, 3 sites
 ```
 
-Then mount it:
-```yaml
-volumes:
-  - ipmi_data:/app/data
-  - ./servers.yaml:/app/config/servers.yaml:ro
-```
+### Configuration
 
-Servers are auto-imported on startup!
+1. Install IPMI Monitor at each location
+2. Use the **same license key** at all sites
+3. Go to **Settings** → **AI** → **Site Configuration**
+4. Set a unique **Site Name** for each location
+5. All sites share the same billing and appear in your account
 
 ---
 
@@ -162,50 +191,44 @@ volumes:
 
 # ❌ WRONG - No volume (data lost on rebuild)
 # (no volume specified)
-
-# ⚠️ CAUTION - Bind mount (works but be careful with paths)
-volumes:
-  - /path/on/host:/app/data
 ```
-
-If you see "No servers configured" after an update, your data wasn't persisted!
 
 ---
 
-## 🖥️ Adding Servers
+## 🔧 BMC Reset (New!)
 
-### Via Web UI (Easiest)
+Reset the BMC without affecting the host server:
 
-1. Login at `/login` (default: admin / changeme)
-2. Go to **Settings** → **Server List**
-3. Click **Add Server**
-4. Enter BMC IP and server name
+- **Cold Reset** - Full BMC reboot, clears all state
+- **Warm Reset** - Softer restart, preserves some state
+- **BMC Info** - Check BMC firmware and status
 
-### Via Import
+Available in Server Detail → Power Control dropdown.
 
-Upload a file in Settings → Server List → Import:
-
-**YAML** (recommended):
-```yaml
-servers:
-  - name: server-01
-    bmc_ip: 192.168.1.100
-    
-  - name: server-02
-    bmc_ip: 192.168.1.101
-    server_ip: 10.0.0.101        # OS IP for SSH inventory (optional)
-    public_ip: 203.0.113.50      # External IP for documentation (optional)
-    ipmi_user: admin
-    ipmi_pass: secretpass
-    notes: Production database
+```bash
+# Manual BMC reset via ipmitool
+ipmitool -I lanplus -H 192.168.1.100 -U admin -P password mc reset cold
 ```
 
-**CSV**:
-```csv
-name,bmc_ip,server_ip,public_ip,ipmi_user,ipmi_pass,notes
-server-01,192.168.1.100,10.0.0.100,,,
-server-02,192.168.1.101,10.0.0.101,203.0.113.50,admin,pass123,Edge server
-```
+---
+
+## 🚨 Alert Features
+
+### Alert Confirmation Threshold
+
+Prevent false positives from transient issues:
+
+- **Confirm After X checks** - Only fire alert after X consecutive failures
+- Default: 3 checks for "Server Unreachable" alerts
+- Configurable per alert rule
+
+### Alert Resolution Notifications
+
+Get notified when issues are resolved:
+
+- **Auto-resolution** - Alerts auto-resolve when condition clears
+- **Notify on Resolve** - Toggle per alert rule
+- Resolution notifications include duration
 
 ---
 
@@ -218,141 +241,11 @@ server-02,192.168.1.101,10.0.0.101,203.0.113.50,admin,pass123,Edge server
 | `APP_NAME` | IPMI Monitor | Displayed in header |
 | `IPMI_USER` | admin | Default BMC username |
 | `IPMI_PASS` | (required) | Default BMC password |
-| `IPMI_PASS_NVIDIA` | - | 16-char password for NVIDIA DGX/HGX |
 | `ADMIN_USER` | admin | Dashboard admin username |
 | `ADMIN_PASS` | changeme | Dashboard admin password |
 | `SECRET_KEY` | (auto) | Flask session secret (**set this!**) |
 | `POLL_INTERVAL` | 300 | Seconds between collections |
 | `DATA_RETENTION_DAYS` | 30 | How long to keep events |
-
-### Authentication
-
-| Access Level | Login Required | Can Do |
-|--------------|----------------|--------|
-| **Read-only** | No | View dashboard, events, sensors |
-| **Admin** | Yes | Add/delete servers, clear SEL, settings |
-
----
-
-## 🎮 GPU Health Monitoring
-
-IPMI Monitor detects GPU errors via SSH using `dmesg` to find NVIDIA Xid errors.
-
-### What It Detects
-
-| Error Type | Display | Severity |
-|------------|---------|----------|
-| Memory errors | GPU Memory Error | Critical |
-| GPU unresponsive | GPU Not Responding | Critical |
-| GPU disconnected | GPU Disconnected | Critical |
-| Recovery required | GPU Requires Recovery | Critical |
-
-> 💡 **Note:** Technical Xid error codes are hidden from the UI. Events show user-friendly descriptions like "GPU Memory Error" instead of "Xid 48". Technical details are stored internally for debugging.
-
-### Requirements
-
-- SSH enabled in Settings
-- SSH credentials configured per-server or globally
-- Server has `dmesg` access (standard on Linux)
-
-### GPU Events in Dashboard
-
-GPU errors appear in the **Events** tab as:
-- **Sensor Type:** GPU Health
-- **Severity:** Critical (red)
-- **Description:** User-friendly error description
-
----
-
-## 🔄 Uptime & Reboot Detection
-
-IPMI Monitor tracks server uptime via SSH and detects unexpected reboots.
-
-### How It Works
-
-1. Reads `/proc/uptime` via SSH each collection cycle
-2. Compares with previous uptime
-3. If uptime decreased → server rebooted
-4. Checks if reboot was initiated by recovery action
-5. Logs unexpected reboots as warning events
-
-### Events Generated
-
-| Event Type | Description |
-|------------|-------------|
-| `unexpected_reboot` | Server rebooted without recovery action |
-| `recovery_action` | Reboot initiated by AI agent or admin |
-
-### API Endpoint
-
-```
-GET /api/uptime - Get uptime for all servers
-```
-
-Response includes:
-- `uptime_seconds` - Current uptime
-- `uptime_days` - Uptime in days
-- `last_boot_time` - When server last booted
-- `reboot_count` - Total reboots detected
-- `unexpected_reboot_count` - Reboots not initiated by system
-
----
-
-## 🔧 Maintenance Tasks
-
-IPMI Monitor automatically creates maintenance tasks based on error patterns.
-
-### Auto-Generated Tasks
-
-| Trigger | Task Created |
-|---------|--------------|
-| 3+ reboots in 24h | High severity maintenance |
-| 2+ power cycles in 24h | High severity maintenance |
-| 5+ GPU errors same device in 24h | Critical maintenance |
-
-### API Endpoints
-
-```
-GET /api/maintenance - List maintenance tasks
-PUT /api/maintenance/<id> - Update task status
-GET /api/recovery-logs - View recovery action history
-```
-
-### Task Statuses
-
-- `pending` - Needs attention
-- `scheduled` - Planned for maintenance window
-- `in_progress` - Being worked on
-- `completed` - Task finished
-- `cancelled` - No longer needed
-
----
-
-## 📊 Prometheus & Grafana
-
-### Add to Prometheus
-
-```yaml
-scrape_configs:
-  - job_name: 'ipmi-monitor'
-    static_configs:
-      - targets: ['your-server:5000']
-    scrape_interval: 60s
-```
-
-### Metrics Available
-
-| Metric | Description |
-|--------|-------------|
-| `ipmi_server_reachable` | BMC reachability (1=yes) |
-| `ipmi_server_power_on` | Power status |
-| `ipmi_events_critical_24h` | Critical events count |
-| `ipmi_events_warning_24h` | Warning events count |
-| `ipmi_total_servers` | Total servers monitored |
-
-### Grafana Dashboard
-
-Download from: **Settings → Integrations → Download Grafana Dashboard**
 
 ---
 
@@ -362,18 +255,22 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 
 | Feature | Description |
 |---------|-------------|
-| 📊 **Daily Summaries** | AI analyzes your fleet health daily |
+| 📊 **Daily Summaries** | AI analyzes your fleet health daily with GPU focus |
 | 🔧 **Maintenance Tasks** | Auto-generated from events |
 | 📈 **Predictions** | Failure warnings before they happen |
-| 🔍 **Root Cause Analysis** | AI explains what went wrong |
+| 🔍 **Root Cause Analysis** | AI explains what went wrong with severity filtering |
 | 💬 **Chat** | Ask questions about your servers |
+| 🏢 **Multi-Site** | Aggregate all your sites under one account |
+| 🤖 **Agent Task Queue** | AI sends recovery tasks for execution |
+| 🔍 **Post-Event RCA** | Investigate what happened during downtime |
 
 ### Enable AI
 
 1. Go to **Settings** → **AI Features**
 2. Click **Start Free Trial** (1 month free!)
 3. Create account or login at CryptoLabs
-4. You're connected!
+4. Configure your **Site Name** for multi-site support
+5. You're connected!
 
 ### Pricing
 
@@ -388,72 +285,6 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 
 ---
 
-## 🔧 Troubleshooting
-
-### Test IPMI Connectivity
-
-```bash
-# From the container
-docker exec ipmi-monitor ipmitool -I lanplus \
-  -H 192.168.1.100 -U admin -P YourPassword power status
-```
-
-### Check Logs
-
-```bash
-docker logs ipmi-monitor --tail 100
-docker logs ipmi-monitor 2>&1 | grep -i error
-```
-
-### Database Reset
-
-```bash
-# Backup first!
-docker exec ipmi-monitor cp /app/data/ipmi_events.db /app/data/backup.db
-
-# Then reset
-docker exec ipmi-monitor rm /app/data/ipmi_events.db
-docker restart ipmi-monitor
-```
-
-### BMC Not Reachable
-
-1. Check network connectivity to BMC IP
-2. Verify IPMI over LAN is enabled in BMC settings
-3. Try `network_mode: host` in docker-compose
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       IPMI Monitor                               │
-│  ┌──────────────────┐  ┌────────────┐  ┌───────────────────┐   │
-│  │   Flask Web UI   │◄─│  SQLite    │◄─│  IPMI Collector   │   │
-│  │    + Admin Auth  │  │  Database  │  │  (10 workers)     │   │
-│  └──────────────────┘  └────────────┘  └─────────┬─────────┘   │
-│           │                                       │             │
-│   ┌───────▼───────┐                              │             │
-│   │  /metrics     │──► Prometheus/Grafana        │             │
-│   │  /health      │──► Docker/K8s healthcheck    │             │
-│   └───────────────┘                              │             │
-└──────────────────────────────────────────────────┼─────────────┘
-                                                   │
-            ┌──────────────────────────────────────▼──────────────┐
-            │              BMC/IPMI Network                        │
-            │  ipmitool -I lanplus -H x.x.x.x sel list            │
-            └─────────────────────────────────────────────────────┘
-                                                   │
-            ┌──────────────────────────────────────▼──────────────┐
-            │          CryptoLabs AI Service (Optional)            │
-            │  • Health summaries    • Predictions                 │
-            │  • Maintenance tasks   • Root cause analysis         │
-            └─────────────────────────────────────────────────────┘
-```
-
----
-
 ## 📋 API Reference
 
 ### Public Endpoints
@@ -462,19 +293,22 @@ docker restart ipmi-monitor
 |----------|-------------|
 | `GET /` | Dashboard |
 | `GET /api/servers` | List servers |
-| `GET /api/events` | Get events (filterable by severity, server, hours) |
+| `GET /api/events` | Get events (filterable) |
 | `GET /api/stats` | Dashboard stats |
 | `GET /api/sensors/{bmc_ip}` | Sensor readings |
 | `GET /metrics` | Prometheus metrics |
 | `GET /health` | Health check |
+| `GET /api/version` | Current version info |
+| `GET /api/version/check` | Check for updates |
 
-### New Monitoring Endpoints
+### New v0.7.x Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/maintenance` | List maintenance tasks |
-| `GET /api/recovery-logs` | Get recovery action history |
-| `GET /api/uptime` | Get server uptime information |
+| `POST /api/server/{bmc_ip}/investigate` | Post-event RCA investigation |
+| `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset (cold/warm/info) |
+| `GET /api/recovery/permissions` | Recovery agent permissions |
+| `POST /api/alerts/history/{id}/resolve` | Manually resolve alert |
 
 ### Admin Endpoints (login required)
 
@@ -483,10 +317,20 @@ docker restart ipmi-monitor
 | `POST /api/collect` | Trigger collection |
 | `POST /api/servers/add` | Add server |
 | `DELETE /api/servers/{bmc_ip}` | Delete server |
-| `POST /api/server/{bmc_ip}/clear_sel` | Clear BMC SEL |
-| `PUT /api/maintenance/{id}` | Update maintenance task status |
-| `PUT /api/settings/credentials/defaults` | Set global credential defaults |
-| `POST /api/settings/credentials/apply` | Apply defaults to multiple servers |
+| `PUT /api/ai/config` | Update AI config (including site_name) |
+| `GET /api/backup` | Full configuration backup |
+| `POST /api/restore` | Restore from backup |
+
+---
+
+## 🛠️ Developer Guide
+
+See [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) for:
+
+- Git workflow (develop/main branches)
+- Release process
+- Docker tag conventions
+- CI/CD pipeline details
 
 ---
 
@@ -511,6 +355,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
 - **Docker Image**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
 - **AI Features**: [cryptolabs.co.za/ipmi-monitor](https://cryptolabs.co.za/ipmi-monitor)
+- **Documentation**: [cryptolabsza.github.io/ipmi-monitor](https://cryptolabsza.github.io/ipmi-monitor)
 - **Support**: [CryptoLabs Discord](https://discord.gg/cryptolabs)
 
 ---

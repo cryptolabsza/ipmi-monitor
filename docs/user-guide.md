@@ -2,6 +2,8 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
+**Version:** v0.7.x | **Last Updated:** 2025-12-11
+
 ---
 
 ## Table of Contents
@@ -11,21 +13,28 @@
 - [Key Concepts](#key-concepts)
 - [Dashboard](#dashboard)
 - [Version & Updates](#version--updates)
+- [Multi-Site Deployment](#multi-site-deployment)
 - [Server Details](#server-details)
+- [BMC Reset](#bmc-reset)
 - [GPU Health Monitoring](#gpu-health-monitoring)
 - [Uptime & Reboot Detection](#uptime--reboot-detection)
 - [Maintenance Tasks](#maintenance-tasks)
 - [Settings](#settings)
   - [Manage Servers](#manage-servers)
+  - [Bulk Credentials](#bulk-credentials)
   - [Global Credentials](#global-credentials)
   - [SSH Configuration](#ssh-configuration)
+  - [Site Configuration](#site-configuration)
   - [Recovery Permissions](#recovery-permissions)
   - [Alerts & Rules](#alerts--rules)
   - [Notifications](#notifications)
   - [Security & Users](#security--users)
+  - [Backup & Restore](#backup--restore)
 - [Prometheus & Grafana Integration](#prometheus--grafana-integration)
 - [AI Features](#ai-features)
   - [AI Recovery Agent](#ai-recovery-agent)
+  - [Post-Event Investigation](#post-event-investigation)
+  - [Remote Task Execution](#remote-task-execution)
 - [Troubleshooting](#troubleshooting)
 - [Glossary](#glossary)
 - [API Reference](#api-reference)
@@ -199,6 +208,81 @@ GET /api/version/check - Check GitHub for newer releases
 ```
 
 > 💡 **Note:** Update checking requires network access to api.github.com. If your server can't reach GitHub, the check will silently fail.
+
+---
+
+## Multi-Site Deployment
+
+If you have servers in multiple datacenters or locations, you can deploy an IPMI Monitor instance at each site while using a single license.
+
+### How It Works
+
+```
+Your Company (Single CryptoLabs Account)
+├── NYC Datacenter
+│   └── IPMI Monitor instance (50 servers)
+│       Site Name: "NYC Datacenter"
+├── London Office
+│   └── IPMI Monitor instance (30 servers)
+│       Site Name: "London Office"
+└── Singapore Colo
+    └── IPMI Monitor instance (20 servers)
+        Site Name: "Singapore Colo"
+
+Total: 100 servers, 1 license, 3 sites
+```
+
+### Setting Up Multi-Site
+
+1. Install IPMI Monitor at each location
+2. Use the **same license key** at all sites
+3. Go to **Settings → AI** on each instance
+4. Set a unique **Site Name** (e.g., "NYC Datacenter")
+5. Optionally add **Location** details
+
+### Benefits
+
+- **Single Billing** - All sites count toward your total server limit
+- **Per-Site Summaries** - AI generates summaries for each site
+- **Unified Account** - View all sites from CryptoLabs dashboard
+- **Instance Tracking** - Each installation has a unique fingerprint
+
+---
+
+## BMC Reset
+
+Reset the BMC (Baseboard Management Controller) without affecting the running host OS. This is useful when the BMC becomes unresponsive but the server itself is still running.
+
+### How to Reset BMC
+
+1. Go to **Server Detail** page
+2. Click **Power Control** dropdown
+3. Select:
+   - **BMC Cold Reset** - Full BMC reboot (recommended)
+   - **BMC Warm Reset** - Softer restart
+   - **BMC Info** - Check BMC status
+
+### When to Use
+
+| Scenario | Recommended Reset |
+|----------|-------------------|
+| BMC unresponsive to web/IPMI | Cold Reset |
+| BMC slow but responding | Warm Reset |
+| IPMI commands failing | Cold Reset |
+| After firmware update | Cold Reset |
+
+### Command Line
+
+```bash
+# Cold reset
+ipmitool -I lanplus -H 192.168.1.100 -U admin -P password mc reset cold
+
+# Warm reset
+ipmitool -I lanplus -H 192.168.1.100 -U admin -P password mc reset warm
+
+# Check BMC info
+ipmitool -I lanplus -H 192.168.1.100 -U admin -P password mc info
+```
 
 ---
 
@@ -879,6 +963,87 @@ All agent actions are logged as events:
 3. Agent automatically processes GPU errors
 
 > 💡 **Tip:** Start with only `allow_soft_reset` and `allow_clock_limit` enabled. Enable reboot/power cycle only after testing.
+
+### Post-Event Investigation
+
+When a server recovers from an unreachable ("dark") state, IPMI Monitor can investigate what happened during the downtime.
+
+#### What It Checks
+
+1. **SSH Uptime** - Did the OS reboot during the outage?
+2. **SEL Logs** - Any power/voltage events recorded?
+3. **Concurrent Failures** - Did other servers go offline at the same time?
+
+#### Likely Causes Detected
+
+| Cause | Evidence | Confidence |
+|-------|----------|------------|
+| Reboot | OS boot time during outage | High |
+| Power Outage | SEL shows "AC Lost" events | Very High |
+| BMC Reset | SEL shows reset events | High |
+| Network Issue | Multiple servers offline simultaneously | High |
+| BMC Unresponsive | No other evidence found | Medium |
+
+#### Triggering Investigation
+
+**Automatic:** Investigation runs when alert resolves (if AI agent enabled)
+
+**Manual:**
+1. Go to Server Detail page
+2. Power Control dropdown → **Investigate Recovery**
+3. View investigation results
+
+**API:**
+```bash
+curl -X POST http://ipmi-monitor:5000/api/server/192.168.1.100/investigate \
+  -H "Content-Type: application/json" \
+  -d '{"downtime_start": "2025-12-10T10:00:00Z"}'
+```
+
+### Remote Task Execution
+
+With AI features enabled, the CryptoLabs AI service can send tasks to your IPMI Monitor for execution.
+
+#### Supported Tasks
+
+| Task | Description | Prerequisites |
+|------|-------------|---------------|
+| `power_cycle` | BMC power cycle | IPMI credentials |
+| `power_reset` | Chassis reset | IPMI credentials |
+| `bmc_reset` | BMC cold/warm reset | IPMI credentials |
+| `collect_inventory` | SSH inventory collection | SSH credentials |
+| `ssh_command` | Execute SSH command | SSH credentials |
+| `check_connectivity` | Verify server reachability | - |
+
+#### How It Works
+
+1. AI service analyzes your fleet data
+2. AI determines an action is needed (e.g., power cycle stuck server)
+3. AI creates a task in the queue
+4. IPMI Monitor polls for tasks during sync
+5. Task is executed and result reported back
+
+#### Task Flow
+
+```
+AI Service                    IPMI Monitor
+    │                              │
+    │ Create task                  │
+    ├─────────────────────────────►│ Poll for tasks
+    │                              │
+    │◄─────────────────────────────┤ Claim task
+    │                              │
+    │                              │ Execute action
+    │                              │
+    │◄─────────────────────────────┤ Report completion
+    │                              │
+```
+
+#### Viewing Task History
+
+The agent dashboard shows:
+- **Pending Tasks** - Waiting to be executed
+- **Recent Actions** - Completed/failed tasks with results
 
 ---
 
