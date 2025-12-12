@@ -2965,7 +2965,11 @@ def check_and_report_connectivity_changes():
             return (bmc_ip, server_name, server_ip, False, None)
     
     with app.app_context():
-        servers = Server.query.filter(Server.status == 'active').all()
+        # Include NULL status for backward compatibility
+        servers = Server.query.filter(
+            Server.enabled == True,
+            db.or_(Server.status == 'active', Server.status.is_(None))
+        ).all()
         server_list = [(s.bmc_ip, s.server_name, s.server_ip) for s in servers]
         
         print(f"[Connectivity] Checking {len(server_list)} servers with 20 workers...", flush=True)
@@ -5240,14 +5244,25 @@ def collect_all_events():
                 }
                 
                 for future in as_completed(futures):
+                    bmc_ip, server_name = futures[future]  # Get from futures dict
                     try:
                         bmc_ip, server_name, events, error = future.result(timeout=660)
                     except Exception as e:
-                        app.logger.error(f"Future result error: {e}")
+                        app.logger.error(f"Future result error for {bmc_ip}: {e}")
+                        # Still update server status so it shows as unreachable
+                        try:
+                            update_server_status(bmc_ip, server_name)
+                        except Exception:
+                            pass
                         continue
                     
                     if error:
                         app.logger.error(f"Error collecting from {bmc_ip}: {error}")
+                        # Still update server status so it shows as unreachable
+                        try:
+                            update_server_status(bmc_ip, server_name)
+                        except Exception:
+                            pass
                         continue
                     
                     try:
@@ -7032,8 +7047,11 @@ def api_clear_all_sel():
     """Clear SEL logs on all BMCs - Requires write access"""
     results = {'success': [], 'failed': []}
     
-    # Get servers from database, not empty SERVERS dict
-    servers = Server.query.filter(Server.status == 'active', Server.enabled == True).all()
+    # Get servers from database - include NULL status for backward compat
+    servers = Server.query.filter(
+        Server.enabled == True,
+        db.or_(Server.status == 'active', Server.status.is_(None))
+    ).all()
     
     for server in servers:
         bmc_ip = server.bmc_ip
@@ -7595,7 +7613,8 @@ def api_import_servers():
                     public_ip=server_data.get('public_ip'),
                     enabled=server_data.get('enabled', True),
                     use_nvidia_password=server_data.get('use_nvidia_password', False),
-                    notes=server_data.get('notes', '')
+                    notes=server_data.get('notes', ''),
+                    status='active'  # Set active status so server is included in polling
                 )
                 db.session.add(server)
                 added += 1
@@ -9763,8 +9782,11 @@ def api_collect_sensors():
     """Trigger sensor collection for all servers"""
     def collect_all_sensors():
         with app.app_context():
-            # Get servers from database, not empty SERVERS dict
-            servers = Server.query.filter(Server.status == 'active', Server.enabled == True).all()
+            # Get servers from database - include NULL status for backward compat (same as get_servers())
+            servers = Server.query.filter(
+                Server.enabled == True,
+                db.or_(Server.status == 'active', Server.status.is_(None))
+            ).all()
             server_list = [(s.bmc_ip, s.server_name) for s in servers]
             
             app.logger.info(f"Starting sensor collection for {len(server_list)} servers...")
