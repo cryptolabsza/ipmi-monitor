@@ -2495,14 +2495,15 @@
             
             // Disable button and show progress
             btn.disabled = true;
-            btn.innerHTML = '⏳ Collecting in parallel...';
+            btn.innerHTML = '⏳ Collecting...';
             progressDiv.style.display = 'block';
             errorsDiv.style.display = 'none';
             errorsDiv.innerHTML = '';
             
-            // Show animated progress bar
-            progressBar.style.display = 'none';
-            progressBarAnimated.style.display = 'block';
+            // Show progress bar (not animated until we know total)
+            progressBar.style.display = 'block';
+            progressBar.style.width = '0%';
+            progressBarAnimated.style.display = 'none';
             
             // Start elapsed time counter
             const startTime = Date.now();
@@ -2513,63 +2514,111 @@
                 elapsedDiv.textContent = `⏱️ Elapsed: ${mins}:${secs.toString().padStart(2, '0')}`;
             }, 1000);
             
-            // Get server count first for display
-            let totalServers = '...';
-            try {
-                const serversResp = await fetch('/api/servers', { credentials: 'same-origin' });
-                const servers = await serversResp.json();
-                totalServers = servers.filter(s => s.enabled !== false).length;
-            } catch (e) {}
+            progressText.textContent = '🔄 Starting parallel collection...';
+            progressCount.textContent = 'Connecting...';
             
-            progressText.textContent = `🔄 Collecting inventory from ${totalServers} servers in parallel...`;
-            progressCount.textContent = `0 / ${totalServers} (running in parallel)`;
+            // Track results
+            let total = 0;
+            let completed = 0;
+            let success = 0;
+            let failed = 0;
+            let errors = [];
+            let workers = 0;
+            let recentServers = [];
             
             try {
-                // Use the parallel collection endpoint
-                const response = await fetch('/api/inventory/collect-all', {
-                    method: 'POST',
-                    credentials: 'same-origin'
-                });
+                // Use SSE streaming endpoint for real-time progress
+                const eventSource = new EventSource('/api/inventory/collect-all/stream');
                 
-                const result = await response.json();
+                eventSource.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'start') {
+                        total = data.total;
+                        workers = data.workers;
+                        progressText.textContent = `🔄 Collecting from ${total} servers (${workers} parallel workers)`;
+                        progressCount.textContent = `0 / ${total}`;
+                    }
+                    else if (data.type === 'progress') {
+                        completed = data.completed;
+                        const current = data.current;
+                        
+                        if (current.status === 'success') {
+                            success++;
+                            recentServers.unshift(`✅ ${current.name || current.bmc_ip}`);
+                        } else if (current.status === 'skipped') {
+                            recentServers.unshift(`⏭️ ${current.name || current.bmc_ip} (skipped)`);
+                        } else {
+                            failed++;
+                            errors.push({bmc_ip: current.bmc_ip, error: current.error});
+                            recentServers.unshift(`❌ ${current.name || current.bmc_ip}`);
+                        }
+                        
+                        // Keep only last 5
+                        recentServers = recentServers.slice(0, 5);
+                        
+                        // Update progress
+                        const pct = (completed / total) * 100;
+                        progressBar.style.width = `${pct}%`;
+                        progressCount.textContent = `${completed} / ${total}`;
+                        progressText.innerHTML = `🔄 ${workers} workers | Recent: ${recentServers.join(', ')}`;
+                    }
+                    else if (data.type === 'heartbeat') {
+                        // Keep connection alive, update elapsed
+                    }
+                    else if (data.type === 'complete') {
+                        eventSource.close();
+                        clearInterval(elapsedTimer);
+                        
+                        const totalElapsed = Math.floor((Date.now() - startTime) / 1000);
+                        const mins = Math.floor(totalElapsed / 60);
+                        const secs = totalElapsed % 60;
+                        elapsedDiv.textContent = `✅ Completed in ${mins}:${secs.toString().padStart(2, '0')}`;
+                        
+                        progressBar.style.width = '100%';
+                        progressCount.textContent = `${success} / ${total}`;
+                        progressText.textContent = '✅ Collection complete!';
+                        
+                        // Show errors if any
+                        if (errors.length > 0) {
+                            errorsDiv.style.display = 'block';
+                            const errorList = errors.slice(0, 10).map(e => `${e.bmc_ip}: ${e.error}`);
+                            errorsDiv.innerHTML = `<strong>⚠️ ${failed} errors:</strong><br>` + 
+                                errorList.join('<br>') + 
+                                (errors.length > 10 ? `<br>... and ${errors.length - 10} more` : '');
+                            showAlert(`Inventory collected: ${success} success, ${failed} failed`, 'warning');
+                        } else {
+                            showAlert(`Successfully collected inventory for ${success} servers!`, 'success');
+                        }
+                        
+                        btn.disabled = false;
+                        btn.innerHTML = '📦 Collect All Inventory';
+                    }
+                };
                 
-                if (!response.ok) {
-                    throw new Error(result.error || 'Failed to collect inventory');
-                }
-                
-                // Stop timer and show static progress bar
-                clearInterval(elapsedTimer);
-                const totalElapsed = Math.floor((Date.now() - startTime) / 1000);
-                const mins = Math.floor(totalElapsed / 60);
-                const secs = totalElapsed % 60;
-                elapsedDiv.textContent = `✅ Completed in ${mins}:${secs.toString().padStart(2, '0')}`;
-                
-                progressBarAnimated.style.display = 'none';
-                progressBar.style.display = 'block';
-                progressBar.style.width = '100%';
-                progressCount.textContent = `${result.success} / ${result.total}`;
-                progressText.textContent = '✅ Collection complete!';
-                
-                // Show errors if any
-                if (result.errors && result.errors.length > 0) {
-                    errorsDiv.style.display = 'block';
-                    const errorList = result.errors.slice(0, 10).map(e => `${e.bmc_ip}: ${e.error}`);
-                    errorsDiv.innerHTML = `<strong>⚠️ ${result.failed} errors:</strong><br>` + 
-                        errorList.join('<br>') + 
-                        (result.errors.length > 10 ? `<br>... and ${result.errors.length - 10} more` : '');
-                    showAlert(`Inventory collected: ${result.success} success, ${result.failed} failed`, 'warning');
-                } else {
-                    showAlert(`Successfully collected inventory for ${result.success} servers in parallel!`, 'success');
-                }
+                eventSource.onerror = (e) => {
+                    eventSource.close();
+                    clearInterval(elapsedTimer);
+                    
+                    // If we got some progress, show what we have
+                    if (completed > 0) {
+                        progressBar.style.width = '100%';
+                        progressCount.textContent = `${success} / ${total}`;
+                        progressText.textContent = '⚠️ Connection lost, partial results shown';
+                    } else {
+                        showAlert('Connection to server lost', 'error');
+                        progressText.textContent = '❌ Connection failed';
+                    }
+                    
+                    btn.disabled = false;
+                    btn.innerHTML = '📦 Collect All Inventory';
+                };
                 
             } catch (e) {
                 clearInterval(elapsedTimer);
                 showAlert('Failed to collect inventory: ' + e.message, 'error');
                 progressText.textContent = '❌ Collection failed';
-                progressBarAnimated.style.display = 'none';
-                progressBar.style.display = 'block';
                 progressBar.style.width = '0%';
-            } finally {
                 btn.disabled = false;
                 btn.innerHTML = '📦 Collect All Inventory';
             }

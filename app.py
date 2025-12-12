@@ -7735,6 +7735,92 @@ def api_collect_all_inventory():
     return jsonify(results)
 
 
+@app.route('/api/inventory/collect-all/stream', methods=['GET'])
+@write_required
+def api_collect_all_inventory_stream():
+    """Collect inventory with SSE streaming progress updates"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    import queue
+    
+    def generate():
+        # Get server list inside the generator with app context
+        with app.app_context():
+            servers = Server.query.filter_by(enabled=True).all()
+            server_list = [(s.bmc_ip, s.server_name, s.server_ip) for s in servers]
+        
+        total = len(server_list)
+        num_workers = min(get_collection_workers(), 8)
+        
+        # Send initial status
+        yield f"data: {json.dumps({'type': 'start', 'total': total, 'workers': num_workers})}\n\n"
+        
+        results = {'success': 0, 'failed': 0, 'skipped': 0, 'errors': []}
+        progress_queue = queue.Queue()
+        
+        def collect_one(bmc_ip, server_name, server_ip):
+            """Collect inventory for a single server and report progress"""
+            with app.app_context():
+                try:
+                    status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+                    if status and not status.is_reachable:
+                        progress_queue.put({'bmc_ip': bmc_ip, 'name': server_name, 'status': 'skipped', 'reason': 'unreachable'})
+                        return 'skipped'
+                    
+                    ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+                    collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip)
+                    progress_queue.put({'bmc_ip': bmc_ip, 'name': server_name, 'status': 'success'})
+                    return 'success'
+                except Exception as e:
+                    progress_queue.put({'bmc_ip': bmc_ip, 'name': server_name, 'status': 'error', 'error': str(e)})
+                    return 'error'
+        
+        # Start workers in background thread
+        def run_workers():
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {executor.submit(collect_one, bmc, name, ip): bmc for bmc, name, ip in server_list}
+                for future in as_completed(futures):
+                    try:
+                        future.result(timeout=120)
+                    except Exception:
+                        pass
+            progress_queue.put(None)  # Signal completion
+        
+        worker_thread = threading.Thread(target=run_workers, daemon=True)
+        worker_thread.start()
+        
+        # Stream progress updates
+        completed = 0
+        while True:
+            try:
+                update = progress_queue.get(timeout=1)
+                if update is None:
+                    break
+                
+                completed += 1
+                if update['status'] == 'success':
+                    results['success'] += 1
+                elif update['status'] == 'skipped':
+                    results['skipped'] += 1
+                else:
+                    results['failed'] += 1
+                    results['errors'].append({'bmc_ip': update['bmc_ip'], 'error': update.get('error', 'Unknown')})
+                
+                yield f"data: {json.dumps({'type': 'progress', 'completed': completed, 'total': total, 'current': update})}\n\n"
+            except queue.Empty:
+                # Send heartbeat to keep connection alive
+                yield f"data: {json.dumps({'type': 'heartbeat', 'completed': completed, 'total': total})}\n\n"
+        
+        # Send final results
+        yield f"data: {json.dumps({'type': 'complete', 'results': results})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'  # Disable nginx buffering
+    })
+
+
 def infer_manufacturer(product_name, board_product=None):
     """Infer manufacturer from product name patterns
     
