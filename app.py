@@ -32,6 +32,13 @@ os.makedirs(DATA_DIR, exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/ipmi_events.db'
 app.config['DATA_DIR'] = DATA_DIR
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# SQLite connection pool settings for multi-threaded access
+# Use NullPool to avoid connection pool exhaustion with parallel workers
+from sqlalchemy.pool import NullPool
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'poolclass': NullPool,  # Each thread gets its own connection, closes when done
+    'connect_args': {'check_same_thread': False, 'timeout': 60}  # Allow multi-threaded access, longer timeout
+}
 
 # Security Configuration
 SECRET_KEY = os.environ.get('SECRET_KEY')
@@ -7700,8 +7707,8 @@ def api_collect_all_inventory():
             except Exception as e:
                 return str(e)
     
-    # Use parallel workers (same as collection workers)
-    num_workers = get_collection_workers()
+    # Use parallel workers - cap at 8 to avoid SQLite connection issues
+    num_workers = min(get_collection_workers(), 8)
     print(f"[Inventory] Starting parallel collection for {len(server_list)} servers with {num_workers} workers...", flush=True)
     
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
