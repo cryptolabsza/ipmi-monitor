@@ -39,6 +39,10 @@ data/
 *.log
 logs/
 
+# Sensitive local artifacts
+cookies.txt
+cookies*.txt
+
 # Collected data
 collected_logs/
 

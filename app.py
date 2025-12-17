@@ -18,9 +18,12 @@ import time
 import json
 import os
 import re
+import hmac
+import ipaddress
 import requests
 import urllib3
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Suppress SSL warnings for self-signed BMC certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -1650,7 +1653,10 @@ class User(db.Model):
     """
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), nullable=False, unique=True)
-    password_hash = db.Column(db.String(64), nullable=False)  # SHA256 hash
+    # NOTE: Historically this was a raw SHA256 hex digest. We now store
+    # Werkzeug password hashes (pbkdf2/scrypt) and transparently support
+    # legacy hashes for upgrade-on-login.
+    password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default='readonly')  # admin, readwrite, readonly
     enabled = db.Column(db.Boolean, default=True)
     password_changed = db.Column(db.Boolean, default=False)  # True after first password change
@@ -1664,11 +1670,32 @@ class User(db.Model):
     
     @staticmethod
     def hash_password(password):
-        import hashlib
-        return hashlib.sha256(password.encode()).hexdigest()
+        # New default: slow password hashing
+        return generate_password_hash(password)
+
+    def set_password(self, password: str) -> None:
+        self.password_hash = User.hash_password(password)
     
     def verify_password(self, password):
-        return self.password_hash == User.hash_password(password)
+        stored = (self.password_hash or '').strip()
+        # Legacy SHA256 hex (unsalted) support
+        if re.fullmatch(r"[0-9a-f]{64}", stored):
+            import hashlib
+            ok = hmac.compare_digest(stored, hashlib.sha256(password.encode()).hexdigest())
+            if ok:
+                # Upgrade hash in-place on successful login
+                try:
+                    self.password_hash = generate_password_hash(password)
+                    self.password_changed = True
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+            return ok
+        # Modern Werkzeug hash
+        try:
+            return check_password_hash(stored, password)
+        except Exception:
+            return False
     
     def is_admin(self):
         return self.role == 'admin'
@@ -1730,15 +1757,14 @@ class AdminConfig(db.Model):
     """Deprecated - use User model instead. Kept for migration."""
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), nullable=False, default='admin')
-    password_hash = db.Column(db.String(64), nullable=False)  # SHA256 hash
+    password_hash = db.Column(db.String(255), nullable=False)
     password_changed = db.Column(db.Boolean, default=False)  # True after first password change
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     @staticmethod
     def hash_password(password):
-        import hashlib
-        return hashlib.sha256(password.encode()).hexdigest()
+        return generate_password_hash(password)
     
     @staticmethod
     def initialize_default():
@@ -5936,6 +5962,13 @@ def sync_timer():
     while not _shutdown_event.is_set():
         try:
             with app.app_context():
+                # ALWAYS send telemetry for all instances (free and paid)
+                # This populates the Instances tab in the admin console
+                try:
+                    sync_telemetry()
+                except Exception as tel_err:
+                    print(f"[Sync Timer] Telemetry error (non-critical): {tel_err}", flush=True)
+                
                 config = CloudSync.get_config()
                 
                 if config.sync_enabled and config.license_key:
@@ -6787,6 +6820,573 @@ def api_bmc_status(bmc_ip):
     except subprocess.TimeoutExpired:
         return jsonify({'status': 'error', 'message': 'Timeout getting BMC info'}), 500
     except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# =============================================================================
+# DIAGNOSTICS API - For investigating unknown issues and collecting raw data
+# =============================================================================
+
+@app.route('/api/server/<bmc_ip>/diagnostics/sel-raw', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_diagnostics_sel_raw(bmc_ip):
+    """
+    Get raw SEL (System Event Log) output without parsing.
+    
+    Useful for unknown BMC types where parsing fails, or for
+    sending raw data to AI service for analysis.
+    
+    Returns the raw ipmitool output as-is.
+    """
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        
+        # Get raw SEL elist output
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+               '-U', user, '-P', password, 'sel', 'elist']
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        server_name = server.server_name if server else bmc_ip
+        
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            return jsonify({
+                'status': 'success',
+                'bmc_ip': bmc_ip,
+                'server_name': server_name,
+                'event_count': len(lines),
+                'raw_output': result.stdout,
+                'collected_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'SEL collection failed: {result.stderr}',
+                'raw_output': result.stderr
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Timeout collecting SEL'}), 500
+    except Exception as e:
+        app.logger.error(f"Diagnostics SEL raw error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/diagnostics/sensors-raw', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_diagnostics_sensors_raw(bmc_ip):
+    """
+    Get raw sensor output with all thresholds and values.
+    
+    Returns full ipmitool sensor output including thresholds.
+    """
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        
+        # Get full sensor output with thresholds
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+               '-U', user, '-P', password, 'sensor']
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        server_name = server.server_name if server else bmc_ip
+        
+        if result.returncode == 0:
+            lines = result.stdout.strip().split('\n')
+            return jsonify({
+                'status': 'success',
+                'bmc_ip': bmc_ip,
+                'server_name': server_name,
+                'sensor_count': len(lines),
+                'raw_output': result.stdout,
+                'collected_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Sensor collection failed: {result.stderr}',
+                'raw_output': result.stderr
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Timeout collecting sensors'}), 500
+    except Exception as e:
+        app.logger.error(f"Diagnostics sensors raw error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/diagnostics/fru', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_diagnostics_fru(bmc_ip):
+    """
+    Get FRU (Field Replaceable Unit) information.
+    
+    Contains hardware inventory including serial numbers, part numbers, etc.
+    """
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        
+        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+               '-U', user, '-P', password, 'fru', 'print']
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        server_name = server.server_name if server else bmc_ip
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'bmc_ip': bmc_ip,
+                'server_name': server_name,
+                'raw_output': result.stdout,
+                'collected_at': datetime.utcnow().isoformat() + 'Z'
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'FRU collection failed: {result.stderr}'
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': 'Timeout collecting FRU'}), 500
+    except Exception as e:
+        app.logger.error(f"Diagnostics FRU error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/diagnostics/ssh-logs', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_diagnostics_ssh_logs(bmc_ip):
+    """
+    Collect system logs via SSH.
+    
+    Collects:
+    - dmesg (kernel ring buffer)
+    - journalctl errors (last 100)
+    - nvidia-smi query (if GPUs present)
+    - /var/log/messages (last 200 lines)
+    
+    Requires SSH access to the server.
+    """
+    # Get server config for SSH
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'status': 'error', 'message': 'Server not found'}), 404
+    
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config or not config.server_ip:
+        return jsonify({
+            'status': 'error',
+            'message': 'SSH not configured for this server. Please configure server IP and SSH credentials.'
+        }), 400
+    
+    # Get SSH credentials
+    ssh_user = config.ssh_user or 'root'
+    ssh_key_content = None
+    if config.ssh_key_id:
+        key = SSHKey.query.get(config.ssh_key_id)
+        if key:
+            ssh_key_content = key.key_content
+    
+    logs = {
+        'bmc_ip': bmc_ip,
+        'server_name': server.server_name,
+        'server_ip': config.server_ip,
+        'collected_at': datetime.utcnow().isoformat() + 'Z',
+        'logs': {}
+    }
+    
+    # Define log collection commands
+    log_commands = {
+        'dmesg': 'dmesg -T 2>/dev/null || dmesg',
+        'journalctl_errors': 'journalctl -p err -n 100 --no-pager 2>/dev/null || echo "journalctl not available"',
+        'nvidia_smi': 'nvidia-smi -q 2>/dev/null || echo "NVIDIA GPU not detected or nvidia-smi not installed"',
+        'messages': 'tail -200 /var/log/messages 2>/dev/null || tail -200 /var/log/syslog 2>/dev/null || echo "System log not found"',
+        'mcelog': 'cat /var/log/mcelog 2>/dev/null || echo "mcelog not available"',
+        'xid_errors': 'dmesg | grep -i "xid" 2>/dev/null || echo "No XID errors found"'
+    }
+    
+    try:
+        for log_type, cmd in log_commands.items():
+            try:
+                output = run_ssh_command(
+                    config.server_ip,
+                    cmd,
+                    ssh_user=ssh_user,
+                    ssh_key_content=ssh_key_content,
+                    ssh_pass=getattr(config, 'ssh_pass', None)
+                )
+                logs['logs'][log_type] = {
+                    'status': 'success',
+                    'output': output,
+                    'lines': len(output.strip().split('\n')) if output.strip() else 0
+                }
+            except Exception as e:
+                logs['logs'][log_type] = {
+                    'status': 'error',
+                    'error': str(e)
+                }
+        
+        logs['status'] = 'success'
+        return jsonify(logs)
+        
+    except Exception as e:
+        app.logger.error(f"Diagnostics SSH logs error for {bmc_ip}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/diagnostics/full', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_diagnostics_full_package(bmc_ip):
+    """
+    Collect full diagnostic package as a ZIP bundle.
+    
+    Includes:
+    - Raw SEL events
+    - Raw sensor data
+    - FRU information
+    - SSH logs (if SSH configured)
+    - Server inventory
+    - Recent events from database
+    
+    Returns a downloadable ZIP file.
+    """
+    import io
+    import zipfile
+    
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'status': 'error', 'message': 'Server not found'}), 404
+    
+    server_name = server.server_name or bmc_ip
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    
+    # Create ZIP in memory
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Add metadata
+        metadata = {
+            'bmc_ip': bmc_ip,
+            'server_name': server_name,
+            'collected_at': datetime.utcnow().isoformat() + 'Z',
+            'ipmi_monitor_version': get_version_string()
+        }
+        zf.writestr('metadata.json', json.dumps(metadata, indent=2))
+        
+        user, password = get_ipmi_credentials(bmc_ip)
+        
+        # Collect raw SEL
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', user, '-P', password, 'sel', 'elist']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                zf.writestr('ipmi/sel_raw.txt', result.stdout)
+            else:
+                zf.writestr('ipmi/sel_raw.txt', f'Error: {result.stderr}')
+        except Exception as e:
+            zf.writestr('ipmi/sel_raw.txt', f'Error: {str(e)}')
+        
+        # Collect raw sensors
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', user, '-P', password, 'sensor']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0:
+                zf.writestr('ipmi/sensors_raw.txt', result.stdout)
+            else:
+                zf.writestr('ipmi/sensors_raw.txt', f'Error: {result.stderr}')
+        except Exception as e:
+            zf.writestr('ipmi/sensors_raw.txt', f'Error: {str(e)}')
+        
+        # Collect FRU
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', user, '-P', password, 'fru', 'print']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0:
+                zf.writestr('ipmi/fru.txt', result.stdout)
+            else:
+                zf.writestr('ipmi/fru.txt', f'Error: {result.stderr}')
+        except Exception as e:
+            zf.writestr('ipmi/fru.txt', f'Error: {str(e)}')
+        
+        # Collect SDR (Sensor Data Repository)
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', user, '-P', password, 'sdr', 'elist']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if result.returncode == 0:
+                zf.writestr('ipmi/sdr.txt', result.stdout)
+            else:
+                zf.writestr('ipmi/sdr.txt', f'Error: {result.stderr}')
+        except Exception as e:
+            zf.writestr('ipmi/sdr.txt', f'Error: {str(e)}')
+        
+        # Collect BMC info
+        try:
+            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                   '-U', user, '-P', password, 'mc', 'info']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                zf.writestr('ipmi/bmc_info.txt', result.stdout)
+            else:
+                zf.writestr('ipmi/bmc_info.txt', f'Error: {result.stderr}')
+        except Exception as e:
+            zf.writestr('ipmi/bmc_info.txt', f'Error: {str(e)}')
+        
+        # Add database events
+        try:
+            events = IPMIEvent.query.filter_by(bmc_ip=bmc_ip).order_by(IPMIEvent.event_date.desc()).limit(500).all()
+            events_data = [{
+                'id': e.id,
+                'event_date': e.event_date.isoformat() if e.event_date else None,
+                'sensor_type': e.sensor_type,
+                'event_description': e.event_description,
+                'severity': e.severity,
+                'sel_id': e.sel_id
+            } for e in events]
+            zf.writestr('database/events.json', json.dumps(events_data, indent=2))
+        except Exception as e:
+            zf.writestr('database/events.json', json.dumps({'error': str(e)}))
+        
+        # Add server inventory
+        try:
+            inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+            if inventory:
+                inv_data = {
+                    'bmc_ip': inventory.bmc_ip,
+                    'server_name': inventory.server_name,
+                    'manufacturer': inventory.manufacturer,
+                    'model': inventory.model,
+                    'serial_number': inventory.serial_number,
+                    'cpu_count': inventory.cpu_count,
+                    'cpu_model': inventory.cpu_model,
+                    'total_memory_gb': inventory.total_memory_gb,
+                    'gpu_count': inventory.gpu_count,
+                    'gpu_model': inventory.gpu_model,
+                    'collected_at': inventory.collected_at.isoformat() if inventory.collected_at else None
+                }
+                zf.writestr('database/inventory.json', json.dumps(inv_data, indent=2))
+        except Exception as e:
+            zf.writestr('database/inventory.json', json.dumps({'error': str(e)}))
+        
+        # Collect SSH logs if configured
+        config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+        if config and config.server_ip:
+            ssh_user = config.ssh_user or 'root'
+            ssh_key_content = None
+            if config.ssh_key_id:
+                key = SSHKey.query.get(config.ssh_key_id)
+                if key:
+                    ssh_key_content = key.key_content
+            
+            ssh_commands = {
+                'dmesg.txt': 'dmesg -T 2>/dev/null || dmesg',
+                'journalctl_errors.txt': 'journalctl -p err -n 200 --no-pager 2>/dev/null || echo "unavailable"',
+                'nvidia_smi.txt': 'nvidia-smi -q 2>/dev/null || echo "unavailable"',
+                'messages.txt': 'tail -500 /var/log/messages 2>/dev/null || tail -500 /var/log/syslog 2>/dev/null || echo "unavailable"',
+                'mcelog.txt': 'cat /var/log/mcelog 2>/dev/null || echo "unavailable"',
+                'xid_errors.txt': 'dmesg | grep -i "xid" 2>/dev/null || echo "none found"'
+            }
+            
+            for filename, cmd in ssh_commands.items():
+                try:
+                    output = run_ssh_command(
+                        config.server_ip, cmd,
+                        ssh_user=ssh_user,
+                        ssh_key_content=ssh_key_content,
+                        ssh_pass=getattr(config, 'ssh_pass', None)
+                    )
+                    zf.writestr(f'ssh/{filename}', output)
+                except Exception as e:
+                    zf.writestr(f'ssh/{filename}', f'Error: {str(e)}')
+    
+    # Prepare response
+    zip_buffer.seek(0)
+    
+    from flask import send_file
+    return send_file(
+        zip_buffer,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f'diagnostics_{server_name}_{timestamp}.zip'
+    )
+
+
+@app.route('/api/server/<bmc_ip>/execute', methods=['POST'])
+@admin_required
+@require_valid_bmc_ip
+def api_execute_command(bmc_ip):
+    """
+    Execute custom IPMI or SSH command on a server.
+    
+    ADMIN ONLY - All commands are audit logged.
+    
+    Request body:
+    {
+        "type": "ipmi" | "ssh",
+        "command": "the command to execute",
+        "timeout": 30  // optional, default 30 seconds
+    }
+    
+    WARNING: This is a powerful feature for diagnostics.
+    All executions are logged for security audit.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Request body required'}), 400
+    
+    cmd_type = data.get('type', 'ipmi')
+    command = data.get('command', '')
+    timeout = min(data.get('timeout', 30), 120)  # Max 2 minutes
+    
+    if not command:
+        return jsonify({'status': 'error', 'message': 'Command required'}), 400
+    
+    # Validate command type
+    if cmd_type not in ['ipmi', 'ssh']:
+        return jsonify({'status': 'error', 'message': 'Invalid command type. Use "ipmi" or "ssh"'}), 400
+    
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    server_name = server.server_name if server else bmc_ip
+    
+    # Get admin username for audit
+    admin_username = session.get('username', 'unknown')
+    
+    # Audit log entry
+    audit_entry = {
+        'timestamp': datetime.utcnow().isoformat() + 'Z',
+        'admin_user': admin_username,
+        'bmc_ip': bmc_ip,
+        'server_name': server_name,
+        'command_type': cmd_type,
+        'command': command,
+        'timeout': timeout,
+        'source_ip': request.remote_addr
+    }
+    
+    app.logger.warning(f"AUDIT: Custom command execution by {admin_username} on {server_name}: [{cmd_type}] {command}")
+    
+    try:
+        if cmd_type == 'ipmi':
+            # Execute IPMI command
+            user, password = get_ipmi_credentials(bmc_ip)
+            
+            # Validate the command doesn't contain dangerous operations
+            dangerous_patterns = ['sel', 'clear', 'user', 'password', 'set', 'chassis']
+            cmd_lower = command.lower()
+            if any(pattern in cmd_lower for pattern in dangerous_patterns):
+                # Allow but warn about dangerous commands
+                app.logger.warning(f"AUDIT: Potentially dangerous IPMI command: {command}")
+            
+            # Build IPMI command - only allow specific commands for safety
+            cmd_parts = command.split()
+            full_cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                       '-U', user, '-P', password] + cmd_parts
+            
+            result = subprocess.run(full_cmd, capture_output=True, text=True, timeout=timeout)
+            
+            audit_entry['exit_code'] = result.returncode
+            audit_entry['output_lines'] = len(result.stdout.strip().split('\n')) if result.stdout else 0
+            
+            # Log the audit entry as an event
+            event = IPMIEvent(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                event_date=datetime.utcnow(),
+                sensor_type='Admin Command',
+                event_description=f'IPMI command executed by {admin_username}: {command[:100]}...',
+                severity='info',
+                sel_id='ADMIN-CMD'
+            )
+            db.session.add(event)
+            db.session.commit()
+            
+            return jsonify({
+                'status': 'success' if result.returncode == 0 else 'error',
+                'exit_code': result.returncode,
+                'stdout': result.stdout,
+                'stderr': result.stderr,
+                'audit': {
+                    'logged': True,
+                    'admin_user': admin_username,
+                    'timestamp': audit_entry['timestamp']
+                }
+            })
+            
+        elif cmd_type == 'ssh':
+            # Execute SSH command
+            config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+            if not config or not config.server_ip:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'SSH not configured for this server'
+                }), 400
+            
+            ssh_user = config.ssh_user or 'root'
+            ssh_key_content = None
+            if config.ssh_key_id:
+                key = SSHKey.query.get(config.ssh_key_id)
+                if key:
+                    ssh_key_content = key.key_content
+            
+            # Log the audit entry as an event
+            event = IPMIEvent(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                event_date=datetime.utcnow(),
+                sensor_type='Admin Command',
+                event_description=f'SSH command executed by {admin_username}: {command[:100]}...',
+                severity='info',
+                sel_id='ADMIN-SSH'
+            )
+            db.session.add(event)
+            db.session.commit()
+            
+            try:
+                output = run_ssh_command(
+                    config.server_ip,
+                    command,
+                    ssh_user=ssh_user,
+                    ssh_key_content=ssh_key_content,
+                    ssh_pass=getattr(config, 'ssh_pass', None)
+                )
+                
+                return jsonify({
+                    'status': 'success',
+                    'stdout': output,
+                    'audit': {
+                        'logged': True,
+                        'admin_user': admin_username,
+                        'timestamp': audit_entry['timestamp']
+                    }
+                })
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'message': str(e),
+                    'audit': {
+                        'logged': True,
+                        'admin_user': admin_username,
+                        'timestamp': audit_entry['timestamp']
+                    }
+                }), 500
+                
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': f'Command timed out after {timeout}s'}), 500
+    except Exception as e:
+        app.logger.error(f"Execute command error for {bmc_ip}: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
@@ -9354,6 +9954,25 @@ def api_complete_setup():
         "ai": { "api_key": "sk-...", "enabled": true }
     }
     """
+    # SECURITY: First-run setup is extremely sensitive. In production, set
+    # ADMIN_SECRET and pass it as X-Setup-Secret to prevent takeover.
+    if is_setup_complete():
+        return jsonify({'status': 'error', 'error': 'Setup already completed'}), 400
+
+    setup_secret = os.environ.get('ADMIN_SECRET', '').strip()
+    provided_secret = (request.headers.get('X-Setup-Secret') or request.args.get('setup_secret') or '').strip()
+    if setup_secret:
+        if not provided_secret or not hmac.compare_digest(provided_secret, setup_secret):
+            return jsonify({'status': 'error', 'error': 'Setup authentication required'}), 401
+    else:
+        # If no secret is configured, only allow setup from localhost/private IPs
+        try:
+            remote_ip = ipaddress.ip_address(request.remote_addr or '0.0.0.0')
+            if not (remote_ip.is_loopback or remote_ip.is_private):
+                return jsonify({'status': 'error', 'error': 'Setup restricted; configure ADMIN_SECRET'}), 403
+        except Exception:
+            return jsonify({'status': 'error', 'error': 'Setup restricted; configure ADMIN_SECRET'}), 403
+
     data = request.get_json() or {}
     
     try:
@@ -9429,7 +10048,7 @@ def api_complete_setup():
         
     except Exception as e:
         app.logger.error(f"Setup error: {e}")
-        return jsonify({'status': 'error', 'error': str(e)}), 500
+        return jsonify({'status': 'error', 'error': safe_error_message(e, "Setup failed")}), 500
 
 
 @app.route('/api/servers/init-from-defaults', methods=['POST'])
@@ -10974,7 +11593,7 @@ def change_password():
                             return render_template('change_password.html', error=error, must_change=needs_password_change())
                     
                     user.username = new_username
-                    user.password_hash = User.hash_password(new_password)
+                    user.set_password(new_password)
                     user.password_changed = True
                 
                 db.session.commit()
@@ -11071,7 +11690,7 @@ def api_update_admin_credentials():
             session['username'] = new_username
         
         if new_password:
-            user.password_hash = User.hash_password(new_password)
+            user.set_password(new_password)
             user.password_changed = True
         
         db.session.commit()
@@ -11499,7 +12118,7 @@ def api_oauth_callback():
                             subscription: '{{ subscription }}',
                             user_email: '{{ user_email }}',
                             user_name: '{{ user_name }}'
-                        }, '*');
+                        }, window.location.origin);
                         
                         // Auto-close after 2 seconds
                         setTimeout(() => window.close(), 2000);
@@ -13136,8 +13755,10 @@ def api_backup_full():
     
     Query params:
     - download: Return as downloadable file (default: false)
+    - include_secrets: Include sensitive secrets (passwords, SSH keys, tokens). Default: false
     """
     try:
+        include_secrets = request.args.get('include_secrets', 'false').lower() == 'true'
         backup = {
             'backup_version': '2.0',
             'app_version': get_version_string(),
@@ -13164,34 +13785,37 @@ def api_backup_full():
                 'status': getattr(s, 'status', None),
             })
         
-        # Server configs (with credentials)
+        # Server configs (redact credentials unless include_secrets=true)
         for c in ServerConfig.query.all():
             backup['server_configs'].append({
                 'bmc_ip': c.bmc_ip,
                 'server_name': c.server_name,
                 'server_ip': c.server_ip,
                 'ipmi_user': c.ipmi_user,
-                'ipmi_pass': c.ipmi_pass,
+                'ipmi_pass': c.ipmi_pass if include_secrets else None,
+                'has_ipmi_pass': bool(c.ipmi_pass),
                 'ssh_user': c.ssh_user,
-                'ssh_pass': getattr(c, 'ssh_pass', None),
+                'ssh_pass': getattr(c, 'ssh_pass', None) if include_secrets else None,
+                'has_ssh_pass': bool(getattr(c, 'ssh_pass', None)),
                 'ssh_key_id': c.ssh_key_id,
                 'ssh_port': c.ssh_port,
             })
         
-        # SSH keys (with content)
+        # SSH keys (redact private key material unless include_secrets=true)
         for k in SSHKey.query.all():
             backup['ssh_keys'].append({
                 'id': k.id,
                 'name': k.name,
-                'key_content': k.key_content,
+                'key_content': k.key_content if include_secrets else None,
                 'fingerprint': k.fingerprint,
             })
         
-        # System settings
+        # System settings (redact sensitive settings unless include_secrets=true)
+        sensitive_patterns = re.compile(r"(pass(word)?|secret|token|api[_-]?key|license|private[_-]?key)", re.IGNORECASE)
         for s in SystemSettings.query.all():
             backup['system_settings'].append({
                 'key': s.key,
-                'value': s.value,
+                'value': s.value if (include_secrets or not sensitive_patterns.search(s.key or '')) else None,
             })
         
         # Alert rules
@@ -13213,28 +13837,28 @@ def api_backup_full():
                 'confirm_count': getattr(a, 'confirm_count', 1),
             })
         
-        # Users (with password hashes for restore)
+        # Users (no password hashes; restore requires manual password resets)
         for u in User.query.all():
             backup['users'].append({
                 'username': u.username,
-                'password_hash': u.password_hash,
                 'role': u.role,
                 'enabled': u.enabled,
+                'password_changed': u.password_changed,
             })
         
-        # Notification configs
+        # Notification configs (redact config unless include_secrets=true)
         for n in NotificationConfig.query.all():
             backup['notification_configs'].append({
                 'channel_type': n.channel_type,
                 'enabled': n.enabled,
-                'config_json': n.config_json,
+                'config_json': n.config_json if include_secrets else None,
             })
         
-        # AI config
+        # AI config (redact license key unless include_secrets=true)
         ai_config = CloudSync.get_config()
         backup['ai_config'] = {
             'sync_enabled': ai_config.sync_enabled,
-            'license_key': ai_config.license_key,
+            'license_key': ai_config.license_key if include_secrets else None,
             'subscription_tier': ai_config.subscription_tier,
         }
         
@@ -13420,22 +14044,26 @@ def api_restore_full():
             except Exception as e:
                 results['errors'].append(f"Alert rule {a.get('name')}: {str(e)}")
         
-        # Restore users (but don't overwrite current admin to avoid lockout)
+        # Restore users: do NOT restore passwords. Admin should recreate/reset users explicitly.
+        # We still restore usernames/roles/enabled for convenience.
         for u in data.get('users', []):
             try:
-                existing = User.query.filter_by(username=u['username']).first()
+                username = u.get('username')
+                if not username:
+                    continue
+                existing = User.query.filter_by(username=username).first()
                 if existing:
-                    # Only update non-admin users or if explicitly included
-                    if u['username'] != 'admin':
-                        existing.password_hash = u.get('password_hash', existing.password_hash)
+                    if username != 'admin':
                         existing.role = u.get('role', existing.role)
                         existing.enabled = u.get('enabled', True)
+                        existing.password_changed = u.get('password_changed', existing.password_changed)
                 else:
                     new_user = User(
-                        username=u['username'],
-                        password_hash=u.get('password_hash'),
-                        role=u.get('role', 'view'),
-                        enabled=u.get('enabled', True)
+                        username=username,
+                        password_hash=User.hash_password(os.urandom(24).hex()),  # random unknown password
+                        role=u.get('role', 'readonly'),
+                        enabled=u.get('enabled', True),
+                        password_changed=False
                     )
                     db.session.add(new_user)
                 results['users'] += 1

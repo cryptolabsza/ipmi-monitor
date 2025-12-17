@@ -2607,6 +2607,61 @@
             }
         });
         
+        // ============== AI Embed Configuration ==============
+        let aiEmbedConfig = null;
+        let useAiEmbeds = false;
+        
+        async function loadAiEmbedConfig() {
+            try {
+                const response = await fetch('/api/ai/embed-config');
+                if (response.ok) {
+                    aiEmbedConfig = await response.json();
+                    useAiEmbeds = aiEmbedConfig.enabled;
+                    console.log('AI embed config loaded:', aiEmbedConfig);
+                }
+            } catch (e) {
+                console.log('AI embed config not available, using inline mode');
+                useAiEmbeds = false;
+            }
+        }
+        
+        function loadAiTabEmbed(tabName) {
+            if (!aiEmbedConfig || !aiEmbedConfig.embeds) return false;
+            
+            const embedUrl = aiEmbedConfig.embeds[tabName];
+            if (!embedUrl) return false;
+            
+            const tabId = 'aiTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1);
+            const tabContent = document.getElementById(tabId);
+            if (!tabContent) return false;
+            
+            // Check if iframe already exists
+            const existingIframe = tabContent.querySelector('.ai-embed-iframe');
+            if (existingIframe) {
+                return true; // Already loaded
+            }
+            
+            // Add iframe container
+            const iframeHtml = `
+                <div class="ai-embed-container" style="flex: 1; display: flex; flex-direction: column;">
+                    <iframe class="ai-embed-iframe" 
+                            src="${embedUrl}" 
+                            style="flex: 1; width: 100%; min-height: 400px; border: none; border-radius: 8px;"
+                            allowfullscreen></iframe>
+                </div>
+            `;
+            
+            // For tabs with inline content, we can optionally hide inline and show iframe
+            // For now, append the iframe and hide inline content
+            const inlineContent = tabContent.querySelector('.ai-options, .ai-generate-btn, .ai-output');
+            if (inlineContent) {
+                // Keep inline content for fallback, just use iframe on top
+            }
+            
+            tabContent.innerHTML = iframeHtml;
+            return true;
+        }
+        
         function switchAiTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.ai-tab').forEach(tab => tab.classList.remove('active'));
@@ -2616,8 +2671,13 @@
             document.querySelectorAll('.ai-tab-content').forEach(content => content.classList.remove('active'));
             document.getElementById('aiTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
             
-            // Load RCA events when switching to RCA tab
-            if (tabName === 'rca') {
+            // Try to load embed for this tab if embeds are enabled
+            if (useAiEmbeds && ['summary', 'tasks', 'predictions', 'rca'].includes(tabName)) {
+                loadAiTabEmbed(tabName);
+            }
+            
+            // Load RCA events when switching to RCA tab (fallback for inline mode)
+            if (tabName === 'rca' && !useAiEmbeds) {
                 loadEventsForRca();
             }
             
@@ -2942,9 +3002,10 @@
             }
         }
         
-        // Load agent settings on page load
+        // Load agent settings and embed config on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadAgentSettings();
+            loadAiEmbedConfig();
         });
         
         // Save agent permissions when changed

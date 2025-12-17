@@ -568,6 +568,76 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Diagnostics Section -->
+            <div class="card admin-required" style="margin-top: 20px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">🔧 Diagnostics</h2>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                    <!-- Raw SEL Download -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📋 Raw SEL Log</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            Collect unparsed IPMI SEL events
+                        </div>
+                        <button class="btn btn-secondary" onclick="downloadRawSel()" style="width: 100%;">
+                            Download Raw SEL
+                        </button>
+                    </div>
+                    
+                    <!-- Raw Sensors Download -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">🌡️ Raw Sensor Data</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            All sensors with thresholds
+                        </div>
+                        <button class="btn btn-secondary" onclick="downloadRawSensors()" style="width: 100%;">
+                            Download Sensors
+                        </button>
+                    </div>
+                    
+                    <!-- SSH Logs -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">🖥️ SSH Logs</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            dmesg, journalctl, GPU logs
+                        </div>
+                        <button class="btn btn-secondary" onclick="collectSshLogs()" style="width: 100%;">
+                            Collect SSH Logs
+                        </button>
+                    </div>
+                    
+                    <!-- Full Diagnostic Package -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--accent-blue);">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📦 Full Diagnostic Package</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            Everything in a ZIP bundle
+                        </div>
+                        <button class="btn" onclick="downloadFullDiagnostics()" style="width: 100%;">
+                            Download ZIP
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Custom Command Section -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <div style="font-weight: 600; margin-bottom: 10px;">⚡ Custom Command (Admin Only)</div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <select id="cmdType" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary);">
+                            <option value="ipmi">IPMI</option>
+                            <option value="ssh">SSH</option>
+                        </select>
+                        <input type="text" id="customCmd" placeholder="Enter command (e.g., sensor list)" 
+                               style="flex: 1; min-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">
+                        <button class="btn" onclick="executeCustomCommand()">Execute</button>
+                    </div>
+                    <div id="cmdOutput" style="margin-top: 15px; display: none;">
+                        <div style="background: #000; color: #0f0; padding: 15px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; white-space: pre-wrap; overflow-x: auto; max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -1297,6 +1367,140 @@
         // Initial load
         checkAuthAndSetup();
         loadEvents();
+        
+        // ============== Diagnostics Functions ==============
+        
+        async function downloadRawSel() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/diagnostics/sel-raw`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Create downloadable text file
+                    const blob = new Blob([data.raw_output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sel_raw_${bmcIp}_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to collect SEL'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        async function downloadRawSensors() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/diagnostics/sensors-raw`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const blob = new Blob([data.raw_output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sensors_raw_${bmcIp}_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to collect sensors'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        async function collectSshLogs() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/diagnostics/ssh-logs`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Format logs for download
+                    let output = `SSH Logs for ${data.server_name} (${data.server_ip})\n`;
+                    output += `Collected at: ${data.collected_at}\n`;
+                    output += '='.repeat(80) + '\n\n';
+                    
+                    for (const [logType, logData] of Object.entries(data.logs)) {
+                        output += `\n${'='.repeat(40)}\n`;
+                        output += `${logType.toUpperCase()}\n`;
+                        output += `${'='.repeat(40)}\n\n`;
+                        
+                        if (logData.status === 'success') {
+                            output += logData.output + '\n';
+                        } else {
+                            output += `Error: ${logData.error}\n`;
+                        }
+                    }
+                    
+                    const blob = new Blob([output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ssh_logs_${bmcIp}_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to collect SSH logs'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        function downloadFullDiagnostics() {
+            // Direct download - the endpoint returns a ZIP file
+            window.location.href = `/api/server/${bmcIp}/diagnostics/full`;
+        }
+        
+        async function executeCustomCommand() {
+            const cmdType = document.getElementById('cmdType').value;
+            const command = document.getElementById('customCmd').value.trim();
+            
+            if (!command) {
+                alert('Please enter a command');
+                return;
+            }
+            
+            const outputDiv = document.getElementById('cmdOutput');
+            const outputContent = outputDiv.querySelector('div');
+            
+            outputDiv.style.display = 'block';
+            outputContent.textContent = 'Executing...';
+            
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: cmdType,
+                        command: command,
+                        timeout: 60
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    outputContent.textContent = data.stdout || '(no output)';
+                    outputContent.style.color = '#0f0';
+                } else {
+                    outputContent.textContent = `Error: ${data.message || data.stderr || 'Command failed'}`;
+                    outputContent.style.color = '#f55';
+                }
+                
+                // Show audit info
+                if (data.audit) {
+                    outputContent.textContent += `\n\n[Audit: Logged by ${data.audit.admin_user} at ${data.audit.timestamp}]`;
+                }
+            } catch (e) {
+                outputContent.textContent = 'Error: ' + e.message;
+                outputContent.style.color = '#f55';
+            }
+        }
     </script>
 </body>
 </html>
