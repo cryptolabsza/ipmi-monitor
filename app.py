@@ -32,6 +32,211 @@ app = Flask(__name__)
 # Use absolute path for database - data volume is mounted at /app/data
 DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# =============================================================================
+# RATE LIMITING & BRUTE-FORCE PROTECTION
+# =============================================================================
+# In-memory rate limiting (cleared on restart - consider Redis for production clusters)
+_login_attempts = {}  # {ip: {'attempts': int, 'first_attempt': datetime, 'locked_until': datetime}}
+_login_attempts_lock = threading.Lock()
+
+# Rate limit configuration
+RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get('RATE_LIMIT_WINDOW_SECONDS', '300'))  # 5 minutes
+RATE_LIMIT_MAX_ATTEMPTS = int(os.environ.get('RATE_LIMIT_MAX_ATTEMPTS', '5'))  # 5 attempts
+RATE_LIMIT_LOCKOUT_SECONDS = int(os.environ.get('RATE_LIMIT_LOCKOUT_SECONDS', '900'))  # 15 minute lockout
+
+def get_client_ip():
+    """Get client IP, respecting X-Forwarded-For for proxied requests"""
+    # Check for forwarded IP (behind nginx/proxy)
+    from flask import request as flask_request
+    forwarded_for = flask_request.headers.get('X-Forwarded-For', '')
+    if forwarded_for:
+        # X-Forwarded-For can be comma-separated list, take the first
+        return forwarded_for.split(',')[0].strip()
+    return flask_request.remote_addr or '0.0.0.0'
+
+def is_rate_limited(client_ip):
+    """Check if a client IP is rate limited. Returns (is_limited, seconds_remaining)"""
+    now = datetime.utcnow()
+    with _login_attempts_lock:
+        if client_ip not in _login_attempts:
+            return False, 0
+        
+        record = _login_attempts[client_ip]
+        
+        # Check if currently locked out
+        if record.get('locked_until') and now < record['locked_until']:
+            remaining = int((record['locked_until'] - now).total_seconds())
+            return True, remaining
+        
+        # Check if window has expired - reset counter
+        window_start = now - timedelta(seconds=RATE_LIMIT_WINDOW_SECONDS)
+        if record['first_attempt'] < window_start:
+            _login_attempts[client_ip] = {'attempts': 0, 'first_attempt': now, 'locked_until': None}
+            return False, 0
+        
+        return False, 0
+
+def record_failed_login(client_ip, username=None):
+    """Record a failed login attempt. Returns True if now locked out."""
+    now = datetime.utcnow()
+    with _login_attempts_lock:
+        if client_ip not in _login_attempts:
+            _login_attempts[client_ip] = {'attempts': 0, 'first_attempt': now, 'locked_until': None}
+        
+        record = _login_attempts[client_ip]
+        
+        # Reset if window expired
+        window_start = now - timedelta(seconds=RATE_LIMIT_WINDOW_SECONDS)
+        if record['first_attempt'] < window_start:
+            record['attempts'] = 0
+            record['first_attempt'] = now
+            record['locked_until'] = None
+        
+        record['attempts'] += 1
+        
+        # Check if should lock out
+        if record['attempts'] >= RATE_LIMIT_MAX_ATTEMPTS:
+            record['locked_until'] = now + timedelta(seconds=RATE_LIMIT_LOCKOUT_SECONDS)
+            # Log security event (deferred to avoid circular import)
+            _log_security_event_deferred('LOGIN_LOCKOUT', client_ip, username, 
+                f"Account locked after {record['attempts']} failed attempts")
+            return True
+        
+        return False
+
+def record_successful_login(client_ip):
+    """Clear failed login attempts on successful login"""
+    with _login_attempts_lock:
+        if client_ip in _login_attempts:
+            del _login_attempts[client_ip]
+
+def _log_security_event_deferred(event_type, client_ip, username=None, details=None):
+    """Deferred logging to avoid issues during module initialization"""
+    # Queue for later logging once app is fully initialized
+    if not hasattr(app, '_security_log_queue'):
+        app._security_log_queue = []
+    app._security_log_queue.append((event_type, client_ip, username, details))
+
+def log_security_event(event_type, client_ip, username=None, details=None):
+    """Log security-related events for audit trail"""
+    timestamp = datetime.utcnow().isoformat()
+    log_entry = {
+        'timestamp': timestamp,
+        'event': event_type,
+        'ip': client_ip,
+        'username': username,
+        'details': details
+    }
+    # Log to application logger (will appear in Docker logs)
+    import logging
+    security_logger = logging.getLogger('security')
+    if not security_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter('[SECURITY] %(message)s'))
+        security_logger.addHandler(handler)
+        security_logger.setLevel(logging.INFO)
+    
+    security_logger.info(json.dumps(log_entry))
+    
+    # Also log to file
+    try:
+        audit_file = os.path.join(DATA_DIR, 'security_audit.log')
+        with open(audit_file, 'a') as f:
+            f.write(json.dumps(log_entry) + '\n')
+    except Exception:
+        pass  # Don't fail if audit file can't be written
+
+# =============================================================================
+# SECURE COMMAND EXECUTION HELPERS
+# =============================================================================
+# NOTE: The following functions provide more secure alternatives to direct
+# password exposure in process listings. However, they require client-side
+# configuration that may not always be possible.
+#
+# SECURITY CONSIDERATIONS:
+# 1. ipmitool -P <pass> exposes passwords in `ps` output
+#    BETTER: Use ipmitool -E with IPMI_PASSWORD environment variable
+#    
+# 2. sshpass -p <pass> exposes passwords in `ps` output  
+#    BETTER: Use sshpass -e with SSHPASS environment variable, or SSH keys
+#
+# 3. Redfish with verify=False trusts self-signed BMC certs
+#    This is acceptable on private networks but NEVER expose the UI publicly
+
+def run_ipmitool_secure(bmc_ip, ipmi_user, ipmi_pass, *args, timeout=30):
+    """
+    Run ipmitool with password via environment variable (more secure).
+    Falls back to -P if -E fails (some older ipmitool versions).
+    
+    SECURITY: Using -E prevents password exposure in process listings.
+    The password is passed via IPMI_PASSWORD environment variable.
+    """
+    # Build command with -E (password from environment)
+    cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-E'] + list(args)
+    env = os.environ.copy()
+    env['IPMI_PASSWORD'] = ipmi_pass
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        if result.returncode == 0:
+            return result
+        # Some systems don't support -E, fall back to -P with warning
+        if 'IPMI_PASSWORD' in result.stderr or 'password' in result.stderr.lower():
+            app.logger.debug(f"ipmitool -E not supported for {bmc_ip}, falling back to -P")
+    except subprocess.TimeoutExpired:
+        raise
+    except Exception as e:
+        app.logger.debug(f"ipmitool -E failed for {bmc_ip}: {e}, falling back to -P")
+    
+    # Fallback to -P (less secure but more compatible)
+    # NOTE: This exposes password in process listings
+    cmd_fallback = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass] + list(args)
+    return subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=timeout)
+
+def run_ssh_secure(server_ip, ssh_user, ssh_pass=None, ssh_key=None, command='', timeout=30):
+    """
+    Run SSH command with secure credential handling.
+    
+    Priority:
+    1. SSH key file (most secure)
+    2. sshpass -e with SSHPASS env var (more secure than -p)
+    3. sshpass -p (fallback, exposes password in ps)
+    
+    SECURITY: Using SSH keys or sshpass -e prevents password exposure.
+    """
+    ssh_opts = ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null',
+                '-o', 'ConnectTimeout=10', '-o', 'BatchMode=yes']
+    
+    key_file_path = None
+    env = os.environ.copy()
+    
+    try:
+        if ssh_key:
+            # Write key to temp file
+            import tempfile
+            fd, key_file_path = tempfile.mkstemp(prefix='ssh_key_', suffix='.pem')
+            os.write(fd, ssh_key.encode() if isinstance(ssh_key, str) else ssh_key)
+            os.close(fd)
+            os.chmod(key_file_path, 0o600)
+            cmd = ['ssh', '-i', key_file_path] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+        elif ssh_pass:
+            # Try sshpass with environment variable first (more secure)
+            env['SSHPASS'] = ssh_pass
+            cmd = ['sshpass', '-e', 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+        else:
+            # No password - try with default SSH key
+            cmd = ['ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
+        return result
+        
+    finally:
+        if key_file_path:
+            try:
+                os.unlink(key_file_path)
+            except:
+                pass
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/ipmi_events.db'
 app.config['DATA_DIR'] = DATA_DIR
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -264,10 +469,12 @@ def verify_user_password(username, password):
 def allow_anonymous_read():
     """Check if anonymous read access is enabled"""
     try:
-        setting = SystemSettings.get('allow_anonymous_read', 'true')
+        # SECURITY: Default to FALSE for safer deployments
+        # Admins can enable anonymous read via Settings if needed
+        setting = SystemSettings.get('allow_anonymous_read', 'false')
         return setting.lower() == 'true'
     except Exception:
-        return True  # Default to allow
+        return False  # Default to DENY (safer)
 
 def is_api_request():
     """Check if this is an API request that expects JSON"""
@@ -1742,7 +1949,7 @@ class SystemSettings(db.Model):
     def initialize_defaults():
         """Initialize default settings"""
         defaults = {
-            'allow_anonymous_read': 'true',  # Allow anonymous users to view dashboard
+            'allow_anonymous_read': 'false',  # SECURITY: Require login by default (safer)
             'session_timeout_hours': '24',
             'enable_ssh_inventory': 'false',  # SSH to OS for detailed inventory (requires SSH creds)
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
@@ -11506,8 +11713,19 @@ def api_version_check():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login page"""
+    """User login page with brute-force protection"""
+    client_ip = get_client_ip()
+    
     if request.method == 'POST':
+        # Check rate limiting first
+        is_limited, seconds_remaining = is_rate_limited(client_ip)
+        if is_limited:
+            error_msg = f'Too many failed attempts. Try again in {seconds_remaining // 60} minutes.'
+            log_security_event('LOGIN_BLOCKED', client_ip, None, 'Rate limited')
+            if request.is_json:
+                return jsonify({'error': error_msg, 'retry_after': seconds_remaining}), 429
+            return render_template('login.html', error=error_msg)
+        
         if request.is_json:
             data = request.get_json()
             username = data.get('username')
@@ -11518,6 +11736,10 @@ def login():
         
         user = verify_user_password(username, password)
         if user:
+            # Clear failed attempt counter on success
+            record_successful_login(client_ip)
+            log_security_event('LOGIN_SUCCESS', client_ip, username)
+            
             # Handle default admin case (first-time setup)
             if user == 'default_admin':
                 session['logged_in'] = True
@@ -11546,6 +11768,17 @@ def login():
             next_url = request.args.get('next', url_for('dashboard'))
             return redirect(next_url)
         else:
+            # Record failed attempt
+            locked_out = record_failed_login(client_ip, username)
+            log_security_event('LOGIN_FAILED', client_ip, username, 
+                f'Invalid credentials{" - account now locked" if locked_out else ""}')
+            
+            if locked_out:
+                error_msg = f'Too many failed attempts. Account locked for {RATE_LIMIT_LOCKOUT_SECONDS // 60} minutes.'
+                if request.is_json:
+                    return jsonify({'error': error_msg, 'retry_after': RATE_LIMIT_LOCKOUT_SECONDS}), 429
+                return render_template('login.html', error=error_msg)
+            
             if request.is_json:
                 return jsonify({'error': 'Invalid credentials'}), 401
             return render_template('login.html', error='Invalid username or password')
@@ -11704,6 +11937,66 @@ def api_update_admin_credentials():
         db.session.rollback()
         app.logger.error(f"Error updating credentials: {e}")
         return jsonify({'error': safe_error_message(e, "Failed to update credentials")}), 500
+
+@app.route('/api/admin/security-audit', methods=['GET'])
+@admin_required
+def api_security_audit_log():
+    """
+    Get security audit log entries.
+    
+    Query params:
+    - limit: Number of entries to return (default 100, max 1000)
+    - event_type: Filter by event type (LOGIN_SUCCESS, LOGIN_FAILED, LOGIN_LOCKOUT, LOGIN_BLOCKED)
+    """
+    limit = min(int(request.args.get('limit', 100)), 1000)
+    event_type = request.args.get('event_type', '')
+    
+    audit_file = os.path.join(DATA_DIR, 'security_audit.log')
+    entries = []
+    
+    try:
+        if os.path.exists(audit_file):
+            with open(audit_file, 'r') as f:
+                lines = f.readlines()
+            
+            # Read from end (most recent first)
+            for line in reversed(lines):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if event_type and entry.get('event') != event_type:
+                        continue
+                    entries.append(entry)
+                    if len(entries) >= limit:
+                        break
+                except json.JSONDecodeError:
+                    continue
+    except Exception as e:
+        app.logger.error(f"Error reading security audit log: {e}")
+    
+    # Also include current rate limit status
+    rate_limit_status = {}
+    with _login_attempts_lock:
+        for ip, record in _login_attempts.items():
+            if record.get('locked_until') and record['locked_until'] > datetime.utcnow():
+                rate_limit_status[ip] = {
+                    'attempts': record['attempts'],
+                    'locked_until': record['locked_until'].isoformat(),
+                    'remaining_seconds': int((record['locked_until'] - datetime.utcnow()).total_seconds())
+                }
+    
+    return jsonify({
+        'entries': entries,
+        'total_in_file': len(entries),
+        'currently_locked_ips': rate_limit_status,
+        'rate_limit_config': {
+            'window_seconds': RATE_LIMIT_WINDOW_SECONDS,
+            'max_attempts': RATE_LIMIT_MAX_ATTEMPTS,
+            'lockout_seconds': RATE_LIMIT_LOCKOUT_SECONDS
+        }
+    })
 
 # ============== User Management ==============
 
