@@ -3789,19 +3789,22 @@ Fired At: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
 Resolved At: {alert_history.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
 """
     
+    # notify_on_resolve defaults to True if not set (None)
+    notify_resolve = getattr(rule, 'notify_on_resolve', True) is not False
+    
     # Telegram
-    if rule.notify_telegram and rule.notify_on_resolve:
+    if rule.notify_telegram and notify_resolve:
         if send_telegram_notification(message, 'info'):
             alert_history.resolved_notified_telegram = True
     
     # Email
-    if rule.notify_email and rule.notify_on_resolve:
+    if rule.notify_email and notify_resolve:
         subject = f"✅ RESOLVED: {alert_history.rule_name} - {alert_history.server_name}"
         if send_email_notification(subject, message, 'info'):
             alert_history.resolved_notified_email = True
     
     # Webhook
-    if rule.notify_webhook and rule.notify_on_resolve:
+    if rule.notify_webhook and notify_resolve:
         alert_data = {
             'status': 'resolved',
             'rule_name': alert_history.rule_name,
@@ -3829,7 +3832,8 @@ def resolve_alert(alert_id):
             
             # Get the rule to check notification settings
             rule = AlertRule.query.get(alert.rule_id)
-            if rule and rule.notify_on_resolve:
+            # notify_on_resolve defaults to True if not set (None)
+            if rule and getattr(rule, 'notify_on_resolve', True) is not False:
                 send_resolved_notifications(alert, rule)
             
             db.session.commit()
@@ -11258,7 +11262,8 @@ def api_resolve_alert(alert_id):
     
     # Get the rule to check notification settings
     rule = AlertRule.query.get(alert.rule_id)
-    if rule and rule.notify_on_resolve:
+    # notify_on_resolve defaults to True if not set (None)
+    if rule and getattr(rule, 'notify_on_resolve', True) is not False:
         send_resolved_notifications(alert, rule)
     
     db.session.commit()
@@ -14799,7 +14804,9 @@ def _run_migrations(inspector):
             if 'notify_on_resolve' not in columns:
                 app.logger.info("Migration: Adding notify_on_resolve to alert_rule...")
                 execute_sql('ALTER TABLE alert_rule ADD COLUMN notify_on_resolve BOOLEAN DEFAULT 1')
-                app.logger.info("Migration: notify_on_resolve column added")
+                # SQLite doesn't apply default to existing rows, so update them explicitly
+                execute_sql('UPDATE alert_rule SET notify_on_resolve = 1 WHERE notify_on_resolve IS NULL')
+                app.logger.info("Migration: notify_on_resolve column added and set for existing rules")
         
         # Migration 8: Add user columns for WordPress linking
         if 'user' in existing_tables:
