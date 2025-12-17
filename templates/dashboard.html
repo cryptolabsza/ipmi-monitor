@@ -3342,20 +3342,50 @@
                 return;
             }
             
-            document.getElementById('aiTasksContent').innerHTML = tasks.map(t => `
+            document.getElementById('aiTasksContent').innerHTML = tasks.map((t, idx) => {
+                // Handle affected_servers - can be array or comma-separated string
+                let affectedServers = [];
+                if (t.affected_servers) {
+                    affectedServers = Array.isArray(t.affected_servers) ? t.affected_servers : t.affected_servers.split(',').map(s => s.trim());
+                } else if (t.servers) {
+                    affectedServers = Array.isArray(t.servers) ? t.servers : t.servers.split(',').map(s => s.trim());
+                }
+                
+                const serverCount = affectedServers.length;
+                const showExpanded = serverCount <= 5;
+                
+                return `
                 <div class="ai-task-card ${t.priority || 'medium'}">
                     <div class="ai-task-header">
                         <span class="ai-task-title">${t.title}</span>
-                        <span class="ai-task-priority ${t.priority || 'medium'}">${t.priority || 'medium'}</span>
+                        <span class="ai-task-priority ${t.priority || 'medium'}">${(t.priority || 'medium').toUpperCase()}</span>
                     </div>
                     <div class="ai-task-meta">
-                        ${t.server ? `<strong>Server:</strong> ${t.server}` : ''}
-                        ${t.component ? ` | <strong>Component:</strong> ${t.component}` : ''}
+                        ${t.component ? `<strong>Component:</strong> ${t.component}` : ''}
+                        ${serverCount > 0 ? ` | <strong>Affected:</strong> ${serverCount} server${serverCount > 1 ? 's' : ''}` : ''}
+                        ${t.server && serverCount === 0 ? `<strong>Server:</strong> ${t.server}` : ''}
                     </div>
                     <div class="ai-task-reason">${t.reason || t.description || ''}</div>
-                    ${t.suggested_action ? `<div style="font-size: 0.85rem; color: var(--accent-green);">💡 ${t.suggested_action}</div>` : ''}
+                    ${t.suggested_action ? `<div style="font-size: 0.85rem; color: var(--accent-green); margin-top: 6px;">💡 ${t.suggested_action}</div>` : ''}
+                    ${serverCount > 0 ? `
+                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;" onclick="toggleAffectedServers('task-servers-${idx}')">
+                                🖥️ <strong>Affected Servers</strong> (click to ${showExpanded ? 'collapse' : 'expand'})
+                            </div>
+                            <div id="task-servers-${idx}" style="display: ${showExpanded ? 'block' : 'none'}; margin-top: 6px; max-height: 150px; overflow-y: auto;">
+                                ${affectedServers.map(s => `<a href="/server/${s}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${s}</a>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
-            `).join('');
+            `}).join('');
+        }
+        
+        function toggleAffectedServers(elementId) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.style.display = el.style.display === 'none' ? 'block' : 'none';
+            }
         }
         
         function renderPredictions(predictions) {
