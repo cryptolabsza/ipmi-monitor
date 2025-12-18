@@ -6183,6 +6183,20 @@ def sync_timer():
                 config = CloudSync.get_config()
                 
                 if config.sync_enabled and config.license_key:
+                    # Refresh license info to get updated max_servers from WordPress
+                    try:
+                        validation = validate_license_key(config.license_key)
+                        if validation.get('valid'):
+                            updated_max = validation.get('max_servers', config.max_servers)
+                            updated_tier = validation.get('tier', config.subscription_tier)
+                            if updated_max != config.max_servers or updated_tier != config.subscription_tier:
+                                print(f"[Sync Timer] License info updated: tier={updated_tier}, max_servers={updated_max}", flush=True)
+                                config.max_servers = updated_max
+                                config.subscription_tier = updated_tier
+                                db.session.commit()
+                    except Exception as lic_err:
+                        print(f"[Sync Timer] License refresh error (non-critical): {lic_err}", flush=True)
+                    
                     print(f"[Sync Timer] Starting sync to AI service...", flush=True)
                     result = sync_to_cloud()
                     
