@@ -1770,7 +1770,7 @@
         }
         
         // Update AI UI based on connection status
-        function updateAiUI(config) {
+        async function updateAiUI(config) {
             const isConnected = config && config.subscription_valid && config.license_key;
             
             // Show/hide appropriate sections
