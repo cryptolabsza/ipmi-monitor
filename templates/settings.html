@@ -1285,12 +1285,12 @@
                     Control who can access the dashboard.
                 </p>
                 
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                        <input type="checkbox" id="allowAnonymous" onchange="updateAnonymousSetting()">
-                        <span>Allow anonymous read access</span>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: flex !important; align-items: center; gap: 12px; cursor: pointer; margin-bottom: 8px;">
+                        <input type="checkbox" id="allowAnonymous" onchange="updateAnonymousSetting()" style="width: auto; margin: 0;">
+                        <span style="font-weight: 500;">Allow anonymous read access</span>
                     </label>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px; margin-left: 30px;">
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0; margin-left: 32px;">
                         When enabled, anyone can view the dashboard without logging in. When disabled, all users must authenticate.
                     </p>
                 </div>
@@ -1530,8 +1530,23 @@
                             <span class="server-ip" id="aiStatusMessage">Connected to CryptoLabs AI</span>
                         </div>
                         <div class="server-badges">
+                            <span id="aiServerCount" class="status-badge" style="display: none;">0/50</span>
                             <span id="aiSyncStatus" class="status-badge status-badge-success">✅ Syncing</span>
                         </div>
+                    </div>
+                    <!-- Server limit warning banner -->
+                    <div id="aiServerLimitWarning" style="display: none; margin-top: 15px; padding: 15px; background: rgba(255,71,87,0.1); border: 1px solid var(--accent-red); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <span style="font-size: 1.4rem;">⚠️</span>
+                            <strong style="color: var(--accent-red);" id="aiLimitMessage">Server limit exceeded!</strong>
+                        </div>
+                        <p style="color: var(--text-secondary); margin: 0 0 12px 0; font-size: 0.9rem;">
+                            You have more servers than your plan allows. AI features only cover the first <span id="aiMaxServersText">50</span> servers.
+                            Upgrade to monitor all your servers with AI.
+                        </p>
+                        <a href="https://cryptolabs.co.za/account/" target="_blank" class="btn btn-primary" style="text-decoration: none;">
+                            ⬆️ Upgrade Plan
+                        </a>
                     </div>
                     <!-- Linked CryptoLabs account -->
                     <div id="linkedAccountSection" style="margin-top: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 8px; display: none;">
@@ -1764,10 +1779,41 @@
             document.getElementById('aiTrialCTA').style.display = isConnected ? 'none' : 'block';
             
             if (isConnected) {
-                document.getElementById('aiTierDisplay').textContent = (config.subscription_tier || 'STANDARD').toUpperCase();
-                document.getElementById('aiStatusMessage').textContent = `Connected - ${config.max_servers || 50} servers max`;
+                const tier = (config.subscription_tier || 'FREE').toUpperCase();
+                const maxServers = config.max_servers || 5;  // Free tier defaults to 5
+                
+                document.getElementById('aiTierDisplay').textContent = tier;
+                document.getElementById('aiStatusMessage').textContent = `Connected to CryptoLabs AI`;
                 document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
                 document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
+                
+                // Fetch current server count to compare with limit
+                try {
+                    const serversResp = await fetch('/api/servers');
+                    const serversData = await serversResp.json();
+                    const currentServerCount = serversData.servers?.length || serversData.length || 0;
+                    
+                    // Show server count badge
+                    const countBadge = document.getElementById('aiServerCount');
+                    countBadge.style.display = 'inline-flex';
+                    countBadge.textContent = `${currentServerCount}/${maxServers}`;
+                    
+                    // Check if limit exceeded
+                    const limitWarning = document.getElementById('aiServerLimitWarning');
+                    if (currentServerCount > maxServers) {
+                        countBadge.style.background = 'var(--accent-red)';
+                        countBadge.style.color = 'white';
+                        limitWarning.style.display = 'block';
+                        document.getElementById('aiLimitMessage').textContent = `Server limit exceeded: ${currentServerCount}/${maxServers}`;
+                        document.getElementById('aiMaxServersText').textContent = maxServers;
+                    } else {
+                        countBadge.style.background = 'var(--accent-green)';
+                        countBadge.style.color = 'white';
+                        limitWarning.style.display = 'none';
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch server count:', e);
+                }
                 
                 // Show linked account info
                 const linkedSection = document.getElementById('linkedAccountSection');

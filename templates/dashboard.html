@@ -2543,6 +2543,7 @@
         let sortField = 'name';
         let sortAscending = true;
         let statusFilter = 'all';  // Filter for online/offline/all
+        let aiConfig = { max_servers: 0, is_connected: false };  // AI subscription limits
         
         function getTimeRange() {
             return document.getElementById('timeRange').value;
@@ -3728,8 +3729,27 @@
             }
         }
         
+        async function loadAiConfig() {
+            try {
+                const response = await fetch('/api/ai/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    aiConfig = {
+                        max_servers: config.max_servers || 0,
+                        is_connected: !!(config.license_key && config.sync_enabled),
+                        tier: config.subscription_tier || 'free'
+                    };
+                }
+            } catch (e) {
+                console.log('AI config not available');
+            }
+        }
+        
         async function loadServers() {
             try {
+                // Load AI config first to know the server limit
+                await loadAiConfig();
+                
                 const hours = getTimeRange();
                 const response = await fetch(`/api/servers?hours=${hours}`);
                 serversData = await response.json();
@@ -3840,11 +3860,19 @@
                 }
             }
             
-            grid.innerHTML = sortedServers.map(server => `
-                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'">
+            grid.innerHTML = sortedServers.map((server, index) => {
+                // Show robot icon if AI is connected and server is within the plan limit
+                const isAiCovered = aiConfig.is_connected && index < aiConfig.max_servers;
+                const aiIcon = aiConfig.is_connected ? 
+                    (isAiCovered ? 
+                        '<span title="AI monitoring enabled" style="font-size: 1.2rem; margin-left: 8px;">🤖</span>' : 
+                        '') : '';
+                
+                return `
+                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && aiConfig.max_servers > 0 ? 'opacity: 0.7;' : ''}">
                     <div class="server-header">
                         <div>
-                            <div class="server-name">${server.server_name}</div>
+                            <div class="server-name">${server.server_name}${aiIcon}</div>
                             <div class="server-ip">${server.bmc_ip}</div>
                         </div>
                         <span class="status-badge ${getStatusClass(server)}">
@@ -3866,7 +3894,7 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
         
         function filterServers() {
