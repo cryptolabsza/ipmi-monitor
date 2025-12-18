@@ -4567,11 +4567,22 @@
                 const response = await fetch('/api/auth/status', { credentials: 'same-origin' });
                 const data = await response.json();
                 
+                console.log('[Settings] Auth status:', data);
+                console.log('[Settings] logged_in:', data.logged_in, 'role:', data.role);
+                
                 if (data.logged_in && data.role === 'admin') {
+                    console.log('[Settings] User is admin, showing admin tabs...');
                     // Show admin-only tabs (Security, AI Features)
-                    document.querySelectorAll('.admin-only-tab').forEach(el => {
-                        el.style.display = '';
+                    const tabs = document.querySelectorAll('.admin-only-tab');
+                    console.log('[Settings] Found', tabs.length, 'admin-only tabs');
+                    tabs.forEach(el => {
+                        el.style.display = 'inline-block';
+                        el.style.visibility = 'visible';
+                        el.removeAttribute('hidden');
+                        console.log('[Settings] Showing tab:', el.textContent);
                     });
+                } else {
+                    console.log('[Settings] User is not admin or not logged in');
                 }
             } catch (e) {
                 console.error('Failed to check auth status:', e);
