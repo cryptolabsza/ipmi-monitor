@@ -2391,6 +2391,7 @@
                             <option value="online">Online Only</option>
                             <option value="offline">Offline Only</option>
                             <option value="issues">With Issues</option>
+                            <option value="ai" id="aiFilterOption" style="display: none;">🤖 AI Monitored</option>
                         </select>
                         <label style="margin-left: 15px;">Sort by:</label>
                         <select class="sort-select" id="sortField" onchange="sortServers()">
@@ -3072,7 +3073,26 @@
                 
                 if (aiEnabled) {
                     const tier = data.subscription_tier || 'standard';
-                    badge.textContent = getTierDisplayName(tier);
+                    const maxServers = data.max_servers || 50;
+                    const serverCount = serversData.length || 0;
+                    const isOverLimit = serverCount > maxServers;
+                    
+                    // Show tier + seats (e.g., "STANDARD 531/50" in red if over)
+                    let badgeText = getTierDisplayName(tier);
+                    if (maxServers > 0) {
+                        badgeText += ` ${serverCount}/${maxServers}`;
+                    }
+                    badge.textContent = badgeText;
+                    
+                    // Style badge red if over limit
+                    if (isOverLimit) {
+                        badge.style.background = 'var(--accent-red)';
+                        badge.style.color = 'white';
+                    } else {
+                        badge.style.background = '';
+                        badge.style.color = '';
+                    }
+                    
                     // Remove old classes and add new tier class
                     badge.classList.remove('standard', 'standard-plus', 'pro', 'enterprise', 'trial');
                     const tierClass = getTierClass(tier);
@@ -3083,6 +3103,8 @@
                     loadCachedAiResults();
                 } else {
                     badge.textContent = 'FREE';
+                    badge.style.background = '';
+                    badge.style.color = '';
                     badge.classList.remove('standard', 'standard-plus', 'pro', 'enterprise', 'trial');
                     upgradePrompt.style.display = 'block';
                     results.style.display = 'none';
@@ -3731,17 +3753,24 @@
         
         async function loadAiConfig() {
             try {
-                const response = await fetch('/api/ai/config');
+                // Use public status endpoint that doesn't require auth
+                const response = await fetch('/api/ai/status');
                 if (response.ok) {
                     const config = await response.json();
                     aiConfig = {
                         max_servers: config.max_servers || 0,
-                        is_connected: !!(config.license_key && config.sync_enabled),
-                        tier: config.subscription_tier || 'free'
+                        is_connected: config.is_connected || false,
+                        tier: config.tier || 'free'
                     };
+                    
+                    // Show/hide AI filter option based on connection status
+                    const aiFilterOpt = document.getElementById('aiFilterOption');
+                    if (aiFilterOpt) {
+                        aiFilterOpt.style.display = aiConfig.is_connected ? '' : 'none';
+                    }
                 }
             } catch (e) {
-                console.log('AI config not available');
+                console.log('AI status not available');
             }
         }
         
@@ -3785,6 +3814,17 @@
                 return;
             }
             
+            // Build AI coverage list early for filtering
+            let aiCoverageListForFilter = [];
+            if (aiConfig.is_connected && aiConfig.max_servers > 0) {
+                const aiSorted = [...serversData].sort((a, b) => {
+                    if (a.is_reachable && !b.is_reachable) return -1;
+                    if (!a.is_reachable && b.is_reachable) return 1;
+                    return (a.server_name || '').localeCompare(b.server_name || '');
+                });
+                aiCoverageListForFilter = aiSorted.slice(0, aiConfig.max_servers).map(s => s.bmc_ip);
+            }
+            
             // Filter servers based on statusFilter
             let filteredServers = [...serversData];
             switch (statusFilter) {
@@ -3796,6 +3836,9 @@
                     break;
                 case 'issues':
                     filteredServers = filteredServers.filter(s => (s.critical || 0) > 0 || (s.warning || 0) > 0);
+                    break;
+                case 'ai':
+                    filteredServers = filteredServers.filter(s => aiCoverageListForFilter.includes(s.bmc_ip));
                     break;
                 // 'all' shows everything
             }
@@ -3860,16 +3903,32 @@
                 }
             }
             
+            // For AI coverage, prioritize online servers first (they get the robot icons)
+            // Create a stable AI coverage list based on online-first sorting
+            let aiCoverageList = [];
+            if (aiConfig.is_connected && aiConfig.max_servers > 0) {
+                // Sort: online first, then by name for stability
+                const aiSortedServers = [...serversData].sort((a, b) => {
+                    // Online servers first
+                    if (a.is_reachable && !b.is_reachable) return -1;
+                    if (!a.is_reachable && b.is_reachable) return 1;
+                    // Then by name for stable ordering
+                    return (a.server_name || '').localeCompare(b.server_name || '');
+                });
+                // Take the first max_servers as covered
+                aiCoverageList = aiSortedServers.slice(0, aiConfig.max_servers).map(s => s.bmc_ip);
+            }
+            
             grid.innerHTML = sortedServers.map((server, index) => {
-                // Show robot icon if AI is connected and server is within the plan limit
-                const isAiCovered = aiConfig.is_connected && index < aiConfig.max_servers;
+                // Check if this server is in the AI coverage list (online-first priority)
+                const isAiCovered = aiConfig.is_connected && aiCoverageList.includes(server.bmc_ip);
                 const aiIcon = aiConfig.is_connected ? 
                     (isAiCovered ? 
                         '<span title="AI monitoring enabled" style="font-size: 1.2rem; margin-left: 8px;">🤖</span>' : 
                         '') : '';
                 
                 return `
-                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && aiConfig.max_servers > 0 ? 'opacity: 0.7;' : ''}">
+                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && aiConfig.max_servers > 0 ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}">
                     <div class="server-header">
                         <div>
                             <div class="server-name">${server.server_name}${aiIcon}</div>
