@@ -1687,47 +1687,58 @@
             </div>
             <div class="ai-panel-content" id="aiPanelContent">
                 <!-- Upgrade Prompt for Free Users -->
-                <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 30px;">
-                    <h3 style="margin: 0 0 15px 0; font-size: 1.3rem;">🚀 Create Your Free Account</h3>
+                <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 0;">
+                    <!-- Dynamic offer iframe (loads from AI service, cached) -->
+                    <iframe id="aiOfferFrame" 
+                            src="https://ipmi-ai.cryptolabs.co.za/embed/offer" 
+                            style="width: 100%; min-height: 400px; border: none; display: none;"
+                            onload="this.style.display='block'; document.getElementById('aiOfferFallback').style.display='none';"
+                            onerror="this.style.display='none'; document.getElementById('aiOfferFallback').style.display='block';"></iframe>
                     
-                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                        Please create an account and verify your email to access IPMI Monitor AI features.
-                    </p>
-                    
-                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                        <p style="margin: 0 0 10px 0; font-weight: 600;">✨ What you get FREE:</p>
-                        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
-                            <li>1 month of full AI features</li>
-                            <li>1 million AI tokens</li>
-                            <li>Up to 50 servers monitored</li>
-                        </ul>
+                    <!-- Fallback offer (packaged with container, shown if iframe fails) -->
+                    <div id="aiOfferFallback" style="padding: 30px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1.3rem;">🚀 Start Your Free Trial</h3>
+                        
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                            Create an account and verify your email to access IPMI Monitor AI features.
+                        </p>
+                        
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <p style="margin: 0 0 10px 0; font-weight: 600;">✨ Free Trial includes:</p>
+                            <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
+                                <li>14 days of full AI features</li>
+                                <li>1 million AI tokens</li>
+                                <li>Up to 25 servers with AI monitoring</li>
+                                <li>AI summaries, tasks & predictions</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(168, 85, 247, 0.1)); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                            <p style="margin: 0 0 10px 0; font-weight: 600;">📋 How to get started:</p>
+                            <ol style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
+                                <li style="margin-bottom: 5px;">Click "Login/Register" below to create your account</li>
+                                <li style="margin-bottom: 5px;">Check your email and click the verification link</li>
+                                <li style="margin-bottom: 5px;">Return here and click "Start Free Trial"</li>
+                                <li>Your account will link automatically!</li>
+                            </ol>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+                            <a href="https://www.cryptolabs.co.za/login/" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer;">
+                                Login / Register →
+                            </a>
+                            <a id="startTrialBtn" href="#" onclick="startFreeTrial()" class="ai-upgrade-btn" style="display: inline-block; background: var(--bg-secondary); color: var(--text-primary); padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color);">
+                                Start Free Trial
+                            </a>
+                        </div>
+                        
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 5px;">
+                            💡 Already have an account? Sign in, then return here.
+                        </p>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
+                            Questions? <a href="mailto:support@cryptolabs.co.za" style="color: var(--accent-blue);">support@cryptolabs.co.za</a>
+                        </p>
                     </div>
-                    
-                    <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(168, 85, 247, 0.1)); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
-                        <p style="margin: 0 0 10px 0; font-weight: 600;">📋 How to get started:</p>
-                        <ol style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
-                            <li style="margin-bottom: 5px;">Click "Login/Register" below to create your account</li>
-                            <li style="margin-bottom: 5px;">Check your email and click the verification link</li>
-                            <li style="margin-bottom: 5px;">Return to your IPMI Monitor and click "Start Free Trial" again</li>
-                            <li>Your account will automatically link and AI features will activate!</li>
-                        </ol>
-                    </div>
-                    
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-                        <a href="https://www.cryptolabs.co.za/login/" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer;">
-                            Login / Register →
-                        </a>
-                        <a id="startTrialBtn" href="#" onclick="startFreeTrial()" class="ai-upgrade-btn" style="display: inline-block; background: var(--bg-secondary); color: var(--text-primary); padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color);">
-                            Start Free Trial
-                        </a>
-                    </div>
-                    
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 5px;">
-                        💡 Already have an account? Just sign in, then return to IPMI Monitor.
-                    </p>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">
-                        Questions? Contact <a href="mailto:support@cryptolabs.co.za" style="color: var(--accent-blue);">support@cryptolabs.co.za</a>
-                    </p>
                 </div>
                 
                 <!-- AI Features for Paid Users -->
@@ -3028,6 +3039,36 @@
             // Open in same window so they can return easily
             window.open(signupUrl, '_blank');
         }
+        
+        // Iframe offer timeout - fall back to packaged offer if iframe doesn't load in 5 seconds
+        (function() {
+            const iframe = document.getElementById('aiOfferFrame');
+            const fallback = document.getElementById('aiOfferFallback');
+            if (iframe && fallback) {
+                // Set a timeout to show fallback if iframe doesn't load
+                const offerTimeout = setTimeout(() => {
+                    if (iframe.style.display !== 'block') {
+                        iframe.style.display = 'none';
+                        fallback.style.display = 'block';
+                    }
+                }, 5000);
+                
+                // Clear timeout if iframe loads successfully
+                iframe.addEventListener('load', () => clearTimeout(offerTimeout));
+            }
+            
+            // Listen for messages from offer iframe
+            window.addEventListener('message', (event) => {
+                // Verify origin for security
+                if (!event.origin.includes('cryptolabs.co.za') && !event.origin.includes('localhost')) {
+                    return;
+                }
+                
+                if (event.data && event.data.action === 'startFreeTrial') {
+                    startFreeTrial();
+                }
+            });
+        })();
         
         // Map subscription tiers to display names
         function getTierDisplayName(tier) {

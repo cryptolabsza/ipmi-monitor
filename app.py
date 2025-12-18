@@ -12134,15 +12134,16 @@ def api_delete_user(user_id):
 # ============== AI Cloud Features ==============
 
 # Subscription tier configuration - must match WordPress plugin and AI service
+# Note: These are DEFAULT values. User's actual limit from clai_server_limit takes precedence.
 SUBSCRIPTION_TIERS = {
     'free': {'max_servers': 5, 'data_retention_days': 7, 'ai_enabled': False},
-    'trial': {'max_servers': 25, 'data_retention_days': 14, 'ai_enabled': True},
-    'standard': {'max_servers': 25, 'data_retention_days': 90, 'ai_enabled': True},
-    'standard_plus': {'max_servers': 50, 'data_retention_days': 180, 'ai_enabled': True},
+    'trial': {'max_servers': 25, 'data_retention_days': 14, 'ai_enabled': True},  # 14-day trial
+    'standard': {'max_servers': 50, 'data_retention_days': 90, 'ai_enabled': True},  # Base paid tier
+    'standard_plus': {'max_servers': 50, 'data_retention_days': 180, 'ai_enabled': True},  # Can go up to 500 with add-ons
     'pro': {'max_servers': 100, 'data_retention_days': 365, 'ai_enabled': True},
     'enterprise': {'max_servers': -1, 'data_retention_days': 730, 'ai_enabled': True},  # -1 = unlimited
     # Legacy tier mappings
-    'starter': {'max_servers': 25, 'data_retention_days': 90, 'ai_enabled': True},  # maps to standard
+    'starter': {'max_servers': 50, 'data_retention_days': 90, 'ai_enabled': True},  # maps to standard
     'professional': {'max_servers': 100, 'data_retention_days': 365, 'ai_enabled': True},  # maps to pro
 }
 
