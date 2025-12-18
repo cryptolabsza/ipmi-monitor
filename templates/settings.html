@@ -4564,7 +4564,7 @@
         // Check auth status and show admin-only tabs
         (async function() {
             try {
-                const response = await fetch('/api/auth/status');
+                const response = await fetch('/api/auth/status', { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 if (data.logged_in && data.role === 'admin') {
