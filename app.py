@@ -12201,6 +12201,20 @@ def api_ai_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/ai/embed-config')
+def api_ai_embed_config():
+    """Get AI embed configuration for iframe-based tabs.
+    Returns embed URLs for AI tabs if configured to use embeds."""
+    config = CloudSync.get_config()
+    
+    # For now, embed mode is disabled - all AI features are inline
+    # This can be enabled later for modular AI service UI
+    return jsonify({
+        'enabled': False,
+        'embeds': {}
+    })
+
+
 @app.route('/api/ai/model', methods=['GET'])
 def api_get_ai_model_info():
     """Get AI model information from the AI service (context window size, etc.)"""
