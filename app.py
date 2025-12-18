@@ -12209,24 +12209,6 @@ def api_get_ai_model_info():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/ai/status', methods=['GET'])
-def api_get_ai_status():
-    """
-    Get public AI status for dashboard display.
-    Returns minimal info about AI connection for UI purposes.
-    Does not require authentication.
-    """
-    config = CloudSync.get_config()
-    
-    # Return only public-safe information
-    return jsonify({
-        'is_connected': bool(config.license_key and config.sync_enabled),
-        'tier': config.subscription_tier or 'free',
-        'max_servers': config.max_servers or 0,
-        'sync_enabled': config.sync_enabled or False
-    })
-
-
 @app.route('/api/ai/config', methods=['GET'])
 @admin_required
 def api_get_ai_config():

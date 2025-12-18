@@ -3759,8 +3759,8 @@
                     const config = await response.json();
                     aiConfig = {
                         max_servers: config.max_servers || 0,
-                        is_connected: config.is_connected || false,
-                        tier: config.tier || 'free'
+                        is_connected: config.enabled && config.subscription_valid && config.has_license,
+                        tier: config.subscription_tier || 'free'
                     };
                     
                     // Show/hide AI filter option based on connection status
