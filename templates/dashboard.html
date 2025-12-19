@@ -3856,14 +3856,17 @@
             }
             
             // Build AI coverage list early for filtering
+            // max_servers = -1 means unlimited (enterprise tier)
             let aiCoverageListForFilter = [];
-            if (aiConfig.is_connected && aiConfig.max_servers > 0) {
+            if (aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1)) {
                 const aiSorted = [...serversData].sort((a, b) => {
                     if (a.is_reachable && !b.is_reachable) return -1;
                     if (!a.is_reachable && b.is_reachable) return 1;
                     return (a.server_name || '').localeCompare(b.server_name || '');
                 });
-                aiCoverageListForFilter = aiSorted.slice(0, aiConfig.max_servers).map(s => s.bmc_ip);
+                // -1 means unlimited, so include all servers
+                const limit = aiConfig.max_servers === -1 ? aiSorted.length : aiConfig.max_servers;
+                aiCoverageListForFilter = aiSorted.slice(0, limit).map(s => s.bmc_ip);
             }
             
             // Filter servers based on statusFilter
@@ -3946,8 +3949,9 @@
             
             // For AI coverage, prioritize online servers first (they get the robot icons)
             // Create a stable AI coverage list based on online-first sorting
+            // max_servers = -1 means unlimited (enterprise tier)
             let aiCoverageList = [];
-            if (aiConfig.is_connected && aiConfig.max_servers > 0) {
+            if (aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1)) {
                 // Sort: online first, then by name for stability
                 const aiSortedServers = [...serversData].sort((a, b) => {
                     // Online servers first
@@ -3956,8 +3960,9 @@
                     // Then by name for stable ordering
                     return (a.server_name || '').localeCompare(b.server_name || '');
                 });
-                // Take the first max_servers as covered
-                aiCoverageList = aiSortedServers.slice(0, aiConfig.max_servers).map(s => s.bmc_ip);
+                // Take the first max_servers as covered (-1 = unlimited = all servers)
+                const limit = aiConfig.max_servers === -1 ? aiSortedServers.length : aiConfig.max_servers;
+                aiCoverageList = aiSortedServers.slice(0, limit).map(s => s.bmc_ip);
             }
             
             grid.innerHTML = sortedServers.map((server, index) => {
@@ -3969,7 +3974,7 @@
                         '') : '';
                 
                 return `
-                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && aiConfig.max_servers > 0 ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}">
+                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}">
                     <div class="server-header">
                         <div>
                             <div class="server-name">${server.server_name}${aiIcon}</div>
