@@ -3833,13 +3833,6 @@
                         await loadAiConfig();
                         renderServers();
                         populateDeviceSelectors();
-                        
-                        // Show refresh indicator in header, not in grid
-                        const cacheAge = cacheTime ? Math.round((Date.now() - parseInt(cacheTime)) / 1000 / 60) : '?';
-                        const lastUpdated = document.getElementById('lastUpdated');
-                        if (lastUpdated) {
-                            lastUpdated.innerHTML = `<span style="color: var(--text-secondary);">📦 Cached (${cacheAge}m) - refreshing...</span>`;
-                        }
                     } catch (e) {
                         console.log('Cache parse error, loading fresh');
                     }
@@ -3887,13 +3880,11 @@
                 
             } catch (e) {
                 console.error('Failed to load servers:', e);
-                // If we have cached data, keep showing it
-                if (serversData.length > 0) {
-                    document.getElementById('lastUpdated').innerHTML = 
-                        `<span style="color: var(--accent-red);">⚠️ Refresh failed - showing cached</span>`;
-                } else {
+                // If no cached data, show error
+                if (serversData.length === 0) {
                     grid.innerHTML = '<div class="loading">Failed to load servers. Check connection.</div>';
                 }
+                // Otherwise just keep showing cached data silently
             }
         }
         
