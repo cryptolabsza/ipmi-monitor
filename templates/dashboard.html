@@ -3826,15 +3826,22 @@
                 
                 if (cachedData) {
                     try {
-                        serversData = JSON.parse(cachedData);
-                        showedCache = true;
-                        
-                        // Load AI config first for proper rendering
-                        await loadAiConfig();
-                        renderServers();
-                        populateDeviceSelectors();
+                        const parsed = JSON.parse(cachedData);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            serversData = parsed;
+                            showedCache = true;
+                            
+                            // Load AI config first for proper rendering
+                            await loadAiConfig();
+                            renderServers();
+                            populateDeviceSelectors();
+                        } else {
+                            // Invalid cache format, clear it
+                            localStorage.removeItem('serversCache');
+                        }
                     } catch (e) {
-                        console.log('Cache parse error, loading fresh');
+                        console.log('Cache parse error, clearing');
+                        localStorage.removeItem('serversCache');
                     }
                 }
                 
@@ -3851,13 +3858,17 @@
                 const response = await fetch(`/api/servers?hours=${hours}`);
                 const freshData = await response.json();
                 
+                // Ensure freshData is an array
+                const freshServers = Array.isArray(freshData) ? freshData : [];
+                
                 // STEP 3: Check if server list changed (ignore volatile fields like timestamps)
                 const getServerKey = (s) => `${s.bmc_ip}:${s.is_reachable}:${s.power_status}`;
-                const oldKeys = serversData.map(getServerKey).sort().join('|');
-                const newKeys = freshData.map(getServerKey).sort().join('|');
+                const oldServers = Array.isArray(serversData) ? serversData : [];
+                const oldKeys = oldServers.map(getServerKey).sort().join('|');
+                const newKeys = freshServers.map(getServerKey).sort().join('|');
                 const serverListChanged = oldKeys !== newKeys;
                 
-                serversData = freshData;
+                serversData = freshServers;
                 
                 // Cache the fresh data
                 localStorage.setItem('serversCache', JSON.stringify(freshData));
