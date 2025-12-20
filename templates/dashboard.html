@@ -3816,19 +3816,69 @@
         }
         
         async function loadServers() {
+            const grid = document.getElementById('serverGrid');
+            
             try {
-                // Load AI config first to know the server limit
-                await loadAiConfig();
+                // STEP 1: Immediately show cached data if available
+                const cachedData = localStorage.getItem('serversCache');
+                const cacheTime = localStorage.getItem('serversCacheTime');
                 
+                if (cachedData) {
+                    try {
+                        serversData = JSON.parse(cachedData);
+                        const cacheAge = cacheTime ? Math.round((Date.now() - parseInt(cacheTime)) / 1000 / 60) : '?';
+                        
+                        // Show cached data immediately with indicator
+                        grid.innerHTML = `<div style="text-align: center; padding: 10px; color: var(--text-secondary); font-size: 0.85rem;">
+                            📦 Showing cached data (${cacheAge} min old) - refreshing...
+                        </div>`;
+                        
+                        // Load AI config first for proper rendering
+                        await loadAiConfig();
+                        renderServers();
+                        populateDeviceSelectors();
+                    } catch (e) {
+                        console.log('Cache parse error, loading fresh');
+                    }
+                } else {
+                    // No cache - show loading
+                    grid.innerHTML = `<div class="loading">
+                        <div class="spinner"></div>
+                        Loading ${serversData.length || ''} servers...
+                    </div>`;
+                }
+                
+                // STEP 2: Fetch fresh data in background
                 const hours = getTimeRange();
                 const response = await fetch(`/api/servers?hours=${hours}`);
-                serversData = await response.json();
+                const freshData = await response.json();
+                
+                // STEP 3: Update with fresh data
+                serversData = freshData;
+                
+                // Cache the fresh data
+                localStorage.setItem('serversCache', JSON.stringify(freshData));
+                localStorage.setItem('serversCacheTime', Date.now().toString());
+                
+                // Load AI config if we haven't already
+                if (!aiConfig.is_connected) {
+                    await loadAiConfig();
+                }
                 
                 renderServers();
-                populateDeviceSelectors();  // Update AI device selectors
+                populateDeviceSelectors();
+                
             } catch (e) {
                 console.error('Failed to load servers:', e);
-                document.getElementById('serverGrid').innerHTML = '<div class="loading">Failed to load servers</div>';
+                // If we have cached data, keep showing it
+                if (serversData.length > 0) {
+                    grid.insertAdjacentHTML('afterbegin', 
+                        `<div style="text-align: center; padding: 10px; color: var(--accent-red); font-size: 0.85rem;">
+                            ⚠️ Failed to refresh - showing cached data
+                        </div>`);
+                } else {
+                    grid.innerHTML = '<div class="loading">Failed to load servers. Check connection.</div>';
+                }
             }
         }
         
@@ -4019,6 +4069,18 @@
         }
         
         async function loadEvents() {
+            const list = document.getElementById('eventsList');
+            if (!list) return;
+            
+            // Show cached events immediately
+            const cachedEvents = localStorage.getItem('eventsCache');
+            if (cachedEvents) {
+                try {
+                    const events = JSON.parse(cachedEvents);
+                    renderEventsList(events, list, true);
+                } catch (e) {}
+            }
+            
             try {
                 let url = '/api/events?limit=50';
                 if (currentFilter !== 'all') {
@@ -4027,36 +4089,46 @@
                 
                 const response = await fetch(url);
                 const data = await response.json();
-                const events = data.events || []; // API returns {events: [...]}
+                const events = data.events || [];
                 
-                const list = document.getElementById('eventsList');
+                // Cache fresh events
+                localStorage.setItem('eventsCache', JSON.stringify(events));
                 
-                if (events.length === 0) {
-                    list.innerHTML = '<div class="loading">No events found</div>';
-                    return;
-                }
-                
-                list.innerHTML = events.map(event => {
-                    const date = new Date(event.event_date);
-                    const timeStr = date.toLocaleString();
-                    
-                    return `
-                        <div class="event-item">
-                            <div class="event-header">
-                                <span class="event-server">${event.server_name}</span>
-                                <span class="event-time">${timeStr}</span>
-                            </div>
-                            <div class="event-description">
-                                <span class="severity-dot ${event.severity}"></span>
-                                <span>${event.sensor_type}: ${event.event_description}</span>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                renderEventsList(events, list, false);
             } catch (e) {
                 console.error('Failed to load events:', e);
-                document.getElementById('eventsList').innerHTML = '<div class="loading">Failed to load events</div>';
+                if (!cachedEvents) {
+                    list.innerHTML = '<div class="loading">Failed to load events</div>';
+                }
             }
+        }
+        
+        function renderEventsList(events, list, isCached) {
+            if (events.length === 0) {
+                list.innerHTML = '<div class="loading">No events found</div>';
+                return;
+            }
+            
+            const header = isCached ? 
+                '<div style="text-align: center; padding: 5px; color: var(--text-secondary); font-size: 0.75rem;">📦 Cached - refreshing...</div>' : '';
+            
+            list.innerHTML = header + events.map(event => {
+                const date = new Date(event.event_date);
+                const timeStr = date.toLocaleString();
+                
+                return `
+                    <div class="event-item">
+                        <div class="event-header">
+                            <span class="event-server">${event.server_name}</span>
+                            <span class="event-time">${timeStr}</span>
+                        </div>
+                        <div class="event-description">
+                            <span class="severity-dot ${event.severity}"></span>
+                            <span>${event.sensor_type}: ${event.event_description}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
         async function triggerCollection() {
