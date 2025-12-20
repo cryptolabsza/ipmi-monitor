@@ -3858,8 +3858,12 @@
                 const response = await fetch(`/api/servers?hours=${hours}`);
                 const freshData = await response.json();
                 
-                // STEP 3: Only re-render if data actually changed
-                const dataChanged = JSON.stringify(freshData) !== JSON.stringify(serversData);
+                // STEP 3: Check if server list changed (ignore volatile fields like timestamps)
+                const getServerKey = (s) => `${s.bmc_ip}:${s.is_reachable}:${s.power_status}`;
+                const oldKeys = serversData.map(getServerKey).sort().join('|');
+                const newKeys = freshData.map(getServerKey).sort().join('|');
+                const serverListChanged = oldKeys !== newKeys;
+                
                 serversData = freshData;
                 
                 // Cache the fresh data
@@ -3871,8 +3875,8 @@
                     await loadAiConfig();
                 }
                 
-                // Only re-render if data changed or we didn't show cache
-                if (dataChanged || !showedCache) {
+                // Only re-render if server list actually changed (status/count) or we didn't show cache
+                if (serverListChanged || !showedCache) {
                     renderServers();
                     populateDeviceSelectors();
                 }
