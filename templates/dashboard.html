@@ -3822,29 +3822,34 @@
                 // STEP 1: Immediately show cached data if available
                 const cachedData = localStorage.getItem('serversCache');
                 const cacheTime = localStorage.getItem('serversCacheTime');
+                let showedCache = false;
                 
                 if (cachedData) {
                     try {
                         serversData = JSON.parse(cachedData);
-                        const cacheAge = cacheTime ? Math.round((Date.now() - parseInt(cacheTime)) / 1000 / 60) : '?';
-                        
-                        // Show cached data immediately with indicator
-                        grid.innerHTML = `<div style="text-align: center; padding: 10px; color: var(--text-secondary); font-size: 0.85rem;">
-                            📦 Showing cached data (${cacheAge} min old) - refreshing...
-                        </div>`;
+                        showedCache = true;
                         
                         // Load AI config first for proper rendering
                         await loadAiConfig();
                         renderServers();
                         populateDeviceSelectors();
+                        
+                        // Show refresh indicator in header, not in grid
+                        const cacheAge = cacheTime ? Math.round((Date.now() - parseInt(cacheTime)) / 1000 / 60) : '?';
+                        const lastUpdated = document.getElementById('lastUpdated');
+                        if (lastUpdated) {
+                            lastUpdated.innerHTML = `<span style="color: var(--text-secondary);">📦 Cached (${cacheAge}m) - refreshing...</span>`;
+                        }
                     } catch (e) {
                         console.log('Cache parse error, loading fresh');
                     }
-                } else {
-                    // No cache - show loading
+                }
+                
+                if (!showedCache) {
+                    // No cache - show loading spinner
                     grid.innerHTML = `<div class="loading">
                         <div class="spinner"></div>
-                        Loading ${serversData.length || ''} servers...
+                        Loading servers...
                     </div>`;
                 }
                 
@@ -3853,7 +3858,8 @@
                 const response = await fetch(`/api/servers?hours=${hours}`);
                 const freshData = await response.json();
                 
-                // STEP 3: Update with fresh data
+                // STEP 3: Only re-render if data actually changed
+                const dataChanged = JSON.stringify(freshData) !== JSON.stringify(serversData);
                 serversData = freshData;
                 
                 // Cache the fresh data
@@ -3865,17 +3871,22 @@
                     await loadAiConfig();
                 }
                 
-                renderServers();
-                populateDeviceSelectors();
+                // Only re-render if data changed or we didn't show cache
+                if (dataChanged || !showedCache) {
+                    renderServers();
+                    populateDeviceSelectors();
+                }
+                
+                // Update timestamp
+                document.getElementById('lastUpdated').textContent = 
+                    'Last updated: ' + new Date().toLocaleTimeString();
                 
             } catch (e) {
                 console.error('Failed to load servers:', e);
                 // If we have cached data, keep showing it
                 if (serversData.length > 0) {
-                    grid.insertAdjacentHTML('afterbegin', 
-                        `<div style="text-align: center; padding: 10px; color: var(--accent-red); font-size: 0.85rem;">
-                            ⚠️ Failed to refresh - showing cached data
-                        </div>`);
+                    document.getElementById('lastUpdated').innerHTML = 
+                        `<span style="color: var(--accent-red);">⚠️ Refresh failed - showing cached</span>`;
                 } else {
                     grid.innerHTML = '<div class="loading">Failed to load servers. Check connection.</div>';
                 }
