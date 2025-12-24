@@ -17,6 +17,8 @@ title: IPMI Monitor Documentation
 
 📖 **[User Guide](user-guide.md)** - Complete documentation for using IPMI Monitor
 
+🔍 **[IPMI SEL Reference](IPMI_SEL_REFERENCE.md)** - Decode BMC event logs and troubleshoot hardware issues
+
 🛠️ **[Developer Guide](DEVELOPER_GUIDE.md)** - Git workflow, releases, CI/CD
 
 ---

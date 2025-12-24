@@ -307,6 +307,8 @@ Shows System Event Log (SEL) entries with:
 | Fan Failure | Fan stopped or below speed threshold | Replace fan ASAP |
 | Power Supply Failure | PSU issue detected | Check/replace PSU |
 
+> 📖 **See Also:** [IPMI SEL Reference Guide](IPMI_SEL_REFERENCE.md) for detailed event code interpretation including hex data decoding.
+
 #### Event Actions
 
 - **Clear DB Events** - Remove from IPMI Monitor only (BMC unaffected)
