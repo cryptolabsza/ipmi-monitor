@@ -13,6 +13,11 @@ version: '3.8'
 
 services:
   ipmi-monitor:
+    # Image tags available:
+    #   :latest  - Stable releases only (recommended for production)
+    #   :stable  - Same as :latest
+    #   :v1.0.0  - Specific version (pin to a release)
+    #   :dev     - Development builds (updates frequently, may be unstable)
     image: ghcr.io/cryptolabsza/ipmi-monitor:latest
     # Or build locally:
     # build: .
