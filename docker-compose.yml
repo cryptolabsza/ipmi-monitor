@@ -72,6 +72,30 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # ========================================
+  # AUTO-UPDATER (Optional but recommended)
+  # ========================================
+  # Automatically updates ipmi-monitor when new images are released
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    environment:
+      - WATCHTOWER_CLEANUP=true              # Remove old images
+      - WATCHTOWER_POLL_INTERVAL=300         # Check every 5 minutes
+      - WATCHTOWER_LABEL_ENABLE=true         # Only update labeled containers
+      - WATCHTOWER_INCLUDE_STOPPED=true      # Update stopped containers too
+      - WATCHTOWER_ROLLING_RESTART=true      # Restart one at a time
+      - WATCHTOWER_NOTIFICATIONS_LEVEL=info  # Log level
+      # Optional: Send notifications on update
+      # - WATCHTOWER_NOTIFICATION_URL=slack://token@channel
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - monitoring
 
 volumes:
   ipmi_data:
