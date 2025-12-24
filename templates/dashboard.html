@@ -4094,7 +4094,7 @@
             if (cachedEvents) {
                 try {
                     const events = JSON.parse(cachedEvents);
-                    renderEventsList(events, list, true);
+                    renderEventsList(events, list);
                 } catch (e) {}
             }
             
@@ -4111,7 +4111,7 @@
                 // Cache fresh events
                 localStorage.setItem('eventsCache', JSON.stringify(events));
                 
-                renderEventsList(events, list, false);
+                renderEventsList(events, list);
             } catch (e) {
                 console.error('Failed to load events:', e);
                 if (!cachedEvents) {
@@ -4120,16 +4120,13 @@
             }
         }
         
-        function renderEventsList(events, list, isCached) {
+        function renderEventsList(events, list) {
             if (events.length === 0) {
                 list.innerHTML = '<div class="loading">No events found</div>';
                 return;
             }
             
-            const header = isCached ? 
-                '<div style="text-align: center; padding: 5px; color: var(--text-secondary); font-size: 0.75rem;">📦 Cached - refreshing...</div>' : '';
-            
-            list.innerHTML = header + events.map(event => {
+            list.innerHTML = events.map(event => {
                 const date = new Date(event.event_date);
                 const timeStr = date.toLocaleString();
                 
