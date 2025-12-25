@@ -14234,14 +14234,16 @@ def api_apply_credential_defaults():
             changed = False
             
             # Apply IPMI credentials
-            if apply_ipmi:
+            if apply_ipmi and default_ipmi_pass:
+                # Apply user if overwrite or user is empty/None
                 if overwrite or not config.ipmi_user:
                     config.ipmi_user = default_ipmi_user
                     changed = True
-                if overwrite or not config.ipmi_pass:
-                    if default_ipmi_pass:
-                        config.ipmi_pass = default_ipmi_pass
-                        changed = True
+                # Apply password if overwrite or password is empty/None/whitespace
+                current_pass = (config.ipmi_pass or '').strip()
+                if overwrite or not current_pass:
+                    config.ipmi_pass = default_ipmi_pass
+                    changed = True
             
             # Apply SSH credentials
             if apply_ssh:

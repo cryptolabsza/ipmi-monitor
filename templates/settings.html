@@ -3508,16 +3508,22 @@
             }
             
             try {
-                const response = await fetch('/api/config/bulk', {
-                    method: 'POST',
+                // Save to system settings (defaults)
+                const response = await fetch('/api/settings/credentials/defaults', {
+                    method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
                     body: JSON.stringify({ipmi_user: user, ipmi_pass: pass})
                 });
                 
-                const result = await response.json();
-                showAlert(`Updated ${result.updated} servers`, 'success');
+                if (response.ok) {
+                    showAlert('Default IPMI credentials saved! Use Bulk Apply to update servers.', 'success');
+                } else {
+                    const result = await response.json();
+                    showAlert(result.error || 'Failed to save credentials', 'error');
+                }
             } catch (e) {
-                showAlert('Failed to save credentials', 'error');
+                showAlert('Failed to save credentials: ' + e.message, 'error');
             }
         }
         
