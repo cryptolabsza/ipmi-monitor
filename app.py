@@ -7679,8 +7679,7 @@ def api_get_system_info(bmc_ip):
                     server_ip, cmd,
                     ssh_user=ssh_user,
                     ssh_key_content=ssh_key_content,
-                    ssh_pass=getattr(config, 'ssh_pass', None),
-                    timeout=15
+                    ssh_pass=getattr(config, 'ssh_pass', None)
                 )
                 raw_outputs[key] = output.strip()
             except Exception as e:
