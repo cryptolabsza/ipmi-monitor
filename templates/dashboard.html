@@ -2377,7 +2377,11 @@
                                     </select>
                                     <button onclick="startNewChat()" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); cursor: pointer;" title="New Chat">+ New</button>
                                 </div>
-                                <span id="chatConversationId" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span id="chatConversationId" style="font-size: 0.75rem; color: var(--text-secondary);"></span>
+                                    <button onclick="deleteCurrentChat()" id="deleteChatBtn" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--accent-red); cursor: pointer; font-size: 0.8rem; display: none;" title="Delete this chat">🗑️</button>
+                                    <button onclick="deleteAllChats()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; font-size: 0.75rem;" title="Delete all chats">Clear All</button>
+                                </div>
                             </div>
                             <div class="ai-chat-examples">
                                 <div class="ai-chat-examples-title">Try asking:</div>
@@ -3474,7 +3478,9 @@
                 </div>
             `;
             document.getElementById('chatConversationId').textContent = 'New conversation';
-            saveChatHistory();
+            document.getElementById('deleteChatBtn').style.display = 'none';
+            document.getElementById('chatHistory').value = 'new';
+            // Don't save empty new conversations
         }
         
         function saveChatHistory() {
@@ -3503,6 +3509,9 @@
             
             localStorage.setItem('aiChatHistory', JSON.stringify(history));
             updateChatHistoryDropdown();
+            
+            // Show delete button now that chat is saved
+            document.getElementById('deleteChatBtn').style.display = 'inline-block';
         }
         
         function updateChatHistoryDropdown() {
@@ -3531,7 +3540,41 @@
                 currentConversationId = id;
                 document.getElementById('aiChatMessages').innerHTML = chat.messages;
                 document.getElementById('chatConversationId').textContent = new Date(chat.timestamp).toLocaleString();
+                // Show delete button for existing chats
+                document.getElementById('deleteChatBtn').style.display = 'inline-block';
             }
+        }
+        
+        function deleteCurrentChat() {
+            if (!currentConversationId) return;
+            
+            if (!confirm('Delete this conversation?')) return;
+            
+            const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
+            const filtered = history.filter(h => h.id !== currentConversationId);
+            localStorage.setItem('aiChatHistory', JSON.stringify(filtered));
+            
+            // Start a new chat
+            startNewChat();
+            updateChatHistoryDropdown();
+            
+            showToast('Chat deleted', 'success');
+        }
+        
+        function deleteAllChats() {
+            const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
+            if (history.length === 0) {
+                showToast('No chats to delete', 'info');
+                return;
+            }
+            
+            if (!confirm(`Delete all ${history.length} conversation(s)? This cannot be undone.`)) return;
+            
+            localStorage.removeItem('aiChatHistory');
+            startNewChat();
+            updateChatHistoryDropdown();
+            
+            showToast(`${history.length} chat(s) deleted`, 'success');
         }
         
         async function loadCachedAiResults() {
