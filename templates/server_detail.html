@@ -599,16 +599,16 @@
                         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
                             <div style="color: var(--text-secondary); font-size: 0.85rem;">BMC IP</div>
                             <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="invBmcIp">{{ bmc_ip }}</div>
-                            <div id="bmcStatus" style="margin-top: 5px;">-</div>
+                            <div id="bmcStatus" style="margin-top: 5px; color: var(--text-secondary);">Click "Check Now" →</div>
                         </div>
                         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
                             <div style="color: var(--text-secondary); font-size: 0.85rem;">Primary/OS IP</div>
                             <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="invPrimaryIp">-</div>
-                            <div id="primaryIpStatus" style="margin-top: 5px;">-</div>
+                            <div id="primaryIpStatus" style="margin-top: 5px; color: var(--text-secondary);">Click "Check Now" →</div>
                         </div>
                         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
                             <div style="color: var(--text-secondary); font-size: 0.85rem;">Overall Status</div>
-                            <div id="overallStatus" style="font-weight: 600; font-size: 1.1rem; margin-top: 5px;">-</div>
+                            <div id="overallStatus" style="font-weight: 600; font-size: 1.1rem; margin-top: 5px; color: var(--text-secondary);">Click "Check Now" →</div>
                         </div>
                     </div>
                 </div>
@@ -1611,12 +1611,28 @@ No data collected yet. Click "Refresh" to collect system information.
         }
         
         async function checkConnectivity() {
+            const bmcStatus = document.getElementById('bmcStatus');
+            const primaryStatus = document.getElementById('primaryIpStatus');
+            const overallStatus = document.getElementById('overallStatus');
+            const checkBtn = document.querySelector('button[onclick="checkConnectivity()"]');
+            
+            // Show loading state
+            const loadingSpinner = '<span style="color: var(--text-secondary);">⏳ Checking...</span>';
+            bmcStatus.innerHTML = loadingSpinner;
+            primaryStatus.innerHTML = loadingSpinner;
+            overallStatus.innerHTML = loadingSpinner;
+            
+            // Disable button while checking
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.innerHTML = '⏳ Checking...';
+            }
+            
             try {
                 const response = await fetch(`/api/servers/${bmcIp}/check-connectivity`, { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 // Update BMC status
-                const bmcStatus = document.getElementById('bmcStatus');
                 bmcStatus.innerHTML = data.bmc_reachable 
                     ? '<span style="color: var(--accent-green);">✅ Online</span>'
                     : '<span style="color: var(--accent-red);">❌ Offline</span>';
@@ -1625,13 +1641,11 @@ No data collected yet. Click "Refresh" to collect system information.
                 if (data.primary_ip) {
                     document.getElementById('invPrimaryIp').textContent = data.primary_ip;
                 }
-                const primaryStatus = document.getElementById('primaryIpStatus');
                 primaryStatus.innerHTML = data.primary_ip_reachable
                     ? '<span style="color: var(--accent-green);">✅ Online</span>'
                     : '<span style="color: var(--accent-red);">❌ Offline</span>';
                 
                 // Update overall status
-                const overallStatus = document.getElementById('overallStatus');
                 const statusMap = {
                     'online': { text: '✅ All Online', color: 'var(--accent-green)' },
                     'os_offline': { text: '⚠️ OS Offline (BMC OK)', color: 'var(--accent-yellow)' },
@@ -1643,6 +1657,15 @@ No data collected yet. Click "Refresh" to collect system information.
                 
             } catch (e) {
                 console.error('Failed to check connectivity:', e);
+                bmcStatus.innerHTML = '<span style="color: var(--accent-red);">❌ Check failed</span>';
+                primaryStatus.innerHTML = '<span style="color: var(--accent-red);">❌ Check failed</span>';
+                overallStatus.innerHTML = '<span style="color: var(--accent-red);">❌ Check failed</span>';
+            } finally {
+                // Re-enable button
+                if (checkBtn) {
+                    checkBtn.disabled = false;
+                    checkBtn.innerHTML = '🔍 Check Now';
+                }
             }
         }
         
