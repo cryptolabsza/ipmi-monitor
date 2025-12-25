@@ -4857,7 +4857,14 @@ def parse_sel_line(line, bmc_ip, server_name):
     return None
 
 def get_ipmi_credentials(bmc_ip):
-    """Get IPMI credentials for a BMC (per-server config or defaults)"""
+    """Get IPMI credentials for a BMC (per-server config or defaults)
+    
+    Priority order:
+    1. Per-server config in ServerConfig table
+    2. NVIDIA password if server has use_nvidia_password flag
+    3. Default credentials from SystemSettings (UI)
+    4. Environment variables (IPMI_USER, IPMI_PASS)
+    """
     with app.app_context():
         # First check for per-server custom credentials
         config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
@@ -4867,11 +4874,22 @@ def get_ipmi_credentials(bmc_ip):
         # Check if server has use_nvidia_password flag set in database
         server = Server.query.filter_by(bmc_ip=bmc_ip).first()
         if server and server.use_nvidia_password:
-            return IPMI_USER, IPMI_PASS_NVIDIA
+            # Use NVIDIA password from SystemSettings or env
+            nvidia_pass = SystemSettings.get('ipmi_pass_nvidia') or IPMI_PASS_NVIDIA
+            nvidia_user = SystemSettings.get('ipmi_user') or IPMI_USER
+            if nvidia_pass:
+                return nvidia_user, nvidia_pass
+        
+        # Check SystemSettings for defaults (set via UI)
+        default_user = SystemSettings.get('ipmi_user')
+        default_pass = SystemSettings.get('ipmi_pass')
+        if default_user and default_pass:
+            return default_user, default_pass
     
-    # Fall back to defaults - check environment variable
+    # Final fallback to environment variables
     password = IPMI_PASS_NVIDIA if bmc_ip in NVIDIA_BMCS else IPMI_PASS
-    return IPMI_USER, password
+    user = IPMI_USER
+    return user, password
 
 def get_ipmi_password(bmc_ip):
     """Get the correct password for a BMC (legacy function)"""
