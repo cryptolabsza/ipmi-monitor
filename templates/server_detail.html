@@ -689,8 +689,11 @@
         <div id="systemTab" class="tab-content">
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 class="section-title" style="margin-bottom: 0;">System Information</h2>
-                    <button class="btn" onclick="loadSystemInfo()" id="refreshSystemBtn">🔄 Refresh</button>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h2 class="section-title" style="margin-bottom: 0;">System Information</h2>
+                        <span id="systemCacheIndicator" style="display: none;"></span>
+                    </div>
+                    <button class="btn" onclick="loadSystemInfo(true)" id="refreshSystemBtn" title="Force refresh from server via SSH">🔄 Refresh (Live)</button>
                 </div>
                 
                 <div id="systemNoSsh" style="display: none; padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
@@ -1163,8 +1166,12 @@ No data collected yet. Click "Refresh" to collect system information.
                 document.getElementById(id).innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
             });
             
+            // Check if refresh was requested (default: use cached if available)
+            const refresh = arguments[0] === true;
+            const url = refresh ? `/api/server/${bmcIp}/system-info?refresh=true` : `/api/server/${bmcIp}/system-info`;
+            
             try {
-                const response = await fetch(`/api/server/${bmcIp}/system-info`);
+                const response = await fetch(url);
                 const data = await response.json();
                 
                 if (data.error === 'no_ssh' || data.error === 'ssh_failed') {
@@ -1177,6 +1184,19 @@ No data collected yet. Click "Refresh" to collect system information.
                 container.style.display = 'block';
                 noSshMsg.style.display = 'none';
                 systemInfoData = data;
+                
+                // Show cached data indicator if applicable
+                const cacheIndicator = document.getElementById('systemCacheIndicator');
+                if (cacheIndicator) {
+                    if (data.cached) {
+                        const collectedAt = data.collected_at ? new Date(data.collected_at).toLocaleString() : 'Unknown';
+                        cacheIndicator.innerHTML = `<span style="color: var(--text-secondary); font-size: 0.85rem;">📦 From inventory (${collectedAt})</span>`;
+                        cacheIndicator.style.display = 'inline';
+                    } else {
+                        cacheIndicator.innerHTML = `<span style="color: var(--accent-green); font-size: 0.85rem;">✅ Live data</span>`;
+                        cacheIndicator.style.display = 'inline';
+                    }
+                }
                 
                 // Render OS Info
                 document.getElementById('osInfo').innerHTML = renderSystemSection([

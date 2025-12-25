@@ -2173,6 +2173,20 @@ class ServerInventory(db.Model):
     # PCIe health (JSON) - collected via lspci -vvv and setpci
     pcie_health = db.Column(db.Text)  # JSON: [{"device": "01:00.0", "name": "GPU", "status": "ok|error", "errors": [...]}]
     pcie_errors_count = db.Column(db.Integer, default=0)  # Count of devices with errors
+    # System details (collected via SSH) - NEW
+    os_name = db.Column(db.String(100))  # e.g., "Ubuntu 22.04.3 LTS"
+    os_version = db.Column(db.String(50))  # e.g., "22.04"
+    kernel_version = db.Column(db.String(100))  # e.g., "5.15.0-91-generic"
+    kernel_arch = db.Column(db.String(20))  # e.g., "x86_64"
+    hostname = db.Column(db.String(100))  # FQDN hostname
+    docker_version = db.Column(db.String(50))  # e.g., "24.0.7"
+    docker_compose_version = db.Column(db.String(50))  # e.g., "2.21.0"
+    docker_containers = db.Column(db.Integer)  # Number of running containers
+    nvidia_driver = db.Column(db.String(50))  # e.g., "535.129.03"
+    cuda_version = db.Column(db.String(20))  # e.g., "12.2"
+    mellanox_ofed = db.Column(db.String(50))  # e.g., "MLNX_OFED_LINUX-5.8-1.0.1.1"
+    uptime_seconds = db.Column(db.Integer)  # System uptime in seconds
+    load_average = db.Column(db.String(50))  # e.g., "0.15, 0.10, 0.09"
     # IP addresses
     primary_ip = db.Column(db.String(20))  # OS IP (e.g., 88.0.x.1)
     primary_ip_reachable = db.Column(db.Boolean, default=True)
@@ -2210,6 +2224,21 @@ class ServerInventory(db.Model):
             'nic_count': self.nic_count,
             'pcie_health': json.loads(self.pcie_health) if self.pcie_health else [],
             'pcie_errors_count': self.pcie_errors_count or 0,
+            # System details
+            'os_name': self.os_name,
+            'os_version': self.os_version,
+            'kernel_version': self.kernel_version,
+            'kernel_arch': self.kernel_arch,
+            'hostname': self.hostname,
+            'docker_version': self.docker_version,
+            'docker_compose_version': self.docker_compose_version,
+            'docker_containers': self.docker_containers,
+            'nvidia_driver': self.nvidia_driver,
+            'cuda_version': self.cuda_version,
+            'mellanox_ofed': self.mellanox_ofed,
+            'uptime_seconds': self.uptime_seconds,
+            'load_average': self.load_average,
+            # Network
             'primary_ip': self.primary_ip,
             'primary_ip_reachable': self.primary_ip_reachable,
             'primary_ip_last_check': self.primary_ip_last_check.isoformat() if self.primary_ip_last_check else None,
@@ -6376,6 +6405,62 @@ def cleanup_timer():
     
     print(f"[Cleanup Timer] Stopped", flush=True)
 
+
+def inventory_timer():
+    """
+    Optional inventory collection timer - collects hardware/system info on a schedule.
+    
+    Set INVENTORY_INTERVAL environment variable to enable (in hours, default 0 = disabled).
+    Recommended: 6-24 hours (inventory data doesn't change frequently).
+    """
+    INVENTORY_INTERVAL_HOURS = int(os.environ.get('INVENTORY_INTERVAL', 0))  # Default 0 = disabled
+    
+    if INVENTORY_INTERVAL_HOURS <= 0:
+        print(f"[Inventory Timer] Disabled (set INVENTORY_INTERVAL=N to enable, where N is hours)", flush=True)
+        return
+    
+    print(f"[Inventory Timer] Started (interval: {INVENTORY_INTERVAL_HOURS}h)", flush=True)
+    
+    # Initial delay - let system stabilize before first collection
+    _shutdown_event.wait(120)  # 2 minutes
+    
+    while not _shutdown_event.is_set():
+        try:
+            with app.app_context():
+                servers = {}
+                for s in Server.query.filter(Server.status != 'deprecated').all():
+                    servers[s.bmc_ip] = (s.server_name, s.server_ip)
+                
+                if servers:
+                    print(f"[Inventory Timer] Starting inventory collection for {len(servers)} servers...", flush=True)
+                    collected = 0
+                    failed = 0
+                    
+                    for bmc_ip, (server_name, server_ip) in servers.items():
+                        try:
+                            # Check if server is reachable first
+                            status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+                            if status and not status.is_reachable:
+                                continue  # Skip unreachable servers
+                            
+                            ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+                            collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip)
+                            collected += 1
+                        except Exception as e:
+                            app.logger.debug(f"[Inventory Timer] Failed for {bmc_ip}: {e}")
+                            failed += 1
+                    
+                    print(f"[Inventory Timer] Complete: {collected} collected, {failed} failed", flush=True)
+                    
+        except Exception as e:
+            print(f"[Inventory Timer] Error: {e}", flush=True)
+        
+        # Wait for next collection cycle
+        _shutdown_event.wait(INVENTORY_INTERVAL_HOURS * 3600)
+    
+    print(f"[Inventory Timer] Stopped", flush=True)
+
+
 def background_collector():
     """Start all background threads - job queue architecture"""
     print(f"[IPMI Monitor] Starting job queue architecture...", flush=True)
@@ -6411,6 +6496,11 @@ def background_collector():
     connectivity_thread = threading.Thread(target=connectivity_timer, daemon=True)
     connectivity_thread.start()
     threads.append(connectivity_thread)
+    
+    # Start optional inventory collection timer
+    inventory_thread = threading.Thread(target=inventory_timer, daemon=True)
+    inventory_thread.start()
+    threads.append(inventory_thread)
     
     print(f"[IPMI Monitor] All background threads started ({len(threads)} threads)", flush=True)
     
@@ -7631,16 +7721,75 @@ def api_check_ssh_available(bmc_ip):
 @require_valid_bmc_ip
 def api_get_system_info(bmc_ip):
     """
-    Get comprehensive system information via SSH.
+    Get comprehensive system information.
     
-    Collects OS, kernel, Docker, GPU driver, Mellanox, and uptime info.
+    First checks for stored inventory data. If ?refresh=true or data is stale (>1 hour),
+    fetches fresh data via SSH.
     """
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     if not server:
         return jsonify({'error': 'server_not_found'}), 404
     
+    # Check for stored inventory data first
+    refresh = request.args.get('refresh', 'false').lower() == 'true'
+    inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+    
+    # Use stored data if available, not too old (< 1 hour), and refresh not requested
+    if inventory and inventory.os_name and not refresh:
+        # Return cached data from inventory
+        return jsonify({
+            'cached': True,
+            'collected_at': inventory.updated_at.isoformat() if inventory.updated_at else None,
+            'os': {
+                'name': inventory.os_name or 'Unknown',
+                'version': inventory.os_version or '',
+                'arch': inventory.kernel_arch or '',
+                'hostname': inventory.hostname or ''
+            },
+            'kernel': {
+                'release': inventory.kernel_version or '',
+                'version': inventory.kernel_version or ''
+            },
+            'uptime': {
+                'human': f'{inventory.uptime_seconds // 86400}d {(inventory.uptime_seconds % 86400) // 3600}h' if inventory.uptime_seconds else '',
+                'seconds': inventory.uptime_seconds,
+                'load_1m': inventory.load_average.split(',')[0].strip() if inventory.load_average else '',
+                'load_5m': inventory.load_average.split(',')[1].strip() if inventory.load_average and len(inventory.load_average.split(',')) > 1 else '',
+                'load_15m': inventory.load_average.split(',')[2].strip() if inventory.load_average and len(inventory.load_average.split(',')) > 2 else ''
+            },
+            'docker': {
+                'installed': bool(inventory.docker_version),
+                'version': inventory.docker_version or '',
+                'compose_version': inventory.docker_compose_version or '',
+                'containers_running': str(inventory.docker_containers or 0)
+            },
+            'gpu': {
+                'driver': inventory.nvidia_driver or '',
+                'cuda_version': inventory.cuda_version or '',
+                'gpu_count': str(inventory.gpu_count or 0)
+            },
+            'network': {
+                'mlx_driver': inventory.mellanox_ofed or '',
+                'mlx_firmware': '',
+                'mlx_interfaces': []
+            }
+        })
+    
     config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
     if not config or not config.server_ip:
+        # No SSH config - return cached if available, even if stale
+        if inventory and inventory.os_name:
+            return jsonify({
+                'cached': True,
+                'stale': True,
+                'collected_at': inventory.updated_at.isoformat() if inventory.updated_at else None,
+                'os': {'name': inventory.os_name or 'Unknown', 'version': inventory.os_version or '', 'arch': inventory.kernel_arch or '', 'hostname': inventory.hostname or ''},
+                'kernel': {'release': inventory.kernel_version or '', 'version': inventory.kernel_version or ''},
+                'uptime': {'human': '', 'load_1m': '', 'load_5m': '', 'load_15m': ''},
+                'docker': {'installed': bool(inventory.docker_version), 'version': inventory.docker_version or '', 'compose_version': '', 'containers_running': '0'},
+                'gpu': {'driver': inventory.nvidia_driver or '', 'cuda_version': inventory.cuda_version or '', 'gpu_count': '0'},
+                'network': {'mlx_driver': inventory.mellanox_ofed or '', 'mlx_firmware': '', 'mlx_interfaces': []}
+            })
         return jsonify({'error': 'no_ssh', 'message': 'SSH not configured for this server'})
     
     # Get SSH credentials
@@ -9827,6 +9976,115 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                         
                 except Exception as e:
                     app.logger.debug(f"SSH PCIe health check failed for {bmc_ip}: {e}")
+                
+                # ========== System Details Collection (OS, kernel, Docker, drivers) ==========
+                try:
+                    # OS info
+                    cmd = build_ssh_cmd('cat /etc/os-release 2>/dev/null')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout:
+                        for line in result.stdout.split('\n'):
+                            if line.startswith('PRETTY_NAME='):
+                                inventory.os_name = line.split('=', 1)[1].strip().strip('"')
+                            elif line.startswith('VERSION_ID='):
+                                inventory.os_version = line.split('=', 1)[1].strip().strip('"')
+                except Exception as e:
+                    app.logger.debug(f"SSH OS info failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Hostname
+                    cmd = build_ssh_cmd('hostname -f 2>/dev/null || hostname')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout:
+                        inventory.hostname = result.stdout.strip()
+                except Exception as e:
+                    app.logger.debug(f"SSH hostname failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Kernel
+                    cmd = build_ssh_cmd('uname -r && uname -m')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout:
+                        lines = result.stdout.strip().split('\n')
+                        inventory.kernel_version = lines[0] if lines else None
+                        inventory.kernel_arch = lines[1] if len(lines) > 1 else None
+                except Exception as e:
+                    app.logger.debug(f"SSH kernel info failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Docker version
+                    cmd = build_ssh_cmd('docker --version 2>/dev/null')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and 'Docker version' in result.stdout:
+                        # Parse: "Docker version 24.0.7, build afdd53b"
+                        match = re.search(r'Docker version ([0-9.]+)', result.stdout)
+                        if match:
+                            inventory.docker_version = match.group(1)
+                except Exception as e:
+                    app.logger.debug(f"SSH docker version failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Docker Compose version
+                    cmd = build_ssh_cmd('docker compose version 2>/dev/null || docker-compose --version 2>/dev/null')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout:
+                        match = re.search(r'[vV]?([0-9.]+)', result.stdout)
+                        if match:
+                            inventory.docker_compose_version = match.group(1)
+                except Exception as e:
+                    app.logger.debug(f"SSH docker-compose version failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Docker running containers count
+                    cmd = build_ssh_cmd('docker ps -q 2>/dev/null | wc -l')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout:
+                        inventory.docker_containers = int(result.stdout.strip())
+                except Exception as e:
+                    app.logger.debug(f"SSH docker containers count failed for {bmc_ip}: {e}")
+                
+                try:
+                    # NVIDIA driver and CUDA
+                    cmd = build_ssh_cmd('nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout.strip():
+                        inventory.nvidia_driver = result.stdout.strip()
+                    
+                    cmd = build_ssh_cmd('nvidia-smi --query-gpu=cuda_version --format=csv,noheader 2>/dev/null | head -1')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    if result.returncode == 0 and result.stdout.strip():
+                        inventory.cuda_version = result.stdout.strip()
+                except Exception as e:
+                    app.logger.debug(f"SSH nvidia info failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Mellanox OFED version
+                    cmd = build_ssh_cmd('ofed_info -s 2>/dev/null')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout.strip():
+                        inventory.mellanox_ofed = result.stdout.strip()
+                except Exception as e:
+                    app.logger.debug(f"SSH mellanox info failed for {bmc_ip}: {e}")
+                
+                try:
+                    # Uptime and load average
+                    cmd = build_ssh_cmd('cat /proc/uptime && cat /proc/loadavg')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0 and result.stdout:
+                        lines = result.stdout.strip().split('\n')
+                        if lines:
+                            # First line: uptime in seconds
+                            uptime_str = lines[0].split()[0]
+                            inventory.uptime_seconds = int(float(uptime_str))
+                        if len(lines) > 1:
+                            # Second line: load averages (1, 5, 15 min)
+                            parts = lines[1].split()
+                            if len(parts) >= 3:
+                                inventory.load_average = f"{parts[0]}, {parts[1]}, {parts[2]}"
+                except Exception as e:
+                    app.logger.debug(f"SSH uptime/load failed for {bmc_ip}: {e}")
+                
+                app.logger.info(f"SSH System details for {bmc_ip}: OS={inventory.os_name}, Kernel={inventory.kernel_version}, Docker={inventory.docker_version}")
                     
         except Exception as e:
             app.logger.debug(f"SSH inventory collection failed for {bmc_ip}: {e}")
@@ -15334,6 +15592,30 @@ def _run_migrations(inspector):
                 app.logger.info("Migration: Adding pcie_devices to server_inventory...")
                 execute_sql('ALTER TABLE server_inventory ADD COLUMN pcie_devices TEXT')
                 app.logger.info("Migration: pcie_devices column added")
+        
+        # Migration 19: Add system details columns to server_inventory (OS, kernel, Docker, drivers)
+        if 'server_inventory' in existing_tables:
+            columns = [c['name'] for c in inspector.get_columns('server_inventory')]
+            new_system_columns = [
+                ('os_name', 'VARCHAR(100)'),
+                ('os_version', 'VARCHAR(50)'),
+                ('kernel_version', 'VARCHAR(100)'),
+                ('kernel_arch', 'VARCHAR(20)'),
+                ('hostname', 'VARCHAR(100)'),
+                ('docker_version', 'VARCHAR(50)'),
+                ('docker_compose_version', 'VARCHAR(50)'),
+                ('docker_containers', 'INTEGER'),
+                ('nvidia_driver', 'VARCHAR(50)'),
+                ('cuda_version', 'VARCHAR(20)'),
+                ('mellanox_ofed', 'VARCHAR(50)'),
+                ('uptime_seconds', 'INTEGER'),
+                ('load_average', 'VARCHAR(50)'),
+            ]
+            for col_name, col_type in new_system_columns:
+                if col_name not in columns:
+                    app.logger.info(f"Migration: Adding {col_name} to server_inventory...")
+                    execute_sql(f'ALTER TABLE server_inventory ADD COLUMN {col_name} {col_type}')
+                    app.logger.info(f"Migration: {col_name} column added")
         
         app.logger.info("Migrations complete")
     except Exception as e:
