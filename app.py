@@ -6479,6 +6479,294 @@ def inventory_timer():
     print(f"[Inventory Timer] Stopped", flush=True)
 
 
+def ssh_log_timer():
+    """
+    Optional SSH log collection timer - collects system logs via SSH on a schedule.
+    
+    Set SSH_LOG_INTERVAL environment variable to enable (in minutes, default 0 = disabled).
+    Recommended: 15-60 minutes (for near real-time log monitoring).
+    
+    Collects and parses:
+    - dmesg (kernel ring buffer) - AER, Xid, PCIe errors
+    - journalctl errors
+    - nvidia-smi output (GPU status)
+    - /var/log/messages or syslog
+    - mcelog (machine check errors)
+    """
+    SSH_LOG_INTERVAL_MINUTES = int(os.environ.get('SSH_LOG_INTERVAL', 0))  # Default 0 = disabled
+    
+    if SSH_LOG_INTERVAL_MINUTES <= 0:
+        print(f"[SSH Log Timer] Disabled (set SSH_LOG_INTERVAL=N to enable, where N is minutes)", flush=True)
+        return
+    
+    print(f"[SSH Log Timer] Started (interval: {SSH_LOG_INTERVAL_MINUTES}min)", flush=True)
+    
+    # Initial delay - let system stabilize
+    _shutdown_event.wait(180)  # 3 minutes
+    
+    while not _shutdown_event.is_set():
+        try:
+            with app.app_context():
+                servers = []
+                for s in Server.query.filter(Server.status != 'deprecated').all():
+                    config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
+                    if config and config.server_ip:  # Must have SSH configured
+                        servers.append({
+                            'bmc_ip': s.bmc_ip,
+                            'server_name': s.server_name,
+                            'server_ip': config.server_ip,
+                            'ssh_user': config.ssh_user or 'root',
+                            'ssh_key_id': config.ssh_key_id,
+                            'ssh_pass': getattr(config, 'ssh_pass', None)
+                        })
+                
+                if servers:
+                    print(f"[SSH Log Timer] Collecting logs from {len(servers)} servers...", flush=True)
+                    collected = 0
+                    failed = 0
+                    
+                    for srv in servers:
+                        try:
+                            _collect_and_store_ssh_logs(srv)
+                            collected += 1
+                        except Exception as e:
+                            app.logger.debug(f"[SSH Log Timer] Failed for {srv['server_name']}: {e}")
+                            failed += 1
+                    
+                    print(f"[SSH Log Timer] Complete: {collected} collected, {failed} failed", flush=True)
+                    
+                    # Cleanup old logs (keep last 7 days)
+                    _cleanup_old_ssh_logs(days=7)
+                    
+        except Exception as e:
+            print(f"[SSH Log Timer] Error: {e}", flush=True)
+        
+        # Wait for next collection cycle
+        _shutdown_event.wait(SSH_LOG_INTERVAL_MINUTES * 60)
+    
+    print(f"[SSH Log Timer] Stopped", flush=True)
+
+
+def _collect_and_store_ssh_logs(server_info):
+    """Collect logs from a single server via SSH and store parsed events"""
+    import re
+    from datetime import datetime
+    
+    # Get SSH key content if configured
+    ssh_key_content = None
+    if server_info.get('ssh_key_id'):
+        key = SSHKey.query.get(server_info['ssh_key_id'])
+        if key:
+            ssh_key_content = key.key_content
+    
+    # Define log collection commands
+    log_commands = {
+        'dmesg': {
+            'cmd': 'dmesg -T 2>/dev/null | tail -500 || dmesg | tail -500',
+            'parser': _parse_dmesg
+        },
+        'journalctl': {
+            'cmd': 'journalctl -p warning -n 200 --no-pager 2>/dev/null || echo ""',
+            'parser': _parse_journalctl
+        },
+        'syslog': {
+            'cmd': 'tail -300 /var/log/syslog 2>/dev/null || tail -300 /var/log/messages 2>/dev/null || echo ""',
+            'parser': _parse_syslog
+        },
+        'mcelog': {
+            'cmd': 'cat /var/log/mcelog 2>/dev/null | tail -100 || echo ""',
+            'parser': _parse_mcelog
+        }
+    }
+    
+    server_name = server_info['server_name']
+    bmc_ip = server_info['bmc_ip']
+    customer_id = 'default'  # TODO: Get from server config
+    
+    for log_type, config in log_commands.items():
+        try:
+            output = run_ssh_command(
+                server_info['server_ip'],
+                config['cmd'],
+                ssh_user=server_info.get('ssh_user', 'root'),
+                ssh_key_content=ssh_key_content,
+                ssh_pass=server_info.get('ssh_pass')
+            )
+            
+            if not output or not output.strip():
+                continue
+            
+            # Parse and store log entries
+            parser = config['parser']
+            entries = parser(output, server_name)
+            
+            stored = 0
+            for entry in entries:
+                try:
+                    # Try to insert (will fail on duplicate due to UNIQUE constraint)
+                    db.session.execute(db.text('''
+                        INSERT OR IGNORE INTO ssh_logs 
+                        (customer_id, server_name, bmc_ip, log_type, severity, timestamp, message, source_file, raw_line)
+                        VALUES (:customer_id, :server_name, :bmc_ip, :log_type, :severity, :timestamp, :message, :source, :raw)
+                    '''), {
+                        'customer_id': customer_id,
+                        'server_name': server_name,
+                        'bmc_ip': bmc_ip,
+                        'log_type': entry.get('log_type', log_type),
+                        'severity': entry.get('severity', 'info'),
+                        'timestamp': entry.get('timestamp', datetime.utcnow().isoformat()),
+                        'message': entry.get('message', '')[:1000],  # Limit message length
+                        'source': entry.get('source', log_type),
+                        'raw': entry.get('raw_line', '')[:2000]
+                    })
+                    stored += 1
+                except Exception as e:
+                    pass  # Duplicate or other error, skip
+            
+            db.session.commit()
+            if stored > 0:
+                app.logger.debug(f"[SSH Logs] Stored {stored} {log_type} entries for {server_name}")
+                
+        except Exception as e:
+            app.logger.debug(f"[SSH Logs] Failed to collect {log_type} from {server_name}: {e}")
+
+
+def _parse_dmesg(output, server_name):
+    """Parse dmesg output for important events"""
+    entries = []
+    
+    # Patterns for important events
+    patterns = {
+        'aer': (r'AER.*(?:Corrected|Uncorrected|Fatal)', 'aer', 'warning'),
+        'pcie': (r'PCIe.*(?:error|link|down|failed)', 'pcie', 'warning'),
+        'xid': (r'NVRM.*Xid.*:.*(\d+)', 'gpu', 'critical'),
+        'gpu_fell': (r'(?:GPU|nvidia).*fell off', 'gpu', 'critical'),
+        'nvlink': (r'NVLink.*(?:error|failed|down)', 'gpu', 'warning'),
+        'ecc': (r'(?:ECC|EDAC).*(?:error|CE|UE)', 'memory', 'warning'),
+        'oom': (r'Out of memory', 'memory', 'critical'),
+        'panic': (r'Kernel panic', 'kernel', 'critical'),
+        'mcelog': (r'MCE.*(?:error|exception)', 'hardware', 'critical'),
+        'disk': (r'(?:sd[a-z]|nvme).*(?:error|failed|timeout)', 'storage', 'warning'),
+    }
+    
+    for line in output.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        
+        # Try to extract timestamp from dmesg -T format: [Tue Dec 24 12:34:56 2024]
+        timestamp = None
+        ts_match = re.search(r'\[([A-Za-z]{3}\s+[A-Za-z]{3}\s+\d+\s+[\d:]+\s+\d{4})\]', line)
+        if ts_match:
+            try:
+                timestamp = datetime.strptime(ts_match.group(1), '%a %b %d %H:%M:%S %Y').isoformat()
+            except:
+                pass
+        
+        if not timestamp:
+            timestamp = datetime.utcnow().isoformat()
+        
+        # Check against patterns
+        for name, (pattern, log_type, severity) in patterns.items():
+            if re.search(pattern, line, re.IGNORECASE):
+                entries.append({
+                    'log_type': log_type,
+                    'severity': severity,
+                    'timestamp': timestamp,
+                    'message': line[:500],
+                    'source': 'dmesg',
+                    'raw_line': line
+                })
+                break  # Only match first pattern
+    
+    return entries
+
+
+def _parse_journalctl(output, server_name):
+    """Parse journalctl output"""
+    entries = []
+    
+    for line in output.strip().split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        
+        # journalctl format: Dec 24 12:34:56 hostname service[pid]: message
+        parts = line.split(' ', 5)
+        if len(parts) >= 6:
+            try:
+                # Parse timestamp
+                ts_str = ' '.join(parts[:3])
+                # Add current year
+                current_year = datetime.utcnow().year
+                timestamp = datetime.strptime(f"{current_year} {ts_str}", '%Y %b %d %H:%M:%S').isoformat()
+            except:
+                timestamp = datetime.utcnow().isoformat()
+            
+            message = parts[5] if len(parts) > 5 else line
+            
+            # Determine severity based on content
+            severity = 'warning'
+            if any(kw in line.lower() for kw in ['critical', 'fatal', 'panic', 'emergency']):
+                severity = 'critical'
+            elif any(kw in line.lower() for kw in ['error', 'failed', 'failure']):
+                severity = 'warning'
+            
+            entries.append({
+                'log_type': 'syslog',
+                'severity': severity,
+                'timestamp': timestamp,
+                'message': message[:500],
+                'source': 'journalctl',
+                'raw_line': line
+            })
+    
+    return entries
+
+
+def _parse_syslog(output, server_name):
+    """Parse syslog/messages output"""
+    return _parse_journalctl(output, server_name)  # Similar format
+
+
+def _parse_mcelog(output, server_name):
+    """Parse mcelog output for machine check errors"""
+    entries = []
+    
+    if not output.strip():
+        return entries
+    
+    # MCE errors are always critical
+    for line in output.strip().split('\n'):
+        if line.strip():
+            entries.append({
+                'log_type': 'hardware',
+                'severity': 'critical',
+                'timestamp': datetime.utcnow().isoformat(),
+                'message': line[:500],
+                'source': 'mcelog',
+                'raw_line': line
+            })
+    
+    return entries
+
+
+def _cleanup_old_ssh_logs(days=7):
+    """Remove SSH logs older than specified days"""
+    try:
+        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        result = db.session.execute(
+            db.text('DELETE FROM ssh_logs WHERE collected_at < :cutoff'),
+            {'cutoff': cutoff}
+        )
+        db.session.commit()
+        deleted = result.rowcount
+        if deleted > 0:
+            app.logger.info(f"[SSH Logs] Cleaned up {deleted} old log entries")
+    except Exception as e:
+        app.logger.debug(f"[SSH Logs] Cleanup error: {e}")
+
+
 def background_collector():
     """Start all background threads - job queue architecture"""
     print(f"[IPMI Monitor] Starting job queue architecture...", flush=True)
@@ -6519,6 +6807,11 @@ def background_collector():
     inventory_thread = threading.Thread(target=inventory_timer, daemon=True)
     inventory_thread.start()
     threads.append(inventory_thread)
+    
+    # Start optional SSH log collection timer
+    ssh_log_thread = threading.Thread(target=ssh_log_timer, daemon=True)
+    ssh_log_thread.start()
+    threads.append(ssh_log_thread)
     
     print(f"[IPMI Monitor] All background threads started ({len(threads)} threads)", flush=True)
     
@@ -13233,6 +13526,73 @@ def api_ai_chat():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/ai/chat/stream', methods=['POST'])
+@login_required
+def api_ai_chat_stream():
+    """
+    Streaming AI chat with real-time progress updates.
+    
+    Returns Server-Sent Events (SSE) for progress feedback:
+    - progress events: Show what the AI is doing (pondering, retrieving, etc.)
+    - complete event: Final answer
+    - error event: Error occurred
+    """
+    from flask import Response, stream_with_context
+    
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        def error_stream():
+            yield f"event: error\ndata: {json.dumps({'error': 'AI features not enabled'})}\n\n"
+        return Response(error_stream(), mimetype='text/event-stream')
+    
+    data = request.get_json() or {}
+    question = data.get('question', '')
+    
+    if not question:
+        def error_stream():
+            yield f"event: error\ndata: {json.dumps({'error': 'Question required'})}\n\n"
+        return Response(error_stream(), mimetype='text/event-stream')
+    
+    def generate():
+        try:
+            # Make streaming request to AI service
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/chat/stream",
+                json=data,
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                stream=True,
+                timeout=180
+            )
+            
+            if not response.ok:
+                yield f"event: error\ndata: {json.dumps({'error': f'AI service error: {response.status_code}'})}\n\n"
+                return
+            
+            # Forward SSE events from AI service
+            for line in response.iter_lines():
+                if line:
+                    decoded = line.decode('utf-8')
+                    yield decoded + '\n'
+                    if not decoded.strip():
+                        yield '\n'
+                        
+        except requests.exceptions.Timeout:
+            yield f"event: error\ndata: {json.dumps({'error': 'AI service timeout'})}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        }
+    )
+
+
 @app.route('/api/ai/rca', methods=['POST'])
 @login_required
 def api_ai_rca():
@@ -15636,6 +15996,33 @@ def _run_migrations(inspector):
                     app.logger.info(f"Migration: Adding {col_name} to server_inventory...")
                     execute_sql(f'ALTER TABLE server_inventory ADD COLUMN {col_name} {col_type}')
                     app.logger.info(f"Migration: {col_name} column added")
+        
+        # Migration 20: Create ssh_logs table for storing collected system logs
+        if 'ssh_logs' not in existing_tables:
+            app.logger.info("Migration: Creating ssh_logs table...")
+            execute_sql('''
+                CREATE TABLE IF NOT EXISTS ssh_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    customer_id VARCHAR(50) DEFAULT 'default',
+                    server_name VARCHAR(100) NOT NULL,
+                    bmc_ip VARCHAR(45),
+                    log_type VARCHAR(30) NOT NULL,
+                    severity VARCHAR(20) DEFAULT 'info',
+                    timestamp DATETIME NOT NULL,
+                    message TEXT NOT NULL,
+                    source_file VARCHAR(100),
+                    raw_line TEXT,
+                    parsed_data TEXT,
+                    collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(server_name, log_type, timestamp, message)
+                )
+            ''')
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server ON ssh_logs(server_name)')
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_type ON ssh_logs(log_type)')
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_timestamp ON ssh_logs(timestamp)')
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_severity ON ssh_logs(severity)')
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_customer ON ssh_logs(customer_id)')
+            app.logger.info("Migration: ssh_logs table created")
         
         app.logger.info("Migrations complete")
     except Exception as e:
