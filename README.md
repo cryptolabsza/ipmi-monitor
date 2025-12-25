@@ -195,6 +195,97 @@ volumes:
 
 ---
 
+## 🔄 Keeping Up to Date
+
+IPMI Monitor is actively developed with regular updates. There are several ways to stay current:
+
+### Option 1: Automatic Updates with Watchtower (Recommended)
+
+[Watchtower](https://containrrr.dev/watchtower/) automatically updates your container when new images are released:
+
+```yaml
+version: '3.8'
+
+services:
+  ipmi-monitor:
+    image: ghcr.io/cryptolabsza/ipmi-monitor:latest
+    container_name: ipmi-monitor
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - IPMI_USER=admin
+      - IPMI_PASS=YourIPMIPassword
+      - ADMIN_PASS=changeme
+      - SECRET_KEY=your-random-secret-key
+    volumes:
+      - ipmi_data:/app/data
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"  # Enable auto-updates
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    environment:
+      - WATCHTOWER_CLEANUP=true              # Remove old images
+      - WATCHTOWER_POLL_INTERVAL=300         # Check every 5 minutes
+      - WATCHTOWER_LABEL_ENABLE=true         # Only update labeled containers
+      - WATCHTOWER_ROLLING_RESTART=true      # Graceful restarts
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  ipmi_data:
+```
+
+**How it works:**
+1. Watchtower checks ghcr.io every 5 minutes for new images
+2. When a new version is pushed, it automatically:
+   - Pulls the new image
+   - Stops the running container gracefully
+   - Starts a new container with the updated image
+   - Cleans up the old image
+3. Your data is preserved in the named volume
+
+### Option 2: Manual Update
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
+
+# Recreate the container
+docker-compose up -d
+```
+
+### Option 3: Check for Updates in the UI
+
+1. Click the version badge in the dashboard header
+2. If an update is available, you'll see an "Update Available" notification
+3. Follow the displayed `docker pull` command
+
+### Image Tags
+
+| Tag | Description | Use Case |
+|-----|-------------|----------|
+| `:latest` | Latest stable release | Production |
+| `:stable` | Same as :latest | Production |
+| `:main` | Main branch builds | Production (bleeding edge) |
+| `:dev` | Develop branch builds | Testing new features |
+| `:v1.6.0` | Specific version | Pinned deployments |
+
+### Version Check API
+
+```bash
+# Check current version
+curl http://localhost:5000/api/version
+
+# Check for updates
+curl http://localhost:5000/api/version/check
+```
+
+---
+
 ## 🔧 BMC Reset (New!)
 
 Reset the BMC without affecting the host server:
