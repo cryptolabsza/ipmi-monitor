@@ -810,6 +810,109 @@
                         </button>
                     </div>
                 </div>
+                
+                <!-- SSH System Log Collection -->
+                <div class="card" style="border: 2px solid var(--accent-cyan);">
+                    <div class="card-title">📋 SSH System Log Collection</div>
+                    <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                        Periodically collect system logs via SSH for AI analysis. Captures dmesg, syslog, journalctl, and GPU/PCIe errors.
+                    </p>
+                    
+                    <div class="form-row" style="align-items: center; margin-bottom: 15px;">
+                        <label class="switch-label" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="enableSshLogCollection" onchange="toggleSshLogCollection()">
+                            <span style="font-weight: 600;">Enable SSH Log Collection</span>
+                        </label>
+                    </div>
+                    
+                    <div id="sshLogCollectionSettings" style="display: none;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Collection Interval (minutes)</label>
+                                <select id="sshLogInterval">
+                                    <option value="5">Every 5 minutes</option>
+                                    <option value="10">Every 10 minutes</option>
+                                    <option value="15" selected>Every 15 minutes</option>
+                                    <option value="30">Every 30 minutes</option>
+                                    <option value="60">Every hour</option>
+                                </select>
+                                <p class="help-text">How often to collect logs from servers with SSH access.</p>
+                            </div>
+                            <div class="form-group">
+                                <label>Retention Period (days)</label>
+                                <select id="sshLogRetention">
+                                    <option value="3">3 days</option>
+                                    <option value="7" selected>7 days</option>
+                                    <option value="14">14 days</option>
+                                    <option value="30">30 days</option>
+                                </select>
+                                <p class="help-text">How long to keep collected log entries.</p>
+                            </div>
+                        </div>
+                        
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.95rem;">📊 Logs Collected</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: var(--accent-green);">✓</span>
+                                    <span><strong>dmesg</strong> - Kernel ring buffer</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: var(--accent-green);">✓</span>
+                                    <span><strong>journalctl</strong> - Systemd logs</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: var(--accent-green);">✓</span>
+                                    <span><strong>syslog</strong> - System messages</span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: var(--accent-green);">✓</span>
+                                    <span><strong>mcelog</strong> - Hardware errors</span>
+                                </div>
+                            </div>
+                            <p style="margin: 10px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
+                                Automatically parses: AER errors, PCIe errors, GPU Xid faults, ECC/memory errors, OOM events
+                            </p>
+                        </div>
+                        
+                        <div id="sshLogStats" style="display: none; margin-bottom: 15px;">
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.95rem;">📈 Collection Statistics</h4>
+                            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                                <div style="padding: 10px 15px; background: var(--bg-tertiary); border-radius: 6px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold;" id="sshLogTotalEntries">-</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Log Entries</div>
+                                </div>
+                                <div style="padding: 10px 15px; background: var(--bg-tertiary); border-radius: 6px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold;" id="sshLogServersCollected">-</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Servers</div>
+                                </div>
+                                <div style="padding: 10px 15px; background: rgba(255, 71, 87, 0.2); border-radius: 6px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-red);" id="sshLogCriticalCount">-</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Critical</div>
+                                </div>
+                                <div style="padding: 10px 15px; background: rgba(255, 170, 0, 0.2); border-radius: 6px;">
+                                    <div style="font-size: 1.5rem; font-weight: bold; color: var(--accent-yellow);" id="sshLogWarningCount">-</div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted);">Warning</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="saveSshLogSettings()">
+                                💾 Save Log Collection Settings
+                            </button>
+                            <button class="btn btn-secondary" onclick="collectSshLogsNow()">
+                                🔄 Collect Now
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="sshLogDisabledNote" style="margin-top: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                        <p style="margin: 0; color: var(--text-secondary);">
+                            ℹ️ SSH log collection is <strong>disabled</strong>. Enable it to collect system logs for AI analysis of kernel errors, GPU faults, and hardware issues.
+                        </p>
+                    </div>
+                </div>
             </div> <!-- End sshConfigSection -->
         </div>
         
@@ -1744,7 +1847,7 @@
             document.getElementById(tabId).classList.add('active');
             
             if (tabId === 'manage') { loadManagedServers(); loadBulkServerList(); }
-            if (tabId === 'ssh') { loadSshSettings(); loadSshKeys(); }
+            if (tabId === 'ssh') { loadSshSettings(); loadSshKeys(); loadSshLogSettings(); }
             if (tabId === 'import') loadExportPreview();
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
             if (tabId === 'notifications') loadNotificationConfigs();
@@ -3727,6 +3830,129 @@
                 }
             } catch (e) {
                 showAlert('Failed to save SSH config: ' + e.message, 'error');
+            }
+        }
+        
+        // SSH Log Collection Functions
+        async function toggleSshLogCollection() {
+            const enabled = document.getElementById('enableSshLogCollection').checked;
+            document.getElementById('sshLogCollectionSettings').style.display = enabled ? 'block' : 'none';
+            document.getElementById('sshLogDisabledNote').style.display = enabled ? 'none' : 'block';
+            
+            if (enabled) {
+                loadSshLogStats();
+            }
+            
+            // Save the setting
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ enable_ssh_log_collection: enabled ? 'true' : 'false' })
+                });
+                if (response.ok) {
+                    showAlert(enabled ? 'SSH log collection enabled' : 'SSH log collection disabled', 'success');
+                }
+            } catch (e) {
+                console.error('Failed to save SSH log setting:', e);
+            }
+        }
+        
+        async function saveSshLogSettings() {
+            const interval = document.getElementById('sshLogInterval').value;
+            const retention = document.getElementById('sshLogRetention').value;
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ 
+                        ssh_log_interval: interval,
+                        ssh_log_retention: retention
+                    })
+                });
+                
+                if (response.ok) {
+                    showAlert('SSH log collection settings saved! Restart required to apply interval changes.', 'success');
+                } else {
+                    showAlert('Failed to save settings', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to save settings: ' + e.message, 'error');
+            }
+        }
+        
+        async function collectSshLogsNow() {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = '⏳ Collecting...';
+            
+            try {
+                const response = await fetch('/api/ssh-logs/collect-now', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showAlert(`Collected logs from ${data.collected || 0} servers`, 'success');
+                    loadSshLogStats();
+                } else {
+                    showAlert('Failed to trigger collection', 'error');
+                }
+            } catch (e) {
+                showAlert('Failed to trigger collection: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+        
+        async function loadSshLogStats() {
+            try {
+                const response = await fetch('/api/ssh-logs/stats', { credentials: 'same-origin' });
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('sshLogTotalEntries').textContent = data.total_entries || 0;
+                    document.getElementById('sshLogServersCollected').textContent = data.servers_collected || 0;
+                    document.getElementById('sshLogCriticalCount').textContent = data.critical_count || 0;
+                    document.getElementById('sshLogWarningCount').textContent = data.warning_count || 0;
+                    document.getElementById('sshLogStats').style.display = 'block';
+                }
+            } catch (e) {
+                console.error('Failed to load SSH log stats:', e);
+            }
+        }
+        
+        async function loadSshLogSettings() {
+            try {
+                const response = await fetch('/api/settings', { credentials: 'same-origin' });
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // SSH log collection enabled
+                    const enabled = data.enable_ssh_log_collection === 'true';
+                    document.getElementById('enableSshLogCollection').checked = enabled;
+                    document.getElementById('sshLogCollectionSettings').style.display = enabled ? 'block' : 'none';
+                    document.getElementById('sshLogDisabledNote').style.display = enabled ? 'none' : 'block';
+                    
+                    // Interval and retention
+                    if (data.ssh_log_interval) {
+                        document.getElementById('sshLogInterval').value = data.ssh_log_interval;
+                    }
+                    if (data.ssh_log_retention) {
+                        document.getElementById('sshLogRetention').value = data.ssh_log_retention;
+                    }
+                    
+                    if (enabled) {
+                        loadSshLogStats();
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to load SSH log settings:', e);
             }
         }
         

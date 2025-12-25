@@ -6483,7 +6483,10 @@ def ssh_log_timer():
     """
     Optional SSH log collection timer - collects system logs via SSH on a schedule.
     
-    Set SSH_LOG_INTERVAL environment variable to enable (in minutes, default 0 = disabled).
+    Can be enabled via:
+    1. SSH_LOG_INTERVAL environment variable (minutes, default 0 = disabled)
+    2. Settings UI: enable_ssh_log_collection + ssh_log_interval
+    
     Recommended: 15-60 minutes (for near real-time log monitoring).
     
     Collects and parses:
@@ -6493,10 +6496,21 @@ def ssh_log_timer():
     - /var/log/messages or syslog
     - mcelog (machine check errors)
     """
-    SSH_LOG_INTERVAL_MINUTES = int(os.environ.get('SSH_LOG_INTERVAL', 0))  # Default 0 = disabled
+    # Check environment variable first
+    SSH_LOG_INTERVAL_MINUTES = int(os.environ.get('SSH_LOG_INTERVAL', 0))
+    
+    # If not set via env, check database settings
+    if SSH_LOG_INTERVAL_MINUTES <= 0:
+        try:
+            with app.app_context():
+                enabled = SystemSettings.get('enable_ssh_log_collection', 'false')
+                if enabled == 'true':
+                    SSH_LOG_INTERVAL_MINUTES = int(SystemSettings.get('ssh_log_interval', '15'))
+        except:
+            pass
     
     if SSH_LOG_INTERVAL_MINUTES <= 0:
-        print(f"[SSH Log Timer] Disabled (set SSH_LOG_INTERVAL=N to enable, where N is minutes)", flush=True)
+        print(f"[SSH Log Timer] Disabled (enable in Settings > SSH or set SSH_LOG_INTERVAL env var)", flush=True)
         return
     
     print(f"[SSH Log Timer] Started (interval: {SSH_LOG_INTERVAL_MINUTES}min)", flush=True)
@@ -6535,8 +6549,9 @@ def ssh_log_timer():
                     
                     print(f"[SSH Log Timer] Complete: {collected} collected, {failed} failed", flush=True)
                     
-                    # Cleanup old logs (keep last 7 days)
-                    _cleanup_old_ssh_logs(days=7)
+                    # Cleanup old logs based on retention setting
+                    retention_days = int(SystemSettings.get('ssh_log_retention', '7'))
+                    _cleanup_old_ssh_logs(days=retention_days)
                     
         except Exception as e:
             print(f"[SSH Log Timer] Error: {e}", flush=True)
@@ -11357,6 +11372,160 @@ def api_delete_ssh_key(key_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to delete key: {str(e)}'}), 500
+
+
+# ============== SSH Log Collection API ==============
+
+@app.route('/api/ssh-logs/stats', methods=['GET'])
+@login_required
+def api_ssh_log_stats():
+    """Get SSH log collection statistics"""
+    try:
+        # Check if ssh_logs table exists
+        inspector = db.inspect(db.engine)
+        if 'ssh_logs' not in inspector.get_table_names():
+            return jsonify({
+                'total_entries': 0,
+                'servers_collected': 0,
+                'critical_count': 0,
+                'warning_count': 0,
+                'enabled': False,
+                'message': 'SSH log collection not initialized'
+            })
+        
+        # Get stats
+        stats = db.session.execute(db.text('''
+            SELECT 
+                COUNT(*) as total,
+                COUNT(DISTINCT server_name) as servers,
+                SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) as critical,
+                SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) as warning
+            FROM ssh_logs
+            WHERE collected_at >= datetime('now', '-7 days')
+        ''')).fetchone()
+        
+        # Get last collection time
+        last_collect = db.session.execute(db.text('''
+            SELECT MAX(collected_at) FROM ssh_logs
+        ''')).fetchone()
+        
+        # Check if enabled
+        enabled_setting = SystemSettings.get('enable_ssh_log_collection', 'false')
+        
+        return jsonify({
+            'total_entries': stats[0] or 0,
+            'servers_collected': stats[1] or 0,
+            'critical_count': stats[2] or 0,
+            'warning_count': stats[3] or 0,
+            'last_collection': last_collect[0] if last_collect and last_collect[0] else None,
+            'enabled': enabled_setting == 'true'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ssh-logs/collect-now', methods=['POST'])
+@admin_required
+def api_ssh_log_collect_now():
+    """Trigger immediate SSH log collection"""
+    try:
+        servers = []
+        for s in Server.query.filter(Server.status != 'deprecated').all():
+            config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
+            if config and config.server_ip:  # Must have SSH configured
+                servers.append({
+                    'bmc_ip': s.bmc_ip,
+                    'server_name': s.server_name,
+                    'server_ip': config.server_ip,
+                    'ssh_user': config.ssh_user or 'root',
+                    'ssh_key_id': config.ssh_key_id,
+                    'ssh_pass': getattr(config, 'ssh_pass', None)
+                })
+        
+        if not servers:
+            return jsonify({
+                'status': 'warning',
+                'message': 'No servers with SSH configured',
+                'collected': 0
+            })
+        
+        collected = 0
+        failed = 0
+        
+        for srv in servers:
+            try:
+                _collect_and_store_ssh_logs(srv)
+                collected += 1
+            except Exception as e:
+                app.logger.debug(f"[SSH Log Collect] Failed for {srv['server_name']}: {e}")
+                failed += 1
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Collected from {collected} servers ({failed} failed)',
+            'collected': collected,
+            'failed': failed
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ssh-logs', methods=['GET'])
+@login_required
+def api_get_ssh_logs():
+    """Get collected SSH logs with optional filters"""
+    try:
+        # Check if ssh_logs table exists
+        inspector = db.inspect(db.engine)
+        if 'ssh_logs' not in inspector.get_table_names():
+            return jsonify({'logs': [], 'total': 0})
+        
+        server_name = request.args.get('server')
+        log_type = request.args.get('type')
+        severity = request.args.get('severity')
+        hours = int(request.args.get('hours', 24))
+        limit = min(int(request.args.get('limit', 100)), 500)
+        
+        query = 'SELECT timestamp, server_name, log_type, severity, message, source_file FROM ssh_logs WHERE collected_at >= datetime("now", ?)'
+        params = [f'-{hours} hours']
+        
+        if server_name:
+            query += ' AND server_name = ?'
+            params.append(server_name)
+        if log_type:
+            query += ' AND log_type = ?'
+            params.append(log_type)
+        if severity:
+            query += ' AND severity = ?'
+            params.append(severity)
+        
+        query += f' ORDER BY timestamp DESC LIMIT {limit}'
+        
+        rows = db.session.execute(db.text(query), params).fetchall()
+        
+        logs = []
+        for row in rows:
+            logs.append({
+                'timestamp': row[0],
+                'server_name': row[1],
+                'log_type': row[2],
+                'severity': row[3],
+                'message': row[4],
+                'source': row[5]
+            })
+        
+        return jsonify({
+            'logs': logs,
+            'total': len(logs),
+            'filters': {
+                'server': server_name,
+                'type': log_type,
+                'severity': severity,
+                'hours': hours
+            }
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/config/bulk', methods=['POST'])
