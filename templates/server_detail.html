@@ -334,6 +334,50 @@
             display: block;
         }
         
+        /* System info grid */
+        .system-info-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .system-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .system-info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .system-info-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        
+        .system-info-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            text-align: right;
+            word-break: break-word;
+        }
+        
+        .system-info-value.success {
+            color: var(--accent-green);
+        }
+        
+        .system-info-value.warning {
+            color: var(--accent-yellow);
+        }
+        
+        .system-info-value.error {
+            color: var(--accent-red);
+        }
+        
         /* Sensor cards */
         .sensors-grid {
             display: grid;
@@ -478,6 +522,7 @@
             <button class="tab-btn active" onclick="switchTab('events')">📋 Events</button>
             <button class="tab-btn" onclick="switchTab('sensors')">🌡️ Sensors</button>
             <button class="tab-btn" onclick="switchTab('inventory')">🔧 Inventory</button>
+            <button class="tab-btn" onclick="switchTab('system')" id="systemTabBtn" style="display: none;">🖥️ System</button>
         </div>
         
         <!-- Events Tab -->
@@ -636,6 +681,92 @@
                     <div id="cmdOutput" style="margin-top: 15px; display: none;">
                         <div style="background: #000; color: #0f0; padding: 15px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; white-space: pre-wrap; overflow-x: auto; max-height: 300px; overflow-y: auto;"></div>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Tab (SSH-based OS info) -->
+        <div id="systemTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">System Information</h2>
+                    <button class="btn" onclick="loadSystemInfo()" id="refreshSystemBtn">🔄 Refresh</button>
+                </div>
+                
+                <div id="systemNoSsh" style="display: none; padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🔒</div>
+                    <h3 style="margin-bottom: 10px;">SSH Access Required</h3>
+                    <p style="color: var(--text-secondary);">
+                        System information requires SSH access to the server's primary IP.
+                        <br>Make sure:
+                    </p>
+                    <ul style="text-align: left; display: inline-block; margin-top: 10px; color: var(--text-secondary);">
+                        <li>Primary/OS IP is configured in the inventory</li>
+                        <li>SSH credentials are set up in admin settings</li>
+                        <li>The server is reachable via SSH</li>
+                    </ul>
+                </div>
+                
+                <div id="systemInfoContainer" style="display: none;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        
+                        <!-- OS Information -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-blue);">🖥️ Operating System</h3>
+                            <div class="system-info-grid" id="osInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Kernel Information -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-green);">🐧 Kernel</h3>
+                            <div class="system-info-grid" id="kernelInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Docker Information -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-purple);">🐳 Docker</h3>
+                            <div class="system-info-grid" id="dockerInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- GPU Drivers -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-yellow);">🎮 GPU Drivers</h3>
+                            <div class="system-info-grid" id="gpuDriverInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Network (Mellanox) -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-red);">🔌 Network Drivers</h3>
+                            <div class="system-info-grid" id="networkDriverInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Uptime & Load -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--text-secondary);">⏱️ Uptime & Load</h3>
+                            <div class="system-info-grid" id="uptimeInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Raw Output (collapsible) -->
+                    <details style="margin-top: 20px; background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <summary style="cursor: pointer; font-weight: 600;">📜 Raw Command Output</summary>
+                        <pre id="systemRawOutput" style="margin-top: 15px; background: #000; color: #0f0; padding: 15px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: pre-wrap; overflow-x: auto; max-height: 400px; overflow-y: auto;">
+No data collected yet. Click "Refresh" to collect system information.
+                        </pre>
+                    </details>
                 </div>
             </div>
         </div>
@@ -1010,6 +1141,147 @@
             } else if (tabName === 'inventory') {
                 loadInventory();
                 checkConnectivity();
+            } else if (tabName === 'system') {
+                loadSystemInfo();
+            }
+        }
+        
+        // System Info (SSH-based)
+        let systemInfoData = null;
+        
+        async function loadSystemInfo() {
+            const container = document.getElementById('systemInfoContainer');
+            const noSshMsg = document.getElementById('systemNoSsh');
+            const btn = document.getElementById('refreshSystemBtn');
+            
+            // Reset UI
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Loading...';
+            
+            // Set all info sections to loading
+            ['osInfo', 'kernelInfo', 'dockerInfo', 'gpuDriverInfo', 'networkDriverInfo', 'uptimeInfo'].forEach(id => {
+                document.getElementById(id).innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+            });
+            
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/system-info`);
+                const data = await response.json();
+                
+                if (data.error === 'no_ssh' || data.error === 'ssh_failed') {
+                    // SSH not available
+                    container.style.display = 'none';
+                    noSshMsg.style.display = 'block';
+                    return;
+                }
+                
+                container.style.display = 'block';
+                noSshMsg.style.display = 'none';
+                systemInfoData = data;
+                
+                // Render OS Info
+                document.getElementById('osInfo').innerHTML = renderSystemSection([
+                    ['OS', data.os?.name || 'N/A'],
+                    ['Version', data.os?.version || 'N/A'],
+                    ['Architecture', data.os?.arch || 'N/A'],
+                    ['Hostname', data.os?.hostname || 'N/A']
+                ]);
+                
+                // Render Kernel Info
+                document.getElementById('kernelInfo').innerHTML = renderSystemSection([
+                    ['Kernel', data.kernel?.version || 'N/A'],
+                    ['Release', data.kernel?.release || 'N/A']
+                ]);
+                
+                // Render Docker Info
+                if (data.docker?.installed) {
+                    document.getElementById('dockerInfo').innerHTML = renderSystemSection([
+                        ['Docker', data.docker?.version || 'N/A', 'success'],
+                        ['Compose', data.docker?.compose_version || 'N/A'],
+                        ['Containers', data.docker?.containers_running || '0']
+                    ]);
+                } else {
+                    document.getElementById('dockerInfo').innerHTML = `
+                        <div class="system-info-row">
+                            <span class="system-info-label">Status</span>
+                            <span class="system-info-value warning">Not Installed</span>
+                        </div>
+                    `;
+                }
+                
+                // Render GPU Drivers
+                if (data.gpu?.driver) {
+                    document.getElementById('gpuDriverInfo').innerHTML = renderSystemSection([
+                        ['NVIDIA Driver', data.gpu?.driver || 'N/A', 'success'],
+                        ['CUDA', data.gpu?.cuda_version || 'N/A'],
+                        ['GPU Count', data.gpu?.gpu_count || '0']
+                    ]);
+                } else {
+                    document.getElementById('gpuDriverInfo').innerHTML = `
+                        <div class="system-info-row">
+                            <span class="system-info-label">Status</span>
+                            <span class="system-info-value">No NVIDIA GPU detected</span>
+                        </div>
+                    `;
+                }
+                
+                // Render Network Drivers (Mellanox)
+                if (data.network?.mlx_driver) {
+                    document.getElementById('networkDriverInfo').innerHTML = renderSystemSection([
+                        ['Mellanox/OFED', data.network?.mlx_driver || 'N/A', 'success'],
+                        ['Firmware', data.network?.mlx_firmware || 'N/A'],
+                        ['Interfaces', data.network?.mlx_interfaces?.join(', ') || 'N/A']
+                    ]);
+                } else {
+                    document.getElementById('networkDriverInfo').innerHTML = `
+                        <div class="system-info-row">
+                            <span class="system-info-label">Status</span>
+                            <span class="system-info-value">No Mellanox detected</span>
+                        </div>
+                    `;
+                }
+                
+                // Render Uptime
+                document.getElementById('uptimeInfo').innerHTML = renderSystemSection([
+                    ['Uptime', data.uptime?.human || 'N/A'],
+                    ['Load (1m)', data.uptime?.load_1m || 'N/A'],
+                    ['Load (5m)', data.uptime?.load_5m || 'N/A'],
+                    ['Load (15m)', data.uptime?.load_15m || 'N/A']
+                ]);
+                
+                // Raw output
+                document.getElementById('systemRawOutput').textContent = data.raw_output || 'No raw output available';
+                
+            } catch (e) {
+                console.error('Failed to load system info:', e);
+                container.style.display = 'none';
+                noSshMsg.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔄 Refresh';
+            }
+        }
+        
+        function renderSystemSection(rows) {
+            return rows.map(([label, value, className]) => `
+                <div class="system-info-row">
+                    <span class="system-info-label">${label}</span>
+                    <span class="system-info-value ${className || ''}">${value}</span>
+                </div>
+            `).join('');
+        }
+        
+        // Check if SSH is available and show System tab
+        async function checkSshAvailability() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/ssh-available`);
+                const data = await response.json();
+                
+                if (data.available) {
+                    // Show the System tab button
+                    document.getElementById('systemTabBtn').style.display = 'inline-block';
+                }
+            } catch (e) {
+                console.log('SSH check failed:', e);
             }
         }
         
@@ -1367,6 +1639,7 @@
         // Initial load
         checkAuthAndSetup();
         loadEvents();
+        checkSshAvailability();  // Check if System tab should be shown
         
         // ============== Diagnostics Functions ==============
         

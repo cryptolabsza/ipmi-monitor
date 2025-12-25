@@ -1272,6 +1272,16 @@
             color: var(--accent-yellow);
         }
         
+        /* Real-time status update animation */
+        @keyframes status-flash {
+            0% { box-shadow: 0 0 20px rgba(74, 158, 255, 0.8); }
+            100% { box-shadow: var(--shadow); }
+        }
+        
+        .sse-disconnected {
+            color: var(--accent-yellow) !important;
+        }
+        
         .status-offline {
             background: rgba(255, 71, 87, 0.15);
             color: var(--accent-red);
@@ -3030,6 +3040,125 @@
         
         // ============== End AI Agent Functions ==============
         
+        // ============== Real-Time SSE Updates ==============
+        let sseConnection = null;
+        let sseReconnectTimeout = null;
+        
+        function initSSE() {
+            if (sseConnection) {
+                sseConnection.close();
+            }
+            
+            sseConnection = new EventSource('/api/stream');
+            
+            sseConnection.onopen = function() {
+                console.log('[SSE] Connected for real-time updates');
+                document.getElementById('lastUpdated').classList.remove('sse-disconnected');
+            };
+            
+            sseConnection.addEventListener('server_status', function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateServerStatusRealtime(data);
+                } catch (e) {
+                    console.error('[SSE] Parse error:', e);
+                }
+            });
+            
+            sseConnection.onerror = function(e) {
+                console.log('[SSE] Connection error, reconnecting in 5s...');
+                document.getElementById('lastUpdated').classList.add('sse-disconnected');
+                sseConnection.close();
+                
+                // Reconnect after 5 seconds
+                if (sseReconnectTimeout) clearTimeout(sseReconnectTimeout);
+                sseReconnectTimeout = setTimeout(initSSE, 5000);
+            };
+        }
+        
+        function updateServerStatusRealtime(data) {
+            // Find the server in our local data
+            const serverIndex = serversData.findIndex(s => s.bmc_ip === data.bmc_ip);
+            
+            if (serverIndex >= 0) {
+                // Update local data
+                serversData[serverIndex].is_reachable = data.is_reachable;
+                serversData[serverIndex].status = data.status;
+                
+                // Update cache
+                localStorage.setItem('serversCache', JSON.stringify(serversData));
+                
+                // Find and update the server card in the DOM
+                const serverCard = document.querySelector(`[data-bmc-ip="${data.bmc_ip}"]`);
+                if (serverCard) {
+                    const statusBadge = serverCard.querySelector('.status-badge');
+                    if (statusBadge) {
+                        // Remove all status classes
+                        statusBadge.classList.remove('status-online', 'status-offline', 'status-partial');
+                        
+                        // Add appropriate class and update text
+                        if (data.status === 'online') {
+                            statusBadge.classList.add('status-online');
+                            statusBadge.textContent = 'Online';
+                        } else if (data.status === 'system_dark') {
+                            statusBadge.classList.add('status-offline');
+                            statusBadge.textContent = 'Offline';
+                        } else if (data.status === 'os_down') {
+                            statusBadge.classList.add('status-partial');
+                            statusBadge.textContent = 'OS Offline';
+                        } else {
+                            statusBadge.classList.add('status-partial');
+                            statusBadge.textContent = data.status.replace('_', ' ').toUpperCase();
+                        }
+                        
+                        // Flash animation for visibility
+                        serverCard.style.animation = 'none';
+                        serverCard.offsetHeight; // Trigger reflow
+                        serverCard.style.animation = 'status-flash 0.5s ease-out';
+                    }
+                }
+                
+                // Update stats counts
+                updateDashboardStats();
+                
+                // Show toast notification for critical changes
+                if (data.severity === 'critical') {
+                    showToast(`🚨 ${data.server_name}: ${data.description}`, 'error');
+                } else if (data.status === 'online' && data.prev_status !== 'online') {
+                    showToast(`✅ ${data.server_name} recovered`, 'success');
+                }
+            }
+            
+            // Update timestamp
+            document.getElementById('lastUpdated').textContent = 
+                '🔴 Live: ' + new Date().toLocaleTimeString();
+        }
+        
+        function updateDashboardStats() {
+            // Recalculate stats from local data
+            const online = serversData.filter(s => s.is_reachable).length;
+            const offline = serversData.filter(s => !s.is_reachable).length;
+            
+            // Update the stats display if elements exist
+            const onlineEl = document.querySelector('.stat-value.online-count');
+            const offlineEl = document.querySelector('.stat-value.offline-count');
+            if (onlineEl) onlineEl.textContent = online;
+            if (offlineEl) offlineEl.textContent = offline;
+        }
+        
+        // Initialize SSE when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initSSE();
+        });
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            if (sseConnection) {
+                sseConnection.close();
+            }
+        });
+        // ============== End Real-Time SSE ==============
+        
         function startFreeTrial() {
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
             const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
@@ -4041,7 +4170,7 @@
                         '') : '';
                 
                 return `
-                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}">
+                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}" data-bmc-ip="${server.bmc_ip}">
                     <div class="server-header">
                         <div>
                             <div class="server-name">${server.server_name}${aiIcon}</div>

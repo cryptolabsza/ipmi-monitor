@@ -401,6 +401,44 @@ SERVERS_CONFIG_FILE = os.environ.get('SERVERS_CONFIG_FILE', '')  # Override spec
 SETUP_COMPLETE_FILE = os.path.join(DATA_DIR, '.setup_complete')
 
 # =============================================================================
+# SSE (Server-Sent Events) for Real-Time Updates
+# =============================================================================
+
+import queue
+_sse_subscribers = []  # List of (queue, client_id)
+_sse_lock = threading.Lock()
+
+def broadcast_status_update(event_type: str, data: dict):
+    """Broadcast a status update to all connected SSE clients"""
+    import json
+    message = f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+    with _sse_lock:
+        for q, client_id in _sse_subscribers:
+            try:
+                q.put_nowait(message)
+            except queue.Full:
+                pass  # Skip if queue is full
+
+def sse_stream(client_id: str):
+    """Generator function for SSE stream"""
+    q = queue.Queue(maxsize=100)
+    with _sse_lock:
+        _sse_subscribers.append((q, client_id))
+    try:
+        # Send initial keepalive
+        yield ": keepalive\n\n"
+        while True:
+            try:
+                message = q.get(timeout=30)  # 30s heartbeat
+                yield message
+            except queue.Empty:
+                # Send keepalive comment
+                yield ": keepalive\n\n"
+    finally:
+        with _sse_lock:
+            _sse_subscribers[:] = [(sq, sid) for sq, sid in _sse_subscribers if sq != q]
+
+# =============================================================================
 # GPU ERROR HANDLING - User-friendly descriptions (hide technical Xid codes)
 # =============================================================================
 
@@ -3168,31 +3206,99 @@ def check_and_report_connectivity_changes():
         except:
             return False
     
-    def check_bmc_reachable(ip, timeout=2):
+    def check_bmc_with_ipmi(ip, timeout=5):
         """
-        Check if BMC is reachable using multiple methods.
-        Some DCs allow ICMP, some allow TCP 623, some allow both.
-        Returns True if ANY method succeeds.
+        Check if BMC is actually responding to IPMI commands.
+        More reliable than ping/TCP - actually validates the BMC is working.
         """
         if not ip:
             return False
-        # Try ping first (fastest, works for IPMI over UDP)
-        if check_ping(ip, timeout):
+        try:
+            import subprocess
+            user, password = get_ipmi_credentials(ip)
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', ip,
+                 '-U', user, '-P', password, 'mc', 'info'],
+                capture_output=True, text=True, timeout=timeout
+            )
+            return result.returncode == 0
+        except subprocess.TimeoutExpired:
+            return False
+        except Exception as e:
+            app.logger.debug(f"IPMI check failed for {ip}: {e}")
+            return False
+    
+    def check_bmc_with_redfish(ip, timeout=5):
+        """
+        Check if BMC responds to Redfish API.
+        Works for modern BMCs that support Redfish.
+        """
+        if not ip:
+            return False
+        try:
+            import requests
+            # Most Redfish endpoints are at /redfish/v1
+            url = f"https://{ip}/redfish/v1"
+            resp = requests.get(url, timeout=timeout, verify=False)
+            return resp.status_code in [200, 401]  # 401 = auth required but responding
+        except:
+            return False
+    
+    def check_ssh(ip, timeout=3):
+        """Check if SSH port is open and responding with banner"""
+        if not ip:
+            return False
+        try:
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(timeout)
+            result = sock.connect_ex((ip, 22))
+            if result == 0:
+                # Try to read SSH banner
+                sock.settimeout(2)
+                try:
+                    banner = sock.recv(256)
+                    sock.close()
+                    return b'SSH' in banner
+                except:
+                    sock.close()
+                    return True  # Port open, assume SSH
+            sock.close()
+            return False
+        except:
+            return False
+    
+    def check_bmc_reachable(ip, timeout=5):
+        """
+        Check if BMC is reachable using rigorous methods.
+        Uses actual IPMI/Redfish commands, not just ping.
+        Returns True only if BMC is actually responding.
+        """
+        if not ip:
+            return False
+        
+        # Method 1: Try IPMI command (most reliable)
+        if check_bmc_with_ipmi(ip, timeout):
             return True
-        # Fall back to TCP port 623 (some BMCs respond to TCP too)
-        if check_port(ip, 623, timeout):
+        
+        # Method 2: Try Redfish API (modern BMCs)
+        if check_bmc_with_redfish(ip, timeout):
             return True
-        # Try web interface ports as last resort
-        if check_port(ip, 443, timeout) or check_port(ip, 80, timeout):
+        
+        # Method 3: Fall back to TCP port 623 + ping (less reliable but fast)
+        if check_port(ip, 623, 2) and check_ping(ip, 2):
+            # Both port and ping work - likely online but IPMI might be slow
             return True
+        
         return False
     
     def check_single_server(server_data):
         """Check connectivity for a single server (for parallel execution)"""
         bmc_ip, server_name, server_ip = server_data
         try:
-            bmc_reachable = check_bmc_reachable(bmc_ip, timeout=2)
-            primary_reachable = check_port(server_ip, 22, timeout=2) if server_ip else None
+            bmc_reachable = check_bmc_reachable(bmc_ip, timeout=5)
+            # Use SSH banner check for primary IP (more reliable than just port check)
+            primary_reachable = check_ssh(server_ip, timeout=3) if server_ip else None
             return (bmc_ip, server_name, server_ip, bmc_reachable, primary_reachable)
         except:
             return (bmc_ip, server_name, server_ip, False, None)
@@ -3307,6 +3413,18 @@ def check_and_report_connectivity_changes():
                     )
                     db.session.add(event)
                     db.session.commit()
+                    
+                    # Broadcast status change via SSE for real-time dashboard updates
+                    broadcast_status_update('server_status', {
+                        'server_name': server.server_name,
+                        'bmc_ip': server.bmc_ip,
+                        'status': current_status,
+                        'prev_status': prev_status,
+                        'description': description,
+                        'severity': severity,
+                        'is_reachable': current_status == 'online',
+                        'timestamp': datetime.utcnow().isoformat()
+                    })
                     
                     # Evaluate alert rules for this connectivity change
                     try:
@@ -6221,7 +6339,8 @@ def sync_timer():
 
 def connectivity_timer():
     """Independent connectivity check timer - monitors server availability"""
-    print(f"[Connectivity Timer] Started (interval: 60s)", flush=True)
+    CONNECTIVITY_INTERVAL = int(os.environ.get('CONNECTIVITY_INTERVAL', 30))  # Default 30s
+    print(f"[Connectivity Timer] Started (interval: {CONNECTIVITY_INTERVAL}s, using IPMI/Redfish checks)", flush=True)
     
     # Short initial delay to let database initialize, then check immediately
     _shutdown_event.wait(5)
@@ -6232,8 +6351,8 @@ def connectivity_timer():
         except Exception as e:
             print(f"[Connectivity Timer] Error: {e}", flush=True)
         
-        # Check every 60 seconds
-        _shutdown_event.wait(60)
+        # Check every CONNECTIVITY_INTERVAL seconds (default 30)
+        _shutdown_event.wait(CONNECTIVITY_INTERVAL)
     
     print(f"[Connectivity Timer] Stopped", flush=True)
 
@@ -6601,6 +6720,27 @@ def api_event_types():
         'severity': r[1],
         'count': r[2]
     } for r in results])
+
+@app.route('/api/stream')
+def api_sse_stream():
+    """Server-Sent Events stream for real-time status updates"""
+    import uuid
+    client_id = str(uuid.uuid4())[:8]
+    
+    def generate():
+        for message in sse_stream(client_id):
+            yield message
+    
+    response = app.response_class(
+        generate(),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive'
+        }
+    )
+    return response
 
 @app.route('/api/collect', methods=['POST'])
 def api_trigger_collection():
@@ -7447,6 +7587,180 @@ def api_diagnostics_full_package(bmc_ip):
         as_attachment=True,
         download_name=f'diagnostics_{server_name}_{timestamp}.zip'
     )
+
+
+# =============================================================================
+# SYSTEM INFO (SSH-based OS/Driver information)
+# =============================================================================
+
+@app.route('/api/server/<bmc_ip>/ssh-available')
+@view_required
+@require_valid_bmc_ip
+def api_check_ssh_available(bmc_ip):
+    """
+    Check if SSH is available for this server.
+    Used to determine if System tab should be shown.
+    """
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'available': False, 'reason': 'server_not_found'})
+    
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config or not config.server_ip:
+        return jsonify({'available': False, 'reason': 'no_primary_ip'})
+    
+    # Check if SSH port is open
+    primary_ip = config.server_ip
+    try:
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(3)
+        result = sock.connect_ex((primary_ip, 22))
+        sock.close()
+        
+        if result == 0:
+            return jsonify({'available': True, 'server_ip': primary_ip})
+        else:
+            return jsonify({'available': False, 'reason': 'ssh_port_closed'})
+    except Exception as e:
+        return jsonify({'available': False, 'reason': str(e)})
+
+
+@app.route('/api/server/<bmc_ip>/system-info')
+@view_required
+@require_valid_bmc_ip
+def api_get_system_info(bmc_ip):
+    """
+    Get comprehensive system information via SSH.
+    
+    Collects OS, kernel, Docker, GPU driver, Mellanox, and uptime info.
+    """
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'server_not_found'}), 404
+    
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config or not config.server_ip:
+        return jsonify({'error': 'no_ssh', 'message': 'SSH not configured for this server'})
+    
+    # Get SSH credentials
+    ssh_user = config.ssh_user or 'root'
+    ssh_key_content = None
+    if config.ssh_key_id:
+        key = SSHKey.query.get(config.ssh_key_id)
+        if key:
+            ssh_key_content = key.key_content
+    
+    server_ip = config.server_ip
+    raw_outputs = {}
+    
+    # Define commands to run
+    commands = {
+        'os': 'cat /etc/os-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null || echo "unknown"',
+        'hostname': 'hostname -f 2>/dev/null || hostname',
+        'kernel': 'uname -r && uname -m',
+        'uptime': 'uptime',
+        'docker_version': 'docker --version 2>/dev/null || echo "not installed"',
+        'docker_compose': 'docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo "not installed"',
+        'docker_ps': 'docker ps --format "{{.Names}}" 2>/dev/null | wc -l || echo "0"',
+        'nvidia_driver': 'nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo ""',
+        'cuda_version': 'nvidia-smi --query-gpu=cuda_version --format=csv,noheader 2>/dev/null | head -1 || nvcc --version 2>/dev/null | grep release | awk \'{print $5}\' | tr -d \',\' || echo ""',
+        'gpu_count': 'nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo "0"',
+        'mlx_driver': 'ofed_info -s 2>/dev/null || modinfo mlx5_core 2>/dev/null | grep "^version:" | awk \'{print $2}\' || echo ""',
+        'mlx_firmware': 'mstflint -d /dev/mst/mt* q 2>/dev/null | grep "FW Version" | head -1 | awk \'{print $3}\' || echo ""',
+        'mlx_interfaces': 'ip link show 2>/dev/null | grep -E "^[0-9]+: (eth|enp|ens)" | awk -F: \'{print $2}\' | tr -d \' \' | head -5'
+    }
+    
+    # Execute all commands
+    try:
+        for key, cmd in commands.items():
+            try:
+                output = run_ssh_command(
+                    server_ip, cmd,
+                    ssh_user=ssh_user,
+                    ssh_key_content=ssh_key_content,
+                    ssh_pass=getattr(config, 'ssh_pass', None),
+                    timeout=15
+                )
+                raw_outputs[key] = output.strip()
+            except Exception as e:
+                raw_outputs[key] = f'error: {str(e)}'
+    except Exception as e:
+        return jsonify({'error': 'ssh_failed', 'message': str(e)})
+    
+    # Parse OS info
+    os_info = {'name': 'Unknown', 'version': '', 'arch': '', 'hostname': raw_outputs.get('hostname', '')}
+    os_raw = raw_outputs.get('os', '')
+    for line in os_raw.split('\n'):
+        if line.startswith('PRETTY_NAME='):
+            os_info['name'] = line.split('=', 1)[1].strip().strip('"')
+        elif line.startswith('VERSION_ID='):
+            os_info['version'] = line.split('=', 1)[1].strip().strip('"')
+    
+    # Parse kernel
+    kernel_parts = raw_outputs.get('kernel', '').split('\n')
+    kernel_info = {
+        'release': kernel_parts[0] if kernel_parts else '',
+        'version': kernel_parts[0] if kernel_parts else ''
+    }
+    if len(kernel_parts) > 1:
+        os_info['arch'] = kernel_parts[1]
+    
+    # Parse uptime
+    uptime_raw = raw_outputs.get('uptime', '')
+    uptime_info = {'human': uptime_raw, 'load_1m': '', 'load_5m': '', 'load_15m': ''}
+    # Extract load averages: "load average: 0.12, 0.15, 0.10"
+    if 'load average:' in uptime_raw:
+        load_part = uptime_raw.split('load average:')[1].strip()
+        loads = [l.strip() for l in load_part.split(',')]
+        if len(loads) >= 1: uptime_info['load_1m'] = loads[0]
+        if len(loads) >= 2: uptime_info['load_5m'] = loads[1]
+        if len(loads) >= 3: uptime_info['load_15m'] = loads[2]
+    # Extract human-readable uptime
+    if 'up' in uptime_raw:
+        try:
+            up_part = uptime_raw.split('up')[1].split(',')[0:2]
+            uptime_info['human'] = 'up ' + ','.join(up_part).strip()
+        except:
+            pass
+    
+    # Parse Docker
+    docker_ver = raw_outputs.get('docker_version', '')
+    docker_info = {
+        'installed': 'not installed' not in docker_ver.lower() and 'error' not in docker_ver.lower(),
+        'version': docker_ver.replace('Docker version ', '').split(',')[0] if 'Docker version' in docker_ver else '',
+        'compose_version': raw_outputs.get('docker_compose', '').replace('Docker Compose version ', '').split()[0] if 'version' in raw_outputs.get('docker_compose', '') else '',
+        'containers_running': raw_outputs.get('docker_ps', '0')
+    }
+    
+    # Parse GPU
+    gpu_info = {
+        'driver': raw_outputs.get('nvidia_driver', ''),
+        'cuda_version': raw_outputs.get('cuda_version', ''),
+        'gpu_count': raw_outputs.get('gpu_count', '0')
+    }
+    
+    # Parse Network/Mellanox
+    mlx_interfaces = raw_outputs.get('mlx_interfaces', '').split('\n')
+    network_info = {
+        'mlx_driver': raw_outputs.get('mlx_driver', '').strip(),
+        'mlx_firmware': raw_outputs.get('mlx_firmware', ''),
+        'mlx_interfaces': [i.strip() for i in mlx_interfaces if i.strip()]
+    }
+    
+    # Build raw output string for debugging
+    raw_output_str = '\n\n'.join([f'=== {k} ===\n{v}' for k, v in raw_outputs.items()])
+    
+    return jsonify({
+        'os': os_info,
+        'kernel': kernel_info,
+        'uptime': uptime_info,
+        'docker': docker_info,
+        'gpu': gpu_info,
+        'network': network_info,
+        'raw_output': raw_output_str,
+        'collected_at': datetime.utcnow().isoformat() + 'Z'
+    })
 
 
 @app.route('/api/server/<bmc_ip>/execute', methods=['POST'])
