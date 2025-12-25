@@ -9641,37 +9641,43 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 except Exception as e:
                     app.logger.debug(f"SSH NIC collection failed for {bmc_ip}: {e}")
                 
-                # NVMe devices via lspci
+                # NVMe devices via lspci - only if lsblk didn't capture NVMe drives
+                # (lsblk provides actual block devices with sizes, which is more useful)
                 try:
-                    cmd = build_ssh_cmd('lspci 2>/dev/null | grep -i nvme')
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-                    if result.returncode == 0 and result.stdout:
-                        nvme_devices = []
-                        for line in result.stdout.strip().split('\n'):
-                            if line:
-                                # Parse: "05:00.0 Non-Volatile memory controller: Samsung Electronics..."
-                                parts = line.split(': ', 1)
-                                if len(parts) >= 2:
-                                    pci_addr = parts[0].split()[0] if parts[0] else None
-                                    nvme_model = parts[1].strip()
-                                    nvme_devices.append({
-                                        'pci_address': pci_addr,
-                                        'model': nvme_model,
-                                        'type': 'nvme'
+                    existing_storage = json.loads(inventory.storage_info) if inventory.storage_info else []
+                    has_nvme_drives = any(d.get('name', '').startswith('nvme') for d in existing_storage)
+                    
+                    if not has_nvme_drives:
+                        # Only collect NVMe controller info if we don't have NVMe block devices
+                        cmd = build_ssh_cmd('lspci 2>/dev/null | grep -i nvme')
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                        if result.returncode == 0 and result.stdout:
+                            nvme_devices = []
+                            for line in result.stdout.strip().split('\n'):
+                                if line:
+                                    # Parse: "05:00.0 Non-Volatile memory controller: Samsung Electronics..."
+                                    parts = line.split(': ', 1)
+                                    if len(parts) >= 2:
+                                        pci_addr = parts[0].split()[0] if parts[0] else None
+                                        nvme_model = parts[1].strip()
+                                        nvme_devices.append({
+                                            'pci_address': pci_addr,
+                                            'model': nvme_model,
+                                            'type': 'nvme',
+                                            'size': 'N/A'  # Size not available from lspci
+                                        })
+                            if nvme_devices:
+                                for nvme in nvme_devices:
+                                    existing_storage.append({
+                                        'name': nvme['pci_address'],
+                                        'model': nvme['model'],
+                                        'type': 'nvme',
+                                        'size': 'N/A'
                                     })
-                        if nvme_devices:
-                            # Append NVMe info to storage_info
-                            existing_storage = json.loads(inventory.storage_info) if inventory.storage_info else []
-                            for nvme in nvme_devices:
-                                existing_storage.append({
-                                    'name': nvme['pci_address'],
-                                    'model': nvme['model'],
-                                    'type': 'nvme'
-                                })
-                            inventory.storage_info = json.dumps(existing_storage)
-                            if not inventory.storage_count:
-                                inventory.storage_count = len(existing_storage)
-                            app.logger.info(f"SSH NVMe for {bmc_ip}: {len(nvme_devices)} devices")
+                                inventory.storage_info = json.dumps(existing_storage)
+                                if not inventory.storage_count:
+                                    inventory.storage_count = len(existing_storage)
+                                app.logger.info(f"SSH NVMe for {bmc_ip}: {len(nvme_devices)} devices (via lspci)")
                 except Exception as e:
                     app.logger.debug(f"SSH NVMe collection failed for {bmc_ip}: {e}")
                 
