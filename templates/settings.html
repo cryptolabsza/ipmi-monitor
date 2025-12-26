@@ -901,9 +901,25 @@
                             <button class="btn btn-primary" onclick="saveSshLogSettings()">
                                 💾 Save Log Collection Settings
                             </button>
-                            <button class="btn btn-secondary" onclick="collectSshLogsNow()">
+                            <button class="btn btn-secondary" id="collectSshLogsBtn" onclick="collectSshLogsNow()">
                                 🔄 Collect Now
                             </button>
+                        </div>
+                        
+                        <!-- SSH Log Collection Progress -->
+                        <div id="sshLogProgress" style="display: none; margin-top: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span id="sshLogProgressText">🔄 Starting collection...</span>
+                                <span id="sshLogElapsed" style="color: var(--text-muted); font-size: 0.9rem;">⏱️ 0:00</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                                <div style="flex: 1; height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden;">
+                                    <div id="sshLogProgressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); transition: width 0.3s ease;"></div>
+                                </div>
+                                <span id="sshLogProgressCount" style="min-width: 60px; text-align: right; font-weight: 600;">0 / 0</span>
+                            </div>
+                            <div id="sshLogRecentServers" style="font-size: 0.85rem; color: var(--text-muted);"></div>
+                            <div id="sshLogErrors" style="display: none; margin-top: 10px; padding: 10px; background: rgba(255,71,87,0.1); border-radius: 6px; color: var(--accent-red); font-size: 0.85rem;"></div>
                         </div>
                     </div>
                     
@@ -3885,29 +3901,146 @@
         }
         
         async function collectSshLogsNow() {
-            const btn = event.target;
-            const originalText = btn.textContent;
+            const btn = document.getElementById('collectSshLogsBtn');
+            const progressDiv = document.getElementById('sshLogProgress');
+            const progressText = document.getElementById('sshLogProgressText');
+            const progressCount = document.getElementById('sshLogProgressCount');
+            const progressBar = document.getElementById('sshLogProgressBar');
+            const elapsedDiv = document.getElementById('sshLogElapsed');
+            const recentDiv = document.getElementById('sshLogRecentServers');
+            const errorsDiv = document.getElementById('sshLogErrors');
+            
+            // Disable button and show progress
             btn.disabled = true;
-            btn.textContent = '⏳ Collecting...';
+            btn.innerHTML = '⏳ Collecting...';
+            progressDiv.style.display = 'block';
+            progressBar.style.width = '0%';
+            errorsDiv.style.display = 'none';
+            errorsDiv.innerHTML = '';
+            recentDiv.innerHTML = '';
+            
+            // Start elapsed time counter
+            const startTime = Date.now();
+            const elapsedTimer = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                elapsedDiv.textContent = `⏱️ ${mins}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+            
+            progressText.textContent = '🔄 Starting parallel collection...';
+            progressCount.textContent = 'Connecting...';
+            
+            // Track results
+            let total = 0;
+            let completed = 0;
+            let success = 0;
+            let failed = 0;
+            let errors = [];
+            let workers = 0;
+            let recentServers = [];
+            let totalEntries = 0;
             
             try {
-                const response = await fetch('/api/ssh-logs/collect-now', {
-                    method: 'POST',
-                    credentials: 'same-origin'
-                });
+                // Use SSE streaming endpoint for real-time progress
+                const eventSource = new EventSource('/api/ssh-logs/collect-all/stream');
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    showAlert(`Collected logs from ${data.collected || 0} servers`, 'success');
-                    loadSshLogStats();
-                } else {
-                    showAlert('Failed to trigger collection', 'error');
-                }
+                eventSource.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'start') {
+                        total = data.total;
+                        workers = data.workers;
+                        progressText.textContent = `🔄 Collecting from ${total} servers (${workers} parallel workers)`;
+                        progressCount.textContent = `0 / ${total}`;
+                    }
+                    else if (data.type === 'progress') {
+                        completed = data.completed;
+                        const current = data.current;
+                        
+                        if (current.status === 'success') {
+                            success++;
+                            totalEntries += current.entries || 0;
+                            recentServers.unshift(`✅ ${current.name} (${current.entries || 0})`);
+                        } else if (current.status === 'skipped') {
+                            recentServers.unshift(`⏭️ ${current.name}`);
+                        } else {
+                            failed++;
+                            errors.push({name: current.name, error: current.error});
+                            recentServers.unshift(`❌ ${current.name}`);
+                        }
+                        
+                        // Keep only last 5
+                        recentServers = recentServers.slice(0, 5);
+                        
+                        // Update progress
+                        const pct = (completed / total) * 100;
+                        progressBar.style.width = `${pct}%`;
+                        progressCount.textContent = `${completed} / ${total}`;
+                        progressText.innerHTML = `🔄 ${workers} workers | ${totalEntries} entries collected`;
+                        recentDiv.innerHTML = recentServers.join(' &nbsp;│&nbsp; ');
+                    }
+                    else if (data.type === 'heartbeat') {
+                        // Keep connection alive
+                    }
+                    else if (data.type === 'complete') {
+                        eventSource.close();
+                        clearInterval(elapsedTimer);
+                        
+                        const totalElapsed = Math.floor((Date.now() - startTime) / 1000);
+                        const mins = Math.floor(totalElapsed / 60);
+                        const secs = totalElapsed % 60;
+                        elapsedDiv.textContent = `✅ ${mins}:${secs.toString().padStart(2, '0')}`;
+                        
+                        progressBar.style.width = '100%';
+                        progressCount.textContent = `${success} / ${total}`;
+                        progressText.textContent = `✅ Complete! ${data.log_entries || totalEntries} log entries collected`;
+                        
+                        // Show errors if any
+                        if (errors.length > 0) {
+                            errorsDiv.style.display = 'block';
+                            const errorList = errors.slice(0, 5).map(e => `${e.name}: ${e.error}`);
+                            errorsDiv.innerHTML = `<strong>⚠️ ${failed} failed:</strong><br>` + 
+                                errorList.join('<br>') + 
+                                (errors.length > 5 ? `<br>... and ${errors.length - 5} more` : '');
+                            showAlert(`SSH logs collected: ${success} success, ${failed} failed`, 'warning');
+                        } else {
+                            showAlert(`Successfully collected SSH logs from ${success} servers!`, 'success');
+                        }
+                        
+                        // Refresh stats
+                        loadSshLogStats();
+                        
+                        btn.disabled = false;
+                        btn.innerHTML = '🔄 Collect Now';
+                    }
+                };
+                
+                eventSource.onerror = (e) => {
+                    eventSource.close();
+                    clearInterval(elapsedTimer);
+                    
+                    if (completed > 0) {
+                        progressBar.style.width = '100%';
+                        progressCount.textContent = `${success} / ${total}`;
+                        progressText.textContent = '⚠️ Connection lost, partial results';
+                        loadSshLogStats();
+                    } else {
+                        showAlert('Connection to server lost', 'error');
+                        progressText.textContent = '❌ Connection failed';
+                    }
+                    
+                    btn.disabled = false;
+                    btn.innerHTML = '🔄 Collect Now';
+                };
+                
             } catch (e) {
-                showAlert('Failed to trigger collection: ' + e.message, 'error');
-            } finally {
+                clearInterval(elapsedTimer);
+                showAlert('Failed to collect SSH logs: ' + e.message, 'error');
+                progressText.textContent = '❌ Collection failed';
+                progressBar.style.width = '0%';
                 btn.disabled = false;
-                btn.textContent = originalText;
+                btn.innerHTML = '🔄 Collect Now';
             }
         }
         

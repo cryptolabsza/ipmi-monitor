@@ -11427,7 +11427,7 @@ def api_ssh_log_stats():
 @app.route('/api/ssh-logs/collect-now', methods=['POST'])
 @admin_required
 def api_ssh_log_collect_now():
-    """Trigger immediate SSH log collection"""
+    """Trigger immediate SSH log collection (simple version)"""
     try:
         servers = []
         for s in Server.query.filter(Server.status != 'deprecated').all():
@@ -11468,6 +11468,129 @@ def api_ssh_log_collect_now():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ssh-logs/collect-all/stream', methods=['GET'])
+@write_required
+def api_ssh_log_collect_stream():
+    """Collect SSH logs with SSE streaming progress updates (parallel workers)"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    import threading
+    import queue
+    
+    def generate():
+        # Get server list inside the generator with app context
+        with app.app_context():
+            servers = []
+            for s in Server.query.filter(Server.status != 'deprecated').all():
+                config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
+                if config and config.server_ip:  # Must have SSH configured
+                    servers.append({
+                        'bmc_ip': s.bmc_ip,
+                        'server_name': s.server_name,
+                        'server_ip': config.server_ip,
+                        'ssh_user': config.ssh_user or 'root',
+                        'ssh_key_id': config.ssh_key_id,
+                        'ssh_pass': getattr(config, 'ssh_pass', None)
+                    })
+        
+        total = len(servers)
+        num_workers = min(get_collection_workers(), 8)
+        
+        # Send initial status
+        yield f"data: {json.dumps({'type': 'start', 'total': total, 'workers': num_workers})}\n\n"
+        
+        if total == 0:
+            yield f"data: {json.dumps({'type': 'complete', 'success': 0, 'failed': 0, 'skipped': 0, 'message': 'No servers with SSH configured'})}\n\n"
+            return
+        
+        results = {'success': 0, 'failed': 0, 'skipped': 0, 'errors': [], 'log_entries': 0}
+        progress_queue = queue.Queue()
+        
+        def collect_one(srv):
+            """Collect SSH logs for a single server and report progress"""
+            with app.app_context():
+                try:
+                    # Check if server is reachable
+                    status = ServerStatus.query.filter_by(bmc_ip=srv['bmc_ip']).first()
+                    if status and not getattr(status, 'primary_ip_reachable', True) == False:
+                        pass  # Continue even if BMC unreachable, SSH might still work
+                    
+                    _collect_and_store_ssh_logs(srv)
+                    
+                    # Count entries collected (last 5 minutes to get recent)
+                    entry_count = db.session.execute(db.text('''
+                        SELECT COUNT(*) FROM ssh_logs 
+                        WHERE server_name = :name AND collected_at >= datetime('now', '-5 minutes')
+                    '''), {'name': srv['server_name']}).fetchone()[0] or 0
+                    
+                    progress_queue.put({
+                        'bmc_ip': srv['bmc_ip'], 
+                        'name': srv['server_name'], 
+                        'status': 'success',
+                        'entries': entry_count
+                    })
+                    return 'success', entry_count
+                except Exception as e:
+                    progress_queue.put({
+                        'bmc_ip': srv['bmc_ip'], 
+                        'name': srv['server_name'], 
+                        'status': 'error', 
+                        'error': str(e)[:100]
+                    })
+                    return 'error', 0
+        
+        # Start workers in background thread
+        def run_workers():
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                futures = {executor.submit(collect_one, srv): srv['bmc_ip'] for srv in servers}
+                for future in as_completed(futures):
+                    try:
+                        status, entries = future.result(timeout=120)
+                        if status == 'success':
+                            results['success'] += 1
+                            results['log_entries'] += entries
+                        else:
+                            results['failed'] += 1
+                    except Exception as e:
+                        results['failed'] += 1
+            progress_queue.put(None)  # Signal completion
+        
+        worker_thread = threading.Thread(target=run_workers)
+        worker_thread.start()
+        
+        completed = 0
+        
+        while True:
+            try:
+                item = progress_queue.get(timeout=5)
+                
+                if item is None:
+                    # Collection complete
+                    break
+                
+                completed += 1
+                yield f"data: {json.dumps({'type': 'progress', 'completed': completed, 'current': item})}\n\n"
+                
+            except queue.Empty:
+                # Send heartbeat to keep connection alive
+                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+        
+        # Wait for worker thread to finish
+        worker_thread.join(timeout=10)
+        
+        # Send completion message
+        yield f"data: {json.dumps({'type': 'complete', 'success': results['success'], 'failed': results['failed'], 'skipped': results['skipped'], 'log_entries': results['log_entries']})}\n\n"
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        }
+    )
 
 
 @app.route('/api/ssh-logs', methods=['GET'])
