@@ -28,6 +28,8 @@
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
 - 💾 **ECC Memory Tracking** - Identify which DIMM has errors
 - 🎮 **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH (Xid errors)
+- 📜 **SSH System Logs** - Collect dmesg, journalctl, syslog, mcelog via SSH
+- 🔧 **Hardware Error Detection** - AER, PCIe, ECC errors parsed automatically
 - 🔄 **Uptime & Reboot Detection** - Track unexpected server reboots
 - 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
 - ✅ **Alert Resolution** - Notifications when issues are resolved
@@ -56,6 +58,20 @@
 ---
 
 ## 🆕 What's New in v0.7.x
+
+### v0.7.8 - SSH System Log Collection
+- **Background SSH Log Collection** - Automatically collect dmesg, journalctl, syslog, mcelog
+- **System Logs Tab** - View collected logs per server with severity filtering
+- **AER/PCIe Error Detection** - Automatically parse and categorize hardware errors
+- **GPU Xid Fault Tracking** - Extract NVIDIA Xid errors from kernel logs
+- **Parallel Collection** - Up to 8 workers for fast log collection with SSE progress UI
+- **AI Integration** - SSH logs synced to AI service for intelligent analysis
+
+### v0.7.7 - AI Safety Agent
+- **Input Validation** - Detect prompt injection, code injection, role hijacking
+- **Threat Detection** - Block malicious queries before processing
+- **Entropy Analysis** - Detect obfuscated attack payloads
+- **Secret Redaction** - Automatically redact credentials from AI responses
 
 ### v0.7.6 - Post-Event RCA
 - **Dark Recovery Investigation** - When a server recovers, AI investigates what happened
@@ -411,6 +427,40 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 | `PUT /api/ai/config` | Update AI config (including site_name) |
 | `GET /api/backup` | Full configuration backup |
 | `POST /api/restore` | Restore from backup |
+
+---
+
+## 🔒 Security
+
+IPMI Monitor is designed with security in mind for production datacenter environments:
+
+### Credential Protection
+- **No Command-Line Exposure** - IPMI passwords use environment variables (`IPMI_PASSWORD`), not `-P` flags
+- **SSH Key Isolation** - SSH private keys stored in temporary files with 0600 permissions
+- **Password Masking** - Passwords passed via `SSHPASS` environment variable, not command line
+- **No Credential Sync** - Credentials are **never** sent to the AI cloud service
+
+### Data Handling
+- **Local-First** - All data stored locally in SQLite, cloud sync is optional
+- **Minimal Cloud Data** - Only events, sensors, inventory, and logs synced (no credentials)
+- **Secret Redaction** - AI responses automatically redact any detected credentials
+
+### Access Control
+- **Role-Based Access** - Admin vs read-only user levels
+- **Session Management** - Secure Flask sessions with configurable secret key
+- **API Authentication** - Protected endpoints require authentication
+
+### AI Safety (Optional)
+- **Input Validation** - SafetyAgent detects prompt injection and code injection
+- **Threat Blocking** - Malicious queries blocked before reaching LLM
+- **Output Filtering** - Secret redaction prevents accidental credential exposure
+
+### Best Practices
+```yaml
+environment:
+  - SECRET_KEY=your-random-32-char-key  # Always set this!
+  - ADMIN_PASS=strong-unique-password   # Change from default
+```
 
 ---
 
