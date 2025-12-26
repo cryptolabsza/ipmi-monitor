@@ -523,6 +523,7 @@
             <button class="tab-btn" onclick="switchTab('sensors')">🌡️ Sensors</button>
             <button class="tab-btn" onclick="switchTab('inventory')">🔧 Inventory</button>
             <button class="tab-btn" onclick="switchTab('system')" id="systemTabBtn" style="display: none;">🖥️ System</button>
+            <button class="tab-btn" onclick="switchTab('syslogs')" id="syslogsTabBtn" style="display: none;">📜 System Logs <span id="syslogsTabCount" class="badge" style="display: none;"></span></button>
         </div>
         
         <!-- Events Tab -->
@@ -770,6 +771,95 @@
 No data collected yet. Click "Refresh" to collect system information.
                         </pre>
                     </details>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Logs Tab (SSH-collected logs: dmesg, journalctl, syslog) -->
+        <div id="syslogsTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h2 class="section-title" style="margin-bottom: 0;">System Logs</h2>
+                        <span id="syslogsLastCollected" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <select id="syslogsSeverityFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                            <option value="">All Severities</option>
+                            <option value="critical">🔴 Critical</option>
+                            <option value="error">🟠 Error</option>
+                            <option value="warning">🟡 Warning</option>
+                            <option value="info">🔵 Info</option>
+                        </select>
+                        <select id="syslogsTypeFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                            <option value="">All Types</option>
+                            <option value="kernel">Kernel (dmesg)</option>
+                            <option value="journal">Journald</option>
+                            <option value="syslog">Syslog</option>
+                            <option value="mcelog">MCE Log</option>
+                        </select>
+                        <button class="btn" onclick="loadSystemLogs()" title="Refresh logs">🔄 Refresh</button>
+                    </div>
+                </div>
+                
+                <!-- Log Stats -->
+                <div id="syslogsStats" style="display: none; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,71,87,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsCriticalCount" style="font-size: 1.5rem; font-weight: 700; color: #ff4757;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Critical</div>
+                        </div>
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(255,159,67,0.2), rgba(255,159,67,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsErrorCount" style="font-size: 1.5rem; font-weight: 700; color: #ff9f43;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Errors</div>
+                        </div>
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(255,221,89,0.2), rgba(255,221,89,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsWarningCount" style="font-size: 1.5rem; font-weight: 700; color: #ffdd59;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Warnings</div>
+                        </div>
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(84,160,255,0.2), rgba(84,160,255,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsInfoCount" style="font-size: 1.5rem; font-weight: 700; color: #54a0ff;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Info</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Log Entries Table -->
+                <div id="syslogsLoading" style="text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 10px; color: var(--text-muted);">Loading system logs...</div>
+                </div>
+                
+                <div id="syslogsEmpty" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 8px;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">📭</div>
+                    <h3 style="margin-bottom: 10px;">No System Logs Collected</h3>
+                    <p style="color: var(--text-secondary);">
+                        Enable SSH Log Collection in Settings to capture dmesg, journalctl, syslog, and mcelog entries.
+                    </p>
+                </div>
+                
+                <div id="syslogsTableContainer" style="display: none;">
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">Timestamp</th>
+                                <th style="width: 80px;">Severity</th>
+                                <th style="width: 80px;">Type</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="syslogsTableBody">
+                        </tbody>
+                    </table>
+                    
+                    <!-- Pagination -->
+                    <div id="syslogsPagination" style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div id="syslogsPageInfo" style="color: var(--text-muted); font-size: 0.9rem;"></div>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="btn btn-secondary" id="syslogsPrevBtn" onclick="loadSystemLogs(syslogsPage - 1)" disabled>◀ Prev</button>
+                            <button class="btn btn-secondary" id="syslogsNextBtn" onclick="loadSystemLogs(syslogsPage + 1)">Next ▶</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1827,6 +1917,158 @@ No data collected yet. Click "Refresh" to collect system information.
                 outputContent.style.color = '#f55';
             }
         }
+        
+        // ============== System Logs (SSH-collected) ==============
+        let syslogsPage = 1;
+        const syslogsPageSize = 50;
+        let syslogsTotalCount = 0;
+        
+        async function loadSystemLogs(page = 1) {
+            syslogsPage = page;
+            
+            const loading = document.getElementById('syslogsLoading');
+            const empty = document.getElementById('syslogsEmpty');
+            const tableContainer = document.getElementById('syslogsTableContainer');
+            const stats = document.getElementById('syslogsStats');
+            
+            const severity = document.getElementById('syslogsSeverityFilter').value;
+            const logType = document.getElementById('syslogsTypeFilter').value;
+            
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            tableContainer.style.display = 'none';
+            
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: syslogsPageSize
+                });
+                if (severity) params.append('severity', severity);
+                if (logType) params.append('log_type', logType);
+                
+                const response = await fetch(`/api/server/${bmcIp}/ssh-logs?${params}`);
+                const data = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (!data.logs || data.logs.length === 0) {
+                    if (data.total === 0 || data.total === undefined) {
+                        empty.style.display = 'block';
+                        stats.style.display = 'none';
+                    } else {
+                        // Filters resulted in no data
+                        tableContainer.style.display = 'block';
+                        document.getElementById('syslogsTableBody').innerHTML = `
+                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                No logs matching current filters
+                            </td></tr>
+                        `;
+                    }
+                    return;
+                }
+                
+                // Update stats
+                stats.style.display = 'block';
+                document.getElementById('syslogsCriticalCount').textContent = data.stats?.critical || 0;
+                document.getElementById('syslogsErrorCount').textContent = data.stats?.error || 0;
+                document.getElementById('syslogsWarningCount').textContent = data.stats?.warning || 0;
+                document.getElementById('syslogsInfoCount').textContent = data.stats?.info || 0;
+                
+                syslogsTotalCount = data.total || data.logs.length;
+                
+                // Update last collected
+                if (data.last_collected) {
+                    document.getElementById('syslogsLastCollected').textContent = 
+                        `Last collected: ${new Date(data.last_collected).toLocaleString()}`;
+                }
+                
+                // Update tab badge
+                const badge = document.getElementById('syslogsTabCount');
+                if (data.stats?.critical > 0 || data.stats?.error > 0) {
+                    badge.textContent = (data.stats?.critical || 0) + (data.stats?.error || 0);
+                    badge.style.display = 'inline-block';
+                    badge.style.background = data.stats?.critical > 0 ? 'var(--accent-red)' : 'var(--accent-orange)';
+                    badge.style.color = 'white';
+                    badge.style.padding = '2px 6px';
+                    badge.style.borderRadius = '10px';
+                    badge.style.fontSize = '0.75rem';
+                    badge.style.marginLeft = '5px';
+                }
+                
+                // Render table
+                const tbody = document.getElementById('syslogsTableBody');
+                tbody.innerHTML = data.logs.map(log => {
+                    const severityColors = {
+                        critical: '#ff4757',
+                        error: '#ff9f43',
+                        warning: '#ffdd59',
+                        info: '#54a0ff',
+                        notice: '#5f27cd',
+                        debug: '#576574'
+                    };
+                    const color = severityColors[log.severity] || 'var(--text-muted)';
+                    const severityBadge = log.severity ? 
+                        `<span style="background: ${color}22; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${log.severity}</span>` : '';
+                    
+                    const typeIcons = {
+                        kernel: '🐧',
+                        journal: '📓',
+                        syslog: '📋',
+                        mcelog: '⚠️'
+                    };
+                    const typeIcon = typeIcons[log.log_type] || '📄';
+                    
+                    const ts = log.timestamp ? new Date(log.timestamp).toLocaleString() : '-';
+                    const msg = (log.message || '').substring(0, 200) + ((log.message || '').length > 200 ? '...' : '');
+                    
+                    return `
+                        <tr>
+                            <td style="font-family: monospace; font-size: 0.85rem; white-space: nowrap;">${ts}</td>
+                            <td>${severityBadge}</td>
+                            <td style="white-space: nowrap;">${typeIcon} ${log.log_type || '-'}</td>
+                            <td style="font-family: monospace; font-size: 0.85rem; word-break: break-word;">${escapeHtml(msg)}</td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                tableContainer.style.display = 'block';
+                
+                // Update pagination
+                const totalPages = Math.ceil(syslogsTotalCount / syslogsPageSize);
+                document.getElementById('syslogsPageInfo').textContent = 
+                    `Showing ${(page-1)*syslogsPageSize + 1}-${Math.min(page*syslogsPageSize, syslogsTotalCount)} of ${syslogsTotalCount} entries`;
+                document.getElementById('syslogsPrevBtn').disabled = page <= 1;
+                document.getElementById('syslogsNextBtn').disabled = page >= totalPages;
+                
+            } catch (e) {
+                loading.style.display = 'none';
+                console.error('Failed to load system logs:', e);
+                empty.style.display = 'block';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Check for SSH logs on page load and show tab if available
+        async function checkSyslogsAvailable() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/ssh-logs?limit=1`);
+                const data = await response.json();
+                
+                if (data.total > 0 || (data.logs && data.logs.length > 0)) {
+                    document.getElementById('syslogsTabBtn').style.display = 'inline-flex';
+                }
+            } catch (e) {
+                // Tab stays hidden if no logs
+            }
+        }
+        
+        // Call on page load
+        checkSyslogsAvailable();
     </script>
 </body>
 </html>

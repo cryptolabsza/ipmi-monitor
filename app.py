@@ -2756,6 +2756,34 @@ def sync_to_cloud(initial_sync=False):
                 } for inv in inventories]
             }
             
+            # Add SSH logs if table exists
+            try:
+                from sqlalchemy import inspect as sa_inspect
+                inspector = sa_inspect(db.engine)
+                if 'ssh_logs' in inspector.get_table_names():
+                    # Get SSH logs from last 72 hours
+                    ssh_cutoff = (datetime.utcnow() - timedelta(hours=72)).isoformat()
+                    ssh_logs_result = db.session.execute(db.text('''
+                        SELECT server_name, log_type, severity, timestamp, message, source_file
+                        FROM ssh_logs 
+                        WHERE collected_at >= :cutoff
+                        ORDER BY timestamp DESC
+                        LIMIT 5000
+                    '''), {'cutoff': ssh_cutoff}).fetchall()
+                    
+                    payload['ssh_logs'] = [{
+                        'server_name': row[0],
+                        'log_type': row[1],
+                        'severity': row[2],
+                        'timestamp': row[3],
+                        'message': row[4],
+                        'source': row[5]
+                    } for row in ssh_logs_result]
+                    
+                    app.logger.info(f"Sync: Including {len(payload['ssh_logs'])} SSH log entries")
+            except Exception as ssh_err:
+                app.logger.debug(f"SSH logs sync skipped: {ssh_err}")
+            
             app.logger.info(f"Sync: {len(servers)} servers, {len(events)} events, {len(sensors)} sensors, {len(inventories)} inventory records")
             
             # Send to AI service
@@ -7822,6 +7850,103 @@ def api_diagnostics_ssh_logs(bmc_ip):
     except Exception as e:
         app.logger.error(f"Diagnostics SSH logs error for {bmc_ip}: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/ssh-logs', methods=['GET'])
+@view_required
+@require_valid_bmc_ip
+def api_server_ssh_logs(bmc_ip):
+    """
+    Get stored SSH logs for a server from the database.
+    Supports filtering by severity, log_type, and pagination.
+    """
+    try:
+        # Get server name
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        if not server:
+            return jsonify({'logs': [], 'total': 0})
+        
+        server_name = server.server_name
+        
+        # Parse query params
+        page = request.args.get('page', 1, type=int)
+        limit = min(request.args.get('limit', 50, type=int), 500)
+        severity = request.args.get('severity', '')
+        log_type = request.args.get('log_type', '')
+        
+        offset = (page - 1) * limit
+        
+        # Check if ssh_logs table exists
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(db.engine)
+        if 'ssh_logs' not in inspector.get_table_names():
+            return jsonify({'logs': [], 'total': 0, 'message': 'SSH logs table not yet created'})
+        
+        # Build query
+        query = 'SELECT * FROM ssh_logs WHERE server_name = :server_name'
+        count_query = 'SELECT COUNT(*) FROM ssh_logs WHERE server_name = :server_name'
+        params = {'server_name': server_name}
+        
+        if severity:
+            query += ' AND severity = :severity'
+            count_query += ' AND severity = :severity'
+            params['severity'] = severity
+        
+        if log_type:
+            query += ' AND log_type = :log_type'
+            count_query += ' AND log_type = :log_type'
+            params['log_type'] = log_type
+        
+        query += ' ORDER BY timestamp DESC LIMIT :limit OFFSET :offset'
+        params['limit'] = limit
+        params['offset'] = offset
+        
+        # Execute queries
+        logs_result = db.session.execute(db.text(query), params).fetchall()
+        total_result = db.session.execute(db.text(count_query), {k: v for k, v in params.items() if k not in ['limit', 'offset']}).fetchone()
+        total = total_result[0] if total_result else 0
+        
+        # Get stats
+        stats_query = '''
+            SELECT severity, COUNT(*) as cnt 
+            FROM ssh_logs 
+            WHERE server_name = :server_name 
+            GROUP BY severity
+        '''
+        stats_result = db.session.execute(db.text(stats_query), {'server_name': server_name}).fetchall()
+        stats = {row[0]: row[1] for row in stats_result if row[0]}
+        
+        # Get last collected timestamp
+        last_query = 'SELECT MAX(collected_at) FROM ssh_logs WHERE server_name = :server_name'
+        last_result = db.session.execute(db.text(last_query), {'server_name': server_name}).fetchone()
+        last_collected = last_result[0] if last_result else None
+        
+        # Format logs
+        logs = []
+        for row in logs_result:
+            logs.append({
+                'id': row[0],
+                'server_name': row[1],
+                'log_type': row[2],
+                'severity': row[3],
+                'timestamp': row[4],
+                'message': row[5],
+                'source': row[6],
+                'collected_at': row[7]
+            })
+        
+        return jsonify({
+            'logs': logs,
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'stats': stats,
+            'last_collected': last_collected
+        })
+        
+    except Exception as e:
+        app.logger.error(f"SSH logs API error for {bmc_ip}: {e}")
+        return jsonify({'error': str(e), 'logs': [], 'total': 0}), 500
 
 
 @app.route('/api/server/<bmc_ip>/diagnostics/full', methods=['GET'])
