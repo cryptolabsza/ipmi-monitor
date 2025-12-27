@@ -57,56 +57,6 @@
 
 ---
 
-## 🆕 What's New in v0.7.x
-
-### v0.7.8 - SSH System Log Collection
-- **Background SSH Log Collection** - Automatically collect dmesg, journalctl, syslog, mcelog
-- **System Logs Tab** - View collected logs per server with severity filtering
-- **AER/PCIe Error Detection** - Automatically parse and categorize hardware errors
-- **GPU Xid Fault Tracking** - Extract NVIDIA Xid errors from kernel logs
-- **Parallel Collection** - Up to 8 workers for fast log collection with SSE progress UI
-- **AI Integration** - SSH logs synced to AI service for intelligent analysis
-
-### v0.7.7 - AI Safety Agent
-- **Input Validation** - Detect prompt injection, code injection, role hijacking
-- **Threat Detection** - Block malicious queries before processing
-- **Entropy Analysis** - Detect obfuscated attack payloads
-- **Secret Redaction** - Automatically redact credentials from AI responses
-
-### v0.7.6 - Post-Event RCA
-- **Dark Recovery Investigation** - When a server recovers, AI investigates what happened
-- Checks SSH uptime, SEL logs, and concurrent failures to determine root cause
-- `/api/server/<bmc_ip>/investigate` endpoint for manual RCA
-
-### v0.7.5 - Agent Task Queue
-- AI service can now send tasks to IPMI Monitor for execution
-- Remote power cycles, BMC resets, SSH commands
-- Automatic task polling and execution
-
-### v0.7.4 - Modular AI Tabs
-- Embeddable AI views for iframe integration
-- `/embed/summary`, `/embed/chat`, `/embed/rca`, `/embed/agent`
-
-### v0.7.3 - Admin Instance Dashboard
-- View all IPMI Monitor instances (free and paid)
-- Trial abuse detection via fingerprinting
-- Block/unblock instances
-
-### v0.7.2 - All-Instance Telemetry
-- Free users now send basic stats for tracking
-- No authentication required for telemetry
-
-### v0.7.1 - Instance Fingerprinting
-- Unique ID for each IPMI Monitor installation
-- Based on public IP, BMC IPs, server names
-
-### v0.7.0 - Multi-Site Support
-- One customer can have multiple IPMI Monitor instances at different locations
-- Configure site name in Settings → AI tab
-- All sites share the same license and billing
-
----
-
 ## 🚀 Quick Start (5 minutes)
 
 ### Option 1: Docker Compose (Recommended)
@@ -170,32 +120,6 @@ docker run -d \
 
 ---
 
-## 🏢 Multi-Site Deployment
-
-If you have servers in multiple datacenters, deploy an IPMI Monitor instance at each location:
-
-```
-Customer: Your Company
-├── Site: NYC Datacenter (50 servers)
-│   └── IPMI Monitor instance with site_name="NYC Datacenter"
-├── Site: London Office (30 servers)
-│   └── IPMI Monitor instance with site_name="London Office"
-└── Site: Singapore Colo (20 servers)
-    └── IPMI Monitor instance with site_name="Singapore Colo"
-
-Total: 100 servers, 1 license, 3 sites
-```
-
-### Configuration
-
-1. Install IPMI Monitor at each location
-2. Use the **same license key** at all sites
-3. Go to **Settings** → **AI** → **Site Configuration**
-4. Set a unique **Site Name** for each location
-5. All sites share the same billing and appear in your account
-
----
-
 ## ⚠️ Important: Data Persistence
 
 **Always use a named volume** to preserve your data across container updates:
@@ -213,59 +137,6 @@ volumes:
 
 ## 🔄 Keeping Up to Date
 
-IPMI Monitor is actively developed with regular updates. There are several ways to stay current:
-
-### Option 1: Automatic Updates with Watchtower (Recommended)
-
-[Watchtower](https://containrrr.dev/watchtower/) automatically updates your container when new images are released:
-
-```yaml
-version: '3.8'
-
-services:
-  ipmi-monitor:
-    image: ghcr.io/cryptolabsza/ipmi-monitor:latest
-    container_name: ipmi-monitor
-    restart: unless-stopped
-    ports:
-      - "5000:5000"
-    environment:
-      - IPMI_USER=admin
-      - IPMI_PASS=YourIPMIPassword
-      - ADMIN_PASS=changeme
-      - SECRET_KEY=your-random-secret-key
-    volumes:
-      - ipmi_data:/app/data
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"  # Enable auto-updates
-
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    environment:
-      - WATCHTOWER_CLEANUP=true              # Remove old images
-      - WATCHTOWER_POLL_INTERVAL=300         # Check every 5 minutes
-      - WATCHTOWER_LABEL_ENABLE=true         # Only update labeled containers
-      - WATCHTOWER_ROLLING_RESTART=true      # Graceful restarts
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-
-volumes:
-  ipmi_data:
-```
-
-**How it works:**
-1. Watchtower checks ghcr.io every 5 minutes for new images
-2. When a new version is pushed, it automatically:
-   - Pulls the new image
-   - Stops the running container gracefully
-   - Starts a new container with the updated image
-   - Cleans up the old image
-3. Your data is preserved in the named volume
-
-### Option 2: Manual Update
-
 ```bash
 # Pull the latest image
 docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
@@ -274,68 +145,12 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
 docker-compose up -d
 ```
 
-### Option 3: Check for Updates in the UI
+Or use [Watchtower](https://containrrr.dev/watchtower/) for automatic updates.
 
-1. Click the version badge in the dashboard header
-2. If an update is available, you'll see an "Update Available" notification
-3. Follow the displayed `docker pull` command
-
-### Image Tags
-
-| Tag | Description | Use Case |
-|-----|-------------|----------|
-| `:latest` | Latest stable release | Production |
-| `:stable` | Same as :latest | Production |
-| `:main` | Main branch builds | Production (bleeding edge) |
-| `:dev` | Develop branch builds | Testing new features |
-| `:v1.6.0` | Specific version | Pinned deployments |
-
-### Version Check API
-
-```bash
-# Check current version
-curl http://localhost:5000/api/version
-
-# Check for updates
-curl http://localhost:5000/api/version/check
-```
-
----
-
-## 🔧 BMC Reset (New!)
-
-Reset the BMC without affecting the host server:
-
-- **Cold Reset** - Full BMC reboot, clears all state
-- **Warm Reset** - Softer restart, preserves some state
-- **BMC Info** - Check BMC firmware and status
-
-Available in Server Detail → Power Control dropdown.
-
-```bash
-# Manual BMC reset via ipmitool
-ipmitool -I lanplus -H 192.168.1.100 -U admin -P password mc reset cold
-```
-
----
-
-## 🚨 Alert Features
-
-### Alert Confirmation Threshold
-
-Prevent false positives from transient issues:
-
-- **Confirm After X checks** - Only fire alert after X consecutive failures
-- Default: 3 checks for "Server Unreachable" alerts
-- Configurable per alert rule
-
-### Alert Resolution Notifications
-
-Get notified when issues are resolved:
-
-- **Auto-resolution** - Alerts auto-resolve when condition clears
-- **Notify on Resolve** - Toggle per alert rule
-- Resolution notifications include duration
+| Tag | Description |
+|-----|-------------|
+| `:latest` | Latest stable release (recommended) |
+| `:dev` | Development builds (testing new features) |
 
 ---
 
@@ -407,15 +222,9 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 | `GET /health` | Health check |
 | `GET /api/version` | Current version info |
 | `GET /api/version/check` | Check for updates |
-
-### New v0.7.x Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
 | `POST /api/server/{bmc_ip}/investigate` | Post-event RCA investigation |
 | `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset (cold/warm/info) |
-| `GET /api/recovery/permissions` | Recovery agent permissions |
-| `POST /api/alerts/history/{id}/resolve` | Manually resolve alert |
+| `GET /api/server/{bmc_ip}/ssh-logs` | Get SSH system logs |
 
 ### Admin Endpoints (login required)
 
