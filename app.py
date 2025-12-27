@@ -8282,7 +8282,7 @@ def api_get_system_info(bmc_ip):
         'docker_compose': 'docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo "not installed"',
         'docker_ps': 'docker ps --format "{{.Names}}" 2>/dev/null | wc -l || echo "0"',
         'nvidia_driver': 'nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || echo ""',
-        'cuda_version': 'nvidia-smi --query-gpu=cuda_version --format=csv,noheader 2>/dev/null | head -1 || nvcc --version 2>/dev/null | grep release | awk \'{print $5}\' | tr -d \',\' || echo ""',
+        'cuda_version': 'nvidia-smi 2>/dev/null | grep -oP "CUDA Version: \\K[0-9.]+" | head -1 || nvcc --version 2>/dev/null | grep release | awk \'{print $5}\' | tr -d \',\' || echo ""',
         'gpu_count': 'nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo "0"',
         'mlx_driver': 'ofed_info -s 2>/dev/null || modinfo mlx5_core 2>/dev/null | grep "^version:" | awk \'{print $2}\' || echo ""',
         'mlx_firmware': 'mstflint -d /dev/mst/mt* q 2>/dev/null | grep "FW Version" | head -1 | awk \'{print $3}\' || echo ""',
@@ -10519,10 +10519,17 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     if result.returncode == 0 and result.stdout.strip():
                         inventory.nvidia_driver = result.stdout.strip()
                     
-                    cmd = build_ssh_cmd('nvidia-smi --query-gpu=cuda_version --format=csv,noheader 2>/dev/null | head -1')
+                    # CUDA version is in nvidia-smi header, not query-gpu
+                    cmd = build_ssh_cmd('nvidia-smi 2>/dev/null | grep -oP "CUDA Version: \\\\K[0-9.]+" | head -1')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
                     if result.returncode == 0 and result.stdout.strip():
                         inventory.cuda_version = result.stdout.strip()
+                    else:
+                        # Fallback to nvcc if available
+                        cmd = build_ssh_cmd('nvcc --version 2>/dev/null | grep release | awk \'{print $5}\' | tr -d \',\'')
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                        if result.returncode == 0 and result.stdout.strip():
+                            inventory.cuda_version = result.stdout.strip()
                 except Exception as e:
                     app.logger.debug(f"SSH nvidia info failed for {bmc_ip}: {e}")
                 
