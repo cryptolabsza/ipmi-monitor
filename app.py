@@ -2752,6 +2752,14 @@ def sync_to_cloud(initial_sync=False):
                     'pcie_health': json.loads(inv.pcie_health) if inv.pcie_health else [],
                     'pcie_errors_count': inv.pcie_errors_count or 0,
                     'bmc_firmware': inv.bmc_firmware,
+                    # OS and driver info for AI queries like "which servers aren't on 24.04"
+                    'os_version': getattr(inv, 'os_version', None),
+                    'kernel_version': getattr(inv, 'kernel_version', None),
+                    'docker_version': getattr(inv, 'docker_version', None),
+                    'nvidia_driver': getattr(inv, 'nvidia_driver', None),
+                    'cuda_version': getattr(inv, 'cuda_version', None),
+                    'memory_dimms': json.loads(inv.memory_dimms) if getattr(inv, 'memory_dimms', None) else [],
+                    'pcie_devices': json.loads(inv.pcie_devices) if getattr(inv, 'pcie_devices', None) else [],
                     'collected_at': inv.collected_at.isoformat() if inv.collected_at else None
                 } for inv in inventories]
             }
