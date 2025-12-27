@@ -5,69 +5,27 @@ title: IPMI Monitor Documentation
 
 # IPMI Monitor
 
-**Web-based server hardware monitoring via IPMI and Redfish**
+**Free, self-hosted IPMI/BMC monitoring for your server fleet.**
 
 [![GitHub](https://img.shields.io/github/stars/cryptolabsza/ipmi-monitor?style=social)](https://github.com/cryptolabsza/ipmi-monitor)
-[![Docker](https://img.shields.io/docker/pulls/cryptolabsza/ipmi-monitor)](https://ghcr.io/cryptolabsza/ipmi-monitor)
 [![Docker Build](https://github.com/cryptolabsza/ipmi-monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/cryptolabsza/ipmi-monitor/actions/workflows/docker-build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH system logs, and get alerts — all from a beautiful web dashboard.
 
 ---
 
-## Documentation
+## 📖 Documentation
 
-📖 **[User Guide](user-guide.md)** - Complete documentation for using IPMI Monitor
-
-🔍 **[IPMI SEL Reference](IPMI_SEL_REFERENCE.md)** - Decode BMC event logs and troubleshoot hardware issues
-
-🛠️ **[Developer Guide](DEVELOPER_GUIDE.md)** - Git workflow, releases, CI/CD
-
----
-
-## Quick Links
-
-- [Overview](user-guide.md#overview)
-- [Quick Start](user-guide.md#quick-start)
-- [Dashboard](user-guide.md#dashboard)
-- [Multi-Site Deployment](user-guide.md#multi-site-deployment)
-- [GPU Health Monitoring](user-guide.md#gpu-health-monitoring)
-- [AI Recovery Agent](user-guide.md#ai-recovery-agent)
-- [Alert Configuration](user-guide.md#alert-configuration)
-- [Settings](user-guide.md#settings)
-- [Prometheus & Grafana](user-guide.md#prometheus--grafana-integration)
-- [AI Features](user-guide.md#ai-features)
-- [Troubleshooting](user-guide.md#troubleshooting)
-- [API Reference](user-guide.md#api-reference)
+| Guide | Description |
+|-------|-------------|
+| [User Guide](user-guide.md) | Complete documentation for using IPMI Monitor |
+| [IPMI SEL Reference](IPMI_SEL_REFERENCE.md) | Decode BMC event logs and troubleshoot hardware issues |
+| [Developer Guide](DEVELOPER_GUIDE.md) | Git workflow, releases, CI/CD |
 
 ---
 
-## What's New in v0.7.x
-
-### 🏢 Multi-Site Support (v0.7.0)
-Deploy IPMI Monitor at multiple datacenters with a single license. Each site has its own instance but shares billing and account.
-
-### 🔗 Instance Fingerprinting (v0.7.1)
-Every IPMI Monitor installation generates a unique fingerprint for tracking and trial abuse prevention.
-
-### 📊 All-Instance Telemetry (v0.7.2)
-Even free users send basic stats, helping us understand usage patterns and improve the product.
-
-### 👁️ Admin Instance Dashboard (v0.7.3)
-View all IPMI Monitor instances across all customers with trial abuse detection.
-
-### 🖼️ Modular AI Tabs (v0.7.4)
-Embeddable AI views that can be integrated via iframes.
-
-### 📋 Agent Task Queue (v0.7.5)
-AI service can now send tasks (power cycles, BMC resets, SSH commands) to IPMI Monitor for remote execution.
-
-### 🔍 Post-Event RCA (v0.7.6)
-When a server recovers from an unreachable state, automatically investigate what happened during the downtime.
-
----
-
-## Installation
-
-### Docker (Recommended)
+## 🚀 Quick Start
 
 ```bash
 docker run -d \
@@ -75,170 +33,157 @@ docker run -d \
   -p 5000:5000 \
   -v ipmi_data:/app/data \
   -e IPMI_USER=admin \
-  -e IPMI_PASS=password \
+  -e IPMI_PASS=YourBMCPassword \
+  -e ADMIN_PASS=YourAdminPassword \
   -e SECRET_KEY=your-random-secret-key \
   ghcr.io/cryptolabsza/ipmi-monitor:latest
 ```
 
-### Docker Compose
+Then open **http://localhost:5000** and add your servers!
 
-```yaml
-version: '3.8'
-services:
-  ipmi-monitor:
-    image: ghcr.io/cryptolabsza/ipmi-monitor:latest
-    ports:
-      - "5000:5000"
-    volumes:
-      - ipmi_data:/app/data
-      - ./config/servers.yaml:/app/config/servers.yaml:ro  # Optional
-    environment:
-      - APP_NAME=My Server Fleet
-      - IPMI_USER=admin
-      - IPMI_PASS=password
-      - ADMIN_PASS=changeme  # CHANGE THIS!
-      - SECRET_KEY=your-random-secret-key
-    restart: unless-stopped
-
-volumes:
-  ipmi_data:
-```
+See [User Guide](user-guide.md#quick-start) for Docker Compose setup.
 
 ---
 
-## Features
-
-### 🆓 Free Self-Hosted Features
-
-✅ **Multi-server monitoring** - Monitor hundreds of servers from one dashboard  
-✅ **Real-time dashboard** - Auto-refreshing every second  
-✅ **Hardware alerts** - Telegram, email, webhook notifications  
-✅ **Alert resolution** - Notifications when issues resolve  
-✅ **Alert confirmation** - Threshold checks to prevent false positives  
-✅ **Hardware inventory** - CPU, memory, storage, GPU details  
-✅ **Prometheus metrics** - Built-in `/metrics` endpoint  
-✅ **Remote power control** - Power on/off/cycle from web UI  
-✅ **BMC Reset** - Cold/warm reset BMC without affecting host OS  
-✅ **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH  
-✅ **Uptime & Reboot Detection** - Track unexpected reboots  
-✅ **Bulk Credentials** - Apply settings to multiple servers at once  
-✅ **Full Backup/Restore** - Export everything for disaster recovery  
-✅ **Version Updates** - Dashboard shows version and checks for updates  
-
-### 🤖 AI Features (via CryptoLabs)
-
-✅ **Fleet Health Summaries** - AI-generated overview with GPU focus  
-✅ **Maintenance Tasks** - AI-identified work items with priorities  
-✅ **Predictive Analytics** - Failure predictions before they happen  
-✅ **Root Cause Analysis** - Deep analysis with severity filtering  
-✅ **AI Chat** - Interactive assistant for questions  
-✅ **AI Recovery Agent** - Autonomous GPU recovery with escalation  
-✅ **Multi-Site Support** - One account for multiple datacenters  
-✅ **Remote Task Execution** - AI sends tasks for IPMI Monitor to execute  
-✅ **Post-Event Investigation** - AI investigates downtime causes  
-
----
-
-## Multi-Site Deployment
-
-Deploy IPMI Monitor at each datacenter location:
-
-```
-Your Company (Single Account)
-├── NYC Datacenter: 50 servers
-│   └── Site Name: "NYC Datacenter"
-├── London Office: 30 servers
-│   └── Site Name: "London Office"
-└── Singapore Colo: 20 servers
-    └── Site Name: "Singapore Colo"
-
-Total: 100 servers, 1 license, 3 sites
-```
-
-### Configuration
-
-1. Install IPMI Monitor at each location
-2. Use the **same license key** everywhere
-3. Settings → AI → Set unique **Site Name**
-4. All sites appear in your CryptoLabs dashboard
-
----
-
-## Screenshots
+## 📸 Screenshots
 
 ![Dashboard](dashboard.png)
-*Main dashboard with server status cards and version display*
+*Main dashboard showing 39 servers with real-time status*
 
 <table>
 <tr>
-<td><img src="server-detail-events.png" alt="Events"/><br/><em>Event Log</em></td>
-<td><img src="server-detail-sensors.png" alt="Sensors"/><br/><em>Sensors</em></td>
+<td><img src="server-detail-events.png" alt="Events"/><br/><em>Event Log - SEL events</em></td>
+<td><img src="server-detail-sensors.png" alt="Sensors"/><br/><em>Live Sensors</em></td>
 </tr>
 <tr>
-<td><img src="server-detail-inventory.png" alt="Inventory"/><br/><em>Inventory</em></td>
-<td><img src="login-page.png" alt="Login"/><br/><em>Login</em></td>
+<td><img src="server-detail-inventory.png" alt="Inventory"/><br/><em>Hardware Inventory</em></td>
+<td><img src="server-detail-syslogs.png" alt="System Logs"/><br/><em>SSH System Logs</em></td>
 </tr>
 </table>
 
 ---
 
-## BMC Reset Feature
+## ✨ Features
 
-Reset the BMC without affecting the running OS:
+### 🆓 Free Self-Hosted
 
-- **BMC Cold Reset** - Full BMC reboot, clears all state
-- **BMC Warm Reset** - Softer restart, preserves some state
-- **BMC Info** - Check firmware version and status
+| Feature | Description |
+|---------|-------------|
+| 🔍 **SEL Collection** | Parallel IPMI event collection (32 workers) |
+| 📊 **Real-time Dashboard** | Auto-refreshing server status cards |
+| 🌡️ **Sensor Monitoring** | Temperature, fan, voltage, power readings |
+| 💾 **ECC Tracking** | Identify which DIMM has memory errors |
+| 🎮 **GPU Health** | Detect NVIDIA Xid errors via SSH |
+| 📜 **SSH System Logs** | Collect dmesg, journalctl, syslog, mcelog |
+| 🔧 **Hardware Errors** | AER, PCIe, ECC errors parsed automatically |
+| 🚨 **Alerts** | Email, Telegram, webhook notifications |
+| ✅ **Alert Resolution** | Notify when issues clear |
+| 📈 **Prometheus** | Native `/metrics` endpoint for Grafana |
+| 🔐 **User Management** | Admin and read-only access levels |
+| 📥 **Backup/Restore** | Export everything for disaster recovery |
+| 🔃 **BMC Reset** | Cold/warm reset without affecting host OS |
+| 🐳 **Docker Ready** | Multi-arch images (amd64/arm64) |
 
-Useful when BMC becomes unresponsive but the server is still running.
+### 🤖 AI Features (Optional)
 
----
+Upgrade with AI-powered insights from [CryptoLabs](https://cryptolabs.co.za):
 
-## Alert Features
+| Feature | Description |
+|---------|-------------|
+| 📊 **Daily Summaries** | AI-generated fleet health with GPU focus |
+| 🔧 **Maintenance Tasks** | Auto-generated from events |
+| 📈 **Predictions** | Failure warnings before they happen |
+| 🔍 **Root Cause Analysis** | AI explains what went wrong |
+| 💬 **AI Chat** | Ask questions about your servers |
+| 🤖 **Recovery Agent** | Autonomous GPU recovery with escalation |
+| 🏢 **Multi-Site** | One account, multiple datacenters |
+| 📋 **Task Queue** | AI sends recovery tasks for execution |
 
-### Confirmation Threshold
-- Only fire alert after X consecutive failures
-- Prevents false positives from transient issues
-- Default: 3 checks for "Server Unreachable"
-
-### Resolution Notifications
-- Auto-resolve when condition clears
-- "Notify on Resolve" toggle per rule
-- Duration included in resolution message
-
----
-
-## API Endpoints
-
-### New in v0.7.x
-
-```
-POST /api/server/<bmc_ip>/investigate  - Post-event RCA
-POST /api/server/<bmc_ip>/bmc/<action> - BMC reset (cold/warm/info)
-GET  /api/recovery/permissions         - Recovery agent config
-POST /api/alerts/history/<id>/resolve  - Manual alert resolution
-GET  /api/backup                       - Full configuration backup
-POST /api/restore                      - Restore from backup
-```
-
-### Version Endpoints
-
-```
-GET /api/version       - Get current version info
-GET /api/version/check - Check for updates on GitHub
-```
+**Start your free trial:** Settings → AI Features → Start Free Trial
 
 ---
 
-## License
+## ⚙️ Configuration
 
-MIT License - See [LICENSE](https://github.com/cryptolabsza/ipmi-monitor/blob/main/LICENSE)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `APP_NAME` | IPMI Monitor | Displayed in header |
+| `IPMI_USER` | admin | Default BMC username |
+| `IPMI_PASS` | (required) | Default BMC password |
+| `ADMIN_PASS` | changeme | Dashboard admin password |
+| `SECRET_KEY` | (auto) | Flask session secret (**set this!**) |
+| `POLL_INTERVAL` | 300 | Seconds between collections |
+| `SSH_LOG_INTERVAL` | (disabled) | Minutes between SSH log collection |
 
 ---
 
-## Support
+## 🔒 Security
 
-- 🐛 [Report a Bug](https://github.com/cryptolabsza/ipmi-monitor/issues/new?template=bug_report.md)
-- 💡 [Request a Feature](https://github.com/cryptolabsza/ipmi-monitor/issues/new?template=feature_request.md)
+IPMI Monitor is designed for production datacenter environments:
+
+- **No Command-Line Exposure** - Passwords via environment variables
+- **SSH Key Isolation** - Private keys in temporary files with 0600 permissions
+- **No Credential Sync** - Credentials **never** sent to AI cloud
+- **Local-First** - All data stored locally, cloud sync optional
+- **Secret Redaction** - AI responses automatically mask credentials
+
+---
+
+## 📋 API Reference
+
+### Public Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | Dashboard |
+| `GET /api/servers` | List all servers |
+| `GET /api/events` | Get events (filterable) |
+| `GET /api/sensors/{bmc_ip}` | Sensor readings |
+| `GET /api/server/{bmc_ip}/ssh-logs` | SSH system logs |
+| `GET /metrics` | Prometheus metrics |
+| `GET /health` | Health check |
+
+### Admin Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/collect` | Trigger collection |
+| `POST /api/servers/add` | Add server |
+| `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset |
+| `GET /api/backup` | Full configuration backup |
+| `POST /api/restore` | Restore from backup |
+
+---
+
+## 💰 Pricing
+
+| Tier | Price | Servers | AI Tokens | Trial |
+|------|-------|---------|-----------|-------|
+| Free | $0 | Unlimited | - | Basic monitoring |
+| Standard | $100/mo | 50 | 1M/month | 1 month free |
+| Professional | $500/mo | 500 | 10M/month | 1 month free |
+
+> **Tokens** power AI chat, summaries, and predictions. 1M tokens ≈ 2000+ queries/month.
+
+---
+
+## 🔗 Links
+
+- **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
+- **Docker**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
+- **AI Features**: [cryptolabs.co.za](https://cryptolabs.co.za)
+
+---
+
+## 🆘 Support
+
+- 🐛 [Report a Bug](https://github.com/cryptolabsza/ipmi-monitor/issues/new)
+- 💡 [Request a Feature](https://github.com/cryptolabsza/ipmi-monitor/issues/new)
 - 💬 [Discussions](https://github.com/cryptolabsza/ipmi-monitor/discussions)
-- 📧 [Contact CryptoLabs](https://cryptolabs.co.za/contact)
+- 📧 [support@cryptolabs.co.za](mailto:support@cryptolabs.co.za)
+
+---
+
+<p align="center">
+  <strong>MIT License</strong> · Made with ❤️ by <a href="https://cryptolabs.co.za">CryptoLabs</a>
+</p>
