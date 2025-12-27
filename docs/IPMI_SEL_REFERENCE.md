@@ -367,7 +367,7 @@ Different server manufacturers include custom sensors in their BMC implementatio
 | +VCORE1, +VSOC1 | AMD EPYC CPU voltages |
 | Backplane1 HDxx | Hot-swap drive bay sensors |
 
-See [ASUS ESC4000A-E10 Reference](asus_esc4000a_e10_reference.md) for details.
+See [ASUS ESC4000A-E10 Reference](asus_esc4000a_e10_reference.html) for details.
 
 ### Dell PowerEdge Series
 
@@ -379,7 +379,7 @@ See [ASUS ESC4000A-E10 Reference](asus_esc4000a_e10_reference.md) for details.
 | GPU1-8 Temp/Status | GPU monitoring (XE9680) |
 | LCD Codes (Exxx, Wxxx) | Front panel error codes |
 
-See [Dell PowerEdge Reference](dell_poweredge_reference.md) for details.
+See [Dell PowerEdge Reference](dell_poweredge_reference.html) for details.
 
 ### Lenovo ThinkSystem Series
 
@@ -390,7 +390,7 @@ See [Dell PowerEdge Reference](dell_poweredge_reference.md) for details.
 | GPU1-8 Status | GPU health (SR675/680/780) |
 | NVLink Status | GPU interconnect |
 
-See [Lenovo ThinkSystem Reference](lenovo_thinksystem_reference.md) for details.
+See [Lenovo ThinkSystem Reference](lenovo_thinksystem_reference.html) for details.
 
 ### Supermicro Series
 
@@ -401,7 +401,7 @@ See [Lenovo ThinkSystem Reference](lenovo_thinksystem_reference.md) for details.
 | FAN1-FAN8, FANA-FANF | Fan sensors |
 | AOC Temp/Slot | Add-on card monitoring |
 
-See [Supermicro Reference](supermicro_reference.md) for details.
+See [Supermicro Reference](supermicro_reference.html) for details.
 
 ---
 
@@ -437,7 +437,7 @@ NVIDIA DGX systems use custom event types:
 | SEL_NV_FIRMWARE | Firmware update event |
 | SEL_NV_CHASSIS | Chassis intrusion/status |
 
-See [NVIDIA DGX A100 Reference](nvidia_dgx_a100_reference.md) for details.
+See [NVIDIA DGX A100 Reference](nvidia_dgx_a100_reference.html) for details.
 
 ---
 
@@ -571,22 +571,22 @@ For platform-specific sensors and events, see these dedicated guides:
 
 | Platform | Description |
 |----------|-------------|
-| [Supported Hardware List](supported_hardware.md) | Master list of all tracked hardware |
-| [ASUS ESC4000A-E10](asus_esc4000a_e10_reference.md) | GPU server with AMD EPYC, PMBPower, TR temperatures |
-| [Dell PowerEdge](dell_poweredge_reference.md) | PowerEdge XE9680 with iDRAC9, LCD codes |
-| [ENFLECTA/ZOTAC](enflecta_zotac_reference.md) | ZRS-326V2, TIANMA GPU compute servers |
-| [Lenovo ThinkSystem](lenovo_thinksystem_reference.md) | SR655/SR675/SR680/SR780 V3 with XClarity |
-| [NVIDIA DGX A100](nvidia_dgx_a100_reference.md) | AI system with SEL_NV_* events, Xid errors |
-| [Nutanix](nutanix_reference.md) | NX-TDT-4NL3-G7 hyperconverged (Dell-based) |
-| [Supermicro](supermicro_reference.md) | AS-, SYS-, PIO- series with OEM records |
+| [Supported Hardware List](supported_hardware.html) | Master list of all tracked hardware |
+| [ASUS ESC4000A-E10](asus_esc4000a_e10_reference.html) | GPU server with AMD EPYC, PMBPower, TR temperatures |
+| [Dell PowerEdge](dell_poweredge_reference.html) | PowerEdge XE9680 with iDRAC9, LCD codes |
+| [ENFLECTA/ZOTAC](enflecta_zotac_reference.html) | ZRS-326V2, TIANMA GPU compute servers |
+| [Lenovo ThinkSystem](lenovo_thinksystem_reference.html) | SR655/SR675/SR680/SR780 V3 with XClarity |
+| [NVIDIA DGX A100](nvidia_dgx_a100_reference.html) | AI system with SEL_NV_* events, Xid errors |
+| [Nutanix](nutanix_reference.html) | NX-TDT-4NL3-G7 hyperconverged (Dell-based) |
+| [Supermicro](supermicro_reference.html) | AS-, SYS-, PIO- series with OEM records |
 
 ---
 
 ## See Also
 
-- [User Guide](../docs/user-guide.md) - Complete IPMI Monitor documentation
-- [AI Architecture](../docs/AI_ARCHITECTURE_V2.md) - How AI features work
-- [Developer Guide](../docs/DEVELOPER_GUIDE.md) - API and integration details
+- [User Guide](../docs/user-guide.html) - Complete IPMI Monitor documentation
+- [AI Architecture](../docs/AI_ARCHITECTURE_V2.html) - How AI features work
+- [Developer Guide](../docs/DEVELOPER_GUIDE.html) - API and integration details
 
 ---
 

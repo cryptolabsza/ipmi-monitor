@@ -19,9 +19,9 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 
 | Guide | Description |
 |-------|-------------|
-| [User Guide](user-guide.md) | Complete documentation for using IPMI Monitor |
-| [IPMI SEL Reference](IPMI_SEL_REFERENCE.md) | Decode BMC event logs and troubleshoot hardware issues |
-| [Developer Guide](DEVELOPER_GUIDE.md) | Git workflow, releases, CI/CD |
+| [User Guide](user-guide.html) | Complete documentation for using IPMI Monitor |
+| [IPMI SEL Reference](IPMI_SEL_REFERENCE.html) | Decode BMC event logs and troubleshoot hardware issues |
+| [Developer Guide](DEVELOPER_GUIDE.html) | Git workflow, releases, CI/CD |
 
 ---
 
