@@ -13510,7 +13510,9 @@ def api_ai_status():
             'last_sync_message': config.last_sync_message,
             'server_count': server_count,
             'max_servers': config.max_servers if config.max_servers else get_tier_max_servers(tier),
-            'has_license': bool(config.license_key)
+            'has_license': bool(config.license_key),
+            # Enable streaming for real-time progress updates (pondering, thinking, etc.)
+            'stream_enabled': config.sync_enabled and config.subscription_valid and tier not in ['free', None]
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
