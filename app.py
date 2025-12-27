@@ -13531,12 +13531,9 @@ def api_ai_embed_config():
     
     # Build embed URLs pointing to the AI service
     ai_base = CloudSync.AI_SERVICE_URL.rstrip('/')
-    # Extract customer_id from license key (format: tier_customerId_siteHash)
-    try:
-        parts = config.license_key.split('_')
-        customer_id = parts[1] if len(parts) >= 2 else config.license_key
-    except:
-        customer_id = config.license_key
+    # Generate customer_id as MD5 hash of license key (matches AI service)
+    import hashlib
+    customer_id = hashlib.md5(config.license_key.encode()).hexdigest()[:16]
     token = config.license_key or ''
     
     # Generate embed URLs with auth token
