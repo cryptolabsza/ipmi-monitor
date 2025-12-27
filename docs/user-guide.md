@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v0.7.x | **Last Updated:** 2025-12-11
+**Version:** v0.7.x | **Last Updated:** 2025-12-27
 
 ---
 
@@ -17,6 +17,7 @@
 - [Server Details](#server-details)
 - [BMC Reset](#bmc-reset)
 - [GPU Health Monitoring](#gpu-health-monitoring)
+- [SSH System Logs](#ssh-system-logs)
 - [Uptime & Reboot Detection](#uptime--reboot-detection)
 - [Maintenance Tasks](#maintenance-tasks)
 - [Settings](#settings)
@@ -399,6 +400,47 @@ GPU events appear in the Events tab with:
 - SSH enabled in Settings
 - SSH credentials configured
 - Linux server with `dmesg` access
+
+---
+
+## SSH System Logs
+
+IPMI Monitor can collect system logs from your servers via SSH for centralized viewing and AI analysis.
+
+### What It Collects
+
+| Source | Command | Purpose |
+|--------|---------|---------|
+| **Kernel Log** | `dmesg` | Hardware errors, driver issues, boot messages |
+| **Journal** | `journalctl` | Systemd service logs |
+| **Syslog** | `/var/log/syslog` | System messages |
+| **MCE Log** | `mcelog` | Machine check exceptions (ECC, CPU errors) |
+
+### Collected Error Types
+
+- **AER Errors** - PCIe Advanced Error Reporting
+- **PCIe Errors** - Bus errors, link failures
+- **ECC Errors** - Memory correctable/uncorrectable errors
+- **GPU Xid Errors** - NVIDIA driver faults
+
+### Enabling Collection
+
+1. Go to **Settings → SSH**
+2. Enable **SSH Log Collection**
+3. Set collection interval (5-60 minutes)
+4. Set retention period (3-30 days)
+
+### Viewing Logs
+
+1. Go to **Server Detail**
+2. Click the **📜 System Logs** tab
+3. Filter by severity (Critical, Error, Warning, Info)
+4. Filter by log type (Kernel, Journald, Syslog, MCE)
+
+### Requirements
+
+- SSH access configured for the server
+- Root or sudo access for dmesg/journalctl
 
 ---
 
