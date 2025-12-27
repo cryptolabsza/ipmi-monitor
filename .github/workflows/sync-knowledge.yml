@@ -1,0 +1,59 @@
+name: Sync Knowledge Base to AI Service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'knowledge/**'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  sync-knowledge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ipmi-monitor
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout ipmi-monitor-ai
+        uses: actions/checkout@v4
+        with:
+          repository: cryptolabsza/ipmi-monitor-ai
+          token: ${{ secrets.AI_REPO_TOKEN }}
+          path: target
+
+      - name: Sync knowledge files
+        run: |
+          echo "=== Source knowledge files ==="
+          ls -la source/knowledge/
+          
+          echo "=== Syncing to AI service ==="
+          cp -r source/knowledge/* target/knowledge/
+          
+          echo "=== Target knowledge files ==="
+          ls -la target/knowledge/
+          
+      - name: Commit and push to AI service
+        run: |
+          cd target
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are changes
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "✅ No changes to sync"
+            exit 0
+          fi
+          
+          echo "=== Changes detected ==="
+          git diff --stat
+          
+          git add knowledge/
+          git commit -m "sync: Update knowledge base from ipmi-monitor
+
+          Source: ${{ github.repository }}@${{ github.sha }}
+          Trigger: ${{ github.event.head_commit.message }}"
+          git push
+          
+          echo "✅ Knowledge base synced to ipmi-monitor-ai"
