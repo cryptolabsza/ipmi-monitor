@@ -16,7 +16,7 @@
 </tr>
 <tr>
 <td><img src="docs/server-detail-inventory.png" alt="Inventory" width="400"/><br/><em>Hardware Inventory - CPU, Memory, Storage</em></td>
-<td><img src="docs/login-page.png" alt="Login" width="400"/><br/><em>Secure Admin Login</em></td>
+<td><img src="docs/server-detail-syslogs.png" alt="System Logs" width="400"/><br/><em>System Logs - SSH-based dmesg, syslog, journalctl</em></td>
 </tr>
 </table>
 
