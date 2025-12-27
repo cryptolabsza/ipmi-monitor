@@ -4866,8 +4866,11 @@
             loadAiStatus();
             updateChatHistoryDropdown();  // Load chat history from localStorage
             
-            // Set up RCA device change handler
-            document.getElementById('rcaDevice').addEventListener('change', loadEventsForDevice);
+            // Set up RCA device change handler (only if element exists - may be iframe embed)
+            const rcaDeviceEl = document.getElementById('rcaDevice');
+            if (rcaDeviceEl) {
+                rcaDeviceEl.addEventListener('change', loadEventsForDevice);
+            }
             
             document.getElementById('lastUpdated').textContent = 
                 'Last updated: ' + new Date().toLocaleTimeString();
