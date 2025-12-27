@@ -13522,11 +13522,33 @@ def api_ai_embed_config():
     Returns embed URLs for AI tabs if configured to use embeds."""
     config = CloudSync.get_config()
     
-    # For now, embed mode is disabled - all AI features are inline
-    # This can be enabled later for modular AI service UI
+    # Check if we have a valid AI service connection
+    if not config.ai_service_url or not config.customer_id:
+        return jsonify({
+            'enabled': False,
+            'embeds': {}
+        })
+    
+    # Build embed URLs pointing to the AI service
+    ai_base = config.ai_service_url.rstrip('/')
+    customer_id = config.customer_id
+    token = config.ai_api_key or ''
+    
+    # Generate embed URLs with auth token
+    def embed_url(view):
+        return f"{ai_base}/embed/{view}/{customer_id}?token={token}"
+    
     return jsonify({
-        'enabled': False,
-        'embeds': {}
+        'enabled': True,
+        'embeds': {
+            'summary': embed_url('summary'),
+            'tasks': embed_url('tasks'),
+            'predictions': embed_url('predictions'),
+            'rca': embed_url('rca'),
+            'chat': embed_url('chat'),
+            'agent': embed_url('agent'),
+            'usage': embed_url('usage')
+        }
     })
 
 
