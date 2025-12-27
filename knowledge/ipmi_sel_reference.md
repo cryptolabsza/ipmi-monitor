@@ -17,7 +17,10 @@
 - [Voltage Events](#voltage-events)
 - [Processor Events](#processor-events)
 - [System Events](#system-events)
+- [Platform-Specific Sensors](#platform-specific-sensors)
+- [GPU-Related Events](#gpu-related-events)
 - [Connectivity Events](#connectivity-events)
+- [Vendor-Specific References](#vendor-specific-references)
 - [Troubleshooting Guide](#troubleshooting-guide)
 - [Quick Reference Tables](#quick-reference-tables)
 
@@ -350,6 +353,60 @@ Boot events are typically **informational** and indicate normal startup:
 
 ---
 
+## Platform-Specific Sensors
+
+Different server manufacturers include custom sensors in their BMC implementations.
+
+### ASUS ESC Series
+
+| Sensor | Description |
+|--------|-------------|
+| PMBPower1, PMBPower2 | Power Module Bus monitoring |
+| TR1 Temperature, TR3 Temperature | Thermal zone sensors |
+| Memory_Train_ERR | Memory training errors during POST |
+| +VCORE1, +VSOC1 | AMD EPYC CPU voltages |
+| Backplane1 HDxx | Hot-swap drive bay sensors |
+
+See [ASUS ESC4000A-E10 Reference](asus_esc4000a_e10_reference.md) for details.
+
+---
+
+## GPU-Related Events
+
+GPU servers generate additional event types for GPU health and power management.
+
+### GPU Power Good (PWRGD_GB_GPU)
+
+| Event | Meaning |
+|-------|---------|
+| Asserted | GPU baseboard has stable power |
+| Deasserted | GPU power issue detected |
+
+### GPU Status (STATUS_GB_GPU)
+
+| Event | Meaning |
+|-------|---------|
+| Asserted | GPU baseboard present and healthy |
+| Deasserted | GPU baseboard not detected |
+
+### NVIDIA-Specific Events (SEL_NV_*)
+
+NVIDIA DGX systems use custom event types:
+
+| Sensor | Description |
+|--------|-------------|
+| SEL_NV_MAXP_MAXQ | GPU power mode change (MaxP/MaxQ) |
+| SEL_NV_POST_ERR | POST error during boot |
+| SEL_NV_BIOS | BIOS/UEFI firmware event |
+| SEL_NV_BOOT | System boot event |
+| SEL_NV_AUDIT | Security audit (login/config change) |
+| SEL_NV_FIRMWARE | Firmware update event |
+| SEL_NV_CHASSIS | Chassis intrusion/status |
+
+See [NVIDIA DGX A100 Reference](nvidia_dgx_a100_reference.md) for details.
+
+---
+
 ## Connectivity Events
 
 These are **IPMI Monitor-specific events**, not from the BMC.
@@ -474,11 +531,22 @@ These are **IPMI Monitor-specific events**, not from the BMC.
 
 ---
 
+## Vendor-Specific References
+
+For platform-specific sensors and events, see these dedicated guides:
+
+| Platform | Description |
+|----------|-------------|
+| [ASUS ESC4000A-E10](asus_esc4000a_e10_reference.md) | GPU server with AMD EPYC, PMBPower, TR temperatures |
+| [NVIDIA DGX A100](nvidia_dgx_a100_reference.md) | AI system with SEL_NV_* events, Xid errors |
+
+---
+
 ## See Also
 
-- [User Guide](user-guide.md) - Complete IPMI Monitor documentation
-- [AI Architecture](AI_ARCHITECTURE_V2.md) - How AI features work
-- [Developer Guide](DEVELOPER_GUIDE.md) - API and integration details
+- [User Guide](../docs/user-guide.md) - Complete IPMI Monitor documentation
+- [AI Architecture](../docs/AI_ARCHITECTURE_V2.md) - How AI features work
+- [Developer Guide](../docs/DEVELOPER_GUIDE.md) - API and integration details
 
 ---
 
