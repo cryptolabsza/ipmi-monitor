@@ -369,6 +369,40 @@ Different server manufacturers include custom sensors in their BMC implementatio
 
 See [ASUS ESC4000A-E10 Reference](asus_esc4000a_e10_reference.md) for details.
 
+### Dell PowerEdge Series
+
+| Sensor | Description |
+|--------|-------------|
+| PS1-PS4 Status | Power supply health |
+| DIMM Axx-Lxx | Memory slots with CPU/channel |
+| Physical Disk / Virtual Disk | RAID storage events |
+| GPU1-8 Temp/Status | GPU monitoring (XE9680) |
+| LCD Codes (Exxx, Wxxx) | Front panel error codes |
+
+See [Dell PowerEdge Reference](dell_poweredge_reference.md) for details.
+
+### Lenovo ThinkSystem Series
+
+| Sensor | Description |
+|--------|-------------|
+| PFA Memory/HDD/CPU/Fan | Predictive Failure Analysis |
+| Lightpath Log | Diagnostic events |
+| GPU1-8 Status | GPU health (SR675/680/780) |
+| NVLink Status | GPU interconnect |
+
+See [Lenovo ThinkSystem Reference](lenovo_thinksystem_reference.md) for details.
+
+### Supermicro Series
+
+| Sensor | Description |
+|--------|-------------|
+| OEM record c0/c1 | Vendor-specific OEM events |
+| P1-DIMMA through P2-DIMMH | DIMM slot naming |
+| FAN1-FAN8, FANA-FANF | Fan sensors |
+| AOC Temp/Slot | Add-on card monitoring |
+
+See [Supermicro Reference](supermicro_reference.md) for details.
+
 ---
 
 ## GPU-Related Events
@@ -537,8 +571,14 @@ For platform-specific sensors and events, see these dedicated guides:
 
 | Platform | Description |
 |----------|-------------|
+| [Supported Hardware List](supported_hardware.md) | Master list of all tracked hardware |
 | [ASUS ESC4000A-E10](asus_esc4000a_e10_reference.md) | GPU server with AMD EPYC, PMBPower, TR temperatures |
+| [Dell PowerEdge](dell_poweredge_reference.md) | PowerEdge XE9680 with iDRAC9, LCD codes |
+| [ENFLECTA/ZOTAC](enflecta_zotac_reference.md) | ZRS-326V2, TIANMA GPU compute servers |
+| [Lenovo ThinkSystem](lenovo_thinksystem_reference.md) | SR655/SR675/SR680/SR780 V3 with XClarity |
 | [NVIDIA DGX A100](nvidia_dgx_a100_reference.md) | AI system with SEL_NV_* events, Xid errors |
+| [Nutanix](nutanix_reference.md) | NX-TDT-4NL3-G7 hyperconverged (Dell-based) |
+| [Supermicro](supermicro_reference.md) | AS-, SYS-, PIO- series with OEM records |
 
 ---
 
