@@ -1,3 +1,8 @@
+---
+layout: default
+title: ASUS ESC4000A-E10 SEL Reference
+---
+
 # ASUS ESC4000A-E10 SEL Reference
 
 > IPMI System Event Log reference for ASUS ESC4000A-E10 GPU servers with AMD EPYC processors.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: Nutanix SEL Reference
+---
+
 # Nutanix SEL Reference
 
 > IPMI System Event Log reference for Nutanix hyperconverged appliances.

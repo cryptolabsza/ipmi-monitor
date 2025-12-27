@@ -1,3 +1,8 @@
+---
+layout: default
+title: Supermicro SEL Reference
+---
+
 # Supermicro SEL Reference
 
 > IPMI System Event Log reference for Supermicro servers.

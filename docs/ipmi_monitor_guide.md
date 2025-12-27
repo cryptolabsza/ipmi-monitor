@@ -1,3 +1,8 @@
+---
+layout: default
+title: IPMI Monitor - Complete User Guide
+---
+
 # IPMI Monitor - Complete User Guide
 
 This document provides comprehensive information about the IPMI Monitor system. Use this knowledge to help users understand features, troubleshoot issues, and optimize their setup.

@@ -1,3 +1,8 @@
+---
+layout: default
+title: CryptoLabs AI Platform - Pricing & Subscription Guide
+---
+
 # CryptoLabs AI Platform - Pricing & Subscription Guide
 
 ## Overview

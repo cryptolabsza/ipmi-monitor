@@ -1,3 +1,8 @@
+---
+layout: default
+title: Lenovo ThinkSystem SEL Reference
+---
+
 # Lenovo ThinkSystem SEL Reference
 
 > IPMI System Event Log reference for Lenovo ThinkSystem servers with XClarity Controller (XCC).

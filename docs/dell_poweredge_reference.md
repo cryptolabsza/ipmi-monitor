@@ -1,3 +1,8 @@
+---
+layout: default
+title: Dell PowerEdge SEL Reference
+---
+
 # Dell PowerEdge SEL Reference
 
 > IPMI System Event Log reference for Dell PowerEdge servers with iDRAC.

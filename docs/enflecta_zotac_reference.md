@@ -1,3 +1,8 @@
+---
+layout: default
+title: ENFLECTA / ZOTAC SEL Reference
+---
+
 # ENFLECTA / ZOTAC SEL Reference
 
 > IPMI System Event Log reference for ENFLECTA and ZOTAC GPU compute servers.

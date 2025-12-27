@@ -1,3 +1,8 @@
+---
+layout: default
+title: NVIDIA DGX A100 SEL Reference
+---
+
 # NVIDIA DGX A100 SEL Reference
 
 > IPMI System Event Log reference for NVIDIA DGX A100 AI systems.

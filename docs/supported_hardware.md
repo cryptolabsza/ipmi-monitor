@@ -1,3 +1,8 @@
+---
+layout: default
+title: Supported Hardware Reference
+---
+
 # Supported Hardware Reference
 
 > Master list of all server manufacturers and models tracked by IPMI Monitor.
