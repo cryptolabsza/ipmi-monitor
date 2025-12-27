@@ -1952,15 +1952,37 @@ No data collected yet. Click "Refresh" to collect system information.
                 loading.style.display = 'none';
                 
                 if (!data.logs || data.logs.length === 0) {
-                    if (data.total === 0 || data.total === undefined) {
+                    // Use total_all to check if ANY logs exist for this server
+                    const hasAnyLogs = (data.total_all || 0) > 0;
+                    
+                    if (!hasAnyLogs) {
+                        // No logs collected at all
                         empty.style.display = 'block';
                         stats.style.display = 'none';
                     } else {
-                        // Filters resulted in no data
+                        // Filters resulted in no data, but logs exist
                         tableContainer.style.display = 'block';
+                        stats.style.display = 'block';
+                        
+                        // Still update stats to show what exists
+                        document.getElementById('syslogsCriticalCount').textContent = data.stats?.critical || 0;
+                        document.getElementById('syslogsErrorCount').textContent = data.stats?.error || 0;
+                        document.getElementById('syslogsWarningCount').textContent = data.stats?.warning || 0;
+                        document.getElementById('syslogsInfoCount').textContent = data.stats?.info || 0;
+                        
+                        const severity = document.getElementById('syslogsSeverityFilter').value;
+                        const logType = document.getElementById('syslogsTypeFilter').value;
+                        const filterDesc = [];
+                        if (severity) filterDesc.push(severity);
+                        if (logType) filterDesc.push(logType);
+                        
                         document.getElementById('syslogsTableBody').innerHTML = `
                             <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                                No logs matching current filters
+                                <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
+                                <div>No logs matching filter: <strong>${filterDesc.join(' + ') || 'selected criteria'}</strong></div>
+                                <div style="margin-top: 10px; font-size: 0.9rem;">
+                                    Total logs available: ${data.total_all.toLocaleString()}
+                                </div>
                             </td></tr>
                         `;
                     }
@@ -2018,7 +2040,16 @@ No data collected yet. Click "Refresh" to collect system information.
                     };
                     const typeIcon = typeIcons[log.log_type] || '📄';
                     
-                    const ts = log.timestamp ? new Date(log.timestamp).toLocaleString() : '-';
+                    // Parse timestamp with fallback for various formats
+                    let ts = '-';
+                    if (log.timestamp) {
+                        try {
+                            const d = new Date(log.timestamp);
+                            ts = isNaN(d.getTime()) ? log.timestamp : d.toLocaleString();
+                        } catch (e) {
+                            ts = log.timestamp; // Show raw if parsing fails
+                        }
+                    }
                     const msg = (log.message || '').substring(0, 200) + ((log.message || '').length > 200 ? '...' : '');
                     
                     return `

@@ -7906,7 +7906,7 @@ def api_server_ssh_logs(bmc_ip):
         total_result = db.session.execute(db.text(count_query), {k: v for k, v in params.items() if k not in ['limit', 'offset']}).fetchone()
         total = total_result[0] if total_result else 0
         
-        # Get stats
+        # Get stats (always unfiltered to show totals)
         stats_query = '''
             SELECT severity, COUNT(*) as cnt 
             FROM ssh_logs 
@@ -7916,28 +7916,38 @@ def api_server_ssh_logs(bmc_ip):
         stats_result = db.session.execute(db.text(stats_query), {'server_name': server_name}).fetchall()
         stats = {row[0]: row[1] for row in stats_result if row[0]}
         
+        # Get total count of all logs (unfiltered) - to distinguish "no logs" from "no results for filter"
+        total_all_query = 'SELECT COUNT(*) FROM ssh_logs WHERE server_name = :server_name'
+        total_all_result = db.session.execute(db.text(total_all_query), {'server_name': server_name}).fetchone()
+        total_all = total_all_result[0] if total_all_result else 0
+        
         # Get last collected timestamp
         last_query = 'SELECT MAX(collected_at) FROM ssh_logs WHERE server_name = :server_name'
         last_result = db.session.execute(db.text(last_query), {'server_name': server_name}).fetchone()
         last_collected = last_result[0] if last_result else None
         
         # Format logs
+        # Schema: id, customer_id, server_name, bmc_ip, log_type, severity, timestamp, message, source_file, raw_line, parsed_data, collected_at
         logs = []
         for row in logs_result:
             logs.append({
                 'id': row[0],
-                'server_name': row[1],
-                'log_type': row[2],
-                'severity': row[3],
-                'timestamp': row[4],
-                'message': row[5],
-                'source': row[6],
-                'collected_at': row[7]
+                'customer_id': row[1],
+                'server_name': row[2],
+                'bmc_ip': row[3],
+                'log_type': row[4],
+                'severity': row[5],
+                'timestamp': row[6],
+                'message': row[7],
+                'source': row[8],
+                'raw_line': row[9] if len(row) > 9 else None,
+                'collected_at': row[11] if len(row) > 11 else None
             })
         
         return jsonify({
             'logs': logs,
             'total': total,
+            'total_all': total_all,  # Total logs for this server (unfiltered)
             'page': page,
             'limit': limit,
             'stats': stats,
