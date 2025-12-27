@@ -1,4 +1,4 @@
-name: Sync Knowledge Base to AI Service
+name: Sync Knowledge Base to Docs
 
 on:
   push:
@@ -8,52 +8,73 @@ on:
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  sync-knowledge:
+  sync-to-docs:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ipmi-monitor
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          path: source
 
-      - name: Checkout ipmi-monitor-ai
-        uses: actions/checkout@v4
-        with:
-          repository: cryptolabsza/ipmi-monitor-ai
-          token: ${{ secrets.AI_REPO_TOKEN }}
-          path: target
+      - name: Sync knowledge to docs folder
+        run: |
+          echo "=== Syncing knowledge files to docs folder ==="
+          
+          for f in knowledge/*.md; do
+            filename=$(basename "$f")
+            target="docs/$filename"
+            
+            echo "Processing: $filename"
+            
+            # Check if already has Jekyll frontmatter
+            if head -1 "$f" | grep -q "^---"; then
+              cp "$f" "$target"
+            else
+              # Extract title from first H1 heading
+              title=$(grep "^# " "$f" | head -1 | sed 's/^# //')
+              
+              # Add Jekyll frontmatter
+              {
+                echo "---"
+                echo "layout: default"
+                echo "title: ${title:-$filename}"
+                echo "---"
+                echo ""
+                cat "$f"
+              } > "$target"
+            fi
+            
+            # Convert .md links to .html for GitHub Pages
+            sed -i 's/\.md)/.html)/g' "$target"
+            
+            echo "  ✓ $filename -> $target"
+          done
 
-      - name: Sync knowledge files
+      - name: Commit and push
         run: |
-          echo "=== Source knowledge files ==="
-          ls -la source/knowledge/
-          
-          echo "=== Syncing to AI service ==="
-          cp -r source/knowledge/* target/knowledge/
-          
-          echo "=== Target knowledge files ==="
-          ls -la target/knowledge/
-          
-      - name: Commit and push to AI service
-        run: |
-          cd target
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Check if there are changes
           if git diff --quiet && git diff --staged --quiet; then
-            echo "✅ No changes to sync"
+            echo "✅ No changes to commit"
             exit 0
           fi
           
           echo "=== Changes detected ==="
           git diff --stat
           
-          git add knowledge/
-          git commit -m "sync: Update knowledge base from ipmi-monitor
+          git add docs/
+          git commit -m "docs: Sync knowledge base to GitHub Pages
 
-          Source: ${{ github.repository }}@${{ github.sha }}
-          Trigger: ${{ github.event.head_commit.message }}"
+          Auto-generated from knowledge/ directory"
           git push
           
-          echo "✅ Knowledge base synced to ipmi-monitor-ai"
+          echo "✅ Docs folder synced"
+
+      - name: Notify AI Service to refresh
+        if: success()
+        run: |
+          echo "=== AI Service will auto-sync on next startup ==="
+          echo "Source: https://github.com/cryptolabsza/ipmi-monitor/tree/main/knowledge"
+          echo ""
+          echo "The AI service pulls knowledge from the public repo."
+          echo "No token or push access needed!"
