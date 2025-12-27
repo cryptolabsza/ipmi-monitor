@@ -1799,6 +1799,7 @@
                         <button class="ai-tab" onclick="switchAiTab('predictions')">🔮 Predictions</button>
                         <button class="ai-tab" onclick="switchAiTab('rca')">🔍 RCA</button>
                         <button class="ai-tab" onclick="switchAiTab('chat')">💬 Chat</button>
+                        <button class="ai-tab" onclick="switchAiTab('usage')">📈 Usage</button>
                     </div>
                     
                     <!-- Agent Tab (NEW) -->
@@ -2418,6 +2419,96 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Usage Tab -->
+                    <div class="ai-tab-content" id="aiTabUsage">
+                        <div class="ai-options">
+                            <div class="ai-options-title">📈 Token Usage & Subscription</div>
+                            
+                            <!-- Subscription Status -->
+                            <div id="usageSubscription" style="background: var(--bg-secondary); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-weight: 600;">Subscription</span>
+                                    <span id="usageTierBadge" style="padding: 4px 12px; border-radius: 4px; font-size: 0.85rem; background: var(--accent-blue); color: white;">ENTERPRISE</span>
+                                </div>
+                                
+                                <!-- Token Balance -->
+                                <div style="margin-bottom: 15px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                        <span style="font-size: 0.9rem; color: var(--text-secondary);">Token Balance</span>
+                                        <span id="usageTokenBalance" style="font-weight: 600;">Loading...</span>
+                                    </div>
+                                    <div style="background: var(--bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden;">
+                                        <div id="usageTokenBar" style="background: linear-gradient(90deg, var(--accent-green), var(--accent-blue)); height: 100%; width: 0%; transition: width 0.5s;"></div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 3px;">
+                                        <span id="usageTokensUsed">0 used this month</span>
+                                        <span id="usageTokenAllocation">/ 0 monthly</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Server Slots -->
+                                <div style="margin-bottom: 15px;">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                        <span style="font-size: 0.9rem; color: var(--text-secondary);">AI Server Slots</span>
+                                        <span id="usageServerCount" style="font-weight: 600;">0 / 0</span>
+                                    </div>
+                                    <div style="background: var(--bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden;">
+                                        <div id="usageServerBar" style="background: var(--accent-purple); height: 100%; width: 0%; transition: width 0.5s;"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Low Token Warning -->
+                                <div id="usageLowTokenWarning" style="display: none; background: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent-yellow); border-radius: 6px; padding: 10px; margin-bottom: 10px;">
+                                    <span style="color: var(--accent-yellow);">⚠️ Low token balance. <a href="#" id="topupLink" style="color: var(--accent-blue); text-decoration: underline;" target="_blank">Top up now</a></span>
+                                </div>
+                                
+                                <!-- Account Links -->
+                                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                                    <a id="usageAccountLink" href="https://www.cryptolabs.co.za/account/" target="_blank" 
+                                       style="flex: 1; text-align: center; padding: 10px; background: var(--accent-blue); color: white; border-radius: 6px; text-decoration: none; font-weight: 500;">
+                                        Manage Account
+                                    </a>
+                                    <a id="usageUpgradeLink" href="https://www.cryptolabs.co.za/account/?action=upgrade" target="_blank" 
+                                       style="flex: 1; text-align: center; padding: 10px; border: 1px solid var(--accent-green); color: var(--accent-green); border-radius: 6px; text-decoration: none; font-weight: 500;">
+                                        Upgrade Plan
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <!-- Usage History -->
+                            <div style="background: var(--bg-secondary); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="font-weight: 600;">Recent Usage</span>
+                                    <button onclick="loadUsageHistory()" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; font-size: 0.8rem;">🔄 Refresh</button>
+                                </div>
+                                <div id="usageHistoryList" style="max-height: 300px; overflow-y: auto;">
+                                    <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                        Loading usage history...
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Server Selection -->
+                            <div style="background: var(--bg-secondary); border-radius: 8px; padding: 15px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <div>
+                                        <span style="font-weight: 600;">AI Server Selection</span>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Choose which servers get AI monitoring</div>
+                                    </div>
+                                    <button onclick="saveAiServerSelection()" id="saveAiServersBtn" style="padding: 6px 12px; border-radius: 4px; border: none; background: var(--accent-green); color: white; cursor: pointer; font-size: 0.85rem; display: none;">Save Selection</button>
+                                </div>
+                                <div id="usageServerList" style="max-height: 250px; overflow-y: auto;">
+                                    <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                                        Loading servers...
+                                    </div>
+                                </div>
+                                <div id="usageServerLimitWarning" style="display: none; margin-top: 10px; padding: 8px; background: rgba(220, 38, 38, 0.1); border: 1px solid var(--accent-red); border-radius: 4px; font-size: 0.85rem; color: var(--accent-red);">
+                                    ⚠️ You've reached your server limit. <a href="#" id="upgradeForServersLink" style="color: var(--accent-blue);" target="_blank">Upgrade</a> to add more.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2728,6 +2819,262 @@
             // Load agent status when switching to Agent tab
             if (tabName === 'agent') {
                 loadAgentStatus();
+            }
+            
+            // Load usage data when switching to Usage tab
+            if (tabName === 'usage') {
+                loadUsageData();
+            }
+        }
+        
+        // ============== AI Usage Functions ==============
+        
+        let usageData = null;
+        let aiServers = [];
+        let serverSelectionChanged = false;
+        
+        async function loadUsageData() {
+            try {
+                // Load subscription and usage
+                const [subResponse, usageResponse, serversResponse] = await Promise.all([
+                    fetch('/api/ai/subscription'),
+                    fetch('/api/ai/usage'),
+                    fetch('/api/ai/servers/ai-enabled')
+                ]);
+                
+                if (subResponse.ok) {
+                    const sub = await subResponse.json();
+                    updateSubscriptionUI(sub);
+                }
+                
+                if (usageResponse.ok) {
+                    usageData = await usageResponse.json();
+                    updateUsageHistoryUI(usageData);
+                }
+                
+                if (serversResponse.ok) {
+                    const serverData = await serversResponse.json();
+                    aiServers = serverData.servers || [];
+                    updateServerSelectionUI(serverData);
+                }
+            } catch (e) {
+                console.error('Failed to load usage data:', e);
+            }
+        }
+        
+        function updateSubscriptionUI(sub) {
+            // Update tier badge
+            const tierBadge = document.getElementById('usageTierBadge');
+            tierBadge.textContent = (sub.tier || 'FREE').toUpperCase();
+            
+            // Tier colors
+            const tierColors = {
+                'free': 'var(--text-secondary)',
+                'trial': 'var(--accent-yellow)',
+                'standard': 'var(--accent-blue)',
+                'standard_plus': 'var(--accent-purple)',
+                'pro': 'var(--accent-orange)',
+                'enterprise': 'var(--accent-green)'
+            };
+            tierBadge.style.background = tierColors[sub.tier] || 'var(--accent-blue)';
+            
+            // Token balance
+            const tokenBalance = sub.token_balance || 0;
+            const monthlyTokens = sub.monthly_tokens || 0;
+            const tokensUsed = sub.tokens_used_this_month || 0;
+            
+            document.getElementById('usageTokenBalance').textContent = formatNumber(tokenBalance) + ' tokens';
+            document.getElementById('usageTokensUsed').textContent = formatNumber(tokensUsed) + ' used this month';
+            document.getElementById('usageTokenAllocation').textContent = '/ ' + formatNumber(monthlyTokens) + ' monthly';
+            
+            // Token bar
+            const tokenPct = monthlyTokens > 0 ? Math.min((tokensUsed / monthlyTokens) * 100, 100) : 0;
+            document.getElementById('usageTokenBar').style.width = tokenPct + '%';
+            
+            // Color based on usage
+            if (tokenPct > 90) {
+                document.getElementById('usageTokenBar').style.background = 'var(--accent-red)';
+            } else if (tokenPct > 75) {
+                document.getElementById('usageTokenBar').style.background = 'var(--accent-yellow)';
+            }
+            
+            // Server count
+            const aiServersCount = sub.ai_monitored_servers || 0;
+            const maxServers = sub.max_servers || 5;
+            document.getElementById('usageServerCount').textContent = aiServersCount + ' / ' + maxServers;
+            
+            // Server bar
+            const serverPct = maxServers > 0 ? Math.min((aiServersCount / maxServers) * 100, 100) : 0;
+            document.getElementById('usageServerBar').style.width = serverPct + '%';
+            
+            // Low token warning
+            const lowWarning = document.getElementById('usageLowTokenWarning');
+            if (sub.low_tokens || sub.out_of_tokens) {
+                lowWarning.style.display = 'block';
+                document.getElementById('topupLink').href = sub.topup_url || 'https://www.cryptolabs.co.za/account/?action=topup';
+            } else {
+                lowWarning.style.display = 'none';
+            }
+            
+            // Account links
+            document.getElementById('usageAccountLink').href = sub.account_url || 'https://www.cryptolabs.co.za/account/';
+            document.getElementById('usageUpgradeLink').href = sub.upgrade_url || 'https://www.cryptolabs.co.za/account/?action=upgrade';
+        }
+        
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toString();
+        }
+        
+        function updateUsageHistoryUI(data) {
+            const container = document.getElementById('usageHistoryList');
+            const history = data.recent_history || [];
+            
+            if (history.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);">No usage history yet</div>';
+                return;
+            }
+            
+            // Group by type icons
+            const typeIcons = {
+                'chat': '💬',
+                'chat_agentic': '🤖',
+                'summary': '📊',
+                'tasks': '🔧',
+                'predictions': '🔮',
+                'rca': '🔍'
+            };
+            
+            container.innerHTML = history.slice(0, 20).map(entry => {
+                const icon = typeIcons[entry.query_type] || '📋';
+                const date = new Date(entry.created_at).toLocaleString();
+                const tokens = entry.tokens_used || 0;
+                const content = entry.query_content ? entry.query_content.substring(0, 50) + '...' : entry.query_type;
+                
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-color);">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span>${icon}</span>
+                                <span style="font-size: 0.85rem;">${content}</span>
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">${date}</div>
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--accent-blue); font-weight: 500;">${tokens > 0 ? formatNumber(tokens) : '-'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function loadUsageHistory() {
+            try {
+                const response = await fetch('/api/ai/usage');
+                if (response.ok) {
+                    usageData = await response.json();
+                    updateUsageHistoryUI(usageData);
+                }
+            } catch (e) {
+                console.error('Failed to load usage history:', e);
+            }
+        }
+        
+        function updateServerSelectionUI(data) {
+            const container = document.getElementById('usageServerList');
+            const servers = data.servers || [];
+            const maxServers = data.max_ai_servers || 5;
+            const enabledCount = data.ai_enabled_count || 0;
+            
+            if (servers.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-muted);">No servers found</div>';
+                return;
+            }
+            
+            container.innerHTML = servers.map(srv => {
+                const isEnabled = srv.ai_enabled;
+                const disabled = !isEnabled && enabledCount >= maxServers ? 'disabled' : '';
+                
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-color);">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 500;">${srv.server_name}</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${srv.bmc_ip}</div>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                            <input type="checkbox" ${isEnabled ? 'checked' : ''} ${disabled}
+                                   onchange="toggleAiServer('${srv.server_name}', '${srv.bmc_ip}', this.checked)"
+                                   style="width: 16px; height: 16px; cursor: pointer;">
+                            <span style="font-size: 0.8rem; color: ${isEnabled ? 'var(--accent-green)' : 'var(--text-muted)'};">
+                                ${isEnabled ? '🤖 AI' : 'Off'}
+                            </span>
+                        </label>
+                    </div>
+                `;
+            }).join('');
+            
+            // Show limit warning if at limit
+            const limitWarning = document.getElementById('usageServerLimitWarning');
+            if (enabledCount >= maxServers) {
+                limitWarning.style.display = 'block';
+            } else {
+                limitWarning.style.display = 'none';
+            }
+        }
+        
+        function toggleAiServer(serverName, bmcIp, enabled) {
+            // Update local state
+            const srv = aiServers.find(s => s.server_name === serverName);
+            if (srv) {
+                srv.ai_enabled = enabled;
+            }
+            
+            // Show save button
+            serverSelectionChanged = true;
+            document.getElementById('saveAiServersBtn').style.display = 'inline-block';
+            
+            // Update UI to reflect changes
+            const enabledCount = aiServers.filter(s => s.ai_enabled).length;
+            const maxServers = usageData?.subscription?.max_servers || 5;
+            
+            // Disable unchecked servers if at limit
+            document.querySelectorAll('#usageServerList input[type="checkbox"]').forEach(cb => {
+                if (!cb.checked && enabledCount >= maxServers) {
+                    cb.disabled = true;
+                } else {
+                    cb.disabled = false;
+                }
+            });
+        }
+        
+        async function saveAiServerSelection() {
+            try {
+                const serversToSave = aiServers.map(srv => ({
+                    server_name: srv.server_name,
+                    bmc_ip: srv.bmc_ip,
+                    is_enabled: srv.ai_enabled
+                }));
+                
+                const response = await fetch('/api/ai/servers/ai-enabled', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ servers: serversToSave })
+                });
+                
+                if (response.ok) {
+                    showToast('Server selection saved!', 'success');
+                    serverSelectionChanged = false;
+                    document.getElementById('saveAiServersBtn').style.display = 'none';
+                    // Reload to get fresh data
+                    loadUsageData();
+                } else {
+                    const err = await response.json();
+                    showToast(err.error || 'Failed to save', 'error');
+                    if (err.upgrade_url) {
+                        window.open(err.upgrade_url, '_blank');
+                    }
+                }
+            } catch (e) {
+                showToast('Failed to save server selection', 'error');
             }
         }
         

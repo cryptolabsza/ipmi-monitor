@@ -14218,6 +14218,105 @@ def api_ai_agent_recovery_history():
         return jsonify({'history': [], 'error': str(e)})
 
 
+# ============== AI Usage & Subscription API ==============
+
+@app.route('/api/ai/usage')
+@login_required
+def api_ai_usage():
+    """Get usage statistics for the current customer"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({'error': 'AI features not enabled'}), 403
+    
+    try:
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/usage",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/subscription')
+@login_required
+def api_ai_subscription():
+    """Get subscription details including token balance and limits"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({
+            'tier': 'free',
+            'token_balance': 0,
+            'monthly_tokens': 0,
+            'tokens_used_this_month': 0,
+            'max_servers': 5,
+            'ai_monitored_servers': 0,
+            'out_of_tokens': True,
+            'low_tokens': True,
+            'account_url': 'https://www.cryptolabs.co.za/account/',
+            'upgrade_url': 'https://www.cryptolabs.co.za/account/?action=upgrade'
+        })
+    
+    try:
+        response = requests.get(
+            f"{config.AI_SERVICE_URL}/api/v1/subscription",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=30
+        )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/ai/servers/ai-enabled', methods=['GET', 'PUT'])
+@login_required
+def api_ai_servers():
+    """Get or update which servers are enabled for AI monitoring"""
+    config = CloudSync.get_config()
+    
+    if not CloudSync.is_ai_enabled():
+        return jsonify({'error': 'AI features not enabled'}), 403
+    
+    try:
+        if request.method == 'GET':
+            response = requests.get(
+                f"{config.AI_SERVICE_URL}/api/v1/servers/ai-enabled",
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=30
+            )
+        else:  # PUT
+            response = requests.put(
+                f"{config.AI_SERVICE_URL}/api/v1/servers/ai-enabled",
+                json=request.get_json(),
+                headers={
+                    'Authorization': f'Bearer {config.license_key}',
+                    'Content-Type': 'application/json'
+                },
+                timeout=30
+            )
+        
+        if response.ok:
+            return jsonify(response.json())
+        else:
+            return jsonify({'error': f"AI service error: {response.text}"}), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 # ============== Recovery Permissions API ==============
 
 @app.route('/api/recovery/permissions', methods=['GET'])
