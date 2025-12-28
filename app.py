@@ -2769,14 +2769,20 @@ def sync_to_cloud(initial_sync=False):
                 from sqlalchemy import inspect as sa_inspect
                 inspector = sa_inspect(db.engine)
                 if 'ssh_logs' in inspector.get_table_names():
-                    # Get SSH logs from last 72 hours
+                    # Get SSH logs from last 72 hours - prioritize critical/warning logs
                     ssh_cutoff = (datetime.utcnow() - timedelta(hours=72)).isoformat()
                     ssh_logs_result = db.session.execute(db.text('''
                         SELECT server_name, log_type, severity, timestamp, message, source_file
                         FROM ssh_logs 
                         WHERE collected_at >= :cutoff
-                        ORDER BY timestamp DESC
-                        LIMIT 5000
+                        ORDER BY 
+                            CASE severity 
+                                WHEN 'critical' THEN 0 
+                                WHEN 'warning' THEN 1 
+                                ELSE 2 
+                            END,
+                            timestamp DESC
+                        LIMIT 10000
                     '''), {'cutoff': ssh_cutoff}).fetchall()
                     
                     payload['ssh_logs'] = [{

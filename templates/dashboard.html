@@ -3952,33 +3952,43 @@
         async function loadCachedAiResults() {
             if (!aiEnabled) return;
             
+            // Skip if using embedded AI iframes (elements won't exist)
+            if (useAiEmbeds) return;
+            
             try {
                 const response = await fetch('/api/ai/results');
                 const data = await response.json();
                 
                 // Show cached summary if available
-                if (data.summary && data.summary.content) {
-                    document.getElementById('summaryOutput').style.display = 'block';
-                    document.getElementById('aiSummaryContent').innerHTML = formatAiContent(data.summary.content);
-                    document.getElementById('summaryTime').textContent = data.summary.generated_at ? 
+                const summaryOutput = document.getElementById('summaryOutput');
+                if (data.summary && data.summary.content && summaryOutput) {
+                    summaryOutput.style.display = 'block';
+                    const summaryContent = document.getElementById('aiSummaryContent');
+                    const summaryTime = document.getElementById('summaryTime');
+                    if (summaryContent) summaryContent.innerHTML = formatAiContent(data.summary.content);
+                    if (summaryTime) summaryTime.textContent = data.summary.generated_at ? 
                         'Generated: ' + new Date(data.summary.generated_at).toLocaleString() : '';
                 }
                 
                 // Show cached tasks if available
-                if (data.tasks && data.tasks.content) {
-                    document.getElementById('tasksOutput').style.display = 'block';
+                const tasksOutput = document.getElementById('tasksOutput');
+                if (data.tasks && data.tasks.content && tasksOutput) {
+                    tasksOutput.style.display = 'block';
                     const tasks = JSON.parse(data.tasks.content);
                     renderTasks(tasks);
-                    document.getElementById('tasksTime').textContent = data.tasks.generated_at ?
+                    const tasksTime = document.getElementById('tasksTime');
+                    if (tasksTime) tasksTime.textContent = data.tasks.generated_at ?
                         'Generated: ' + new Date(data.tasks.generated_at).toLocaleString() : '';
                 }
                 
                 // Show cached predictions if available
-                if (data.predictions && data.predictions.content) {
-                    document.getElementById('predictionsOutput').style.display = 'block';
+                const predictionsOutput = document.getElementById('predictionsOutput');
+                if (data.predictions && data.predictions.content && predictionsOutput) {
+                    predictionsOutput.style.display = 'block';
                     const predictions = JSON.parse(data.predictions.content);
                     renderPredictions(predictions);
-                    document.getElementById('predictionsTime').textContent = data.predictions.generated_at ?
+                    const predictionsTime = document.getElementById('predictionsTime');
+                    if (predictionsTime) predictionsTime.textContent = data.predictions.generated_at ?
                         'Generated: ' + new Date(data.predictions.generated_at).toLocaleString() : '';
                 }
             } catch (e) {
