@@ -14038,12 +14038,14 @@ def api_ai_chat_stream():
                 return
             
             # Forward SSE events from AI service
-            for line in response.iter_lines():
+            # SSE format: "event: type\ndata: {...}\n\n"
+            # iter_lines() splits on \n, so we need to preserve empty lines as message boundaries
+            for line in response.iter_lines(decode_unicode=True):
                 if line:
-                    decoded = line.decode('utf-8')
-                    yield decoded + '\n'
-                    if not decoded.strip():
-                        yield '\n'
+                    yield line + '\n'
+                else:
+                    # Empty line marks end of SSE message - must send \n
+                    yield '\n'
                         
         except requests.exceptions.Timeout:
             yield f"event: error\ndata: {json.dumps({'error': 'AI service timeout'})}\n\n"
