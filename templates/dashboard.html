@@ -1436,6 +1436,15 @@
             to { transform: rotate(360deg); }
         }
         
+        @keyframes pulse-text {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .ai-progress-text {
+            animation: pulse-text 1.5s ease-in-out infinite;
+        }
+        
         /* Scrollbar styling */
         ::-webkit-scrollbar {
             width: 8px;
@@ -4401,7 +4410,7 @@
             progressDiv.innerHTML = `
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <div class="spinner" style="width: 14px; height: 14px;"></div>
-                    <span style="color: var(--text-muted); font-size: 0.9em;">${message}</span>
+                    <span class="ai-progress-text" style="color: var(--text-muted); font-size: 0.9em;">${message}</span>
                 </div>
                 <div style="width: 100%; height: 3px; background: var(--bg-subtle); border-radius: 2px; margin-top: 6px; overflow: hidden;">
                     <div style="width: ${progress}%; height: 100%; background: var(--accent-cyan); transition: width 0.3s ease;"></div>
