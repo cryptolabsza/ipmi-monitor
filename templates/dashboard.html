@@ -4321,6 +4321,8 @@
                 const decoder = new TextDecoder();
                 let buffer = '';
                 
+                let currentEventType = 'progress';
+                
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
@@ -4331,13 +4333,13 @@
                     
                     for (const line of lines) {
                         if (line.startsWith('event: ')) {
-                            const eventType = line.slice(7);
+                            currentEventType = line.slice(7).trim();
                             continue;
                         }
                         if (line.startsWith('data: ')) {
                             try {
                                 const data = JSON.parse(line.slice(6));
-                                handleProgressEvent(data, progressDiv);
+                                handleProgressEvent(data, progressDiv, currentEventType);
                             } catch (e) {
                                 // Ignore parse errors
                             }
@@ -4382,23 +4384,25 @@
             }
         }
         
-        function handleProgressEvent(data, progressDiv) {
-            if (data.stage === 'finalizing' || data.answer) {
-                // Final answer received
+        function handleProgressEvent(data, progressDiv, eventType = 'progress') {
+            // Handle complete event with final answer
+            if (eventType === 'complete' || data.answer) {
                 const thinking = document.getElementById('aiThinking');
                 if (data.answer) {
                     thinking.innerHTML = formatAiContent(data.answer);
-                } else if (data.message) {
-                    thinking.innerHTML = formatAiContent(data.message);
+                    thinking.id = '';
+                    saveChatHistory();
+                } else if (data.error) {
+                    thinking.innerHTML = `<span style="color: var(--accent-red)">${data.error}</span>`;
+                    thinking.id = '';
                 }
-                thinking.id = '';
-                saveChatHistory();
                 return;
             }
             
-            if (data.error) {
+            // Handle error event
+            if (eventType === 'error' || data.error) {
                 const thinking = document.getElementById('aiThinking');
-                thinking.innerHTML = `<span style="color: var(--accent-red)">${data.error}</span>`;
+                thinking.innerHTML = `<span style="color: var(--accent-red)">${data.error || 'Unknown error'}</span>`;
                 thinking.id = '';
                 return;
             }
