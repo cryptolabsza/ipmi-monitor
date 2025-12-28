@@ -2816,23 +2816,22 @@
             document.getElementById('aiTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
             
             // Try to load embed for this tab if embeds are enabled
-            if (useAiEmbeds && ['summary', 'tasks', 'predictions', 'rca', 'usage'].includes(tabName)) {
+            // ALL AI tabs are served as iframes from the AI service (closed-source)
+            if (useAiEmbeds && ['summary', 'tasks', 'predictions', 'rca', 'usage', 'chat', 'agent'].includes(tabName)) {
                 loadAiTabEmbed(tabName);
             }
             
-            // Load RCA events when switching to RCA tab (fallback for inline mode)
-            if (tabName === 'rca' && !useAiEmbeds) {
-                loadEventsForRca();
-            }
-            
-            // Load agent status when switching to Agent tab
-            if (tabName === 'agent') {
-                loadAgentStatus();
-            }
-            
-            // Load usage data when switching to Usage tab (fallback for inline mode)
-            if (tabName === 'usage' && !useAiEmbeds) {
-                loadUsageData();
+            // Fallbacks for inline mode (when embeds not available)
+            if (!useAiEmbeds) {
+                if (tabName === 'rca') {
+                    loadEventsForRca();
+                }
+                if (tabName === 'agent') {
+                    loadAgentStatus();
+                }
+                if (tabName === 'usage') {
+                    loadUsageData();
+                }
             }
         }
         
