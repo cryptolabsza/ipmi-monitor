@@ -5112,6 +5112,48 @@
         `;
         document.head.appendChild(style);
         
+        // Version check for auto-refresh on container update (Watchtower)
+        let initialBuildVersion = null;
+        const VERSION_CHECK_INTERVAL = 30000; // Check every 30 seconds
+        
+        async function checkForContainerUpdate() {
+            try {
+                const response = await fetch('/api/version');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const currentVersion = data.git_commit || data.version;
+                
+                if (initialBuildVersion === null) {
+                    // First check - store initial version
+                    initialBuildVersion = currentVersion;
+                    console.log('[Version] Initial build:', currentVersion);
+                } else if (currentVersion !== initialBuildVersion) {
+                    // Version changed - container was updated!
+                    console.log('[Version] Container updated:', initialBuildVersion, '→', currentVersion);
+                    
+                    // Show notification
+                    showToast('🔄 Application updated! Refreshing...', 'info');
+                    
+                    // Clear any auth tokens to force re-login if needed
+                    // (optional - only if you want fresh auth after update)
+                    // localStorage.removeItem('wp_oauth_token');
+                    
+                    // Reload after short delay to show notification
+                    setTimeout(() => {
+                        window.location.reload(true); // Force reload from server
+                    }, 1500);
+                }
+            } catch (err) {
+                // Silently ignore errors - don't disrupt user experience
+                console.debug('[Version] Check failed:', err.message);
+            }
+        }
+        
+        // Start version checking
+        checkForContainerUpdate(); // Initial check
+        setInterval(checkForContainerUpdate, VERSION_CHECK_INTERVAL);
+        
         // Initialize
         checkAuth();
         handleOAuthCallback();  // Process any callback parameters first
