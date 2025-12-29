@@ -2738,6 +2738,15 @@
                 backdrop.classList.add('visible');
                 toggleBtn.classList.add('panel-open');
                 document.body.style.overflow = 'hidden'; // Prevent background scroll
+                
+                // Load embed for currently active tab if using embeds
+                if (useAiEmbeds) {
+                    const activeTab = document.querySelector('.ai-tab.active');
+                    if (activeTab) {
+                        const tabName = activeTab.getAttribute('onclick')?.match(/switchAiTab\('(\w+)'\)/)?.[1] || 'summary';
+                        loadAiTabEmbed(tabName);
+                    }
+                }
             }
         }
         
