@@ -22,7 +22,6 @@
 
 ## ✨ Features
 
-### 🆓 Free Self-Hosted Features
 - 🔍 **Event Collection** - Automatically collect IPMI SEL logs (parallel, 32 workers)
 - 📊 **Real-time Dashboard** - Auto-refreshing every second with server status cards
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
@@ -42,18 +41,7 @@
 - ⬆️ **Update Notifications** - Checks GitHub for newer releases
 - 🔧 **Bulk Credentials** - Apply SSH/IPMI credentials to multiple servers at once
 - 🔃 **BMC Reset** - Cold/warm reset BMC without affecting host OS
-
-### 🤖 Optional AI Features (via CryptoLabs)
-- 📊 Daily health summaries with GPU error detection
-- 🔧 AI-generated maintenance tasks
-- 📈 Failure predictions
-- 🔍 Root cause analysis with severity filtering
-- 💬 AI chat assistant
-- 🤖 **AI Recovery Agent** - Autonomous GPU recovery with escalation
-- 🛠️ **Recovery Actions** - Clock limiting, soft resets, coordinated reboots
-- 🏢 **Multi-Site Support** - One account, multiple datacenter locations
-- 🔗 **Instance Fingerprinting** - Track all installations automatically
-- 📋 **Remote Task Queue** - AI service sends tasks, Monitor executes
+- 🤖 **Optional AI Features** - Enable AI-powered insights via Settings → AI Features
 
 ---
 
@@ -150,7 +138,7 @@ Or use [Watchtower](https://containrrr.dev/watchtower/) for automatic updates.
 | Tag | Description |
 |-----|-------------|
 | `:latest` | Latest stable release (recommended) |
-| `:dev` | Development builds (testing new features) |
+| `:develop` | Development builds (testing new features) |
 
 ---
 
@@ -171,42 +159,6 @@ Or use [Watchtower](https://containrrr.dev/watchtower/) for automatic updates.
 
 ---
 
-## 🤖 AI Features (Optional)
-
-Upgrade your monitoring with AI-powered insights from CryptoLabs:
-
-| Feature | Description |
-|---------|-------------|
-| 📊 **Daily Summaries** | AI analyzes your fleet health daily with GPU focus |
-| 🔧 **Maintenance Tasks** | Auto-generated from events |
-| 📈 **Predictions** | Failure warnings before they happen |
-| 🔍 **Root Cause Analysis** | AI explains what went wrong with severity filtering |
-| 💬 **Chat** | Ask questions about your servers |
-| 🏢 **Multi-Site** | Aggregate all your sites under one account |
-| 🤖 **Agent Task Queue** | AI sends recovery tasks for execution |
-| 🔍 **Post-Event RCA** | Investigate what happened during downtime |
-
-### Enable AI
-
-1. Go to **Settings** → **AI Features**
-2. Click **Start Free Trial** (1 month free!)
-3. Create account or login at CryptoLabs
-4. Configure your **Site Name** for multi-site support
-5. You're connected!
-
-### Pricing
-
-| Tier | Price | Servers | Tokens/month | Trial |
-|------|-------|---------|--------------|-------|
-| Free | $0 | Unlimited | - | Basic monitoring only |
-| Standard | $100/mo | 50 servers | 1M tokens | 1 month free |
-| Standard+ | +$15/10 servers | 51+ | +100K tokens | - |
-| Professional | $500/mo | 500 servers | 10M tokens | 1 month free |
-
-> 💡 **Tokens** are used for AI chat, summaries, and predictions. 1M tokens ≈ 2000+ AI queries/month.
-
----
-
 ## 📋 API Reference
 
 ### Public Endpoints
@@ -222,7 +174,6 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 | `GET /health` | Health check |
 | `GET /api/version` | Current version info |
 | `GET /api/version/check` | Check for updates |
-| `POST /api/server/{bmc_ip}/investigate` | Post-event RCA investigation |
 | `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset (cold/warm/info) |
 | `GET /api/server/{bmc_ip}/ssh-logs` | Get SSH system logs |
 
@@ -233,7 +184,6 @@ Upgrade your monitoring with AI-powered insights from CryptoLabs:
 | `POST /api/collect` | Trigger collection |
 | `POST /api/servers/add` | Add server |
 | `DELETE /api/servers/{bmc_ip}` | Delete server |
-| `PUT /api/ai/config` | Update AI config (including site_name) |
 | `GET /api/backup` | Full configuration backup |
 | `POST /api/restore` | Restore from backup |
 
@@ -247,22 +197,15 @@ IPMI Monitor is designed with security in mind for production datacenter environ
 - **No Command-Line Exposure** - IPMI passwords use environment variables (`IPMI_PASSWORD`), not `-P` flags
 - **SSH Key Isolation** - SSH private keys stored in temporary files with 0600 permissions
 - **Password Masking** - Passwords passed via `SSHPASS` environment variable, not command line
-- **No Credential Sync** - Credentials are **never** sent to the AI cloud service
 
 ### Data Handling
-- **Local-First** - All data stored locally in SQLite, cloud sync is optional
-- **Minimal Cloud Data** - Only events, sensors, inventory, and logs synced (no credentials)
-- **Secret Redaction** - AI responses automatically redact any detected credentials
+- **Local-First** - All data stored locally in SQLite
+- **No Credential Sync** - Credentials are **never** sent externally
 
 ### Access Control
 - **Role-Based Access** - Admin vs read-only user levels
 - **Session Management** - Secure Flask sessions with configurable secret key
 - **API Authentication** - Protected endpoints require authentication
-
-### AI Safety (Optional)
-- **Input Validation** - SafetyAgent detects prompt injection and code injection
-- **Threat Blocking** - Malicious queries blocked before reaching LLM
-- **Output Filtering** - Secret redaction prevents accidental credential exposure
 
 ### Best Practices
 ```yaml
@@ -304,9 +247,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
 - **Docker Image**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
-- **AI Features**: [cryptolabs.co.za/ipmi-monitor](https://cryptolabs.co.za/ipmi-monitor)
 - **Documentation**: [cryptolabsza.github.io/ipmi-monitor](https://cryptolabsza.github.io/ipmi-monitor)
-- **Support**: [CryptoLabs Discord](https://discord.gg/cryptolabs)
 
 ---
 
