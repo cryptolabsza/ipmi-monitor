@@ -466,54 +466,58 @@
         .ai-panel-content {
             padding: 0;
             flex: 1;
-            overflow-y: auto;
+            overflow: hidden; /* Don't scroll content area - let iframe handle scrolling */
             display: flex;
             flex-direction: column;
+            min-height: 0; /* Allow flex shrinking */
         }
         
         .ai-panel-content.collapsed {
             display: none;
         }
         
-        /* Make AI results fill available space */
+        /* Make AI results fill available space - CRITICAL for scaling */
         .ai-results {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-            min-height: 0;
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            height: 100% !important;
+            overflow: hidden !important;
         }
         
-        /* Tab content should fill space */
+        /* Tab content should fill ALL available space */
         .ai-tab-content {
-            flex: 1;
-            display: none;
-            flex-direction: column;
-            min-height: 0;
-            overflow: hidden;
-            height: 100%;
+            flex: 1 1 auto !important;
+            display: none !important;
+            flex-direction: column !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
+            height: 100% !important;
         }
         
         .ai-tab-content.active {
-            display: flex;
-            height: 100%;
+            display: flex !important;
+            height: 100% !important;
         }
         
-        /* Ensure embed iframes fill the tab */
+        /* Ensure embed iframes fill the ENTIRE tab - no fixed heights */
         .ai-embed-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            min-height: 500px;
+            flex: 1 1 auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            overflow: hidden !important;
         }
         
         .ai-embed-iframe {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-            min-height: 500px;
-            border: none;
-            border-radius: 8px;
+            flex: 1 1 auto !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            border: none !important;
+            border-radius: 8px !important;
         }
         
         .ai-upgrade-prompt {
@@ -562,11 +566,11 @@
         
         .ai-tab-content {
             display: none;
-            padding: 20px;
+            padding: 0; /* No padding - embed handles its own */
         }
         
         .ai-tab-content.active {
-            display: block;
+            display: flex; /* Use flex to allow iframe to expand */
         }
         
         /* AI Options */
@@ -1137,8 +1141,13 @@
         }
         
         .ai-results {
-            display: grid;
-            gap: 20px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            gap: 0;
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
         }
         
         .ai-summary, .ai-tasks, .ai-chat {
@@ -2814,12 +2823,11 @@
                 return true; // Already loaded
             }
             
-            // Add iframe container - must fill entire panel
+            // Add iframe container - must fill entire panel (no min-height constraints)
             const iframeHtml = `
-                <div class="ai-embed-container" style="flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+                <div class="ai-embed-container">
                     <iframe class="ai-embed-iframe" 
                             src="${embedUrl}" 
-                            style="flex: 1; width: 100%; height: 100%; min-height: 500px; border: none; border-radius: 8px;"
                             allowfullscreen></iframe>
                 </div>
             `;
