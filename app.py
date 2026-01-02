@@ -2645,6 +2645,205 @@ def sync_telemetry():
             app.logger.debug(f"Telemetry failed (non-critical): {e}")
 
 
+# =============================================================================
+# HEALTH REPORTING & CRASH DETECTION
+# Report instance health, crashes, and lifecycle events to AI service
+# Works even without a license key - helps detect and diagnose issues
+# =============================================================================
+
+_instance_start_time = datetime.utcnow()
+_last_health_report = None
+_crash_buffer = []  # Buffer crashes if network is down
+
+def report_health_status(event_type='heartbeat', extra_data=None):
+    """
+    Send health status to AI service. Works without license key.
+    
+    Args:
+        event_type: 'heartbeat', 'startup', 'shutdown', 'error', 'warning'
+        extra_data: Additional data to include in report
+    """
+    global _last_health_report
+    
+    with app.app_context():
+        try:
+            instance_id, fingerprint_data = generate_instance_fingerprint()
+            config = CloudSync.get_config()
+            
+            # Collect health metrics
+            servers = Server.query.all()
+            server_statuses = ServerStatus.query.all()
+            
+            healthy = sum(1 for s in server_statuses if s.is_reachable)
+            unreachable = sum(1 for s in server_statuses if not s.is_reachable)
+            
+            # System health
+            import psutil
+            try:
+                memory = psutil.virtual_memory()
+                disk = psutil.disk_usage('/app/data') if os.path.exists('/app/data') else psutil.disk_usage('/')
+                cpu_percent = psutil.cpu_percent(interval=0.1)
+                system_health = {
+                    'memory_percent': memory.percent,
+                    'disk_percent': disk.percent,
+                    'cpu_percent': cpu_percent,
+                }
+            except:
+                system_health = {}
+            
+            # Calculate uptime
+            uptime_seconds = (datetime.utcnow() - _instance_start_time).total_seconds()
+            
+            health_report = {
+                'instance_id': instance_id,
+                'event_type': event_type,
+                'timestamp': datetime.utcnow().isoformat(),
+                'app_version': get_version_string(),
+                'uptime_seconds': uptime_seconds,
+                'tier': config.subscription_tier or 'free',
+                'license_key_present': bool(config.license_key),
+                'fingerprint': fingerprint_data,
+                'fleet_health': {
+                    'server_count': len(servers),
+                    'healthy': healthy,
+                    'unreachable': unreachable,
+                },
+                'system_health': system_health,
+                'extra': extra_data or {},
+            }
+            
+            # Include any buffered crashes
+            if _crash_buffer:
+                health_report['buffered_crashes'] = _crash_buffer.copy()
+                _crash_buffer.clear()
+            
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/health-report",
+                json=health_report,
+                timeout=10
+            )
+            
+            if response.ok:
+                _last_health_report = datetime.utcnow()
+                app.logger.debug(f"Health report sent: {event_type}")
+            
+        except Exception as e:
+            app.logger.debug(f"Health report failed: {e}")
+
+
+def report_crash(error_type, error_message, stack_trace=None, context=None):
+    """
+    Report a crash or critical error to AI service.
+    Buffers if network is unavailable.
+    
+    Args:
+        error_type: Exception class name
+        error_message: Error message
+        stack_trace: Full stack trace string
+        context: Additional context (route, function, etc.)
+    """
+    global _crash_buffer
+    
+    crash_report = {
+        'error_type': error_type,
+        'error_message': str(error_message)[:1000],  # Limit size
+        'stack_trace': stack_trace[:5000] if stack_trace else None,  # Limit size
+        'context': context or {},
+        'timestamp': datetime.utcnow().isoformat(),
+    }
+    
+    with app.app_context():
+        try:
+            instance_id, fingerprint_data = generate_instance_fingerprint()
+            config = CloudSync.get_config()
+            
+            payload = {
+                'instance_id': instance_id,
+                'event_type': 'crash',
+                'app_version': get_version_string(),
+                'tier': config.subscription_tier or 'free',
+                'fingerprint': fingerprint_data,
+                'crash': crash_report,
+                'timestamp': datetime.utcnow().isoformat(),
+            }
+            
+            response = requests.post(
+                f"{config.AI_SERVICE_URL}/api/v1/health-report",
+                json=payload,
+                timeout=10
+            )
+            
+            if response.ok:
+                app.logger.info(f"Crash report sent: {error_type}")
+            else:
+                # Buffer for later
+                _crash_buffer.append(crash_report)
+                if len(_crash_buffer) > 10:
+                    _crash_buffer.pop(0)  # Keep last 10
+                    
+        except Exception as e:
+            # Buffer for later
+            _crash_buffer.append(crash_report)
+            if len(_crash_buffer) > 10:
+                _crash_buffer.pop(0)
+            app.logger.debug(f"Crash report buffered: {e}")
+
+
+def report_startup():
+    """Report instance startup to AI service"""
+    report_health_status('startup', {
+        'python_version': sys.version,
+        'platform': sys.platform,
+    })
+
+
+def report_shutdown():
+    """Report graceful shutdown to AI service"""
+    report_health_status('shutdown', {
+        'reason': 'graceful',
+    })
+
+
+# Global exception handler for Flask
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Catch unhandled exceptions and report them"""
+    import traceback
+    
+    # Don't report 404s and other HTTP errors
+    if hasattr(e, 'code') and e.code < 500:
+        return e
+    
+    stack_trace = traceback.format_exc()
+    error_type = type(e).__name__
+    
+    # Report the crash
+    try:
+        report_crash(
+            error_type=error_type,
+            error_message=str(e),
+            stack_trace=stack_trace,
+            context={
+                'url': request.url if request else None,
+                'method': request.method if request else None,
+                'endpoint': request.endpoint if request else None,
+            }
+        )
+    except:
+        pass  # Don't fail if reporting fails
+    
+    # Log it
+    app.logger.error(f"Unhandled exception: {error_type}: {e}\n{stack_trace}")
+    
+    # Re-raise for default handling
+    raise e
+
+
+# Register shutdown handler
+import atexit
+atexit.register(report_shutdown)
+
+
 def sync_to_cloud(initial_sync=False):
     """
     Sync data to CryptoLabs AI service.
@@ -6377,6 +6576,9 @@ def sync_timer():
     # Short initial delay to let database initialize
     _shutdown_event.wait(10)
     
+    # Send startup notification on first run
+    first_run = True
+    
     while not _shutdown_event.is_set():
         try:
             with app.app_context():
@@ -6386,6 +6588,17 @@ def sync_timer():
                     sync_telemetry()
                 except Exception as tel_err:
                     print(f"[Sync Timer] Telemetry error (non-critical): {tel_err}", flush=True)
+                
+                # Send health report (heartbeat) - even for free instances
+                # This helps detect when instances go offline
+                try:
+                    if first_run:
+                        report_startup()
+                        first_run = False
+                    else:
+                        report_health_status('heartbeat')
+                except Exception as health_err:
+                    print(f"[Sync Timer] Health report error (non-critical): {health_err}", flush=True)
                 
                 config = CloudSync.get_config()
                 
