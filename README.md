@@ -247,7 +247,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
 - **Docker Image**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
-- **Documentation**: [cryptolabsza.github.io/ipmi-monitor](https://cryptolabsza.github.io/ipmi-monitor)
+- **Documentation**: [github.com/cryptolabsza/ipmi-monitor/docs](https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs)
+- **Discord Community**: [Join our Discord](https://discord.gg/G9uNuqMG) - Get help, report issues, request features
 
 ---
 

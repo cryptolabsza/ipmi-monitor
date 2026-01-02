@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v0.7.x | **Last Updated:** 2025-12-27
+**Version:** v1.7.x | **Last Updated:** 2026-01-02
 
 ---
 
@@ -415,6 +415,8 @@ IPMI Monitor can collect system logs from your servers via SSH for centralized v
 | **Journal** | `journalctl` | Systemd service logs |
 | **Syslog** | `/var/log/syslog` | System messages |
 | **MCE Log** | `mcelog` | Machine check exceptions (ECC, CPU errors) |
+| **Auth Log** | `/var/log/auth.log` | SSH login attempts, sudo usage |
+| **Secure Log** | `/var/log/secure` | Security events (RHEL/CentOS) |
 
 ### Collected Error Types
 
@@ -422,6 +424,22 @@ IPMI Monitor can collect system logs from your servers via SSH for centralized v
 - **PCIe Errors** - Bus errors, link failures
 - **ECC Errors** - Memory correctable/uncorrectable errors
 - **GPU Xid Errors** - NVIDIA driver faults
+- **SSH Security Events** - Failed logins, brute force attempts
+- **NVMe Errors** - SSD health and I/O errors
+- **RAID Errors** - Controller and disk failures
+- **Kernel Panics** - System crashes with stack traces
+
+### SSH Authentication Events
+
+IPMI Monitor parses SSH authentication logs to detect:
+
+| Event Type | Detection | Severity |
+|------------|-----------|----------|
+| Failed SSH Login | Multiple failed password/key attempts | Warning |
+| Brute Force Attack | 5+ failed logins from same IP in 5 min | Critical |
+| Successful Login | Successful authentication | Info |
+| Invalid User | Login attempt with non-existent user | Warning |
+| Root Login | Direct root login (if enabled) | Info |
 
 ### Enabling Collection
 
@@ -435,12 +453,22 @@ IPMI Monitor can collect system logs from your servers via SSH for centralized v
 1. Go to **Server Detail**
 2. Click the **📜 System Logs** tab
 3. Filter by severity (Critical, Error, Warning, Info)
-4. Filter by log type (Kernel, Journald, Syslog, MCE)
+4. Filter by log type (Kernel, Journald, Syslog, MCE, Auth)
+
+### SSH Log Severity Mapping
+
+| Severity | Example Entries |
+|----------|-----------------|
+| **Critical** | Kernel panic, OOM killer, GPU fell off bus, hardware failure |
+| **Error** | I/O errors, driver failures, service crashes |
+| **Warning** | Correctable ECC errors, high temperature, failed logins |
+| **Info** | Service started, successful logins, normal operations |
 
 ### Requirements
 
 - SSH access configured for the server
 - Root or sudo access for dmesg/journalctl
+- Read access to `/var/log/` for log file collection
 
 ---
 
@@ -909,23 +937,114 @@ count(ipmi_server_reachable == 0) > 2
 
 ## AI Features
 
-Premium AI features provide intelligent analysis of your server fleet.
+Premium AI features provide intelligent analysis of your server fleet. Access AI features directly from the IPMI Monitor dashboard via the **AI Insights** panel.
 
-### Features Included
+### AI Insights Panel
 
-- **Fleet Health Summaries** - Daily overview of all servers
-- **Maintenance Tasks** - AI-identified work items with priorities
-- **Predictive Analytics** - Failure predictions before they happen
-- **Root Cause Analysis** - Deep analysis of specific events
-- **AI Chat** - Interactive assistant for questions
-- **AI Recovery Agent** - Autonomous GPU recovery with escalation
+The AI Insights panel is displayed on the right side of your dashboard and contains the following tabs:
 
-### Getting Started
+| Tab | Description |
+|-----|-------------|
+| **📊 Summary** | Fleet-wide health summary with critical issues, frequent errors, and trends |
+| **🔧 Tasks** | AI-generated maintenance tasks with specific component recommendations |
+| **📈 Predictions** | Failure predictions based on sensor trends and event patterns |
+| **🔍 RCA** | Root cause analysis for specific events or server issues |
+| **💬 Chat** | Interactive AI assistant for asking questions about your fleet |
+| **📈 Usage** | Token usage, subscription status, and billing information |
+| **🤖 Agent** | AI Recovery Agent configuration and monitoring |
+
+### Fleet Health Summary
+
+The AI analyzes all your servers to generate a comprehensive health report:
+
+- **Critical Issues**: Servers requiring immediate attention
+- **Frequent Errors**: Recurring problems across your fleet
+- **Recent Events**: Notable system downs, recoveries, and alerts
+- **Trend Analysis**: Temperature, power, and error trends
+- **SSH Security**: Failed login attempts and security events
+- **SEL Analysis**: Pattern detection in System Event Logs
+
+The summary uses **Agentic RAG** (Retrieval Augmented Generation) to:
+1. Query multiple data sources (SEL, SSH logs, sensors)
+2. Cross-reference findings across servers
+3. Provide actionable insights with evidence
+
+### Maintenance Tasks
+
+AI generates specific maintenance tasks with:
+
+- **Server Name**: Exactly which server needs attention
+- **Component Name**: Specific component (e.g., "DIMM_A1", "FAN3", "PSU1")
+- **Priority**: Critical, High, Medium, or Low
+- **Reason**: Evidence-based explanation
+- **Suggested Action**: Clear steps to resolve
+
+Example task:
+> **Replace DIMM_A1 on BrickBox-40** (Critical)  
+> 47 correctable ECC errors in past 24 hours with increasing frequency.  
+> Schedule memory replacement during next maintenance window.
+
+### Failure Predictions
+
+AI predicts potential failures based on:
+
+- **Sensor Trends**: Temperature increasing over time
+- **Error Frequency**: Correctable errors accelerating
+- **Historical Patterns**: Similar failures on other servers
+- **Component Age**: Expected lifetime estimates
+
+Predictions include confidence levels and recommended preventive actions.
+
+### Root Cause Analysis (RCA)
+
+Deep analysis for specific events or issues:
+
+- **Event Correlation**: Links related events across time
+- **Component Mapping**: Identifies affected hardware
+- **Causal Chain**: Explains sequence of failures
+- **Resolution Steps**: Specific fix recommendations
+
+Filter RCA by:
+- Server (all or specific)
+- Event type (SEL, SSH, System)
+- Severity (Critical, Warning, Info)
+- Time range
+
+### AI Chat
+
+Natural language interface for asking questions:
+
+**Example Questions:**
+- "Which servers have high temperatures?"
+- "Show me all ECC errors from the past week"
+- "What maintenance is needed for BrickBox servers?"
+- "Explain the Xid 48 error on server-05"
+- "Why did server-10 reboot yesterday?"
+- "Are there any SSH brute force attempts?"
+
+**Tips for Better Responses:**
+- Be specific about server names when relevant
+- Include time ranges ("in the last 24 hours")
+- Ask follow-up questions for more detail
+- Reference specific error messages if available
+
+### Usage & Billing
+
+The Usage tab shows:
+
+- **Token Usage**: Current month's consumption vs allocation
+- **Queries Today**: Number of AI interactions
+- **Subscription Tier**: Standard, Professional, or Enterprise
+- **Server Count**: Monitored servers vs subscription limit
+- **Billing Link**: Direct access to your CryptoLabs account
+
+### Getting Started with AI Features
 
 1. Go to Settings → AI Features
 2. Click **Start Free Trial**
 3. Sign up for a CryptoLabs account
 4. AI features activate automatically
+5. Access via the AI Insights panel on dashboard
 
 ### AI Chat
 
@@ -957,7 +1076,19 @@ Each task includes:
 
 ### AI Recovery Agent
 
-The AI Recovery Agent autonomously handles GPU failures with an intelligent escalation ladder.
+The AI Recovery Agent autonomously handles GPU failures and other hardware issues with an intelligent escalation ladder.
+
+#### Agent Modes
+
+Configure the agent's behavior via the Agent tab in AI Insights:
+
+| Mode | Description |
+|------|-------------|
+| **⏸️ Disabled** | Agent does not monitor or take actions |
+| **👁️ Monitoring Only** | Agent monitors and reports issues but takes no automatic actions (default) |
+| **⚡ Actions Enabled** | Agent can automatically execute recovery actions on your servers |
+
+> ⚠️ **Warning**: Actions Enabled mode allows the agent to automatically reboot servers or stop workloads. Enable with caution.
 
 #### How It Works
 
@@ -967,6 +1098,27 @@ The AI Recovery Agent autonomously handles GPU failures with an intelligent esca
 4. **Execution**: Action performed (if permissions allow)
 5. **Verification**: Agent checks if recovery succeeded
 6. **Escalation**: If failed, escalates to next level
+
+#### Recovery Actions
+
+Recovery actions are grouped by risk level:
+
+**Low Risk Actions (GPU Only)**
+| Action | Description |
+|--------|-------------|
+| Stop Workload | Gracefully stop containers using the failed GPU |
+| GPU Soft Reset | PCI unbind/rebind to reset GPU without rebooting |
+
+**Medium Risk Actions**
+| Action | Description |
+|--------|-------------|
+| Graceful Reboot | Shutdown services cleanly then reboot |
+| Disk Cleanup | Clear temp files, logs, and cache if disk full |
+
+**High Risk Actions**
+| Action | Description |
+|--------|-------------|
+| IPMI Power Cycle | Force power cycle via BMC (data loss risk) |
 
 #### Recovery Stages
 
@@ -980,6 +1132,15 @@ The AI Recovery Agent autonomously handles GPU failures with an intelligent esca
 | 6 | Power Cycle | BMC power cycle | 120 min |
 | 7 | Maintenance | Flag for manual intervention | - |
 
+#### Prerequisites Check
+
+Before enabling Actions mode, the agent checks:
+
+- **SSH Access**: Can connect to servers via SSH
+- **IPMI Access**: Can send BMC commands
+- **Docker Access**: Can list/stop containers (for workload management)
+- **NVIDIA Driver**: nvidia-smi available for GPU operations
+
 #### Safety Features
 
 - **Permission Checking**: Only performs actions you've enabled
@@ -987,6 +1148,7 @@ The AI Recovery Agent autonomously handles GPU failures with an intelligent esca
 - **Workload Detection**: Identifies containers using GPUs before stopping them
 - **NVIDIA Driver Check**: Skips soft recovery if driver reports "Node Reboot Required"
 - **Persistent State**: Remembers recovery history per device
+- **Maintenance Escalation**: Flags for human intervention after multiple failures
 
 #### Agent Events
 
@@ -998,15 +1160,37 @@ All agent actions are logged as events:
 | GPU Reset Attempted | Soft reset performed |
 | GPU Clock Limited | Clock reduction applied |
 | Server Rebooted | Reboot performed |
+| Workload Stopped | Container(s) killed to free GPU |
+| Power Cycle Executed | IPMI power cycle performed |
 | Maintenance Required | Device flagged for manual intervention |
+
+#### Analyze Fleet Button
+
+Manually trigger an Agentic RAG analysis of your entire fleet:
+1. Go to AI Insights → Agent tab
+2. Click **🔍 Analyze Fleet**
+3. AI performs multi-round investigation across all servers
+4. Results show in the main analysis section
+
+#### Recovery History
+
+View recent recovery actions:
+- Action type and result (success/failed)
+- Timestamp and duration
+- Server and component affected
+- Error message if failed
 
 #### Enabling the Agent
 
 1. Enable AI features (Settings → AI Features)
-2. Configure recovery permissions (Settings → Recovery)
-3. Agent automatically processes GPU errors
+2. Go to AI Insights → Agent tab
+3. Select **Monitoring Only** mode first
+4. Review prerequisites
+5. Configure allowed recovery actions
+6. Click **Save Recovery Settings**
+7. Switch to **Actions Enabled** when ready
 
-> 💡 **Tip:** Start with only `allow_soft_reset` and `allow_clock_limit` enabled. Enable reboot/power cycle only after testing.
+> 💡 **Tip:** Start with only low-risk actions enabled. Enable medium/high risk actions only after testing in your environment.
 
 ### Post-Event Investigation
 
@@ -1218,11 +1402,12 @@ For complete API documentation, see the [GitHub repository](https://github.com/c
 
 ## Support
 
+- 💬 **Discord**: [Join our Discord](https://discord.gg/G9uNuqMG) - Get help, chat with the community
 - **GitHub Issues**: [github.com/cryptolabsza/ipmi-monitor/issues](https://github.com/cryptolabsza/ipmi-monitor/issues)
-- **Documentation**: [cryptolabsza.github.io/ipmi-monitor](https://cryptolabsza.github.io/ipmi-monitor)
+- **Documentation**: [github.com/cryptolabsza/ipmi-monitor/docs](https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs)
 - **AI Support**: Use the AI Chat feature for instant help
 
 ---
 
-*Last updated: December 2025*
+*Last updated: January 2026*
 
