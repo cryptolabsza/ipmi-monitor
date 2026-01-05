@@ -7,7 +7,7 @@ GitHub: https://github.com/jjziets/ipmi-monitor
 License: MIT
 """
 
-from flask import Flask, render_template, render_template_string, jsonify, request, Response, session, redirect, url_for, make_response
+from flask import Flask, render_template, render_template_string, jsonify, request, Response, session, redirect, url_for, make_response, stream_with_context
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
@@ -14229,8 +14229,6 @@ def api_ai_chat_stream():
     - complete event: Final answer
     - error event: Error occurred
     """
-    from flask import Response, stream_with_context
-    
     config = CloudSync.get_config()
     
     if not CloudSync.is_ai_enabled():
