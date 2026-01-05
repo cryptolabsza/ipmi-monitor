@@ -1757,12 +1757,12 @@
                 </div>
             </div>
             <div class="ai-panel-content" id="aiPanelContent">
-                <!-- Upgrade Prompt for Free Users -->
-                <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 0;">
-                    <!-- Dynamic offer iframe (loads from AI service, cached) -->
+                <!-- Upgrade Prompt for Free Users - ONLY shown when not subscribed -->
+                <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 0; flex: 1; display: flex; flex-direction: column;">
+                    <!-- Dynamic promotional iframe (loads from AI service, admin-editable) -->
                     <iframe id="aiOfferFrame" 
-                            src="https://ipmi-ai.cryptolabs.co.za/embed/offer" 
-                            style="width: 100%; min-height: 400px; border: none; display: none;"
+                            src="https://ipmi-ai.cryptolabs.co.za/embed/promo" 
+                            style="width: 100%; flex: 1; min-height: 500px; border: none; display: none;"
                             onload="this.style.display='block'; document.getElementById('aiOfferFallback').style.display='none';"
                             onerror="this.style.display='none'; document.getElementById('aiOfferFallback').style.display='block';"></iframe>
                     
@@ -3686,8 +3686,12 @@
                     badge.classList.remove('standard', 'standard-plus', 'pro', 'enterprise', 'trial');
                     const tierClass = getTierClass(tier);
                     if (tierClass) badge.classList.add(tierClass);
+                    
+                    // Show AI features, hide promo
                     upgradePrompt.style.display = 'none';
-                    results.style.display = 'block';
+                    results.style.display = 'flex';
+                    results.style.flexDirection = 'column';
+                    results.style.flex = '1';
                     updateSyncStatus(data);
                     loadCachedAiResults();
                 } else {
@@ -3695,7 +3699,11 @@
                     badge.style.background = '';
                     badge.style.color = '';
                     badge.classList.remove('standard', 'standard-plus', 'pro', 'enterprise', 'trial');
-                    upgradePrompt.style.display = 'block';
+                    
+                    // Show promo, hide AI features completely (including tabs)
+                    upgradePrompt.style.display = 'flex';
+                    upgradePrompt.style.flexDirection = 'column';
+                    upgradePrompt.style.flex = '1';
                     results.style.display = 'none';
                 }
             } catch (e) {
