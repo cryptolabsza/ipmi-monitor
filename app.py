@@ -16813,6 +16813,9 @@ def _run_migrations(inspector):
             execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_timestamp ON ssh_logs(timestamp)')
             execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_severity ON ssh_logs(severity)')
             execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_customer ON ssh_logs(customer_id)')
+            # Composite indexes for faster queries on server detail page
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server_timestamp ON ssh_logs(server_name, timestamp DESC)')
+            execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server_severity ON ssh_logs(server_name, severity)')
             app.logger.info("Migration: ssh_logs table created")
         
         app.logger.info("Migrations complete")
