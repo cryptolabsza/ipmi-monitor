@@ -478,11 +478,15 @@
         
         /* Make AI results fill available space - CRITICAL for scaling */
         .ai-results {
-            display: flex !important;
             flex-direction: column !important;
             flex: 1 1 auto !important;
             min-height: 0 !important;
             height: 100% !important;
+        }
+        
+        /* Hide AI results when not subscribed */
+        .ai-results.hidden {
+            display: none !important;
             overflow: hidden !important;
         }
         
@@ -1812,8 +1816,8 @@
                     </div>
                 </div>
                 
-                <!-- AI Features for Paid Users -->
-                <div class="ai-results" id="aiResults" style="display: none;">
+                <!-- AI Features for Paid Users - hidden by default until subscription verified -->
+                <div class="ai-results hidden" id="aiResults" style="display: none;">
                     <!-- Sync Status -->
                     <div class="ai-sync-status" id="aiSyncStatus">
                         <div class="ai-sync-indicator">
@@ -3689,9 +3693,8 @@
                     
                     // Show AI features, hide promo
                     upgradePrompt.style.display = 'none';
+                    results.classList.remove('hidden');
                     results.style.display = 'flex';
-                    results.style.flexDirection = 'column';
-                    results.style.flex = '1';
                     updateSyncStatus(data);
                     loadCachedAiResults();
                 } else {
@@ -3704,6 +3707,7 @@
                     upgradePrompt.style.display = 'flex';
                     upgradePrompt.style.flexDirection = 'column';
                     upgradePrompt.style.flex = '1';
+                    results.classList.add('hidden');
                     results.style.display = 'none';
                 }
             } catch (e) {
