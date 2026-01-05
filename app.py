@@ -8376,8 +8376,13 @@ def api_diagnostics_full_package(bmc_ip):
 @require_valid_bmc_ip
 def api_check_ssh_available(bmc_ip):
     """
-    Check if SSH is available for this server.
+    Check if SSH is available and CONFIGURED for this server.
     Used to determine if System tab should be shown.
+    
+    Returns available=True only if:
+    1. Server has a primary IP configured
+    2. SSH credentials are configured (user + password or key)
+    3. SSH port is open (optional check)
     """
     server = Server.query.filter_by(bmc_ip=bmc_ip).first()
     if not server:
@@ -8387,21 +8392,21 @@ def api_check_ssh_available(bmc_ip):
     if not config or not config.server_ip:
         return jsonify({'available': False, 'reason': 'no_primary_ip'})
     
-    # Check if SSH port is open
-    primary_ip = config.server_ip
-    try:
-        import socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(3)
-        result = sock.connect_ex((primary_ip, 22))
-        sock.close()
-        
-        if result == 0:
-            return jsonify({'available': True, 'server_ip': primary_ip})
-        else:
-            return jsonify({'available': False, 'reason': 'ssh_port_closed'})
-    except Exception as e:
-        return jsonify({'available': False, 'reason': str(e)})
+    # Check if SSH credentials are configured
+    has_ssh_user = config.ssh_user and config.ssh_user.strip()
+    has_ssh_pass = config.ssh_pass and config.ssh_pass.strip()
+    has_ssh_key = config.ssh_key_id is not None
+    
+    # SSH credentials required: need user AND (password OR key)
+    if not has_ssh_user:
+        return jsonify({'available': False, 'reason': 'no_ssh_credentials'})
+    
+    if not has_ssh_pass and not has_ssh_key:
+        return jsonify({'available': False, 'reason': 'no_ssh_credentials'})
+    
+    # Credentials are configured - return available
+    # Skip the port check as it can be slow and credentials are the key requirement
+    return jsonify({'available': True, 'server_ip': config.server_ip})
 
 
 @app.route('/api/server/<bmc_ip>/system-info')
