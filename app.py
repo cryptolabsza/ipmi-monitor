@@ -1989,7 +1989,7 @@ class SystemSettings(db.Model):
         defaults = {
             'allow_anonymous_read': 'false',  # SECURITY: Require login by default (safer)
             'session_timeout_hours': '24',
-            'enable_ssh_inventory': 'false',  # SSH to OS for detailed inventory (requires SSH creds)
+            'enable_ssh_inventory': 'true',  # SSH to OS for detailed inventory (requires SSH creds)
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
         }
         for key, value in defaults.items():
@@ -6686,7 +6686,7 @@ def inventory_timer():
     Set INVENTORY_INTERVAL environment variable to enable (in hours, default 0 = disabled).
     Recommended: 6-24 hours (inventory data doesn't change frequently).
     """
-    INVENTORY_INTERVAL_HOURS = int(os.environ.get('INVENTORY_INTERVAL', 0))  # Default 0 = disabled
+    INVENTORY_INTERVAL_HOURS = int(os.environ.get('INVENTORY_INTERVAL', 24))  # Default 24 hours
     
     if INVENTORY_INTERVAL_HOURS <= 0:
         print(f"[Inventory Timer] Disabled (set INVENTORY_INTERVAL=N to enable, where N is hours)", flush=True)
