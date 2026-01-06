@@ -6783,13 +6783,17 @@ def ssh_log_timer():
                         continue  # Must have OS IP configured in Managed Servers
                     
                     config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
+                    # Must have SSH key or password to collect logs
+                    if not config or (not config.ssh_key_id and not config.ssh_pass):
+                        continue
+                    
                     servers.append({
                         'bmc_ip': s.bmc_ip,
                         'server_name': s.server_name,
                         'server_ip': s.server_ip,  # From Server table
-                        'ssh_user': config.ssh_user if config else 'root',
-                        'ssh_key_id': config.ssh_key_id if config else None,
-                        'ssh_pass': getattr(config, 'ssh_pass', None) if config else None
+                        'ssh_user': config.ssh_user or 'root',
+                        'ssh_key_id': config.ssh_key_id,
+                        'ssh_pass': getattr(config, 'ssh_pass', None)
                     })
                 
                 if servers:
@@ -11820,13 +11824,17 @@ def api_ssh_log_collect_now():
                 continue  # Must have OS IP configured in Managed Servers
             
             config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
+            # Must have SSH key or password to collect logs
+            if not config or (not config.ssh_key_id and not config.ssh_pass):
+                continue
+            
             servers.append({
                 'bmc_ip': s.bmc_ip,
                 'server_name': s.server_name,
                 'server_ip': s.server_ip,  # From Server table
-                'ssh_user': config.ssh_user if config else 'root',
-                'ssh_key_id': config.ssh_key_id if config else None,
-                'ssh_pass': getattr(config, 'ssh_pass', None) if config else None
+                'ssh_user': config.ssh_user or 'root',
+                'ssh_key_id': config.ssh_key_id,
+                'ssh_pass': getattr(config, 'ssh_pass', None)
             })
         
         if not servers:
@@ -11870,16 +11878,23 @@ def api_ssh_log_collect_stream():
         with app.app_context():
             servers = []
             for s in Server.query.filter(Server.status != 'deprecated').all():
+                # Use server_ip from Server table (single source of truth)
+                if not s.server_ip:
+                    continue  # Must have OS IP configured in Managed Servers
+                
                 config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
-                if config and config.server_ip:  # Must have SSH configured
-                    servers.append({
-                        'bmc_ip': s.bmc_ip,
-                        'server_name': s.server_name,
-                        'server_ip': config.server_ip,
-                        'ssh_user': config.ssh_user or 'root',
-                        'ssh_key_id': config.ssh_key_id,
-                        'ssh_pass': getattr(config, 'ssh_pass', None)
-                    })
+                # Must have SSH key or password to collect logs
+                if not config or (not config.ssh_key_id and not config.ssh_pass):
+                    continue
+                
+                servers.append({
+                    'bmc_ip': s.bmc_ip,
+                    'server_name': s.server_name,
+                    'server_ip': s.server_ip,  # From Server table
+                    'ssh_user': config.ssh_user or 'root',
+                    'ssh_key_id': config.ssh_key_id,
+                    'ssh_pass': getattr(config, 'ssh_pass', None)
+                })
         
         total = len(servers)
         num_workers = min(get_collection_workers(), 8)
