@@ -6776,6 +6776,11 @@ def ssh_log_timer():
     while not _shutdown_event.is_set():
         try:
             with app.app_context():
+                # Get default SSH settings as fallback
+                default_ssh_user = SystemSettings.get('ssh_user') or 'root'
+                default_ssh_key_id = SystemSettings.get('default_ssh_key_id')
+                default_ssh_key_id = int(default_ssh_key_id) if default_ssh_key_id else None
+                
                 servers = []
                 for s in Server.query.filter(Server.status != 'deprecated').all():
                     # Use server_ip from Server table (single source of truth)
@@ -6783,17 +6788,23 @@ def ssh_log_timer():
                         continue  # Must have OS IP configured in Managed Servers
                     
                     config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
-                    # Must have SSH key or password to collect logs
-                    if not config or (not config.ssh_key_id and not config.ssh_pass):
+                    
+                    # Get SSH credentials - per-server config takes priority, then defaults
+                    ssh_user = (config.ssh_user if config else None) or default_ssh_user
+                    ssh_key_id = (config.ssh_key_id if config else None) or default_ssh_key_id
+                    ssh_pass = getattr(config, 'ssh_pass', None) if config else None
+                    
+                    # Must have SSH key or password (from config or defaults)
+                    if not ssh_key_id and not ssh_pass:
                         continue
                     
                     servers.append({
                         'bmc_ip': s.bmc_ip,
                         'server_name': s.server_name,
-                        'server_ip': s.server_ip,  # From Server table
-                        'ssh_user': config.ssh_user or 'root',
-                        'ssh_key_id': config.ssh_key_id,
-                        'ssh_pass': getattr(config, 'ssh_pass', None)
+                        'server_ip': s.server_ip,
+                        'ssh_user': ssh_user,
+                        'ssh_key_id': ssh_key_id,
+                        'ssh_pass': ssh_pass
                     })
                 
                 if servers:
@@ -11817,6 +11828,11 @@ def api_ssh_log_stats():
 def api_ssh_log_collect_now():
     """Trigger immediate SSH log collection (simple version)"""
     try:
+        # Get default SSH settings as fallback
+        default_ssh_user = SystemSettings.get('ssh_user') or 'root'
+        default_ssh_key_id = SystemSettings.get('default_ssh_key_id')
+        default_ssh_key_id = int(default_ssh_key_id) if default_ssh_key_id else None
+        
         servers = []
         for s in Server.query.filter(Server.status != 'deprecated').all():
             # Use server_ip from Server table (single source of truth)
@@ -11824,17 +11840,23 @@ def api_ssh_log_collect_now():
                 continue  # Must have OS IP configured in Managed Servers
             
             config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
-            # Must have SSH key or password to collect logs
-            if not config or (not config.ssh_key_id and not config.ssh_pass):
+            
+            # Get SSH credentials - per-server config takes priority, then defaults
+            ssh_user = (config.ssh_user if config else None) or default_ssh_user
+            ssh_key_id = (config.ssh_key_id if config else None) or default_ssh_key_id
+            ssh_pass = getattr(config, 'ssh_pass', None) if config else None
+            
+            # Must have SSH key or password (from config or defaults)
+            if not ssh_key_id and not ssh_pass:
                 continue
             
             servers.append({
                 'bmc_ip': s.bmc_ip,
                 'server_name': s.server_name,
-                'server_ip': s.server_ip,  # From Server table
-                'ssh_user': config.ssh_user or 'root',
-                'ssh_key_id': config.ssh_key_id,
-                'ssh_pass': getattr(config, 'ssh_pass', None)
+                'server_ip': s.server_ip,
+                'ssh_user': ssh_user,
+                'ssh_key_id': ssh_key_id,
+                'ssh_pass': ssh_pass
             })
         
         if not servers:
@@ -11876,6 +11898,11 @@ def api_ssh_log_collect_stream():
     def generate():
         # Get server list inside the generator with app context
         with app.app_context():
+            # Get default SSH settings as fallback
+            default_ssh_user = SystemSettings.get('ssh_user') or 'root'
+            default_ssh_key_id = SystemSettings.get('default_ssh_key_id')
+            default_ssh_key_id = int(default_ssh_key_id) if default_ssh_key_id else None
+            
             servers = []
             for s in Server.query.filter(Server.status != 'deprecated').all():
                 # Use server_ip from Server table (single source of truth)
@@ -11883,17 +11910,23 @@ def api_ssh_log_collect_stream():
                     continue  # Must have OS IP configured in Managed Servers
                 
                 config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
-                # Must have SSH key or password to collect logs
-                if not config or (not config.ssh_key_id and not config.ssh_pass):
+                
+                # Get SSH credentials - per-server config takes priority, then defaults
+                ssh_user = (config.ssh_user if config else None) or default_ssh_user
+                ssh_key_id = (config.ssh_key_id if config else None) or default_ssh_key_id
+                ssh_pass = getattr(config, 'ssh_pass', None) if config else None
+                
+                # Must have SSH key or password (from config or defaults)
+                if not ssh_key_id and not ssh_pass:
                     continue
                 
                 servers.append({
                     'bmc_ip': s.bmc_ip,
                     'server_name': s.server_name,
-                    'server_ip': s.server_ip,  # From Server table
-                    'ssh_user': config.ssh_user or 'root',
-                    'ssh_key_id': config.ssh_key_id,
-                    'ssh_pass': getattr(config, 'ssh_pass', None)
+                    'server_ip': s.server_ip,
+                    'ssh_user': ssh_user,
+                    'ssh_key_id': ssh_key_id,
+                    'ssh_pass': ssh_pass
                 })
         
         total = len(servers)
