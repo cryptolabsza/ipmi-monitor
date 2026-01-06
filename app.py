@@ -269,7 +269,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '0.8.2'  # Semantic version - update on releases (pre-release until v1.0.0)
+APP_VERSION = '1.0.1'  # Auto inventory collection enabled
 
 def get_build_info():
     """
@@ -1808,63 +1808,6 @@ class PowerReading(db.Model):
     avg_watts = db.Column(db.Float)
     collected_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
-
-# ============== Aggregation Models (for historical analysis) ==============
-
-class SensorHourlyAggregate(db.Model):
-    """
-    Hourly aggregated sensor data for historical analysis.
-    Instead of storing every reading (~60 per hour per sensor), 
-    we store min/max/avg per hour.
-    """
-    __tablename__ = 'sensor_hourly_aggregate'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    bmc_ip = db.Column(db.String(20), nullable=False)
-    server_name = db.Column(db.String(50), nullable=False)
-    sensor_name = db.Column(db.String(50), nullable=False)
-    sensor_type = db.Column(db.String(30), nullable=False)
-    hour = db.Column(db.DateTime, nullable=False)  # The hour this aggregate covers
-    
-    # Aggregated values
-    min_value = db.Column(db.Float)
-    max_value = db.Column(db.Float)
-    avg_value = db.Column(db.Float)
-    reading_count = db.Column(db.Integer, default=0)
-    
-    # Track any alerts during this hour
-    had_warning = db.Column(db.Boolean, default=False)
-    had_critical = db.Column(db.Boolean, default=False)
-    
-    unit = db.Column(db.String(20))
-    
-    __table_args__ = (
-        db.UniqueConstraint('bmc_ip', 'sensor_name', 'hour', name='uq_sensor_hour'),
-        db.Index('idx_sensor_agg_bmc_hour', 'bmc_ip', 'hour'),
-        db.Index('idx_sensor_agg_type_hour', 'sensor_type', 'hour'),
-    )
-
-
-class PowerHourlyAggregate(db.Model):
-    """Hourly aggregated power readings"""
-    __tablename__ = 'power_hourly_aggregate'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    bmc_ip = db.Column(db.String(20), nullable=False)
-    server_name = db.Column(db.String(50), nullable=False)
-    hour = db.Column(db.DateTime, nullable=False)
-    
-    min_watts = db.Column(db.Float)
-    max_watts = db.Column(db.Float)
-    avg_watts = db.Column(db.Float)
-    reading_count = db.Column(db.Integer, default=0)
-    
-    __table_args__ = (
-        db.UniqueConstraint('bmc_ip', 'hour', name='uq_power_hour'),
-        db.Index('idx_power_agg_bmc_hour', 'bmc_ip', 'hour'),
-    )
-
-
 # ============== Alerting Models ==============
 
 class AlertRule(db.Model):
@@ -2046,7 +1989,7 @@ class SystemSettings(db.Model):
         defaults = {
             'allow_anonymous_read': 'false',  # SECURITY: Require login by default (safer)
             'session_timeout_hours': '24',
-            'enable_ssh_inventory': 'false',  # SSH to OS for detailed inventory (requires SSH creds)
+            'enable_ssh_inventory': 'true',  # SSH to OS for detailed inventory (requires SSH creds)
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
         }
         for key, value in defaults.items():
@@ -5998,271 +5941,55 @@ _shutdown_event = _threading.Event()
 DATA_RETENTION_DAYS = int(os.environ.get('DATA_RETENTION_DAYS', 30))  # 30 days default
 CLEANUP_INTERVAL_HOURS = 6  # Run cleanup every 6 hours
 
-
-def aggregate_sensor_data():
-    """
-    Aggregate raw sensor readings into hourly summaries before cleanup.
-    This preserves historical trends while dramatically reducing storage.
-    
-    For each hour older than 2 hours:
-    - Calculate min/max/avg per sensor
-    - Store in sensor_hourly_aggregate
-    - Raw data can then be deleted by cleanup
-    """
-    with app.app_context():
-        try:
-            # Only aggregate data older than 2 hours (give buffer for active collection)
-            cutoff = datetime.utcnow() - timedelta(hours=2)
-            
-            # Find hours that need aggregation (have raw data but no aggregates)
-            # We look for distinct hours in sensor_reading that aren't in sensor_hourly_aggregate
-            hours_to_aggregate = db.session.execute(db.text("""
-                SELECT DISTINCT strftime('%Y-%m-%d %H:00:00', collected_at) as hour
-                FROM sensor_reading
-                WHERE collected_at < :cutoff
-                AND strftime('%Y-%m-%d %H:00:00', collected_at) NOT IN (
-                    SELECT strftime('%Y-%m-%d %H:00:00', hour) FROM sensor_hourly_aggregate
-                )
-                ORDER BY hour
-                LIMIT 24
-            """), {'cutoff': cutoff}).fetchall()
-            
-            if not hours_to_aggregate:
-                return 0
-            
-            total_aggregated = 0
-            
-            for (hour_str,) in hours_to_aggregate:
-                hour_start = datetime.strptime(hour_str, '%Y-%m-%d %H:%M:%S')
-                hour_end = hour_start + timedelta(hours=1)
-                
-                # Aggregate sensor readings for this hour
-                aggregates = db.session.execute(db.text("""
-                    SELECT 
-                        bmc_ip,
-                        server_name,
-                        sensor_name,
-                        sensor_type,
-                        MIN(value) as min_value,
-                        MAX(value) as max_value,
-                        AVG(value) as avg_value,
-                        COUNT(*) as reading_count,
-                        MAX(CASE WHEN status = 'warning' THEN 1 ELSE 0 END) as had_warning,
-                        MAX(CASE WHEN status = 'critical' THEN 1 ELSE 0 END) as had_critical,
-                        unit
-                    FROM sensor_reading
-                    WHERE collected_at >= :hour_start AND collected_at < :hour_end
-                    GROUP BY bmc_ip, sensor_name
-                """), {'hour_start': hour_start, 'hour_end': hour_end}).fetchall()
-                
-                for row in aggregates:
-                    agg = SensorHourlyAggregate(
-                        bmc_ip=row[0],
-                        server_name=row[1],
-                        sensor_name=row[2],
-                        sensor_type=row[3],
-                        hour=hour_start,
-                        min_value=row[4],
-                        max_value=row[5],
-                        avg_value=row[6],
-                        reading_count=row[7],
-                        had_warning=bool(row[8]),
-                        had_critical=bool(row[9]),
-                        unit=row[10]
-                    )
-                    db.session.add(agg)
-                    total_aggregated += 1
-                
-                db.session.commit()
-            
-            if total_aggregated > 0:
-                hours_count = len(hours_to_aggregate)
-                print(f"[Aggregation] Created {total_aggregated:,} hourly sensor aggregates for {hours_count} hours", flush=True)
-            
-            return total_aggregated
-            
-        except Exception as e:
-            db.session.rollback()
-            print(f"[Aggregation] Error: {e}", flush=True)
-            return 0
-
-
-def aggregate_power_data():
-    """Aggregate raw power readings into hourly summaries."""
-    with app.app_context():
-        try:
-            cutoff = datetime.utcnow() - timedelta(hours=2)
-            
-            hours_to_aggregate = db.session.execute(db.text("""
-                SELECT DISTINCT strftime('%Y-%m-%d %H:00:00', collected_at) as hour
-                FROM power_reading
-                WHERE collected_at < :cutoff
-                AND strftime('%Y-%m-%d %H:00:00', collected_at) NOT IN (
-                    SELECT strftime('%Y-%m-%d %H:00:00', hour) FROM power_hourly_aggregate
-                )
-                ORDER BY hour
-                LIMIT 24
-            """), {'cutoff': cutoff}).fetchall()
-            
-            if not hours_to_aggregate:
-                return 0
-            
-            total_aggregated = 0
-            
-            for (hour_str,) in hours_to_aggregate:
-                hour_start = datetime.strptime(hour_str, '%Y-%m-%d %H:%M:%S')
-                hour_end = hour_start + timedelta(hours=1)
-                
-                aggregates = db.session.execute(db.text("""
-                    SELECT 
-                        bmc_ip,
-                        server_name,
-                        MIN(current_watts) as min_watts,
-                        MAX(current_watts) as max_watts,
-                        AVG(current_watts) as avg_watts,
-                        COUNT(*) as reading_count
-                    FROM power_reading
-                    WHERE collected_at >= :hour_start AND collected_at < :hour_end
-                    GROUP BY bmc_ip
-                """), {'hour_start': hour_start, 'hour_end': hour_end}).fetchall()
-                
-                for row in aggregates:
-                    agg = PowerHourlyAggregate(
-                        bmc_ip=row[0],
-                        server_name=row[1],
-                        hour=hour_start,
-                        min_watts=row[2],
-                        max_watts=row[3],
-                        avg_watts=row[4],
-                        reading_count=row[5]
-                    )
-                    db.session.add(agg)
-                    total_aggregated += 1
-                
-                db.session.commit()
-            
-            if total_aggregated > 0:
-                print(f"[Aggregation] Created {total_aggregated:,} hourly power aggregates", flush=True)
-            
-            return total_aggregated
-            
-        except Exception as e:
-            db.session.rollback()
-            print(f"[Aggregation] Power aggregation error: {e}", flush=True)
-            return 0
-
-
-def cleanup_old_data(batch_size=10000, aggressive=False):
+def cleanup_old_data():
     """
     Clean up old data to enforce retention policy.
-    Uses batched deletions to avoid locking the database.
-    
-    Args:
-        batch_size: Number of rows to delete per batch (default 10000)
-        aggressive: If True, delete in larger batches for initial cleanup
+    FREE tier: 30 days max retention.
+    This keeps the database size manageable and ensures privacy.
     """
     with app.app_context():
         try:
             cutoff = datetime.utcnow() - timedelta(days=DATA_RETENTION_DAYS)
-            sensor_cutoff = datetime.utcnow() - timedelta(days=7)  # Sensors: 7 days only
             
-            if aggressive:
-                batch_size = 50000  # Larger batches for initial cleanup
+            # Delete old events
+            old_events = IPMIEvent.query.filter(IPMIEvent.event_date < cutoff).count()
+            if old_events > 0:
+                IPMIEvent.query.filter(IPMIEvent.event_date < cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_events} events older than {DATA_RETENTION_DAYS} days", flush=True)
             
-            total_deleted = {'events': 0, 'sensors': 0, 'power': 0, 'alerts': 0, 'ai': 0, 'ssh': 0}
+            # Delete old sensor readings (keep last 7 days only for sensors)
+            sensor_cutoff = datetime.utcnow() - timedelta(days=7)
+            old_sensors = SensorReading.query.filter(SensorReading.collected_at < sensor_cutoff).count()
+            if old_sensors > 0:
+                SensorReading.query.filter(SensorReading.collected_at < sensor_cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_sensors} old sensor readings", flush=True)
             
-            # Delete old events in batches
-            while True:
-                deleted = db.session.execute(
-                    db.text(f"DELETE FROM ipmi_event WHERE id IN (SELECT id FROM ipmi_event WHERE event_date < :cutoff LIMIT {batch_size})"),
-                    {'cutoff': cutoff}
-                ).rowcount
-                db.session.commit()
-                total_deleted['events'] += deleted
-                if deleted < batch_size:
-                    break
-            
-            if total_deleted['events'] > 0:
-                print(f"[Cleanup] Deleted {total_deleted['events']:,} old events", flush=True)
-            
-            # Delete old sensor readings in batches (keep last 7 days)
-            while True:
-                deleted = db.session.execute(
-                    db.text(f"DELETE FROM sensor_reading WHERE id IN (SELECT id FROM sensor_reading WHERE collected_at < :cutoff LIMIT {batch_size})"),
-                    {'cutoff': sensor_cutoff}
-                ).rowcount
-                db.session.commit()
-                total_deleted['sensors'] += deleted
-                if deleted < batch_size:
-                    break
-                if total_deleted['sensors'] % 100000 == 0:
-                    print(f"[Cleanup] Progress: {total_deleted['sensors']:,} sensor readings deleted...", flush=True)
-            
-            if total_deleted['sensors'] > 0:
-                print(f"[Cleanup] Deleted {total_deleted['sensors']:,} old sensor readings", flush=True)
-            
-            # Delete old power readings in batches (keep last 7 days)
-            while True:
-                deleted = db.session.execute(
-                    db.text(f"DELETE FROM power_reading WHERE id IN (SELECT id FROM power_reading WHERE collected_at < :cutoff LIMIT {batch_size})"),
-                    {'cutoff': sensor_cutoff}
-                ).rowcount
-                db.session.commit()
-                total_deleted['power'] += deleted
-                if deleted < batch_size:
-                    break
-            
-            if total_deleted['power'] > 0:
-                print(f"[Cleanup] Deleted {total_deleted['power']:,} old power readings", flush=True)
-            
-            # Delete old SSH logs (keep last 7 days for local, synced to AI service)
-            ssh_cutoff = datetime.utcnow() - timedelta(days=7)
-            while True:
-                deleted = db.session.execute(
-                    db.text(f"DELETE FROM ssh_logs WHERE id IN (SELECT id FROM ssh_logs WHERE collected_at < :cutoff LIMIT {batch_size})"),
-                    {'cutoff': ssh_cutoff}
-                ).rowcount
-                db.session.commit()
-                total_deleted['ssh'] += deleted
-                if deleted < batch_size:
-                    break
-            
-            if total_deleted['ssh'] > 0:
-                print(f"[Cleanup] Deleted {total_deleted['ssh']:,} old SSH logs", flush=True)
+            # Delete old power readings (keep last 7 days)
+            old_power = PowerReading.query.filter(PowerReading.collected_at < sensor_cutoff).count()
+            if old_power > 0:
+                PowerReading.query.filter(PowerReading.collected_at < sensor_cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_power} old power readings", flush=True)
             
             # Delete old alert history (keep last 30 days)
-            old_alerts = AlertHistory.query.filter(AlertHistory.fired_at < cutoff).count()
+            old_alerts = AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).count()
             if old_alerts > 0:
-                AlertHistory.query.filter(AlertHistory.fired_at < cutoff).delete()
-                db.session.commit()
-                total_deleted['alerts'] = old_alerts
-                print(f"[Cleanup] Deleted {old_alerts:,} old alert history", flush=True)
+                AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).delete()
+                print(f"[IPMI Monitor] Data cleanup: Deleted {old_alerts} old alert history", flush=True)
             
-            # Delete expired AI results
+            # Delete expired AI results (if any)
             try:
                 old_ai = AIResult.query.filter(AIResult.expires_at < datetime.utcnow()).count()
                 if old_ai > 0:
                     AIResult.query.filter(AIResult.expires_at < datetime.utcnow()).delete()
-                    db.session.commit()
-                    total_deleted['ai'] = old_ai
-                    print(f"[Cleanup] Deleted {old_ai:,} expired AI results", flush=True)
+                    print(f"[IPMI Monitor] Data cleanup: Deleted {old_ai} expired AI results", flush=True)
             except Exception:
-                pass
+                pass  # AIResult table might not exist yet
             
-            # Run SQLite VACUUM if we deleted a lot of data (reclaim disk space)
-            total = sum(total_deleted.values())
-            if total > 100000:
-                print(f"[Cleanup] Running VACUUM to reclaim disk space...", flush=True)
-                db.session.execute(db.text("VACUUM"))
-                db.session.commit()
-                print(f"[Cleanup] VACUUM complete", flush=True)
-            
-            if total > 0:
-                print(f"[Cleanup] Complete: {total:,} total rows deleted", flush=True)
+            db.session.commit()
             
         except Exception as e:
             db.session.rollback()
-            print(f"[Cleanup] Error: {e}", flush=True)
+            print(f"[IPMI Monitor] Data cleanup error: {e}", flush=True)
 
 
 # ============== Job Queue Architecture ==============
@@ -6933,38 +6660,21 @@ def connectivity_timer():
 
 
 def cleanup_timer():
-    """Independent cleanup timer - runs aggregation then cleanup on startup and every 6 hours"""
+    """Independent cleanup timer"""
     print(f"[Cleanup Timer] Started (interval: {CLEANUP_INTERVAL_HOURS}h)", flush=True)
     
-    # Run aggregation then aggressive cleanup immediately on startup
-    try:
-        print(f"[Cleanup Timer] Running initial data aggregation...", flush=True)
-        # Aggregate data before cleanup to preserve historical trends
-        sensor_count = aggregate_sensor_data()
-        power_count = aggregate_power_data()
-        if sensor_count or power_count:
-            print(f"[Cleanup Timer] Aggregation complete: {sensor_count} sensor, {power_count} power records", flush=True)
-        
-        print(f"[Cleanup Timer] Running initial aggressive cleanup...", flush=True)
-        cleanup_old_data(aggressive=True)
-        print(f"[Cleanup Timer] Initial cleanup complete", flush=True)
-    except Exception as e:
-        print(f"[Cleanup Timer] Initial cleanup error: {e}", flush=True)
+    # Initial delay
+    _shutdown_event.wait(300)
     
     while not _shutdown_event.is_set():
-        # Wait for next cleanup interval
-        _shutdown_event.wait(CLEANUP_INTERVAL_HOURS * 3600)
-        
-        if _shutdown_event.is_set():
-            break
-            
         try:
-            # Always aggregate before cleanup
-            aggregate_sensor_data()
-            aggregate_power_data()
-            cleanup_old_data()
+            with app.app_context():
+                cleanup_old_data()
         except Exception as e:
             print(f"[Cleanup Timer] Error: {e}", flush=True)
+        
+        # Wait for next cleanup
+        _shutdown_event.wait(CLEANUP_INTERVAL_HOURS * 3600)
     
     print(f"[Cleanup Timer] Stopped", flush=True)
 
@@ -6976,7 +6686,7 @@ def inventory_timer():
     Set INVENTORY_INTERVAL environment variable to enable (in hours, default 0 = disabled).
     Recommended: 6-24 hours (inventory data doesn't change frequently).
     """
-    INVENTORY_INTERVAL_HOURS = int(os.environ.get('INVENTORY_INTERVAL', 0))  # Default 0 = disabled
+    INVENTORY_INTERVAL_HOURS = int(os.environ.get('INVENTORY_INTERVAL', 24))  # Default 24 hours
     
     if INVENTORY_INTERVAL_HOURS <= 0:
         print(f"[Inventory Timer] Disabled (set INVENTORY_INTERVAL=N to enable, where N is hours)", flush=True)
@@ -12506,79 +12216,6 @@ def api_sensors_history(bmc_ip):
         'collected_at': r.collected_at.isoformat()
     } for r in readings])
 
-
-@app.route('/api/sensors/<bmc_ip>/history/aggregated')
-@view_required
-@require_valid_bmc_ip
-def api_sensors_history_aggregated(bmc_ip):
-    """
-    Get aggregated sensor history for efficient long-term graphing.
-    Uses hourly aggregates for data older than 2 hours.
-    Returns min/max/avg per hour for trend analysis.
-    """
-    hours = request.args.get('hours', 72, type=int)
-    days = request.args.get('days', None, type=int)
-    sensor_name = request.args.get('sensor')
-    sensor_type = request.args.get('type')
-    
-    if days:
-        hours = days * 24
-    
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
-    
-    query = SensorHourlyAggregate.query.filter(
-        SensorHourlyAggregate.bmc_ip == bmc_ip,
-        SensorHourlyAggregate.hour >= cutoff
-    )
-    
-    if sensor_name:
-        query = query.filter(SensorHourlyAggregate.sensor_name == sensor_name)
-    if sensor_type:
-        query = query.filter(SensorHourlyAggregate.sensor_type == sensor_type)
-    
-    aggregates = query.order_by(SensorHourlyAggregate.hour.asc()).all()
-    
-    return jsonify([{
-        'sensor_name': a.sensor_name,
-        'sensor_type': a.sensor_type,
-        'hour': a.hour.isoformat(),
-        'min_value': a.min_value,
-        'max_value': a.max_value,
-        'avg_value': a.avg_value,
-        'reading_count': a.reading_count,
-        'had_warning': a.had_warning,
-        'had_critical': a.had_critical,
-        'unit': a.unit
-    } for a in aggregates])
-
-
-@app.route('/api/power/<bmc_ip>/history/aggregated')
-@view_required
-@require_valid_bmc_ip
-def api_power_history_aggregated(bmc_ip):
-    """Get aggregated power history for efficient long-term graphing."""
-    hours = request.args.get('hours', 72, type=int)
-    days = request.args.get('days', None, type=int)
-    
-    if days:
-        hours = days * 24
-    
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
-    
-    aggregates = PowerHourlyAggregate.query.filter(
-        PowerHourlyAggregate.bmc_ip == bmc_ip,
-        PowerHourlyAggregate.hour >= cutoff
-    ).order_by(PowerHourlyAggregate.hour.asc()).all()
-    
-    return jsonify([{
-        'hour': a.hour.isoformat(),
-        'min_watts': a.min_watts,
-        'max_watts': a.max_watts,
-        'avg_watts': a.avg_watts,
-        'reading_count': a.reading_count
-    } for a in aggregates])
-
-
 @app.route('/api/power/<bmc_ip>')
 @require_valid_bmc_ip
 def api_power(bmc_ip):
@@ -17241,50 +16878,6 @@ def _run_migrations(inspector):
             execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server_timestamp ON ssh_logs(server_name, timestamp DESC)')
             execute_sql('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server_severity ON ssh_logs(server_name, severity)')
             app.logger.info("Migration: ssh_logs table created")
-        
-        # Migration 21: Create sensor_hourly_aggregate table for historical data
-        if 'sensor_hourly_aggregate' not in existing_tables:
-            app.logger.info("Migration: Creating sensor_hourly_aggregate table...")
-            execute_sql('''
-                CREATE TABLE IF NOT EXISTS sensor_hourly_aggregate (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    bmc_ip VARCHAR(20) NOT NULL,
-                    server_name VARCHAR(50) NOT NULL,
-                    sensor_name VARCHAR(50) NOT NULL,
-                    sensor_type VARCHAR(30) NOT NULL,
-                    hour DATETIME NOT NULL,
-                    min_value FLOAT,
-                    max_value FLOAT,
-                    avg_value FLOAT,
-                    reading_count INTEGER DEFAULT 0,
-                    had_warning BOOLEAN DEFAULT 0,
-                    had_critical BOOLEAN DEFAULT 0,
-                    unit VARCHAR(20),
-                    UNIQUE(bmc_ip, sensor_name, hour)
-                )
-            ''')
-            execute_sql('CREATE INDEX IF NOT EXISTS idx_sensor_agg_bmc_hour ON sensor_hourly_aggregate(bmc_ip, hour)')
-            execute_sql('CREATE INDEX IF NOT EXISTS idx_sensor_agg_type_hour ON sensor_hourly_aggregate(sensor_type, hour)')
-            app.logger.info("Migration: sensor_hourly_aggregate table created")
-        
-        # Migration 22: Create power_hourly_aggregate table
-        if 'power_hourly_aggregate' not in existing_tables:
-            app.logger.info("Migration: Creating power_hourly_aggregate table...")
-            execute_sql('''
-                CREATE TABLE IF NOT EXISTS power_hourly_aggregate (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    bmc_ip VARCHAR(20) NOT NULL,
-                    server_name VARCHAR(50) NOT NULL,
-                    hour DATETIME NOT NULL,
-                    min_watts FLOAT,
-                    max_watts FLOAT,
-                    avg_watts FLOAT,
-                    reading_count INTEGER DEFAULT 0,
-                    UNIQUE(bmc_ip, hour)
-                )
-            ''')
-            execute_sql('CREATE INDEX IF NOT EXISTS idx_power_agg_bmc_hour ON power_hourly_aggregate(bmc_ip, hour)')
-            app.logger.info("Migration: power_hourly_aggregate table created")
         
         app.logger.info("Migrations complete")
     except Exception as e:
