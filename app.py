@@ -6778,16 +6778,19 @@ def ssh_log_timer():
             with app.app_context():
                 servers = []
                 for s in Server.query.filter(Server.status != 'deprecated').all():
+                    # Use server_ip from Server table (single source of truth)
+                    if not s.server_ip:
+                        continue  # Must have OS IP configured in Managed Servers
+                    
                     config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
-                    if config and config.server_ip:  # Must have SSH configured
-                        servers.append({
-                            'bmc_ip': s.bmc_ip,
-                            'server_name': s.server_name,
-                            'server_ip': config.server_ip,
-                            'ssh_user': config.ssh_user or 'root',
-                            'ssh_key_id': config.ssh_key_id,
-                            'ssh_pass': getattr(config, 'ssh_pass', None)
-                        })
+                    servers.append({
+                        'bmc_ip': s.bmc_ip,
+                        'server_name': s.server_name,
+                        'server_ip': s.server_ip,  # From Server table
+                        'ssh_user': config.ssh_user if config else 'root',
+                        'ssh_key_id': config.ssh_key_id if config else None,
+                        'ssh_pass': getattr(config, 'ssh_pass', None) if config else None
+                    })
                 
                 if servers:
                     print(f"[SSH Log Timer] Collecting logs from {len(servers)} servers...", flush=True)
@@ -11602,11 +11605,18 @@ def api_config_server(bmc_ip):
         return jsonify({'error': 'Admin authentication required'}), 401
     
     if request.method == 'GET':
+        # Get server_ip from Server table (single source of truth)
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        server_ip = server.server_ip if server else None
+        server_name = server.server_name if server else f'server-{bmc_ip}'
+        
         config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
         if not config:
-            # Return empty config (not an error - server may not have custom creds)
+            # Return empty config with server_ip from Server table
             return jsonify({
                 'bmc_ip': bmc_ip,
+                'server_name': server_name,
+                'server_ip': server_ip,  # From Server table
                 'ipmi_user': None,
                 'has_ipmi_pass': False,
                 'ssh_user': None,
@@ -11617,8 +11627,8 @@ def api_config_server(bmc_ip):
             })
         return jsonify({
             'bmc_ip': config.bmc_ip,
-            'server_name': config.server_name,
-            'server_ip': config.server_ip,
+            'server_name': config.server_name or server_name,
+            'server_ip': server_ip,  # From Server table (single source of truth)
             'ipmi_user': config.ipmi_user,
             'has_ipmi_pass': bool(config.ipmi_pass),
             'ssh_user': config.ssh_user,
@@ -11805,16 +11815,19 @@ def api_ssh_log_collect_now():
     try:
         servers = []
         for s in Server.query.filter(Server.status != 'deprecated').all():
+            # Use server_ip from Server table (single source of truth)
+            if not s.server_ip:
+                continue  # Must have OS IP configured in Managed Servers
+            
             config = ServerConfig.query.filter_by(bmc_ip=s.bmc_ip).first()
-            if config and config.server_ip:  # Must have SSH configured
-                servers.append({
-                    'bmc_ip': s.bmc_ip,
-                    'server_name': s.server_name,
-                    'server_ip': config.server_ip,
-                    'ssh_user': config.ssh_user or 'root',
-                    'ssh_key_id': config.ssh_key_id,
-                    'ssh_pass': getattr(config, 'ssh_pass', None)
-                })
+            servers.append({
+                'bmc_ip': s.bmc_ip,
+                'server_name': s.server_name,
+                'server_ip': s.server_ip,  # From Server table
+                'ssh_user': config.ssh_user if config else 'root',
+                'ssh_key_id': config.ssh_key_id if config else None,
+                'ssh_pass': getattr(config, 'ssh_pass', None) if config else None
+            })
         
         if not servers:
             return jsonify({

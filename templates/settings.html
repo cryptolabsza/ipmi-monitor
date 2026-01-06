@@ -780,7 +780,11 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Server IP (OS)</label>
-                                <input type="text" id="serverIp" placeholder="88.0.X.1">
+                                <input type="text" id="serverIp" placeholder="Not configured" readonly style="background: var(--bg-tertiary); cursor: not-allowed;">
+                                <p class="help-text" id="serverIpHelp">
+                                    <span id="serverIpStatus"></span>
+                                    <a href="#" onclick="switchTab('servers'); return false;" style="color: var(--accent-cyan);">Edit in Managed Servers</a>
+                                </p>
                             </div>
                             <div class="form-group">
                                 <label>SSH Username</label>
@@ -3601,7 +3605,7 @@
             }
         }
         
-        function loadServerSshConfig() {
+        async function loadServerSshConfig() {
             const bmc_ip = document.getElementById('sshServerSelect').value;
             const form = document.getElementById('serverSshForm');
             
@@ -3611,10 +3615,34 @@
             }
             
             form.style.display = 'block';
-            document.getElementById('serverIp').value = bmc_ip.replace('.0', '.1');
+            
+            // Set defaults
+            document.getElementById('serverIp').value = 'Loading...';
             document.getElementById('serverSshUser').value = 'root';
             document.getElementById('serverSshPort').value = '22';
-            document.getElementById('serverSshKey').value = '';
+            document.getElementById('serverSshKeyId').value = '';
+            document.getElementById('serverSshPassword').value = '';
+            
+            try {
+                // Fetch server config including OS IP from Server table
+                const response = await fetch(`/api/config/server/${bmc_ip}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // OS IP from Server table (managed servers)
+                    const osIp = data.server_ip || data.os_ip || '';
+                    document.getElementById('serverIp').value = osIp || 'Not configured';
+                    document.getElementById('serverIpStatus').textContent = osIp ? '✓ ' : '⚠️ Not set - ';
+                    
+                    // SSH settings from ServerConfig
+                    document.getElementById('serverSshUser').value = data.ssh_user || 'root';
+                    document.getElementById('serverSshPort').value = data.ssh_port || 22;
+                    document.getElementById('serverSshKeyId').value = data.ssh_key_id || '';
+                    // Don't load password for security
+                }
+            } catch (e) {
+                console.error('Failed to load server config:', e);
+                document.getElementById('serverIp').value = 'Error loading';
+            }
         }
         
         async function saveDefaultCredentials() {
@@ -4091,7 +4119,7 @@
         
         async function saveServerSsh() {
             const bmc_ip = document.getElementById('sshServerSelect').value;
-            const server_ip = document.getElementById('serverIp').value;
+            // Note: server_ip is now read-only, managed in Server table (Managed Servers)
             const user = document.getElementById('serverSshUser').value;
             const port = document.getElementById('serverSshPort').value;
             const keyId = document.getElementById('serverSshKeyId').value;
@@ -4102,9 +4130,16 @@
                 return;
             }
             
+            // Check if OS IP is configured
+            const serverIp = document.getElementById('serverIp').value;
+            if (!serverIp || serverIp === 'Not configured' || serverIp === 'Error loading') {
+                showAlert('Please configure Server IP (OS) in Managed Servers first', 'error');
+                return;
+            }
+            
             try {
                 const data = {
-                    server_ip,
+                    // Don't send server_ip - it's managed in Server table
                     ssh_user: user,
                     ssh_port: parseInt(port) || 22,
                     ssh_key_id: keyId ? parseInt(keyId) : null,
