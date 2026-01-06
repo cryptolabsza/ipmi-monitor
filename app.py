@@ -6231,9 +6231,9 @@ def cleanup_old_data(batch_size=10000, aggressive=False):
                 print(f"[Cleanup] Deleted {total_deleted['ssh']:,} old SSH logs", flush=True)
             
             # Delete old alert history (keep last 30 days)
-            old_alerts = AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).count()
+            old_alerts = AlertHistory.query.filter(AlertHistory.fired_at < cutoff).count()
             if old_alerts > 0:
-                AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).delete()
+                AlertHistory.query.filter(AlertHistory.fired_at < cutoff).delete()
                 db.session.commit()
                 total_deleted['alerts'] = old_alerts
                 print(f"[Cleanup] Deleted {old_alerts:,} old alert history", flush=True)
