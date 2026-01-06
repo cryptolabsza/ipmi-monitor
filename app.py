@@ -269,7 +269,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '0.8.1'  # Semantic version - update on releases (pre-release until v1.0.0)
+APP_VERSION = '1.0.0'  # 🎉 First stable release!
 
 def get_build_info():
     """
