@@ -269,7 +269,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.0.0'  # 🎉 First stable release!
+APP_VERSION = '1.0.1'  # Auto inventory collection enabled
 
 def get_build_info():
     """
