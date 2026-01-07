@@ -4662,6 +4662,12 @@
         function renderServers() {
             const grid = document.getElementById('serverGrid');
             
+            // Don't re-render if user is selecting text - prevents losing selection
+            if (hasActiveSelectionIn(grid)) {
+                console.log('[Servers] Skipping render - user has active selection');
+                return;
+            }
+            
             if (serversData.length === 0) {
                 grid.innerHTML = '<div class="loading">No servers found. Click "Refresh All" to collect data.</div>';
                 return;
@@ -4865,7 +4871,24 @@
             }
         }
         
+        // Helper: Check if user has active text selection within an element
+        function hasActiveSelectionIn(element) {
+            const selection = window.getSelection();
+            if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+                return false;
+            }
+            // Check if selection is within the element
+            const range = selection.getRangeAt(0);
+            return element.contains(range.commonAncestorContainer);
+        }
+        
         function renderEventsList(events, list) {
+            // Don't re-render if user is selecting text - prevents losing selection
+            if (hasActiveSelectionIn(list)) {
+                console.log('[Events] Skipping render - user has active selection');
+                return;
+            }
+            
             if (events.length === 0) {
                 list.innerHTML = '<div class="loading">No events found</div>';
                 return;
