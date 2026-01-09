@@ -6864,6 +6864,10 @@ def _collect_and_store_ssh_logs(server_info):
         'mcelog': {
             'cmd': 'cat /var/log/mcelog 2>/dev/null | tail -100 || echo ""',
             'parser': _parse_mcelog
+        },
+        'docker': {
+            'cmd': 'journalctl -u docker -n 100 --no-pager 2>/dev/null || tail -100 /var/log/docker.log 2>/dev/null || echo ""',
+            'parser': _parse_docker_logs
         }
     }
     
@@ -7035,6 +7039,65 @@ def _parse_mcelog(output, server_name):
                 'source': 'mcelog',
                 'raw_line': line
             })
+    
+    return entries
+
+
+def _parse_docker_logs(output, server_name):
+    """Parse Docker daemon logs for errors and warnings"""
+    entries = []
+    
+    if not output.strip():
+        return entries
+    
+    # Keywords that indicate errors
+    error_keywords = [
+        'error', 'failed', 'fatal', 'panic', 'exception',
+        'storage-opt', 'pquota', 'overlay', 'daemon error',
+        'container died', 'oom', 'killed'
+    ]
+    warning_keywords = [
+        'warning', 'warn', 'deprecated', 'timeout', 'retry'
+    ]
+    
+    for line in output.strip().split('\n'):
+        if not line.strip():
+            continue
+        
+        line_lower = line.lower()
+        
+        # Determine severity
+        severity = 'info'
+        if any(kw in line_lower for kw in error_keywords):
+            severity = 'error'
+        elif any(kw in line_lower for kw in warning_keywords):
+            severity = 'warning'
+        else:
+            continue  # Skip info-level logs to reduce noise
+        
+        # Try to extract timestamp from journalctl format
+        timestamp = datetime.utcnow().isoformat()
+        try:
+            # journalctl format: Dec 24 12:34:56 hostname docker[pid]: message
+            parts = line.split()
+            if len(parts) >= 4:
+                month_day_time = ' '.join(parts[:3])
+                try:
+                    dt = datetime.strptime(f"{month_day_time} {datetime.utcnow().year}", "%b %d %H:%M:%S %Y")
+                    timestamp = dt.isoformat()
+                except:
+                    pass
+        except:
+            pass
+        
+        entries.append({
+            'log_type': 'docker',
+            'severity': severity,
+            'timestamp': timestamp,
+            'message': line[:500],
+            'source': 'docker',
+            'raw_line': line
+        })
     
     return entries
 
