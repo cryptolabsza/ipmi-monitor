@@ -8128,7 +8128,8 @@ def api_diagnostics_ssh_logs(bmc_ip):
         'nvidia_smi': 'nvidia-smi -q 2>/dev/null || echo "NVIDIA GPU not detected or nvidia-smi not installed"',
         'messages': 'tail -200 /var/log/messages 2>/dev/null || tail -200 /var/log/syslog 2>/dev/null || echo "System log not found"',
         'mcelog': 'cat /var/log/mcelog 2>/dev/null || echo "mcelog not available"',
-        'xid_errors': 'dmesg | grep -i "xid" 2>/dev/null || echo "No XID errors found"'
+        'xid_errors': 'dmesg | grep -i "xid" 2>/dev/null || echo "No XID errors found"',
+        'docker': 'journalctl -u docker -n 100 --no-pager 2>/dev/null || tail -100 /var/log/docker.log 2>/dev/null || echo "Docker logs not available"'
     }
     
     try:
