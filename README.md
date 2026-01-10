@@ -27,7 +27,8 @@
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
 - 💾 **ECC Memory Tracking** - Identify which DIMM has errors
 - 🎮 **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH (Xid errors)
-- 📜 **SSH System Logs** - Collect dmesg, journalctl, syslog, mcelog via SSH
+- 📜 **SSH System Logs** - Collect dmesg, journalctl, syslog, mcelog, **Docker daemon logs** via SSH
+- 🐳 **Docker Log Collection** - Monitor Docker daemon errors (storage-opt, overlay, pquota issues)
 - 🔧 **Hardware Error Detection** - AER, PCIe, ECC errors parsed automatically
 - 🔄 **Uptime & Reboot Detection** - Track unexpected server reboots
 - 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
@@ -213,6 +214,28 @@ environment:
   - SECRET_KEY=your-random-32-char-key  # Always set this!
   - ADMIN_PASS=strong-unique-password   # Change from default
 ```
+
+---
+
+## 🔑 Password Recovery
+
+IPMI Monitor is self-hosted - there's no central server to reset your password. Since you have root access, you can reset it directly:
+
+```bash
+# Quick password reset (run on your server)
+docker exec -i ipmi-monitor python3 << 'EOF'
+from werkzeug.security import generate_password_hash
+import sqlite3
+new_password = "your_new_password"  # CHANGE THIS
+conn = sqlite3.connect('/app/data/ipmi_monitor.db')
+conn.execute("UPDATE user SET password_hash = ? WHERE username = 'admin'", 
+             (generate_password_hash(new_password),))
+conn.commit()
+print(f"✅ Admin password updated!")
+EOF
+```
+
+> 📖 See [User Guide - Password Recovery](docs/user-guide.md#password-recovery) for detailed instructions and a reusable script.
 
 ---
 

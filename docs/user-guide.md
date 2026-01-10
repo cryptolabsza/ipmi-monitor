@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v1.7.x | **Last Updated:** 2026-01-02
+**Version:** v1.0.2 | **Last Updated:** 2026-01-10
 
 ---
 
@@ -417,6 +417,7 @@ IPMI Monitor can collect system logs from your servers via SSH for centralized v
 | **MCE Log** | `mcelog` | Machine check exceptions (ECC, CPU errors) |
 | **Auth Log** | `/var/log/auth.log` | SSH login attempts, sudo usage |
 | **Secure Log** | `/var/log/secure` | Security events (RHEL/CentOS) |
+| **Docker Daemon** | `journalctl -u docker` | Docker service errors and warnings |
 
 ### Collected Error Types
 
@@ -428,6 +429,30 @@ IPMI Monitor can collect system logs from your servers via SSH for centralized v
 - **NVMe Errors** - SSD health and I/O errors
 - **RAID Errors** - Controller and disk failures
 - **Kernel Panics** - System crashes with stack traces
+- **Docker Daemon Errors** - Container runtime issues, storage-opt, overlay, pquota errors
+
+### Docker Daemon Log Collection
+
+IPMI Monitor collects Docker daemon logs to help troubleshoot container issues common on GPU hosting servers.
+
+**Detected Issues:**
+- `storage-opt` errors (XFS pquota configuration)
+- Overlay filesystem issues
+- Container startup failures
+- nvidia-docker runtime errors
+- Docker daemon crashes
+
+**How It Works:**
+1. Collects logs via `journalctl -u docker` or `/var/log/docker.log`
+2. Parses for errors and warnings
+3. Stores in the SSH logs database
+4. AI Chat can query these logs for troubleshooting
+
+**AI Integration:**
+When you ask Docker-related questions in AI Chat, it automatically:
+1. Queries Docker daemon logs from your servers
+2. Searches the GPU Hosting Knowledge Base for solutions
+3. Provides combined answers with community-sourced fixes
 
 ### SSH Authentication Events
 
@@ -1276,6 +1301,120 @@ The agent dashboard shows:
 ---
 
 ## Troubleshooting
+
+### Password Recovery
+
+IPMI Monitor is a **self-hosted application** - there is no central server that can reset your password. Your data and credentials are stored locally in a SQLite database inside the Docker container.
+
+Since you have root access to your server, you can reset your password directly:
+
+#### Option 1: Reset via Script (Recommended)
+
+Save this script as `reset-ipmi-password.sh` and run it:
+
+```bash
+#!/bin/bash
+# IPMI Monitor Password Reset Script
+# Usage: ./reset-ipmi-password.sh <new_password> [username]
+
+NEW_PASSWORD="${1:-changeme}"
+USERNAME="${2:-admin}"
+
+# Find the container
+CONTAINER=$(docker ps --format '{{.Names}}' | grep -E 'ipmi-monitor|ipmi_monitor' | head -1)
+
+if [ -z "$CONTAINER" ]; then
+    echo "❌ IPMI Monitor container not found"
+    echo "   Running containers: $(docker ps --format '{{.Names}}')"
+    exit 1
+fi
+
+echo "🔧 Resetting password for user '$USERNAME' in container '$CONTAINER'..."
+
+# Generate password hash and update database
+docker exec -i "$CONTAINER" python3 << EOF
+from werkzeug.security import generate_password_hash
+import sqlite3
+
+new_password = "$NEW_PASSWORD"
+username = "$USERNAME"
+password_hash = generate_password_hash(new_password)
+
+conn = sqlite3.connect('/app/data/ipmi_monitor.db')
+cursor = conn.cursor()
+
+# Check if user exists
+cursor.execute("SELECT id FROM user WHERE username = ?", (username,))
+user = cursor.fetchone()
+
+if user:
+    cursor.execute("UPDATE user SET password_hash = ? WHERE username = ?", (password_hash, username))
+    conn.commit()
+    print(f"✅ Password updated for user '{username}'")
+else:
+    print(f"❌ User '{username}' not found")
+    cursor.execute("SELECT username FROM user")
+    users = cursor.fetchall()
+    if users:
+        print(f"   Available users: {', '.join([u[0] for u in users])}")
+
+conn.close()
+EOF
+
+echo ""
+echo "🔐 You can now login with:"
+echo "   Username: $USERNAME"
+echo "   Password: $NEW_PASSWORD"
+```
+
+**Usage:**
+```bash
+chmod +x reset-ipmi-password.sh
+
+# Reset admin password to 'newpassword123'
+./reset-ipmi-password.sh newpassword123 admin
+
+# Reset a different user
+./reset-ipmi-password.sh mypassword myuser
+```
+
+#### Option 2: Manual Database Update
+
+```bash
+# Enter the container
+docker exec -it ipmi-monitor bash
+
+# Use Python to update password
+python3 << 'EOF'
+from werkzeug.security import generate_password_hash
+import sqlite3
+
+new_password = "your_new_password"
+username = "admin"
+
+password_hash = generate_password_hash(new_password)
+conn = sqlite3.connect('/app/data/ipmi_monitor.db')
+cursor = conn.cursor()
+cursor.execute("UPDATE user SET password_hash = ? WHERE username = ?", (password_hash, username))
+conn.commit()
+print(f"Password updated for {username}")
+conn.close()
+EOF
+```
+
+#### Option 3: Environment Variable (New Container Only)
+
+If starting fresh, set the admin password via environment variable:
+
+```yaml
+environment:
+  - ADMIN_USER=admin
+  - ADMIN_PASS=your_new_password
+```
+
+> ⚠️ **Note:** The `ADMIN_PASS` environment variable only sets the password on first run when the database is created. It does not reset existing passwords.
+
+---
 
 ### Server Shows Offline
 
