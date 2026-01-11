@@ -6847,7 +6847,11 @@ def _collect_and_store_ssh_logs(server_info):
         if key:
             ssh_key_content = key.key_content
     
-    # Define log collection commands
+    # Get optional service log settings
+    collect_vastai = get_setting('collect_vastai_logs') == 'true'
+    collect_runpod = get_setting('collect_runpod_logs') == 'true'
+    
+    # Define log collection commands (core logs always collected)
     log_commands = {
         'dmesg': {
             'cmd': 'dmesg -T 2>/dev/null | tail -500 || dmesg | tail -500',
@@ -6870,6 +6874,19 @@ def _collect_and_store_ssh_logs(server_info):
             'parser': _parse_docker_logs
         }
     }
+    
+    # Add optional service logs if enabled
+    if collect_vastai:
+        log_commands['vastai'] = {
+            'cmd': 'tail -500 /var/lib/vastai_kaalia/kaalia.log 2>/dev/null || journalctl -u vastai-agent -n 200 --no-pager 2>/dev/null || echo ""',
+            'parser': _parse_vastai_logs
+        }
+    
+    if collect_runpod:
+        log_commands['runpod'] = {
+            'cmd': 'journalctl -u runpod-agent -n 200 --no-pager 2>/dev/null || tail -500 /var/log/runpod/agent.log 2>/dev/null || echo ""',
+            'parser': _parse_runpod_logs
+        }
     
     server_name = server_info['server_name']
     bmc_ip = server_info['bmc_ip']
@@ -7096,6 +7113,144 @@ def _parse_docker_logs(output, server_name):
             'timestamp': timestamp,
             'message': line[:500],
             'source': 'docker',
+            'raw_line': line
+        })
+    
+    return entries
+
+
+def _parse_vastai_logs(output, server_name):
+    """Parse Vast.ai kaalia daemon logs for hosting events"""
+    entries = []
+    
+    if not output.strip():
+        return entries
+    
+    # Vast.ai specific keywords indicating issues
+    error_keywords = [
+        'error', 'failed', 'exception', 'crash', 'fatal',
+        'verification failed', 'delist', 'banned', 'blocked',
+        'container failed', 'oom', 'killed', 'timeout',
+        'socket error', 'connection refused', 'unreachable'
+    ]
+    warning_keywords = [
+        'warning', 'warn', 'verification pending', 'restarting',
+        'reconnecting', 'slow', 'retry', 'delayed', 'queue'
+    ]
+    # Info keywords (important events to track)
+    info_keywords = [
+        'rental started', 'rental ended', 'container started',
+        'container stopped', 'verification passed', 'online',
+        'registered', 'connected', 'instance created', 'instance destroyed'
+    ]
+    
+    for line in output.strip().split('\n'):
+        if not line.strip():
+            continue
+        
+        line_lower = line.lower()
+        
+        # Determine severity
+        severity = None
+        if any(kw in line_lower for kw in error_keywords):
+            severity = 'error'
+        elif any(kw in line_lower for kw in warning_keywords):
+            severity = 'warning'
+        elif any(kw in line_lower for kw in info_keywords):
+            severity = 'info'
+        else:
+            continue  # Skip uninteresting lines
+        
+        # Try to extract timestamp
+        timestamp = datetime.utcnow().isoformat()
+        try:
+            # Various log timestamp formats
+            parts = line.split()
+            if len(parts) >= 2:
+                # ISO format: 2024-01-15T12:34:56
+                if 'T' in parts[0] or '-' in parts[0]:
+                    try:
+                        dt = datetime.fromisoformat(parts[0].replace('Z', ''))
+                        timestamp = dt.isoformat()
+                    except:
+                        pass
+        except:
+            pass
+        
+        entries.append({
+            'log_type': 'vastai',
+            'severity': severity,
+            'timestamp': timestamp,
+            'message': line[:500],
+            'source': 'vastai',
+            'raw_line': line
+        })
+    
+    return entries
+
+
+def _parse_runpod_logs(output, server_name):
+    """Parse RunPod agent logs for hosting events"""
+    entries = []
+    
+    if not output.strip():
+        return entries
+    
+    # RunPod specific keywords indicating issues
+    error_keywords = [
+        'error', 'failed', 'exception', 'crash', 'fatal',
+        'pod failed', 'health check failed', 'unhealthy',
+        'oom', 'killed', 'timeout', 'disconnected',
+        'gpu not found', 'cuda error', 'driver error'
+    ]
+    warning_keywords = [
+        'warning', 'warn', 'restarting', 'reconnecting',
+        'slow', 'retry', 'delayed', 'high memory', 'throttling'
+    ]
+    # Info keywords (important events to track)
+    info_keywords = [
+        'pod started', 'pod stopped', 'pod created', 'pod terminated',
+        'gpu assigned', 'connected', 'registered', 'online',
+        'health check passed', 'job started', 'job completed'
+    ]
+    
+    for line in output.strip().split('\n'):
+        if not line.strip():
+            continue
+        
+        line_lower = line.lower()
+        
+        # Determine severity
+        severity = None
+        if any(kw in line_lower for kw in error_keywords):
+            severity = 'error'
+        elif any(kw in line_lower for kw in warning_keywords):
+            severity = 'warning'
+        elif any(kw in line_lower for kw in info_keywords):
+            severity = 'info'
+        else:
+            continue  # Skip uninteresting lines
+        
+        # Try to extract timestamp
+        timestamp = datetime.utcnow().isoformat()
+        try:
+            parts = line.split()
+            if len(parts) >= 2:
+                if 'T' in parts[0] or '-' in parts[0]:
+                    try:
+                        dt = datetime.fromisoformat(parts[0].replace('Z', ''))
+                        timestamp = dt.isoformat()
+                    except:
+                        pass
+        except:
+            pass
+        
+        entries.append({
+            'log_type': 'runpod',
+            'severity': severity,
+            'timestamp': timestamp,
+            'message': line[:500],
+            'source': 'runpod',
             'raw_line': line
         })
     

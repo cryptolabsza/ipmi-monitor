@@ -855,7 +855,7 @@
                         </div>
                         
                         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                            <h4 style="margin: 0 0 10px 0; font-size: 0.95rem;">📊 Logs Collected</h4>
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.95rem;">📊 System Logs (Always Collected)</h4>
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <span style="color: var(--accent-green);">✓</span>
@@ -873,9 +873,50 @@
                                     <span style="color: var(--accent-green);">✓</span>
                                     <span><strong>mcelog</strong> - Hardware errors</span>
                                 </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: var(--accent-green);">✓</span>
+                                    <span><strong>docker</strong> - Docker daemon logs</span>
+                                </div>
                             </div>
                             <p style="margin: 10px 0 0 0; font-size: 0.85rem; color: var(--text-muted);">
                                 Automatically parses: AER errors, PCIe errors, GPU Xid faults, ECC/memory errors, OOM events
+                            </p>
+                        </div>
+                        
+                        <!-- Optional Service Logs -->
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--accent-purple);">
+                            <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; color: var(--accent-purple);">🔌 Optional Service Logs</h4>
+                            <p style="margin: 0 0 15px 0; font-size: 0.85rem; color: var(--text-muted);">
+                                Enable collection of GPU hosting service logs. Only enable if the service is installed on your servers.
+                            </p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <input type="checkbox" id="collectVastaiLogs" style="margin-top: 3px;">
+                                    <div>
+                                        <strong style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Vast.ai</span>
+                                            Daemon Logs
+                                        </strong>
+                                        <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 4px;">
+                                            Collects kaalia.log - rental events, container starts/stops, verification status
+                                        </span>
+                                    </div>
+                                </label>
+                                <label style="display: flex; align-items: flex-start; gap: 10px; cursor: pointer; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; border: 1px solid var(--border-color);">
+                                    <input type="checkbox" id="collectRunpodLogs" style="margin-top: 3px;">
+                                    <div>
+                                        <strong style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="background: linear-gradient(135deg, #9333ea, #c026d3); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">RunPod</span>
+                                            Agent Logs
+                                        </strong>
+                                        <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 4px;">
+                                            Collects runpod agent logs - pod events, GPU assignments, health checks
+                                        </span>
+                                    </div>
+                                </label>
+                            </div>
+                            <p style="margin: 12px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">
+                                💡 <strong>Tip:</strong> Enable these to help AI diagnose hosting-specific issues like rental failures or verification problems.
                             </p>
                         </div>
                         
@@ -3906,6 +3947,8 @@
         async function saveSshLogSettings() {
             const interval = document.getElementById('sshLogInterval').value;
             const retention = document.getElementById('sshLogRetention').value;
+            const collectVastai = document.getElementById('collectVastaiLogs').checked;
+            const collectRunpod = document.getElementById('collectRunpodLogs').checked;
             
             try {
                 const response = await fetch('/api/settings', {
@@ -3914,7 +3957,9 @@
                     credentials: 'same-origin',
                     body: JSON.stringify({ 
                         ssh_log_interval: interval,
-                        ssh_log_retention: retention
+                        ssh_log_retention: retention,
+                        collect_vastai_logs: collectVastai ? 'true' : 'false',
+                        collect_runpod_logs: collectRunpod ? 'true' : 'false'
                     })
                 });
                 
@@ -4107,6 +4152,10 @@
                     if (data.ssh_log_retention) {
                         document.getElementById('sshLogRetention').value = data.ssh_log_retention;
                     }
+                    
+                    // Optional service logs
+                    document.getElementById('collectVastaiLogs').checked = data.collect_vastai_logs === 'true';
+                    document.getElementById('collectRunpodLogs').checked = data.collect_runpod_logs === 'true';
                     
                     if (enabled) {
                         loadSshLogStats();
