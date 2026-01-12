@@ -782,6 +782,12 @@ class RedfishClient:
             severity = entry.get('Severity', 'OK')
             sensor_type = entry.get('SensorType', entry.get('EntryType', 'System'))
             
+            # Ensure sensor_type is a string (some Redfish implementations return lists)
+            if isinstance(sensor_type, list):
+                sensor_type = json.dumps(sensor_type) if sensor_type else 'Unknown'
+            elif not isinstance(sensor_type, str):
+                sensor_type = str(sensor_type) if sensor_type else 'Unknown'
+            
             # Parse timestamp
             if created:
                 try:
