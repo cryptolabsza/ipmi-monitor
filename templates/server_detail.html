@@ -1584,6 +1584,26 @@ No data collected yet. Click "Refresh" to collect system information.
                             <div><span style="color: var(--text-secondary);">Total:</span> <strong>${inv.memory_total_gb ? inv.memory_total_gb + ' GB' : '-'}</strong></div>
                             <div><span style="color: var(--text-secondary);">Slots:</span> <strong>${inv.memory_slots_used || '-'} / ${inv.memory_slots_total || '-'}</strong></div>
                         </div>
+                        ${inv.memory_dimms && inv.memory_dimms.length > 0 ? `
+                        <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">DIMM Details:</div>
+                            <div style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
+                                ${inv.memory_dimms.map(dimm => `
+                                <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--bg-card); border-radius: 8px; font-size: 0.85rem;">
+                                    <div style="min-width: 50px; font-weight: 600; color: var(--accent-blue);">${dimm.slot || dimm.locator || '-'}</div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">${dimm.manufacturer || 'Unknown'} ${dimm.part_number || ''}</div>
+                                        <div style="color: var(--text-secondary); font-size: 0.8rem;">
+                                            ${dimm.size || '-'} ${dimm.type || ''} @ ${dimm.configured_speed || dimm.speed || '-'}
+                                            ${dimm.speed && dimm.configured_speed && dimm.speed !== dimm.configured_speed ? 
+                                                '<span style="color: var(--accent-yellow);">(rated: ' + dimm.speed + ')</span>' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
                     </div>
                     
                     <!-- Network MACs -->

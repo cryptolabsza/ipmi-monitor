@@ -269,7 +269,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.0.2'  # Docker daemon log collection, DB cleanup improvements
+APP_VERSION = '1.0.3-dev'  # Enhanced DIMM inventory, Redfish SensorType fix
 
 def get_build_info():
     """
