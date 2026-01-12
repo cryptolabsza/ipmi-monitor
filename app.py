@@ -10494,19 +10494,96 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 except Exception as e:
                     app.logger.debug(f"SSH memory collection failed for {bmc_ip}: {e}")
                 
-                # Memory slots via dmidecode
+                # Memory slots and detailed DIMM info via dmidecode
                 try:
-                    cmd = build_ssh_cmd('dmidecode -t memory 2>/dev/null | grep -E "Number Of Devices|Size:" | head -30')
-                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                    # Get full memory device info for per-DIMM details
+                    cmd = build_ssh_cmd('sudo dmidecode -t 17 2>/dev/null || dmidecode -t 17 2>/dev/null')
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
                     if result.returncode == 0 and result.stdout:
-                        # Parse: Number Of Devices: 8
-                        match = re.search(r'Number Of Devices:\s+(\d+)', result.stdout)
-                        if match:
-                            inventory.memory_slots_total = int(match.group(1))
-                        # Count populated slots (Size: XX GB, not "No Module Installed")
-                        populated = len(re.findall(r'Size:\s+\d+\s*(GB|MB)', result.stdout, re.IGNORECASE))
-                        if populated > 0:
-                            inventory.memory_slots_used = populated
+                        dimms = []
+                        current_dimm = {}
+                        
+                        for line in result.stdout.split('\n'):
+                            line = line.strip()
+                            
+                            # New Memory Device section
+                            if line.startswith('Memory Device'):
+                                if current_dimm and current_dimm.get('size_mb', 0) > 0:
+                                    dimms.append(current_dimm)
+                                current_dimm = {}
+                            
+                            # Parse key-value pairs
+                            if ':' in line:
+                                key, _, value = line.partition(':')
+                                key = key.strip()
+                                value = value.strip()
+                                
+                                if key == 'Size':
+                                    if 'No Module' in value or 'Unknown' in value:
+                                        current_dimm['size_mb'] = 0
+                                    else:
+                                        # Parse "32 GB" or "32768 MB"
+                                        size_match = re.search(r'(\d+)\s*(GB|MB)', value, re.IGNORECASE)
+                                        if size_match:
+                                            size_val = int(size_match.group(1))
+                                            unit = size_match.group(2).upper()
+                                            current_dimm['size_mb'] = size_val * 1024 if unit == 'GB' else size_val
+                                            current_dimm['size_display'] = value
+                                
+                                elif key == 'Locator':
+                                    current_dimm['locator'] = value  # e.g., "DIMM_A1", "CPU0_DIMM_A1"
+                                elif key == 'Bank Locator':
+                                    current_dimm['bank'] = value
+                                elif key == 'Type':
+                                    current_dimm['type'] = value  # DDR4, DDR5
+                                elif key == 'Manufacturer':
+                                    current_dimm['manufacturer'] = value
+                                elif key == 'Part Number':
+                                    current_dimm['part_number'] = value.strip()
+                                elif key == 'Serial Number':
+                                    current_dimm['serial'] = value
+                                elif key == 'Speed':
+                                    # This is the max/rated speed: "3200 MT/s"
+                                    speed_match = re.search(r'(\d+)', value)
+                                    if speed_match:
+                                        current_dimm['max_speed_mts'] = int(speed_match.group(1))
+                                        current_dimm['max_speed_display'] = value
+                                elif key == 'Configured Memory Speed' or key == 'Configured Clock Speed':
+                                    # This is the actual running speed
+                                    speed_match = re.search(r'(\d+)', value)
+                                    if speed_match:
+                                        current_dimm['running_speed_mts'] = int(speed_match.group(1))
+                                        current_dimm['running_speed_display'] = value
+                                elif key == 'Rank':
+                                    current_dimm['rank'] = value
+                                elif key == 'Data Width':
+                                    current_dimm['data_width'] = value
+                                elif key == 'Form Factor':
+                                    current_dimm['form_factor'] = value  # DIMM, SODIMM
+                        
+                        # Don't forget the last DIMM
+                        if current_dimm and current_dimm.get('size_mb', 0) > 0:
+                            dimms.append(current_dimm)
+                        
+                        # Update inventory
+                        if dimms:
+                            inventory.memory_dimms = json.dumps(dimms)
+                            inventory.memory_slots_used = len(dimms)
+                            app.logger.info(f"SSH Memory DIMMs for {bmc_ip}: {len(dimms)} modules - {dimms[0].get('manufacturer', 'Unknown')} {dimms[0].get('part_number', '')}")
+                        
+                        # Also get total slots count
+                        slots_match = re.search(r'Number Of Devices:\s+(\d+)', result.stdout)
+                        if slots_match:
+                            inventory.memory_slots_total = int(slots_match.group(1))
+                        else:
+                            # Try from memory array info
+                            cmd2 = build_ssh_cmd('sudo dmidecode -t 16 2>/dev/null | grep "Number Of Devices" || dmidecode -t 16 2>/dev/null | grep "Number Of Devices"')
+                            result2 = subprocess.run(cmd2, capture_output=True, text=True, timeout=15)
+                            if result2.returncode == 0:
+                                slots_match2 = re.search(r'Number Of Devices:\s+(\d+)', result2.stdout)
+                                if slots_match2:
+                                    inventory.memory_slots_total = int(slots_match2.group(1))
+                        
                         app.logger.info(f"SSH Memory slots for {bmc_ip}: {inventory.memory_slots_used}/{inventory.memory_slots_total}")
                 except Exception as e:
                     app.logger.debug(f"SSH memory slots collection failed for {bmc_ip}: {e}")
