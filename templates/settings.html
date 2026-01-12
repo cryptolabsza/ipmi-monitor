@@ -2426,6 +2426,17 @@
                 });
                 
                 const data = await response.json();
+                
+                // Handle session timeout / not logged in
+                if (response.status === 401 || data.error === 'Authentication required') {
+                    resultsDiv.style.background = 'rgba(255, 170, 0, 0.2)';
+                    resultsDiv.innerHTML = `
+                        ⚠️ <strong>Session Expired</strong><br>
+                        <small>Please <a href="/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
+                    `;
+                    return;
+                }
+                
                 if (data.status === 'success') {
                     resultsDiv.style.background = 'rgba(0, 214, 143, 0.2)';
                     resultsDiv.innerHTML = `
@@ -2475,6 +2486,17 @@
                 });
                 
                 const data = await response.json();
+                
+                // Handle session timeout / not logged in
+                if (response.status === 401 || data.error === 'Authentication required') {
+                    resultsDiv.style.background = 'rgba(255, 170, 0, 0.2)';
+                    resultsDiv.innerHTML = `
+                        ⚠️ <strong>Session Expired</strong><br>
+                        <small>Please <a href="/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
+                    `;
+                    return;
+                }
+                
                 if (data.status === 'success') {
                     resultsDiv.style.background = 'rgba(0, 214, 143, 0.2)';
                     resultsDiv.innerHTML = `
@@ -2506,8 +2528,15 @@
             statusDiv.style.background = 'var(--bg-secondary)';
             
             try {
-                const response = await fetch(`/api/redfish/status/${bmc_ip}`);
+                const response = await fetch(`/api/redfish/status/${bmc_ip}`, { credentials: 'same-origin' });
                 const data = await response.json();
+                
+                // Handle session timeout
+                if (response.status === 401 || data.error === 'Authentication required') {
+                    statusDiv.style.background = 'rgba(255, 170, 0, 0.2)';
+                    statusDiv.innerHTML = `⚠️ <strong>Session Expired</strong> - <a href="/login" style="color: var(--accent-blue);">Log in</a>`;
+                    return;
+                }
                 
                 if (data.redfish_available) {
                     statusDiv.style.background = 'rgba(0, 214, 143, 0.2)';

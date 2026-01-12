@@ -12816,8 +12816,9 @@ def api_test_ssh():
 
 
 @app.route('/api/redfish/status/<bmc_ip>')
+@login_required
 def api_redfish_status(bmc_ip):
-    """Check Redfish availability for a BMC"""
+    """Check Redfish availability for a BMC - requires login for consistency"""
     if not validate_ip_address(bmc_ip):
         return jsonify({'error': 'Invalid IP address'}), 400
     
