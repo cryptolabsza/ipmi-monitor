@@ -1127,7 +1127,7 @@ class RedfishClient:
             return processors
     
     def get_memory(self):
-        """Get memory (DIMM) information via Redfish"""
+        """Get memory (DIMM) information via Redfish - Enhanced for multi-vendor support"""
         memory = []
         try:
             systems_uri = self.get_systems_uri()
@@ -1144,6 +1144,9 @@ class RedfishClient:
             if not system:
                 return memory
             
+            # Also collect MemorySummary from system for totals
+            memory_summary = system.get('MemorySummary', {})
+            
             # Get Memory collection
             if 'Memory' in system:
                 mem_uri = system['Memory'].get('@odata.id')
@@ -1153,24 +1156,104 @@ class RedfishClient:
                     for member in mem_coll['Members']:
                         dimm = self._get(member.get('@odata.id'))
                         if dimm and dimm.get('CapacityMiB', 0) > 0:  # Skip empty slots
-                            memory.append({
+                            # Extract status details - varies by vendor
+                            status = dimm.get('Status', {})
+                            health = status.get('Health', status.get('State', 'OK'))
+                            
+                            # Comprehensive DIMM info for all manufacturers
+                            dimm_info = {
+                                # Basic identification
                                 'Id': dimm.get('Id'),
                                 'Name': dimm.get('Name', ''),
-                                'DeviceLocator': dimm.get('DeviceLocator', ''),
+                                'DeviceLocator': dimm.get('DeviceLocator', ''),  # Physical slot: "DIMM_A1"
+                                'SocketLocator': dimm.get('SocketLocator', ''),  # Dell, Supermicro
+                                'BankLocator': dimm.get('BankLocator', ''),      # Bank grouping
+                                
+                                # Capacity and configuration
                                 'CapacityMiB': dimm.get('CapacityMiB', 0),
-                                'Manufacturer': dimm.get('Manufacturer', ''),
-                                'PartNumber': dimm.get('PartNumber', ''),
-                                'SerialNumber': dimm.get('SerialNumber', ''),
-                                'MemoryType': dimm.get('MemoryDeviceType', dimm.get('MemoryType', '')),
-                                'RankCount': dimm.get('RankCount'),
+                                'DataWidthBits': dimm.get('DataWidthBits'),      # 64-bit typically
+                                'BusWidthBits': dimm.get('BusWidthBits'),        # 72 for ECC
+                                'RankCount': dimm.get('RankCount'),              # 1, 2, 4, 8 rank
+                                
+                                # Speed and timing
                                 'OperatingSpeedMhz': dimm.get('OperatingSpeedMhz'),
-                                'Status': dimm.get('Status', {}).get('Health', 'OK'),
-                            })
+                                'AllowedSpeedsMHz': dimm.get('AllowedSpeedsMHz', []),  # HPE specific
+                                'ConfiguredSpeedMhz': dimm.get('ConfiguredSpeedMhz'),  # Lenovo, Dell
+                                
+                                # Memory type details
+                                'MemoryType': dimm.get('MemoryDeviceType', dimm.get('MemoryType', '')),
+                                'MemoryMedia': dimm.get('MemoryMedia', []),      # DRAM, Intel Optane, etc.
+                                'BaseModuleType': dimm.get('BaseModuleType', ''), # RDIMM, LRDIMM, UDIMM
+                                
+                                # Manufacturer info
+                                'Manufacturer': dimm.get('Manufacturer', ''),
+                                'PartNumber': dimm.get('PartNumber', '').strip(),
+                                'SerialNumber': dimm.get('SerialNumber', '').strip(),
+                                'ModuleManufacturerID': dimm.get('ModuleManufacturerID', {}),  # JEDEC
+                                'ModuleProductID': dimm.get('ModuleProductID', {}),
+                                
+                                # ECC and error info
+                                'ErrorCorrection': dimm.get('ErrorCorrection', ''),  # NoECC, SingleBitECC, MultiBitECC
+                                'VolatileRegionSizeLimitMiB': dimm.get('VolatileRegionSizeLimitMiB'),
+                                
+                                # Voltage (Intel, Supermicro)
+                                'OperatingMemoryModes': dimm.get('OperatingMemoryModes', []),
+                                'VoltageVolt': dimm.get('VoltageVolt'),
+                                
+                                # Status and health
+                                'Status': health,
+                                'State': status.get('State', 'Enabled'),
+                                
+                                # Vendor-specific OEM data
+                                'Oem': self._extract_oem_memory(dimm.get('Oem', {})),
+                            }
+                            
+                            # Clean up None values to save space
+                            dimm_info = {k: v for k, v in dimm_info.items() if v is not None and v != '' and v != []}
+                            memory.append(dimm_info)
             
             return memory
         except Exception as e:
             app.logger.debug(f"Redfish memory failed for {self.host}: {e}")
             return memory
+    
+    def _extract_oem_memory(self, oem_data):
+        """Extract useful OEM-specific memory data from various manufacturers"""
+        if not oem_data:
+            return None
+        
+        extracted = {}
+        
+        # Dell iDRAC
+        if 'Dell' in oem_data:
+            dell = oem_data.get('Dell', {}).get('DellMemory', {})
+            if dell:
+                extracted['DellMemoryType'] = dell.get('MemoryType')
+                extracted['DellRemainingRatedWriteEndurance'] = dell.get('RemainingRatedWriteEndurance')
+                extracted['DellLastSystemInventoryTime'] = dell.get('LastSystemInventoryTime')
+        
+        # HPE iLO
+        if 'Hpe' in oem_data:
+            hpe = oem_data.get('Hpe', {})
+            if hpe:
+                extracted['HpeDIMMStatus'] = hpe.get('DIMMStatus')
+                extracted['HpeMinimumVoltageVoltsX10'] = hpe.get('MinimumVoltageVoltsX10')
+                extracted['HpePredictedMediaLifeLeftPercent'] = hpe.get('PredictedMediaLifeLeftPercent')
+        
+        # Lenovo XCC
+        if 'Lenovo' in oem_data:
+            lenovo = oem_data.get('Lenovo', {})
+            if lenovo:
+                extracted['LenovoMemoryType'] = lenovo.get('MemoryType')
+                extracted['LenovoThrottled'] = lenovo.get('Throttled')
+        
+        # Supermicro
+        if 'Supermicro' in oem_data:
+            sm = oem_data.get('Supermicro', {})
+            if sm:
+                extracted['SMCMemoryHealth'] = sm.get('Health')
+        
+        return extracted if extracted else None
     
     def get_storage(self):
         """Get storage (drives) information via Redfish"""
@@ -10608,6 +10691,39 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                     current_dimm['data_width'] = value
                                 elif key == 'Form Factor':
                                     current_dimm['form_factor'] = value  # DIMM, SODIMM
+                                elif key == 'Type Detail':
+                                    current_dimm['type_detail'] = value  # Registered, Unbuffered
+                                elif key == 'Total Width':
+                                    current_dimm['total_width'] = value  # 72 bits = ECC
+                                elif key == 'Voltage':
+                                    current_dimm['voltage'] = value
+                                elif key == 'Configured Voltage':
+                                    current_dimm['configured_voltage'] = value
+                                elif key == 'Minimum Voltage':
+                                    current_dimm['min_voltage'] = value
+                                elif key == 'Maximum Voltage':
+                                    current_dimm['max_voltage'] = value
+                                elif key == 'Asset Tag':
+                                    if value and value not in ['Not Specified', 'Unknown', '']:
+                                        current_dimm['asset_tag'] = value
+                                elif key == 'Module Manufacturer ID':
+                                    current_dimm['module_mfr_id'] = value  # JEDEC ID
+                                elif key == 'Module Product ID':
+                                    current_dimm['module_product_id'] = value
+                                elif key == 'Memory Subsystem Controller Manufacturer ID':
+                                    current_dimm['controller_mfr_id'] = value
+                                elif key == 'Non-Volatile Size':
+                                    if value and 'None' not in value:
+                                        current_dimm['nvdimm_size'] = value  # Intel Optane
+                                elif key == 'Volatile Size':
+                                    if value and 'None' not in value:
+                                        current_dimm['volatile_size'] = value
+                                elif key == 'Cache Size':
+                                    if value and 'None' not in value:
+                                        current_dimm['cache_size'] = value
+                                elif key == 'Logical Size':
+                                    if value and 'None' not in value:
+                                        current_dimm['logical_size'] = value
                         
                         # Don't forget the last DIMM
                         if current_dimm and current_dimm.get('size_mb', 0) > 0:
