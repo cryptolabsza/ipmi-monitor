@@ -126,20 +126,96 @@ volumes:
 
 ## 🔄 Keeping Up to Date
 
+### Manual Update
+
 ```bash
 # Pull the latest image
 docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
 
-# Recreate the container
+# Recreate the container (preserves data volume)
 docker-compose up -d
 ```
 
-Or use [Watchtower](https://containrrr.dev/watchtower/) for automatic updates.
+### Automatic Updates with Watchtower (Recommended)
+
+Add Watchtower to your `docker-compose.yml`:
+
+```yaml
+services:
+  ipmi-monitor:
+    # ... your existing config ...
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300  # Check every 5 minutes
+    command: --label-enable  # Only update labeled containers
+```
 
 | Tag | Description |
 |-----|-------------|
 | `:latest` | Latest stable release (recommended) |
 | `:develop` | Development builds (testing new features) |
+| `:v1.0.3` | Specific version (pin for stability) |
+
+---
+
+## 🔍 Troubleshooting
+
+### Container won't start
+
+```bash
+# Check logs
+docker logs ipmi-monitor
+
+# Common issues:
+# - Port 5000 already in use: Change port mapping to "5001:5000"
+# - Permission denied: Ensure docker socket access
+```
+
+### Can't connect to BMC
+
+```bash
+# Test from the container
+docker exec ipmi-monitor ipmitool -I lanplus -H 192.168.1.80 -U admin -P password power status
+
+# Common issues:
+# - Wrong IP address (use BMC IP, not server OS IP)
+# - Firewall blocking port 623 (IPMI)
+# - Wrong credentials
+```
+
+### SSH inventory collection fails
+
+```bash
+# Test SSH from container
+docker exec ipmi-monitor ssh -o StrictHostKeyChecking=no root@192.168.1.81 hostname
+
+# Common issues:
+# - SSH key not added to container (add via Settings → SSH Keys)
+# - Server IP not set (only BMC IP configured)
+# - Firewall blocking port 22
+```
+
+### Data disappeared after update
+
+Your volume name must match! Check with:
+```bash
+docker volume ls | grep ipmi
+```
+
+If you see multiple volumes (e.g., `ipmi_data` and `ipmi-monitor_ipmi_data`), you may have used different names. Restore by:
+```bash
+docker stop ipmi-monitor
+docker run --rm -v OLD_VOLUME:/from -v NEW_VOLUME:/to alpine cp -av /from/. /to/
+```
 
 ---
 
@@ -152,11 +228,150 @@ Or use [Watchtower](https://containrrr.dev/watchtower/) for automatic updates.
 | `APP_NAME` | IPMI Monitor | Displayed in header |
 | `IPMI_USER` | admin | Default BMC username |
 | `IPMI_PASS` | (required) | Default BMC password |
+| `IPMI_PASS_NVIDIA` | - | Separate password for NVIDIA DGX BMCs (16-char requirement) |
 | `ADMIN_USER` | admin | Dashboard admin username |
-| `ADMIN_PASS` | changeme | Dashboard admin password |
-| `SECRET_KEY` | (auto) | Flask session secret (**set this!**) |
+| `ADMIN_PASS` | changeme | Dashboard admin password (**change this!**) |
+| `SECRET_KEY` | (auto) | Flask session secret (**set this for persistent sessions!**) |
 | `POLL_INTERVAL` | 300 | Seconds between collections |
 | `DATA_RETENTION_DAYS` | 30 | How long to keep events |
+| `SSH_USER` | root | Default SSH username for system log collection |
+| `SSH_PASS` | - | Default SSH password (or use SSH keys) |
+
+---
+
+## 🔧 Setting Up SSH for Enhanced Monitoring
+
+SSH access enables powerful features:
+- **System Logs** - dmesg, journalctl, syslog, Docker daemon logs
+- **Hardware Inventory** - Detailed CPU, DIMM, GPU, NIC, storage info
+- **GPU Monitoring** - NVIDIA Xid errors, driver version, CUDA version
+- **Uptime Tracking** - Detect unexpected reboots
+
+### Option 1: SSH Keys (Recommended)
+
+1. Go to **Settings → SSH Keys**
+2. Click **Add SSH Key**
+3. Paste your private key content (from `~/.ssh/id_rsa` or similar)
+4. Give it a name (e.g., "datacenter-key")
+5. In **Settings → Servers**, assign the key to each server
+
+### Option 2: SSH Password
+
+1. Go to **Settings → Defaults**
+2. Enter your SSH username and password
+3. Click **Apply to All Servers**
+
+### Important: Server IP vs BMC IP
+
+- **BMC IP** (e.g., `192.168.1.80`) - IPMI/Redfish management interface
+- **Server IP** (e.g., `192.168.1.81`) - The actual OS/SSH interface
+
+When adding a server, set **both** IPs:
+- BMC IP: For IPMI/Redfish event collection
+- Server IP: For SSH-based inventory and logs
+
+---
+
+## 🎮 GPU Monitoring (NVIDIA)
+
+IPMI Monitor can detect and monitor NVIDIA GPUs via SSH:
+
+- **GPU Count & Models** - Detected via `nvidia-smi`
+- **Driver & CUDA Version** - For compatibility tracking
+- **Xid Errors** - Parsed from dmesg/syslog (GPU failures, ECC errors)
+- **PCIe Health** - AER/correctable/uncorrectable errors
+
+### Collecting GPU Inventory
+
+1. Ensure SSH is configured for the server
+2. Go to server detail page
+3. Click **Collect Inventory**
+4. GPU info appears under **🎮 GPU** section
+
+---
+
+## 📋 Detailed DIMM Inventory
+
+For servers with Redfish or SSH access, IPMI Monitor collects per-DIMM details:
+
+- **Slot/Locator** (e.g., A1, B2)
+- **Manufacturer** (Samsung, SK Hynix, Micron, etc.)
+- **Part Number**
+- **Size** (32 GB, 64 GB)
+- **Speed** (Configured vs Rated - highlights if running slower)
+
+This helps identify:
+- Mixed memory configurations
+- Under-clocked DIMMs
+- Which slot has ECC errors
+
+---
+
+## 🤖 AI Features (Optional)
+
+IPMI Monitor can integrate with the CryptoLabs AI service for:
+- **Fleet Summary** - AI-generated daily analysis
+- **Predictive Maintenance** - Identify failing components
+- **Root Cause Analysis** - Correlate events across servers
+- **Task Generation** - Prioritized maintenance tasks
+
+### Enabling AI Features
+
+1. Go to **Settings → AI Features**
+2. Get an API key from [cryptolabs.co.za/my-account](https://cryptolabs.co.za/my-account/)
+3. Enter the key and click **Enable**
+
+> 📌 AI features are **optional** - IPMI Monitor works fully offline without them.
+
+---
+
+## 🔌 IPMI vs Redfish
+
+IPMI Monitor supports both protocols and auto-detects which to use:
+
+| Feature | IPMI/ipmitool | Redfish |
+|---------|---------------|---------|
+| Event Collection | ✅ SEL logs | ✅ Log Service |
+| Sensor Readings | ✅ SDR | ✅ Chassis/Thermal |
+| Power Control | ✅ | ✅ |
+| Inventory | Basic FRU | ✅ Rich metadata |
+| Memory Details | - | ✅ Per-DIMM info |
+| Supported BMCs | All | Dell iDRAC, HPE iLO, Supermicro, Lenovo |
+
+### Forcing a Protocol
+
+By default, IPMI Monitor auto-detects. To force a specific protocol:
+1. Go to **Settings → Servers**
+2. Click Edit on a server
+3. Set **Protocol** to `ipmi` or `redfish`
+
+---
+
+## 🚨 Alert Configuration
+
+IPMI Monitor can send alerts via multiple channels:
+
+### Notification Methods
+
+| Method | Setup |
+|--------|-------|
+| **Email** | Settings → Alerts → SMTP configuration |
+| **Telegram** | Settings → Alerts → Bot token + Chat ID |
+| **Webhook** | Settings → Alerts → Custom URL for Slack, Discord, etc. |
+
+### Alert Rules
+
+Create rules to trigger on specific conditions:
+- **Event Type** - SEL event categories (Temperature, Memory, Fan, etc.)
+- **Severity** - Critical, Warning, or both
+- **Server Filter** - All servers or specific ones
+- **Keyword Match** - Filter by event description
+
+### Alert Features
+
+- **Confirmation Period** - Wait N minutes before alerting (avoid false positives)
+- **Resolution Alerts** - Get notified when issues are resolved
+- **Rate Limiting** - Prevent alert floods
 
 ---
 
