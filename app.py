@@ -1991,6 +1991,8 @@ class SystemSettings(db.Model):
             'session_timeout_hours': '24',
             'enable_ssh_inventory': 'true',  # SSH to OS for detailed inventory (requires SSH creds)
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
+            'collect_vastai_logs': 'false',  # Optional: Collect Vast.ai daemon logs
+            'collect_runpod_logs': 'false',  # Optional: Collect RunPod agent logs
         }
         for key, value in defaults.items():
             if not SystemSettings.query.filter_by(key=key).first():
@@ -6848,8 +6850,8 @@ def _collect_and_store_ssh_logs(server_info):
             ssh_key_content = key.key_content
     
     # Get optional service log settings
-    collect_vastai = get_setting('collect_vastai_logs') == 'true'
-    collect_runpod = get_setting('collect_runpod_logs') == 'true'
+    collect_vastai = SystemSettings.get('collect_vastai_logs', 'false') == 'true'
+    collect_runpod = SystemSettings.get('collect_runpod_logs', 'false') == 'true'
     
     # Define log collection commands (core logs always collected)
     log_commands = {
