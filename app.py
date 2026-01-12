@@ -8415,7 +8415,16 @@ def api_diagnostics_ssh_logs(bmc_ip):
 def api_server_ssh_logs(bmc_ip):
     """
     Get stored SSH logs for a server from the database.
-    Supports filtering by severity, log_type, and pagination.
+    Supports filtering by severity, log_type, time range, keyword search, and pagination.
+    
+    Query params:
+    - page: Page number (default: 1)
+    - limit: Results per page (default: 50, max: 500)
+    - severity: Filter by severity (critical, error, warning, info)
+    - log_type: Filter by log type (syslog, hardware, gpu, docker, etc.)
+    - start_date: Filter logs after this date (ISO format or YYYY-MM-DD)
+    - end_date: Filter logs before this date (ISO format or YYYY-MM-DD)
+    - search: Keyword search in message field
     """
     try:
         # Get server name
@@ -8430,6 +8439,9 @@ def api_server_ssh_logs(bmc_ip):
         limit = min(request.args.get('limit', 50, type=int), 500)
         severity = request.args.get('severity', '')
         log_type = request.args.get('log_type', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        search = request.args.get('search', '').strip()
         
         offset = (page - 1) * limit
         
@@ -8439,7 +8451,7 @@ def api_server_ssh_logs(bmc_ip):
         if 'ssh_logs' not in inspector.get_table_names():
             return jsonify({'logs': [], 'total': 0, 'message': 'SSH logs table not yet created'})
         
-        # Build query
+        # Build query with all filters
         query = 'SELECT * FROM ssh_logs WHERE server_name = :server_name'
         count_query = 'SELECT COUNT(*) FROM ssh_logs WHERE server_name = :server_name'
         params = {'server_name': server_name}
@@ -8453,6 +8465,25 @@ def api_server_ssh_logs(bmc_ip):
             query += ' AND log_type = :log_type'
             count_query += ' AND log_type = :log_type'
             params['log_type'] = log_type
+        
+        if start_date:
+            query += ' AND timestamp >= :start_date'
+            count_query += ' AND timestamp >= :start_date'
+            params['start_date'] = start_date
+        
+        if end_date:
+            # Add time to end of day if only date provided
+            if len(end_date) == 10:  # YYYY-MM-DD format
+                end_date += 'T23:59:59'
+            query += ' AND timestamp <= :end_date'
+            count_query += ' AND timestamp <= :end_date'
+            params['end_date'] = end_date
+        
+        if search:
+            # Case-insensitive search in message
+            query += ' AND message LIKE :search'
+            count_query += ' AND message LIKE :search'
+            params['search'] = f'%{search}%'
         
         query += ' ORDER BY timestamp DESC LIMIT :limit OFFSET :offset'
         params['limit'] = limit
@@ -8473,10 +8504,33 @@ def api_server_ssh_logs(bmc_ip):
         stats_result = db.session.execute(db.text(stats_query), {'server_name': server_name}).fetchall()
         stats = {row[0]: row[1] for row in stats_result if row[0]}
         
+        # Get all available log types for this server (for dropdown population)
+        log_types_query = '''
+            SELECT DISTINCT log_type, COUNT(*) as cnt 
+            FROM ssh_logs 
+            WHERE server_name = :server_name AND log_type IS NOT NULL AND log_type != ''
+            GROUP BY log_type 
+            ORDER BY cnt DESC
+        '''
+        log_types_result = db.session.execute(db.text(log_types_query), {'server_name': server_name}).fetchall()
+        log_types = [{'type': row[0], 'count': row[1]} for row in log_types_result if row[0]]
+        
         # Get total count of all logs (unfiltered) - to distinguish "no logs" from "no results for filter"
         total_all_query = 'SELECT COUNT(*) FROM ssh_logs WHERE server_name = :server_name'
         total_all_result = db.session.execute(db.text(total_all_query), {'server_name': server_name}).fetchone()
         total_all = total_all_result[0] if total_all_result else 0
+        
+        # Get date range of logs for this server
+        date_range_query = '''
+            SELECT MIN(timestamp), MAX(timestamp) 
+            FROM ssh_logs 
+            WHERE server_name = :server_name
+        '''
+        date_range_result = db.session.execute(db.text(date_range_query), {'server_name': server_name}).fetchone()
+        date_range = {
+            'earliest': date_range_result[0] if date_range_result else None,
+            'latest': date_range_result[1] if date_range_result else None
+        }
         
         # Get last collected timestamp
         last_query = 'SELECT MAX(collected_at) FROM ssh_logs WHERE server_name = :server_name'
@@ -8508,6 +8562,8 @@ def api_server_ssh_logs(bmc_ip):
             'page': page,
             'limit': limit,
             'stats': stats,
+            'log_types': log_types,  # Available log types for dropdown
+            'date_range': date_range,  # Available date range
             'last_collected': last_collected
         })
         

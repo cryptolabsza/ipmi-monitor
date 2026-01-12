@@ -778,28 +778,74 @@ No data collected yet. Click "Refresh" to collect system information.
         <!-- System Logs Tab (SSH-collected logs: dmesg, journalctl, syslog) -->
         <div id="syslogsTab" class="tab-content">
             <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <h2 class="section-title" style="margin-bottom: 0;">System Logs</h2>
                         <span id="syslogsLastCollected" style="color: var(--text-muted); font-size: 0.85rem;"></span>
                     </div>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <select id="syslogsSeverityFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button class="btn" onclick="loadSystemLogs()" title="Refresh logs">🔄</button>
+                        <button class="btn btn-secondary" onclick="clearSyslogFilters()" title="Clear all filters">✖ Clear</button>
+                    </div>
+                </div>
+                
+                <!-- Enhanced Filters Row -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                    <!-- Severity Filter -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Severity</label>
+                        <select id="syslogsSeverityFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); min-width: 130px;">
                             <option value="">All Severities</option>
                             <option value="critical">🔴 Critical</option>
                             <option value="error">🟠 Error</option>
                             <option value="warning">🟡 Warning</option>
                             <option value="info">🔵 Info</option>
                         </select>
-                        <select id="syslogsTypeFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary);">
-                            <option value="">All Types</option>
-                            <option value="kernel">Kernel (dmesg)</option>
-                            <option value="journal">Journald</option>
-                            <option value="syslog">Syslog</option>
-                            <option value="mcelog">MCE Log</option>
-                        </select>
-                        <button class="btn" onclick="loadSystemLogs()" title="Refresh logs">🔄 Refresh</button>
                     </div>
+                    
+                    <!-- Log Type Filter (dynamically populated) -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Log Type</label>
+                        <select id="syslogsTypeFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); min-width: 150px;">
+                            <option value="">All Types</option>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <!-- Start Date -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">From Date</label>
+                        <input type="date" id="syslogsStartDate" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    </div>
+                    
+                    <!-- End Date -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">To Date</label>
+                        <input type="date" id="syslogsEndDate" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    </div>
+                    
+                    <!-- Keyword Search -->
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-width: 200px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Search Message</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="syslogsSearchInput" placeholder="Enter keyword..." 
+                                onkeydown="if(event.key==='Enter')loadSystemLogs()" 
+                                style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); flex-grow: 1;">
+                            <button class="btn btn-secondary" onclick="loadSystemLogs()" title="Search">🔍</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Time Range Buttons -->
+                <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem; align-self: center;">Quick range:</span>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('1h')" style="padding: 4px 10px; font-size: 0.85rem;">1h</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('6h')" style="padding: 4px 10px; font-size: 0.85rem;">6h</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('24h')" style="padding: 4px 10px; font-size: 0.85rem;">24h</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('7d')" style="padding: 4px 10px; font-size: 0.85rem;">7d</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('30d')" style="padding: 4px 10px; font-size: 0.85rem;">30d</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('all')" style="padding: 4px 10px; font-size: 0.85rem;">All</button>
+                    <span id="syslogsDateRange" style="color: var(--text-muted); font-size: 0.8rem; align-self: center; margin-left: 10px;"></span>
                 </div>
                 
                 <!-- Log Stats -->
@@ -1944,6 +1990,79 @@ No data collected yet. Click "Refresh" to collect system information.
         let syslogsPage = 1;
         const syslogsPageSize = 50;
         let syslogsTotalCount = 0;
+        let syslogsTypesLoaded = false;
+        
+        function getLogTypeIcon(logType) {
+            const icons = {
+                'syslog': '📜',
+                'kernel': '🐧',
+                'dmesg': '🐧',
+                'journal': '📔',
+                'journald': '📔',
+                'mcelog': '⚠️',
+                'hardware': '🔧',
+                'gpu': '🎮',
+                'nvidia': '🎮',
+                'docker': '🐳',
+                'pcie': '🔌',
+                'memory': '💾',
+                'disk': '💿',
+                'network': '🌐',
+                'vastai': '☁️',
+                'runpod': '☁️',
+                'daemon': '⚙️',
+                'agent': '🤖',
+                'error': '❌',
+                'security': '🔒',
+                'auth': '🔑'
+            };
+            return icons[logType?.toLowerCase()] || '📄';
+        }
+        
+        function setSyslogTimeRange(range) {
+            const startDateInput = document.getElementById('syslogsStartDate');
+            const endDateInput = document.getElementById('syslogsEndDate');
+            const now = new Date();
+            let startDate = null;
+            
+            if (range === 'all') {
+                startDateInput.value = '';
+                endDateInput.value = '';
+            } else {
+                endDateInput.value = now.toISOString().split('T')[0];
+                
+                switch(range) {
+                    case '1h':
+                        startDate = new Date(now - 1 * 60 * 60 * 1000);
+                        break;
+                    case '6h':
+                        startDate = new Date(now - 6 * 60 * 60 * 1000);
+                        break;
+                    case '24h':
+                        startDate = new Date(now - 24 * 60 * 60 * 1000);
+                        break;
+                    case '7d':
+                        startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '30d':
+                        startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                        break;
+                }
+                if (startDate) {
+                    startDateInput.value = startDate.toISOString().split('T')[0];
+                }
+            }
+            loadSystemLogs(1);
+        }
+        
+        function clearSyslogFilters() {
+            document.getElementById('syslogsSeverityFilter').value = '';
+            document.getElementById('syslogsTypeFilter').value = '';
+            document.getElementById('syslogsStartDate').value = '';
+            document.getElementById('syslogsEndDate').value = '';
+            document.getElementById('syslogsSearchInput').value = '';
+            loadSystemLogs(1);
+        }
         
         async function loadSystemLogs(page = 1) {
             syslogsPage = page;
@@ -1955,6 +2074,9 @@ No data collected yet. Click "Refresh" to collect system information.
             
             const severity = document.getElementById('syslogsSeverityFilter').value;
             const logType = document.getElementById('syslogsTypeFilter').value;
+            const startDate = document.getElementById('syslogsStartDate').value;
+            const endDate = document.getElementById('syslogsEndDate').value;
+            const search = document.getElementById('syslogsSearchInput').value.trim();
             
             loading.style.display = 'block';
             empty.style.display = 'none';
@@ -1967,6 +2089,9 @@ No data collected yet. Click "Refresh" to collect system information.
                 });
                 if (severity) params.append('severity', severity);
                 if (logType) params.append('log_type', logType);
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                if (search) params.append('search', search);
                 
                 const response = await fetch(`/api/server/${bmcIp}/ssh-logs?${params}`);
                 const data = await response.json();
@@ -2020,6 +2145,36 @@ No data collected yet. Click "Refresh" to collect system information.
                 
                 syslogsTotalCount = data.total || data.logs.length;
                 
+                // Populate log types dropdown dynamically (only once)
+                if (!syslogsTypesLoaded && data.log_types && data.log_types.length > 0) {
+                    const typeSelect = document.getElementById('syslogsTypeFilter');
+                    const currentValue = typeSelect.value;
+                    typeSelect.innerHTML = '<option value="">All Types</option>';
+                    
+                    // Add log type options with count
+                    data.log_types.forEach(lt => {
+                        const icon = getLogTypeIcon(lt.type);
+                        const option = document.createElement('option');
+                        option.value = lt.type;
+                        option.textContent = `${icon} ${lt.type} (${lt.count.toLocaleString()})`;
+                        typeSelect.appendChild(option);
+                    });
+                    
+                    // Restore previous selection if still valid
+                    if (currentValue) {
+                        typeSelect.value = currentValue;
+                    }
+                    syslogsTypesLoaded = true;
+                }
+                
+                // Show date range info
+                if (data.date_range && data.date_range.earliest) {
+                    const earliest = new Date(data.date_range.earliest);
+                    const latest = new Date(data.date_range.latest);
+                    document.getElementById('syslogsDateRange').textContent = 
+                        `Available: ${earliest.toLocaleDateString()} - ${latest.toLocaleDateString()}`;
+                }
+                
                 // Update last collected
                 if (data.last_collected) {
                     document.getElementById('syslogsLastCollected').textContent = 
@@ -2041,6 +2196,8 @@ No data collected yet. Click "Refresh" to collect system information.
                 
                 // Render table
                 const tbody = document.getElementById('syslogsTableBody');
+                const searchTerm = document.getElementById('syslogsSearchInput').value.trim().toLowerCase();
+                
                 tbody.innerHTML = data.logs.map(log => {
                     const severityColors = {
                         critical: '#ff4757',
@@ -2054,13 +2211,7 @@ No data collected yet. Click "Refresh" to collect system information.
                     const severityBadge = log.severity ? 
                         `<span style="background: ${color}22; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${log.severity}</span>` : '';
                     
-                    const typeIcons = {
-                        kernel: '🐧',
-                        journal: '📓',
-                        syslog: '📋',
-                        mcelog: '⚠️'
-                    };
-                    const typeIcon = typeIcons[log.log_type] || '📄';
+                    const typeIcon = getLogTypeIcon(log.log_type);
                     
                     // Parse timestamp with fallback for various formats
                     let ts = '-';
@@ -2072,14 +2223,22 @@ No data collected yet. Click "Refresh" to collect system information.
                             ts = log.timestamp; // Show raw if parsing fails
                         }
                     }
-                    const msg = (log.message || '').substring(0, 200) + ((log.message || '').length > 200 ? '...' : '');
+                    
+                    // Highlight search term in message
+                    let msg = (log.message || '').substring(0, 300) + ((log.message || '').length > 300 ? '...' : '');
+                    if (searchTerm && msg.toLowerCase().includes(searchTerm)) {
+                        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                        msg = escapeHtml(msg).replace(regex, '<mark style="background: #ffeb3b; color: #000; padding: 1px 2px; border-radius: 2px;">$1</mark>');
+                    } else {
+                        msg = escapeHtml(msg);
+                    }
                     
                     return `
                         <tr>
                             <td style="font-family: monospace; font-size: 0.85rem; white-space: nowrap;">${ts}</td>
                             <td>${severityBadge}</td>
                             <td style="white-space: nowrap;">${typeIcon} ${log.log_type || '-'}</td>
-                            <td style="font-family: monospace; font-size: 0.85rem; word-break: break-word;">${escapeHtml(msg)}</td>
+                            <td style="font-family: monospace; font-size: 0.85rem; word-break: break-word;">${msg}</td>
                         </tr>
                     `;
                 }).join('');
