@@ -10496,6 +10496,45 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                 
                 # Memory slots and detailed DIMM info via dmidecode
                 try:
+                    # Memory manufacturer ID decoder (JEDEC standard)
+                    def decode_memory_manufacturer(raw_mfr):
+                        """Decode JEDEC manufacturer ID or return cleaned name"""
+                        if not raw_mfr:
+                            return 'Unknown'
+                        
+                        # Common JEDEC manufacturer codes (first byte after continuation codes)
+                        jedec_map = {
+                            '00CE': 'Samsung', '80CE': 'Samsung', 'CE': 'Samsung',
+                            '00AD': 'SK Hynix', '80AD': 'SK Hynix', 'AD': 'SK Hynix',
+                            '002C': 'Micron', '802C': 'Micron', '2C': 'Micron',
+                            '00C1': 'Infineon', '80C1': 'Infineon',
+                            '007F': 'Intel', '807F': 'Intel',
+                            '000A': 'Kingston', '800A': 'Kingston',
+                            '0098': 'Kingston', '8098': 'Kingston',
+                            '00F1': 'Transcend', '80F1': 'Transcend',
+                            '00C8': 'Crucial', '80C8': 'Crucial',
+                            '0001': 'AMD/Spansion',
+                            '00CB': 'A-DATA',
+                            '00BA': 'PNY',
+                            '00EF': 'Team Group',
+                        }
+                        
+                        # Try to extract JEDEC code from raw string
+                        raw_upper = raw_mfr.upper().replace(' ', '')
+                        
+                        # Try full match first
+                        for code, name in jedec_map.items():
+                            if raw_upper.startswith(code) or code in raw_upper:
+                                return name
+                        
+                        # If it's a readable name already, return it cleaned
+                        if any(c.isalpha() for c in raw_mfr) and not raw_mfr.startswith('0x'):
+                            clean_name = raw_mfr.strip()
+                            if clean_name and clean_name not in ['Not Specified', 'Unknown', 'NO DIMM']:
+                                return clean_name
+                        
+                        return raw_mfr if raw_mfr else 'Unknown'
+                    
                     # Get full memory device info for per-DIMM details
                     cmd = build_ssh_cmd('sudo dmidecode -t 17 2>/dev/null || dmidecode -t 17 2>/dev/null')
                     result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -10537,7 +10576,8 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                 elif key == 'Type':
                                     current_dimm['type'] = value  # DDR4, DDR5
                                 elif key == 'Manufacturer':
-                                    current_dimm['manufacturer'] = value
+                                    current_dimm['manufacturer'] = decode_memory_manufacturer(value)
+                                    current_dimm['manufacturer_raw'] = value  # Keep raw for debugging
                                 elif key == 'Part Number':
                                     current_dimm['part_number'] = value.strip()
                                 elif key == 'Serial Number':
