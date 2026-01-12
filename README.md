@@ -74,6 +74,8 @@ services:
       - SECRET_KEY=change-this-to-random-string
     volumes:
       - ipmi_data:/app/data             # ⚠️ IMPORTANT: Persists your data!
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"  # Enable auto-updates
 
 volumes:
   ipmi_data:
@@ -97,6 +99,7 @@ docker volume create ipmi_data
 # Run the container
 docker run -d \
   --name ipmi-monitor \
+  --label com.centurylinklabs.watchtower.enable=true \
   -p 5000:5000 \
   -e IPMI_USER=admin \
   -e IPMI_PASS=YourIPMIPassword \
