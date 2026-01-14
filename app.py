@@ -14429,18 +14429,27 @@ def api_update_ai_config():
         config = CloudSync.get_config()
         
         # Update license key if provided
-        if 'license_key' in data and data['license_key']:
-            # Validate the license key
-            validation = validate_license_key(data['license_key'])
-            
-            if validation['valid']:
-                config.license_key = data['license_key']
-                config.subscription_tier = validation.get('tier', 'standard')
-                config.subscription_valid = True
-                config.max_servers = validation.get('max_servers', 50)
-                config.features = json.dumps(validation.get('features', []))
+        if 'license_key' in data:
+            if data['license_key']:
+                # Validate the license key
+                validation = validate_license_key(data['license_key'])
+                
+                if validation['valid']:
+                    config.license_key = data['license_key']
+                    config.subscription_tier = validation.get('tier', 'standard')
+                    config.subscription_valid = True
+                    config.max_servers = validation.get('max_servers', 50)
+                    config.features = json.dumps(validation.get('features', []))
+                else:
+                    return jsonify({'error': 'Invalid license key'}), 400
             else:
-                return jsonify({'error': 'Invalid license key'}), 400
+                # Clear license key (disconnect)
+                config.license_key = ''
+                config.subscription_tier = 'free'
+                config.subscription_valid = False
+                config.max_servers = 3
+                config.features = json.dumps([])
+                app.logger.info('AI disconnected - license key cleared')
         
         # Update sync enabled
         if 'sync_enabled' in data:
