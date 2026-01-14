@@ -10107,6 +10107,208 @@ def api_collect_server_inventory(bmc_ip):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/servers/<bmc_ip>/inventory/stream', methods=['GET'])
+@write_required
+@require_valid_bmc_ip
+def api_collect_server_inventory_stream(bmc_ip):
+    """Collect hardware inventory with SSE streaming progress updates"""
+    import subprocess
+    import queue
+    import threading
+    
+    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+    if not server:
+        return jsonify({'error': 'Server not found'}), 404
+    
+    server_name = server.server_name
+    server_ip = server.server_ip
+    ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+    
+    def generate():
+        progress_queue = queue.Queue()
+        
+        def log(msg, status='info'):
+            """Helper to send log message"""
+            progress_queue.put({'type': 'log', 'message': msg, 'status': status})
+        
+        def collect_with_progress():
+            """Run inventory collection with progress logging"""
+            with app.app_context():
+                try:
+                    inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+                    if not inventory:
+                        inventory = ServerInventory(bmc_ip=bmc_ip, server_name=server_name)
+                        db.session.add(inventory)
+                    
+                    inventory.server_name = server_name
+                    inventory.primary_ip = server_ip
+                    
+                    # ========== Redfish ==========
+                    log('🔍 Checking Redfish availability...')
+                    redfish_success = False
+                    if should_use_redfish(bmc_ip):
+                        log('✅ Redfish supported, collecting data...', 'success')
+                        try:
+                            client = get_redfish_client(bmc_ip)
+                            
+                            log('  → Getting system info...')
+                            sys_info = client.get_system_info()
+                            if sys_info:
+                                inventory.manufacturer = sys_info.get('Manufacturer') or inventory.manufacturer
+                                inventory.product_name = sys_info.get('Model') or inventory.product_name
+                                inventory.serial_number = sys_info.get('SerialNumber') or inventory.serial_number
+                                redfish_success = True
+                                log(f'  ✓ System: {inventory.manufacturer} {inventory.product_name}', 'success')
+                            
+                            log('  → Getting BMC info...')
+                            bmc_info = client.get_bmc_info()
+                            if bmc_info:
+                                inventory.bmc_firmware = bmc_info.get('FirmwareVersion') or inventory.bmc_firmware
+                                log(f'  ✓ BMC Firmware: {inventory.bmc_firmware}', 'success')
+                            
+                            log('  → Getting CPU info...')
+                            cpu_info = client.get_processors()
+                            if cpu_info:
+                                inventory.cpu_count = len(cpu_info)
+                                if cpu_info:
+                                    inventory.cpu_model = cpu_info[0].get('Model', '')
+                                    inventory.cpu_cores = cpu_info[0].get('TotalCores', 0)
+                                log(f'  ✓ CPU: {inventory.cpu_count}x {inventory.cpu_model}', 'success')
+                            
+                            log('  → Getting memory info...')
+                            memory_info = client.get_memory()
+                            if memory_info:
+                                total_gb = sum(m.get('CapacityMiB', 0) for m in memory_info) / 1024
+                                inventory.memory_total_gb = round(total_gb, 1)
+                                inventory.memory_slots_used = len(memory_info)
+                                log(f'  ✓ Memory: {inventory.memory_total_gb}GB ({inventory.memory_slots_used} DIMMs)', 'success')
+                            
+                            log('  → Getting storage info...')
+                            storage_info = client.get_storage()
+                            if storage_info:
+                                inventory.storage_info = json.dumps(storage_info)
+                                log(f'  ✓ Storage: {len(storage_info)} drives', 'success')
+                            
+                            log('  → Getting GPU info...')
+                            gpu_info = client.get_gpus()
+                            if gpu_info:
+                                inventory.gpu_info = json.dumps(gpu_info)
+                                inventory.gpu_count = len(gpu_info)
+                                log(f'  ✓ GPUs: {inventory.gpu_count}', 'success')
+                            else:
+                                log('  ⚠ No GPUs found via Redfish', 'warning')
+                                
+                        except Exception as e:
+                            log(f'  ⚠ Redfish error: {str(e)[:50]}', 'warning')
+                    else:
+                        log('ℹ Redfish not available, using IPMI...', 'warning')
+                    
+                    # ========== IPMI FRU ==========
+                    if not redfish_success or not inventory.manufacturer:
+                        log('📦 Collecting FRU data via IPMI...')
+                        try:
+                            cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'fru', 'print', '0']
+                            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                            if result.returncode == 0:
+                                inventory.fru_data = result.stdout
+                                # Parse FRU data
+                                for line in result.stdout.split('\n'):
+                                    if ':' in line:
+                                        key, _, value = line.partition(':')
+                                        key = key.strip().lower()
+                                        value = value.strip()
+                                        if 'product manufacturer' in key:
+                                            inventory.manufacturer = value
+                                        elif 'product name' in key:
+                                            inventory.product_name = value
+                                        elif 'product serial' in key:
+                                            inventory.serial_number = value
+                                log(f'✅ FRU: {inventory.manufacturer} {inventory.product_name}', 'success')
+                            else:
+                                log(f'⚠ FRU command failed: {result.stderr[:50]}', 'warning')
+                        except subprocess.TimeoutExpired:
+                            log('❌ FRU command timed out (60s)', 'error')
+                        except Exception as e:
+                            log(f'⚠ FRU error: {str(e)[:50]}', 'warning')
+                    
+                    # ========== BMC Info ==========
+                    log('🔧 Getting BMC info via IPMI...')
+                    try:
+                        cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass, 'mc', 'info']
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                        if result.returncode == 0:
+                            for line in result.stdout.split('\n'):
+                                if 'Firmware Revision' in line:
+                                    inventory.bmc_firmware = line.split(':',1)[1].strip()
+                                    log(f'✅ BMC Firmware: {inventory.bmc_firmware}', 'success')
+                                    break
+                        else:
+                            log(f'⚠ MC info failed', 'warning')
+                    except subprocess.TimeoutExpired:
+                        log('❌ MC info timed out (30s)', 'error')
+                    except Exception as e:
+                        log(f'⚠ MC info error: {str(e)[:50]}', 'warning')
+                    
+                    # ========== SSH (if enabled) ==========
+                    ssh_enabled = SystemSettings.get('enable_ssh_inventory', 'false').lower() == 'true'
+                    server_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+                    
+                    if ssh_enabled and server_ip and server_config and server_config.ssh_user:
+                        log(f'🔐 Connecting via SSH to {server_ip}...')
+                        try:
+                            import socket
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            sock.settimeout(5)
+                            if sock.connect_ex((server_ip, 22)) == 0:
+                                log('✅ SSH port open, collecting OS data...', 'success')
+                                # Note: Full SSH collection happens in main function
+                                # This is just status reporting
+                            else:
+                                log('❌ SSH port closed or unreachable', 'error')
+                            sock.close()
+                        except Exception as e:
+                            log(f'⚠ SSH check error: {str(e)[:50]}', 'warning')
+                    elif server_ip and not ssh_enabled:
+                        log('ℹ SSH inventory disabled in settings', 'warning')
+                    elif not server_ip:
+                        log('ℹ No primary IP configured for SSH', 'warning')
+                    
+                    # ========== Save ==========
+                    log('💾 Saving inventory data...')
+                    inventory.collected_at = datetime.utcnow()
+                    inventory.updated_at = datetime.utcnow()
+                    db.session.commit()
+                    log('✅ Inventory saved successfully!', 'success')
+                    
+                    progress_queue.put({'type': 'complete', 'status': 'success'})
+                    
+                except Exception as e:
+                    log(f'❌ Error: {str(e)}', 'error')
+                    progress_queue.put({'type': 'complete', 'status': 'error', 'error': str(e)})
+        
+        # Start collection in background thread
+        worker_thread = threading.Thread(target=collect_with_progress, daemon=True)
+        worker_thread.start()
+        
+        # Stream updates
+        yield f"data: {json.dumps({'type': 'start', 'server': server_name, 'bmc_ip': bmc_ip})}\n\n"
+        
+        while True:
+            try:
+                update = progress_queue.get(timeout=2)
+                yield f"data: {json.dumps(update)}\n\n"
+                if update.get('type') == 'complete':
+                    break
+            except queue.Empty:
+                # Send heartbeat
+                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no'
+    })
+
+
 @app.route('/api/inventory/collect-all', methods=['POST'])
 @write_required
 def api_collect_all_inventory():

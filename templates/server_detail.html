@@ -581,6 +581,17 @@
                     <button class="btn" onclick="collectInventory()" id="collectInventoryBtn">🔄 Collect Inventory</button>
                 </div>
                 
+                <!-- Inventory Collection Console -->
+                <div id="inventoryConsole" style="display: none; margin-bottom: 20px;">
+                    <div style="background: #1a1a2e; border-radius: 8px; padding: 15px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #333;">
+                            <span style="color: #4ade80;">📋 Collection Log</span>
+                            <button onclick="hideInventoryConsole()" style="background: none; border: none; color: #888; cursor: pointer; font-size: 1.2rem;">✕</button>
+                        </div>
+                        <div id="inventoryLog" style="max-height: 300px; overflow-y: auto; line-height: 1.6;"></div>
+                    </div>
+                </div>
+                
                 <div id="inventoryContainer">
                     <div class="loading">
                         <div class="spinner"></div>
@@ -1767,33 +1778,72 @@ No data collected yet. Click "Refresh" to collect system information.
             `;
         }
         
+        function showInventoryConsole() {
+            document.getElementById('inventoryConsole').style.display = 'block';
+            document.getElementById('inventoryLog').innerHTML = '';
+        }
+        
+        function hideInventoryConsole() {
+            document.getElementById('inventoryConsole').style.display = 'none';
+        }
+        
+        function appendLog(message, status = 'info') {
+            const log = document.getElementById('inventoryLog');
+            const colors = {
+                'info': '#a0aec0',
+                'success': '#4ade80',
+                'warning': '#fbbf24',
+                'error': '#f87171'
+            };
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.style.color = colors[status] || colors.info;
+            line.innerHTML = `<span style="color: #666;">[${time}]</span> ${message}`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+        
         async function collectInventory() {
             const btn = document.getElementById('collectInventoryBtn');
             btn.disabled = true;
             btn.textContent = '⏳ Collecting...';
             
+            // Show console and start streaming
+            showInventoryConsole();
+            appendLog('🚀 Starting inventory collection...', 'info');
+            
             try {
-                const response = await fetch(`/api/servers/${bmcIp}/inventory`, { 
-                    method: 'POST',
-                    credentials: 'same-origin'  // Include session cookie
-                });
-                const data = await response.json();
+                const eventSource = new EventSource(`/api/servers/${bmcIp}/inventory/stream`);
                 
-                if (response.status === 401 || response.status === 403) {
-                    alert('Admin login required. Redirecting to login...');
-                    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
-                    return;
-                }
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'start') {
+                        appendLog(`📡 Connected to ${data.server} (${data.bmc_ip})`, 'info');
+                    } else if (data.type === 'log') {
+                        appendLog(data.message, data.status);
+                    } else if (data.type === 'complete') {
+                        eventSource.close();
+                        if (data.status === 'success') {
+                            appendLog('🎉 Inventory collection complete!', 'success');
+                            loadInventory();
+                        } else {
+                            appendLog(`❌ Collection failed: ${data.error || 'Unknown error'}`, 'error');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = '🔄 Collect Inventory';
+                    }
+                };
                 
-                if (data.status === 'success') {
-                    alert('✅ Inventory collected successfully!');
-                    loadInventory();
-                } else {
-                    alert('Error: ' + (data.error || 'Failed to collect inventory'));
-                }
+                eventSource.onerror = function(e) {
+                    eventSource.close();
+                    appendLog('❌ Connection lost or error occurred', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Collect Inventory';
+                };
+                
             } catch (e) {
-                alert('Failed to collect inventory: ' + e.message);
-            } finally {
+                appendLog(`❌ Failed to start: ${e.message}`, 'error');
                 btn.disabled = false;
                 btn.textContent = '🔄 Collect Inventory';
             }
