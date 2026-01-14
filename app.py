@@ -14449,7 +14449,18 @@ def api_update_ai_config():
                 config.subscription_valid = False
                 config.max_servers = 3
                 config.features = json.dumps([])
-                app.logger.info('AI disconnected - license key cleared')
+                
+                # Also clear WordPress account linking for current user
+                current_username = session.get('username')
+                if current_username:
+                    user = User.query.filter_by(username=current_username).first()
+                    if user and user.wp_email:
+                        app.logger.info(f'Unlinking WordPress account {user.wp_email} from user {current_username}')
+                        user.wp_user_id = None
+                        user.wp_email = None
+                        user.wp_linked_at = None
+                
+                app.logger.info('AI disconnected - license key and WordPress account cleared')
         
         # Update sync enabled
         if 'sync_enabled' in data:
