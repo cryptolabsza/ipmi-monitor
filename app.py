@@ -14699,10 +14699,10 @@ def api_oauth_callback():
 @admin_required
 def api_test_ai_connection():
     """
-    Test AI service connection with provided API key.
+    Test AI service connection with stored or provided API key.
     
-    Request body:
-    - license_key: The API key to test
+    Request body (optional):
+    - license_key: The API key to test (if not provided, uses stored key)
     
     Returns:
     - valid: Whether the key is valid
@@ -14713,10 +14713,15 @@ def api_test_ai_connection():
     data = request.get_json() or {}
     license_key = data.get('license_key')
     
-    if not license_key:
-        return jsonify({'valid': False, 'error': 'No API key provided'}), 400
-    
     config = CloudSync.get_config()
+    
+    # Use stored key if not provided in request
+    if not license_key:
+        license_key = config.license_key
+    
+    if not license_key:
+        return jsonify({'valid': False, 'error': 'No API key configured. Click "Sign In" to connect.'}), 400
+    
     ai_service_url = config.AI_SERVICE_URL or 'https://ipmi-ai.cryptolabs.co.za'
     
     try:
@@ -14821,7 +14826,8 @@ def api_email_test():
                 'message': 'This is a test alert from your IPMI Monitor. If you received this email, your email alerts are working correctly!',
                 'server_name': 'Test Server',
                 'severity': 'info',
-                'site_name': config.site_name or 'IPMI Monitor'
+                'site_name': config.site_name or 'IPMI Monitor',
+                'is_test': True  # Bypass alert type check for test emails
             },
             headers={
                 'Authorization': f'Bearer {config.license_key}',

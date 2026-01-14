@@ -2226,10 +2226,17 @@
         
         // Test AI connection
         async function testAiConnection() {
-            const licenseKey = document.getElementById('aiLicenseKey').value.trim();
-            
-            if (!licenseKey) {
-                showAlert('Not connected. Click "Sign In" to connect to CryptoLabs AI.', 'error');
+            // Check if connected via config (don't rely on hidden field since key is masked)
+            try {
+                const configResponse = await fetch('/api/ai/config');
+                const config = await configResponse.json();
+                
+                if (!config || !config.license_key) {
+                    showAlert('Not connected. Click "Sign In" to connect to CryptoLabs AI.', 'error');
+                    return;
+                }
+            } catch (e) {
+                showAlert('Failed to check connection status', 'error');
                 return;
             }
             
