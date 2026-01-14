@@ -1445,9 +1445,15 @@ No data collected yet. Click "Refresh" to collect system information.
                 const response = await fetch(`/api/server/${bmcIp}/ssh-available`);
                 const data = await response.json();
                 
+                console.log('SSH availability check:', data);  // Debug log
+                
                 if (data.available) {
                     // Show the System tab button
                     document.getElementById('systemTabBtn').style.display = 'inline-block';
+                } else {
+                    // Log why SSH is not available for debugging
+                    console.log('System tab hidden - reason:', data.reason);
+                    // Reasons: no_primary_ip, no_ssh_credentials, server_not_found
                 }
             } catch (e) {
                 console.log('SSH check failed:', e);

@@ -8809,7 +8809,7 @@ def api_check_ssh_available(bmc_ip):
     Used to determine if System tab should be shown.
     
     Returns available=True only if:
-    1. Server has a primary IP configured
+    1. Server has a primary IP configured (from Server or ServerConfig table)
     2. SSH credentials are configured (user + password or key)
     3. SSH port is open (optional check)
     """
@@ -8818,8 +8818,20 @@ def api_check_ssh_available(bmc_ip):
         return jsonify({'available': False, 'reason': 'server_not_found'})
     
     config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
-    if not config or not config.server_ip:
+    
+    # Check for primary IP in BOTH tables (Server.server_ip is the main source)
+    # FIX: Frontend saves server_ip to Server table, not ServerConfig
+    primary_ip = None
+    if server and server.server_ip:
+        primary_ip = server.server_ip
+    elif config and config.server_ip:
+        primary_ip = config.server_ip
+    
+    if not primary_ip:
         return jsonify({'available': False, 'reason': 'no_primary_ip'})
+    
+    if not config:
+        return jsonify({'available': False, 'reason': 'no_ssh_credentials'})
     
     # Check if SSH credentials are configured
     has_ssh_user = config.ssh_user and config.ssh_user.strip()
@@ -8835,7 +8847,7 @@ def api_check_ssh_available(bmc_ip):
     
     # Credentials are configured - return available
     # Skip the port check as it can be slow and credentials are the key requirement
-    return jsonify({'available': True, 'server_ip': config.server_ip})
+    return jsonify({'available': True, 'server_ip': primary_ip})
 
 
 @app.route('/api/server/<bmc_ip>/system-info')
@@ -8898,7 +8910,15 @@ def api_get_system_info(bmc_ip):
         })
     
     config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
-    if not config or not config.server_ip:
+    
+    # Get primary IP from Server table first (main source), fallback to ServerConfig
+    primary_ip = None
+    if server and server.server_ip:
+        primary_ip = server.server_ip
+    elif config and config.server_ip:
+        primary_ip = config.server_ip
+    
+    if not primary_ip or not config:
         # No SSH config - return cached if available, even if stale
         if inventory and inventory.os_name:
             return jsonify({
@@ -8922,7 +8942,7 @@ def api_get_system_info(bmc_ip):
         if key:
             ssh_key_content = key.key_content
     
-    server_ip = config.server_ip
+    server_ip = primary_ip
     raw_outputs = {}
     
     # Define commands to run
