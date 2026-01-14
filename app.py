@@ -14615,10 +14615,15 @@ def api_oauth_callback():
                 <p>Connected to CryptoLabs AI as <strong>{{ user_email }}</strong></p>
                 <p>Subscription: <strong>{{ subscription|upper }}</strong></p>
                 <p>This window will close automatically...</p>
-                <button class="close-btn" onclick="window.close()">Close Window</button>
+                <button class="close-btn" onclick="goToSettings()">Go to Settings</button>
                 <script>
-                    // Send message to parent window
+                    function goToSettings() {
+                        window.location.href = '/settings#ai-features';
+                    }
+                    
+                    // Check if opened as popup (has opener) or new tab
                     if (window.opener) {
+                        // Popup mode: Send message to parent window
                         window.opener.postMessage({
                             type: 'cryptolabs_ipmi_auth',
                             api_key: '{{ api_key }}',
@@ -14629,6 +14634,12 @@ def api_oauth_callback():
                         
                         // Auto-close after 2 seconds
                         setTimeout(() => window.close(), 2000);
+                    } else {
+                        // New tab mode: Redirect back to settings after delay
+                        document.querySelector('p:last-of-type').textContent = 'Redirecting to Settings...';
+                        setTimeout(() => {
+                            window.location.href = '/settings#ai-features';
+                        }, 2000);
                     }
                 </script>
             </body>
