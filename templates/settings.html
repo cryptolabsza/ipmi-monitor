@@ -2002,7 +2002,7 @@
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
             const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
             const ipmiHost = encodeURIComponent(window.location.host);
-            const signupUrl = `https://cryptolabs.co.za/ipmi-monitor/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
+            const signupUrl = `https://www.cryptolabs.co.za/ipmi_signup/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
             
             // Open in new tab so they can return easily
             window.open(signupUrl, '_blank');
