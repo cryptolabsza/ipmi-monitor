@@ -2288,7 +2288,44 @@ class ServerInventory(db.Model):
     collected_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    def _format_bytes(self, bytes_val):
+        """Convert bytes to human-readable format (GB/TB)"""
+        if not bytes_val:
+            return None
+        try:
+            bytes_val = int(bytes_val)
+            if bytes_val >= 1e12:
+                return f"{bytes_val / 1e12:.1f}TB"
+            elif bytes_val >= 1e9:
+                return f"{bytes_val / 1e9:.0f}GB"
+            elif bytes_val >= 1e6:
+                return f"{bytes_val / 1e6:.0f}MB"
+            else:
+                return f"{bytes_val}B"
+        except:
+            return None
+    
     def to_dict(self):
+        # Normalize storage_info to consistent lowercase field names
+        # Redfish uses: Name, Model, CapacityBytes, MediaType
+        # SSH uses: name, size, model, type
+        # Frontend expects: name, model, size, type
+        storage = []
+        if self.storage_info:
+            try:
+                raw_storage = json.loads(self.storage_info)
+                for drive in raw_storage:
+                    # Normalize to lowercase and expected field names
+                    normalized = {
+                        'name': drive.get('name') or drive.get('Name') or drive.get('Id') or 'Unknown',
+                        'model': drive.get('model') or drive.get('Model') or 'Unknown',
+                        'size': drive.get('size') or self._format_bytes(drive.get('CapacityBytes')) or 'N/A',
+                        'type': drive.get('type') or drive.get('MediaType') or drive.get('Protocol') or 'disk'
+                    }
+                    storage.append(normalized)
+            except:
+                pass
+        
         return {
             'bmc_ip': self.bmc_ip,
             'server_name': self.server_name,
@@ -2309,7 +2346,7 @@ class ServerInventory(db.Model):
             'memory_slots_total': self.memory_slots_total,
             'memory_dimms': json.loads(self.memory_dimms) if self.memory_dimms else [],
             'network_macs': json.loads(self.network_macs) if self.network_macs else [],
-            'storage_info': json.loads(self.storage_info) if self.storage_info else [],
+            'storage_info': storage,
             'gpu_info': json.loads(self.gpu_info) if self.gpu_info else [],
             'gpu_count': self.gpu_count,
             'nic_info': json.loads(self.nic_info) if self.nic_info else [],
@@ -10269,29 +10306,111 @@ def api_collect_server_inventory_stream(bmc_ip):
                     except Exception as e:
                         log(f'⚠ MC info error: {str(e)[:50]}', 'warning')
                     
-                    # ========== SSH (if enabled) ==========
+                    # ========== SSH (if enabled and needed) ==========
                     ssh_enabled = SystemSettings.get('enable_ssh_inventory', 'false').lower() == 'true'
                     server_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
                     
-                    if ssh_enabled and server_ip and server_config and server_config.ssh_user:
-                        log(f'🔐 Connecting via SSH to {server_ip}...')
+                    # Check if SSH IP is available
+                    ssh_ip = server_ip
+                    if not ssh_ip and server:
+                        ssh_ip = server.server_ip
+                    
+                    # Determine what's missing
+                    needs_storage = not inventory.storage_info
+                    needs_cpu = not inventory.cpu_model
+                    needs_ssh = needs_storage or needs_cpu
+                    
+                    if ssh_enabled and ssh_ip and server_config and server_config.ssh_user and needs_ssh:
+                        log(f'🔐 Connecting via SSH to {ssh_ip}...')
                         try:
                             import socket
                             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                             sock.settimeout(5)
-                            if sock.connect_ex((server_ip, 22)) == 0:
-                                log('✅ SSH port open, collecting OS data...', 'success')
-                                # Note: Full SSH collection happens in main function
-                                # This is just status reporting
+                            ssh_reachable = sock.connect_ex((ssh_ip, 22)) == 0
+                            sock.close()
+                            
+                            if ssh_reachable:
+                                log('✅ SSH port open, collecting data...', 'success')
+                                
+                                # Get SSH credentials
+                                ssh_user = server_config.ssh_user or 'root'
+                                ssh_pass = server_config.ssh_pass or ''
+                                ssh_key_content = None
+                                if server_config.ssh_key_id:
+                                    stored_key = SSHKey.query.get(server_config.ssh_key_id)
+                                    if stored_key:
+                                        ssh_key_content = stored_key.key_content
+                                
+                                def build_ssh_cmd(remote_cmd):
+                                    ssh_opts = ['-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no', '-o', 'BatchMode=no']
+                                    if ssh_key_content:
+                                        import tempfile
+                                        key_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.pem')
+                                        key_file.write(ssh_key_content.replace('\r\n', '\n').strip() + '\n')
+                                        key_file.close()
+                                        os.chmod(key_file.name, 0o600)
+                                        return ['ssh'] + ssh_opts + ['-i', key_file.name, '-o', 'BatchMode=yes', f'{ssh_user}@{ssh_ip}', remote_cmd]
+                                    elif ssh_pass:
+                                        return ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{ssh_ip}', remote_cmd]
+                                    else:
+                                        return ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{ssh_ip}', remote_cmd]
+                                
+                                # Collect storage via SSH if missing
+                                if needs_storage:
+                                    log('  → Getting storage info via SSH...')
+                                    try:
+                                        cmd = build_ssh_cmd('lsblk -J -d -o NAME,SIZE,MODEL,TYPE 2>/dev/null || lsblk -d -o NAME,SIZE,MODEL,TYPE')
+                                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                                        if result.returncode == 0 and result.stdout:
+                                            try:
+                                                storage_data = json.loads(result.stdout)
+                                                drives = [d for d in storage_data.get('blockdevices', []) if d.get('type') == 'disk']
+                                                if drives:
+                                                    inventory.storage_info = json.dumps(drives)
+                                                    log(f'  ✓ Storage: {len(drives)} drives', 'success')
+                                            except json.JSONDecodeError:
+                                                drives = []
+                                                for line in result.stdout.strip().split('\n')[1:]:
+                                                    parts = line.split()
+                                                    if len(parts) >= 2:
+                                                        drives.append({
+                                                            'name': parts[0],
+                                                            'size': parts[1] if len(parts) > 1 else 'Unknown',
+                                                            'model': ' '.join(parts[2:-1]) if len(parts) > 3 else 'Unknown',
+                                                            'type': parts[-1] if len(parts) > 1 else 'disk'
+                                                        })
+                                                if drives:
+                                                    inventory.storage_info = json.dumps(drives)
+                                                    log(f'  ✓ Storage: {len(drives)} drives', 'success')
+                                    except subprocess.TimeoutExpired:
+                                        log('  ⚠ Storage collection timed out', 'warning')
+                                    except Exception as e:
+                                        log(f'  ⚠ Storage error: {str(e)[:40]}', 'warning')
+                                
+                                # Collect CPU info via SSH if missing
+                                if needs_cpu:
+                                    log('  → Getting CPU info via SSH...')
+                                    try:
+                                        cmd = build_ssh_cmd('lscpu 2>/dev/null | grep -E "Model name|Socket|Core"')
+                                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+                                        if result.returncode == 0 and result.stdout:
+                                            for line in result.stdout.split('\n'):
+                                                if 'Model name' in line:
+                                                    inventory.cpu_model = line.split(':', 1)[1].strip()
+                                                    log(f'  ✓ CPU: {inventory.cpu_model}', 'success')
+                                                    break
+                                    except Exception as e:
+                                        log(f'  ⚠ CPU error: {str(e)[:40]}', 'warning')
                             else:
                                 log('❌ SSH port closed or unreachable', 'error')
-                            sock.close()
                         except Exception as e:
-                            log(f'⚠ SSH check error: {str(e)[:50]}', 'warning')
-                    elif server_ip and not ssh_enabled:
+                            log(f'⚠ SSH error: {str(e)[:50]}', 'warning')
+                    elif ssh_ip and not ssh_enabled:
                         log('ℹ SSH inventory disabled in settings', 'warning')
-                    elif not server_ip:
+                    elif not ssh_ip:
                         log('ℹ No primary IP configured for SSH', 'warning')
+                    elif not needs_ssh:
+                        log('ℹ All data collected via Redfish/IPMI', 'info')
                     
                     # ========== Save ==========
                     log('💾 Saving inventory data...')
