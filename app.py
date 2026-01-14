@@ -269,7 +269,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.0.3-dev'  # Enhanced DIMM inventory, Redfish SensorType fix
+APP_VERSION = '1.0.4-dev'  # Development version after v1.0.3 release
 
 def get_build_info():
     """
