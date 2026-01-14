@@ -402,7 +402,7 @@
             <button class="tab active" onclick="showTab('manage')">🖥️ Manage Servers</button>
             <button class="tab" onclick="showTab('ssh')">🔐 SSH (Optional)</button>
             <button class="tab" onclick="showTab('alerts')">🔔 Alerts</button>
-            <button class="tab" onclick="showTab('notifications')">📬 Notifications</button>
+            <button class="tab" onclick="showTab('notifications')">📬 Alert Settings</button>
             <button class="tab" onclick="showTab('import')">📥 Import/Export</button>
             <button class="tab admin-only-tab" onclick="showTab('security')" style="display: none;">🛡️ Security</button>
             <button class="tab admin-only-tab" onclick="showTab('ai')" style="display: none;">🤖 AI Features</button>
@@ -1094,77 +1094,6 @@
                 </div>
             </div>
             
-            <!-- Email Alerts Card -->
-            <div class="card" id="emailAlertsCard">
-                <div class="card-title">📧 Email Alerts</div>
-                
-                <!-- Not linked overlay/message -->
-                <div id="emailAlertsDisabled" style="display: block;">
-                    <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center; opacity: 0.7;">
-                        <span style="font-size: 2rem; display: block; margin-bottom: 10px;">🔒</span>
-                        <div style="font-weight: 600; margin-bottom: 5px;">AI Account Required</div>
-                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">
-                            Link your CryptoLabs AI account to receive email alerts at your account email address.
-                        </div>
-                        <button class="btn btn-primary" onclick="showTab('ai', event || window.event)">🔗 Go to AI Features</button>
-                    </div>
-                </div>
-                
-                <!-- Enabled content -->
-                <div id="emailAlertsEnabled" style="display: none;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <span style="font-size: 1.2rem;">📬</span>
-                            <div>
-                                <div style="font-weight: 600;">Receive Email Alerts</div>
-                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                    Alerts will be sent to: <strong id="emailAlertsTarget">-</strong>
-                                </div>
-                            </div>
-                        </div>
-                        <label class="toggle-switch">
-                            <input type="checkbox" id="emailAlertsToggle" onchange="toggleEmailAlerts()">
-                            <span class="toggle-slider"></span>
-                        </label>
-                    </div>
-                    
-                    <div id="emailAlertOptions" style="display: none; padding-top: 15px; border-top: 1px solid var(--border-color);">
-                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">Alert types to receive:</div>
-                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="email-alert-type" value="server_down" checked>
-                                <span>🔴 Server Down</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="email-alert-type" value="server_up">
-                                <span>🟢 Server Recovered</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="email-alert-type" value="critical_event" checked>
-                                <span>🚨 Critical Events</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="email-alert-type" value="warning_event">
-                                <span>⚠️ Warning Events</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="email-alert-type" value="temperature">
-                                <span>🌡️ Temperature</span>
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" class="email-alert-type" value="power">
-                                <span>⚡ Power Events</span>
-                            </label>
-                        </div>
-                        <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
-                            <button class="btn btn-primary btn-sm" onclick="saveEmailAlertPrefs()">💾 Save Preferences</button>
-                            <button class="btn btn-secondary btn-sm" onclick="testEmailAlert()">📧 Send Test</button>
-                            <span id="emailAlertStatus" style="font-size: 0.85rem;"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
             <!-- Add/Edit Rule Modal -->
             <div id="ruleModal" class="modal" style="display: none;">
                 <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
@@ -1423,6 +1352,80 @@
                     <code>ipmi_temperature_celsius{sensor_name="CPU..."}</code><br>
                     <code>ipmi_fan_speed_rpm{sensor_name="..."}</code><br>
                     <code>ipmi_power_watts{server_name="..."}</code>
+                </div>
+            </div>
+            
+            <!-- CryptoLabs Email Alerts Card -->
+            <div class="card" id="emailAlertsCard">
+                <div class="card-title">🔔 CryptoLabs Email Alerts</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Receive alerts via CryptoLabs cloud service to your linked account email. No SMTP configuration required.
+                </p>
+                
+                <!-- Not linked overlay/message -->
+                <div id="emailAlertsDisabled" style="display: block;">
+                    <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center; opacity: 0.7;">
+                        <span style="font-size: 2rem; display: block; margin-bottom: 10px;">🔒</span>
+                        <div style="font-weight: 600; margin-bottom: 5px;">AI Account Required</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">
+                            Link your CryptoLabs AI account to receive email alerts at your account email address.
+                        </div>
+                        <button class="btn btn-primary" onclick="showTab('ai', event || window.event)">🔗 Go to AI Features</button>
+                    </div>
+                </div>
+                
+                <!-- Enabled content -->
+                <div id="emailAlertsEnabled" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">📬</span>
+                            <div>
+                                <div style="font-weight: 600;">Receive Email Alerts</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                    Alerts will be sent to: <strong id="emailAlertsTarget">-</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="emailAlertsToggle" onchange="toggleEmailAlerts()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    
+                    <div id="emailAlertOptions" style="display: none; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">Alert types to receive:</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="email-alert-type" value="server_down" checked>
+                                <span>🔴 Server Down</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="email-alert-type" value="server_up">
+                                <span>🟢 Server Recovered</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="email-alert-type" value="critical_event" checked>
+                                <span>🚨 Critical Events</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="email-alert-type" value="warning_event">
+                                <span>⚠️ Warning Events</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="email-alert-type" value="temperature">
+                                <span>🌡️ Temperature</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" class="email-alert-type" value="power">
+                                <span>⚡ Power Events</span>
+                            </label>
+                        </div>
+                        <div style="margin-top: 15px; display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-primary btn-sm" onclick="saveEmailAlertPrefs()">💾 Save Preferences</button>
+                            <button class="btn btn-secondary btn-sm" onclick="testEmailAlert()">📧 Send Test</button>
+                            <span id="emailAlertStatus" style="font-size: 0.85rem;"></span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1845,7 +1848,7 @@
                                     <div style="font-weight: 600;" id="linkedAccountEmail">-</div>
                                 </div>
                             </div>
-                            <a href="javascript:void(0)" onclick="showTab('alerts', event)" style="font-size: 0.85rem; color: var(--accent-blue);">
+                            <a href="javascript:void(0)" onclick="showTab('notifications', event)" style="font-size: 0.85rem; color: var(--accent-blue);">
                                 📧 Email Alerts →
                             </a>
                         </div>
@@ -2039,8 +2042,8 @@
             if (tabId === 'manage') { loadManagedServers(); loadBulkServerList(); }
             if (tabId === 'ssh') { loadSshSettings(); loadSshKeys(); loadSshLogSettings(); }
             if (tabId === 'import') loadExportPreview();
-            if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); loadEmailAlertStatus(); }
-            if (tabId === 'notifications') loadNotificationConfigs();
+            if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
+            if (tabId === 'notifications') { loadNotificationConfigs(); loadEmailAlertStatus(); }
             if (tabId === 'security') loadAdminCredentials();
             if (tabId === 'ai') loadAiConfig();
         }
