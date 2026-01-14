@@ -327,6 +327,58 @@
             background: var(--bg-secondary);
             border-color: var(--accent-blue);
         }
+        
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: 0.3s;
+            border-radius: 26px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: var(--accent-green);
+        }
+        
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -1722,6 +1774,58 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Email Alerts Section (only when linked) -->
+                    <div id="emailAlertsSection" style="margin-top: 15px; padding: 16px; background: var(--bg-secondary); border-radius: 8px; display: none;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 1.2rem;">📧</span>
+                                <div>
+                                    <div style="font-weight: 600;">Email Alerts</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Receive alerts at your linked email</div>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="emailAlertsEnabled" onchange="toggleEmailAlerts()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        
+                        <div id="emailAlertOptions" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+                            <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">Alert types to receive:</div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" class="email-alert-type" value="server_down" checked>
+                                    <span>🔴 Server Down</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" class="email-alert-type" value="server_up">
+                                    <span>🟢 Server Recovered</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" class="email-alert-type" value="critical_event" checked>
+                                    <span>🚨 Critical Events</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" class="email-alert-type" value="warning_event">
+                                    <span>⚠️ Warning Events</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" class="email-alert-type" value="temperature">
+                                    <span>🌡️ Temperature</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" class="email-alert-type" value="power">
+                                    <span>⚡ Power Events</span>
+                                </label>
+                            </div>
+                            <div style="margin-top: 12px;">
+                                <button class="btn btn-primary btn-sm" onclick="saveEmailAlertPrefs()">💾 Save Preferences</button>
+                                <button class="btn btn-secondary btn-sm" onclick="testEmailAlert()">📧 Send Test</button>
+                                <span id="emailAlertStatus" style="margin-left: 10px; font-size: 0.85rem;"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
@@ -1981,11 +2085,16 @@
                 
                 // Show linked account info
                 const linkedSection = document.getElementById('linkedAccountSection');
+                const emailAlertsSection = document.getElementById('emailAlertsSection');
                 if (config.linked_account && config.linked_account.wp_email) {
                     linkedSection.style.display = 'block';
                     document.getElementById('linkedAccountEmail').textContent = config.linked_account.wp_email;
+                    // Show email alerts section when linked
+                    emailAlertsSection.style.display = 'block';
+                    loadEmailAlertPrefs();
                 } else {
                     linkedSection.style.display = 'none';
+                    emailAlertsSection.style.display = 'none';
                 }
                 
                 // Show sync status if available
@@ -2218,6 +2327,100 @@
             } catch (e) {
                 showAlert('Sync error: ' + e.message, 'error');
             }
+        }
+        
+        // ============== Email Alerts ==============
+        
+        async function loadEmailAlertPrefs() {
+            try {
+                const response = await fetch('/api/ai/email-preferences');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                if (data.preferences) {
+                    document.getElementById('emailAlertsEnabled').checked = data.preferences.enabled || false;
+                    document.getElementById('emailAlertOptions').style.display = data.preferences.enabled ? 'block' : 'none';
+                    
+                    // Set checkbox states
+                    const types = data.preferences.alert_types || ['server_down', 'critical_event'];
+                    document.querySelectorAll('.email-alert-type').forEach(cb => {
+                        cb.checked = types.includes(cb.value);
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to load email preferences:', e);
+            }
+        }
+        
+        function toggleEmailAlerts() {
+            const enabled = document.getElementById('emailAlertsEnabled').checked;
+            document.getElementById('emailAlertOptions').style.display = enabled ? 'block' : 'none';
+            
+            // Auto-save the toggle state
+            saveEmailAlertPrefs(true);
+        }
+        
+        async function saveEmailAlertPrefs(silent = false) {
+            const enabled = document.getElementById('emailAlertsEnabled').checked;
+            const alertTypes = [];
+            document.querySelectorAll('.email-alert-type:checked').forEach(cb => {
+                alertTypes.push(cb.value);
+            });
+            
+            try {
+                const response = await fetch('/api/ai/email-preferences', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        enabled: enabled,
+                        alert_types: alertTypes
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    if (!silent) {
+                        document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-green);">✅ Saved!</span>';
+                        setTimeout(() => {
+                            document.getElementById('emailAlertStatus').innerHTML = '';
+                        }, 3000);
+                    }
+                } else {
+                    if (!silent) {
+                        document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-red);">❌ ' + (data.error || 'Failed') + '</span>';
+                    }
+                }
+            } catch (e) {
+                if (!silent) {
+                    document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-red);">❌ Error: ' + e.message + '</span>';
+                }
+            }
+        }
+        
+        async function testEmailAlert() {
+            document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-blue);">📧 Sending test...</span>';
+            
+            try {
+                const response = await fetch('/api/ai/email-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-green);">✅ Test email sent!</span>';
+                } else {
+                    document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-red);">❌ ' + (data.error || 'Failed to send') + '</span>';
+                }
+            } catch (e) {
+                document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-red);">❌ Error: ' + e.message + '</span>';
+            }
+            
+            setTimeout(() => {
+                document.getElementById('emailAlertStatus').innerHTML = '';
+            }, 5000);
         }
         
         function showAlert(message, type) {

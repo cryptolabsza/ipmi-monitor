@@ -4222,7 +4222,7 @@ Time: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
         if send_telegram_notification(message, alert_history.severity):
             alert_history.notified_telegram = True
     
-    # Email
+    # Email (local SMTP)
     if rule.notify_email:
         subject = f"{alert_history.rule_name} - {alert_history.server_name}"
         if send_email_notification(subject, message, alert_history.severity):
@@ -4242,6 +4242,35 @@ Time: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
         }
         if send_webhook_notification(alert_data):
             alert_history.notified_webhook = True
+    
+    # CryptoLabs Email (via linked account)
+    # Map alert_type to email alert types used by WordPress
+    alert_type_map = {
+        'server': 'server_down',
+        'server_power': 'power',
+        'temperature': 'temperature',
+        'fan': 'temperature',  # Group with temperature
+        'memory': 'memory',
+        'disk': 'disk',
+        'ecc_rate': 'memory'
+    }
+    email_alert_type = alert_type_map.get(alert_history.alert_type, 'critical_event')
+    if alert_history.severity == 'critical':
+        email_alert_type = 'critical_event'
+    elif alert_history.severity == 'warning' and email_alert_type == 'critical_event':
+        email_alert_type = 'warning_event'
+    
+    try:
+        send_email_alert(
+            alert_type=email_alert_type,
+            subject=f"{alert_history.rule_name} - {alert_history.server_name}",
+            message=f"{alert_history.message}\n\nValue: {alert_history.value}\nThreshold: {alert_history.threshold}\nTime: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+            server_name=alert_history.server_name,
+            server_ip=alert_history.bmc_ip,
+            severity=alert_history.severity
+        )
+    except Exception as e:
+        app.logger.debug(f"CryptoLabs email alert skipped: {e}")
 
 def send_resolved_notifications(alert_history, rule):
     """Send resolved notifications for an alert"""
@@ -4299,6 +4328,20 @@ Resolved At: {alert_history.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}
         }
         if send_webhook_notification(alert_data):
             alert_history.resolved_notified_webhook = True
+    
+    # CryptoLabs Email (recovery notification)
+    if notify_resolve:
+        try:
+            send_email_alert(
+                alert_type='server_up',
+                subject=f"✅ RESOLVED: {alert_history.rule_name} - {alert_history.server_name}",
+                message=f"The following alert has been resolved:\n\n{alert_history.rule_name}\n\nDuration: {duration}\nFired: {alert_history.fired_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\nResolved: {alert_history.resolved_at.strftime('%Y-%m-%d %H:%M:%S UTC')}",
+                server_name=alert_history.server_name,
+                server_ip=alert_history.bmc_ip,
+                severity='info'
+            )
+        except Exception as e:
+            app.logger.debug(f"CryptoLabs recovery email skipped: {e}")
 
 def resolve_alert(alert_id):
     """Mark an alert as resolved and send notifications"""
@@ -14698,6 +14741,149 @@ def api_test_ai_connection():
         return jsonify({'valid': False, 'error': 'Connection timed out. AI service may be unavailable.'}), 504
     except requests.exceptions.RequestException as e:
         return jsonify({'valid': False, 'error': f'Connection failed: {str(e)}'}), 500
+
+
+# ============== Email Alerts ==============
+
+@app.route('/api/ai/email-preferences', methods=['GET', 'POST'])
+@admin_required
+def api_email_preferences():
+    """Get or update email alert preferences via WordPress"""
+    config = CloudSync.get_config()
+    
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected. Link your CryptoLabs account first.'}), 400
+    
+    wp_url = 'https://cryptolabs.co.za'
+    
+    try:
+        if request.method == 'GET':
+            # Get preferences from WordPress
+            response = requests.get(
+                f"{wp_url}/wp-json/cryptolabs/v1/ipmi/alert-preferences",
+                headers={'Authorization': f'Bearer {config.license_key}'},
+                timeout=10
+            )
+            
+            if response.ok:
+                data = response.json()
+                return jsonify(data)
+            else:
+                error = response.json().get('error', 'Failed to get preferences') if response.headers.get('content-type', '').startswith('application/json') else 'Server error'
+                return jsonify({'success': False, 'error': error}), response.status_code
+        
+        else:  # POST
+            # Update preferences on WordPress
+            body = request.get_json() or {}
+            response = requests.post(
+                f"{wp_url}/wp-json/cryptolabs/v1/ipmi/alert-preferences",
+                json=body,
+                headers={
+                    'Authorization': f'Bearer {config.license_key}',
+                    'Content-Type': 'application/json'
+                },
+                timeout=10
+            )
+            
+            if response.ok:
+                data = response.json()
+                return jsonify(data)
+            else:
+                error = response.json().get('error', 'Failed to update preferences') if response.headers.get('content-type', '').startswith('application/json') else 'Server error'
+                return jsonify({'success': False, 'error': error}), response.status_code
+                
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Email preferences error: {e}")
+        return jsonify({'success': False, 'error': f'Connection error: {str(e)}'}), 500
+
+
+@app.route('/api/ai/email-test', methods=['POST'])
+@admin_required
+def api_email_test():
+    """Send a test email alert"""
+    config = CloudSync.get_config()
+    
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected'}), 400
+    
+    # Get current user for linked account
+    current_username = session.get('username')
+    user = User.query.filter_by(username=current_username).first() if current_username else None
+    
+    wp_url = 'https://cryptolabs.co.za'
+    
+    try:
+        response = requests.post(
+            f"{wp_url}/wp-json/cryptolabs/v1/ipmi/send-alert",
+            json={
+                'alert_type': 'general',
+                'subject': 'IPMI Monitor Test Alert',
+                'message': 'This is a test alert from your IPMI Monitor. If you received this email, your email alerts are working correctly!',
+                'server_name': 'Test Server',
+                'severity': 'info',
+                'site_name': config.site_name or 'IPMI Monitor'
+            },
+            headers={
+                'Authorization': f'Bearer {config.license_key}',
+                'Content-Type': 'application/json'
+            },
+            timeout=15
+        )
+        
+        if response.ok:
+            return jsonify({'success': True, 'message': 'Test email sent!'})
+        else:
+            error = response.json().get('error', 'Failed to send') if response.headers.get('content-type', '').startswith('application/json') else 'Server error'
+            return jsonify({'success': False, 'error': error}), response.status_code
+            
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Email test error: {e}")
+        return jsonify({'success': False, 'error': f'Connection error: {str(e)}'}), 500
+
+
+def send_email_alert(alert_type, subject, message, server_name=None, server_ip=None, severity='warning'):
+    """
+    Send an email alert via CryptoLabs.
+    
+    This is called by various monitoring functions when alerts are triggered.
+    """
+    config = CloudSync.get_config()
+    
+    if not config.license_key:
+        app.logger.debug("Email alert skipped - no license key configured")
+        return False
+    
+    wp_url = 'https://cryptolabs.co.za'
+    
+    try:
+        response = requests.post(
+            f"{wp_url}/wp-json/cryptolabs/v1/ipmi/send-alert",
+            json={
+                'alert_type': alert_type,
+                'subject': subject,
+                'message': message,
+                'server_name': server_name,
+                'server_ip': server_ip,
+                'severity': severity,
+                'site_name': config.site_name or 'IPMI Monitor'
+            },
+            headers={
+                'Authorization': f'Bearer {config.license_key}',
+                'Content-Type': 'application/json'
+            },
+            timeout=10
+        )
+        
+        if response.ok:
+            app.logger.info(f"Email alert sent: {alert_type} - {subject}")
+            return True
+        else:
+            app.logger.warning(f"Email alert failed: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        app.logger.error(f"Email alert error: {e}")
+        return False
 
 
 @app.route('/api/ai/results')
