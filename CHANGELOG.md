@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Watchtower Labels in Quick Start** - README examples now include auto-update labels
 
 ### Fixed
+- **System Tab Not Showing** - Fixed server_ip lookup to check Server table (not just ServerConfig)
+- **Storage Display "undefined"** - Normalize Redfish storage field names (Name→name, CapacityBytes→size)
+- **SSH Storage Collection** - Streaming inventory now collects storage via SSH when Redfish fails
 - **AI Disconnect** - Properly clears license key and linked account info when disconnecting
 - **OAuth Callback** - Redirects to settings page when opened in new tab (not popup)
 - **Signup URL** - Corrected from `/ipmi-monitor/` to `/ipmi_signup/`
