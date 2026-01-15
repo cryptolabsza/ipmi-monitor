@@ -171,14 +171,14 @@ IPMI Monitor is designed for production datacenter environments:
 
 - **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
 - **Docker**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
-- **Discord**: [Join our Discord](https://discord.gg/G9uNuqMG)
+- **Discord**: [Join our Discord](https://discord.gg/7yeHdf5BuC)
 - **AI Features**: [cryptolabs.co.za](https://cryptolabs.co.za)
 
 ---
 
 ## 🆘 Support
 
-- 💬 [Join our Discord](https://discord.gg/G9uNuqMG) - Get help, chat with the community
+- 💬 [Join our Discord](https://discord.gg/7yeHdf5BuC) - Get help, chat with the community
 - 🐛 [Report a Bug](https://github.com/cryptolabsza/ipmi-monitor/issues/new)
 - 💡 [Request a Feature](https://github.com/cryptolabsza/ipmi-monitor/issues/new)
 - 💬 [Discussions](https://github.com/cryptolabsza/ipmi-monitor/discussions)
