@@ -4098,12 +4098,16 @@
                     .replace(/^([^<]+)(<)/s, (match, text, tag) => {
                         // Format intro text before first HTML tag
                         return text.replace(/\n/g, '<br>').replace(/^- /gm, '• ') + tag;
-                    });
+                    })
+                    // Handle markdown links [text](url) in HTML content too
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color: var(--accent-blue);">$1</a>');
             }
             
             // Plain text content - convert markdown-like syntax to HTML
             return content
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Handle markdown links [text](url) - convert to clickable links
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color: var(--accent-blue);">$1</a>')
                 .replace(/\n/g, '<br>')
                 .replace(/^- /gm, '• ');
         }
