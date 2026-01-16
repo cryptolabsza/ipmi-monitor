@@ -49,54 +49,86 @@
 
 ## 🚀 Quick Start
 
-### Option 1: pip install (Recommended)
-
-The easiest way to get started - interactive setup wizard with text UI.
+### One Command Setup ⚡
 
 ```bash
-# Install
 pip install ipmi-monitor
-
-# Run setup wizard (interactive)
-ipmi-monitor setup
-
-# Or with systemd service
-sudo ipmi-monitor setup --install-service
-
-# Start the web interface
-ipmi-monitor run
+sudo ipmi-monitor quickstart
 ```
 
-**What the setup wizard does:**
-- Prompts for BMC/IPMI details (IP, username, password)
-- Optional SSH configuration for system logs
-- Optional CryptoLabs AI features setup
-- Creates config in `~/.config/ipmi-monitor/`
+**That's it!** Answer a few questions:
 
-### Quick Setup with Config File
+```
+╭──────────────────────────────────────────────────╮
+│           IPMI Monitor - Quick Setup             │
+╰──────────────────────────────────────────────────╯
 
-For faster deployment, create a config file first:
+Detected: my-server (192.168.1.100)
+
+Step 1: Add Server to Monitor
+  Server name: gpu-server-01
+  BMC IP address: 192.168.1.80
+  BMC username: ADMIN
+  BMC password: ******
+  ✓ IPMI connection successful
+  
+  Add SSH access for detailed monitoring? [Y/n]: y
+  Server IP (for SSH): 192.168.1.81
+  SSH username: root
+  SSH password: ******
+
+Step 2: Web Interface Settings
+  Web interface port: [5000]
+
+Step 3: AI Features (Optional)
+  Enable AI Insights? [y/N]: n
+
+Step 4: Starting IPMI Monitor
+  ✓ Configuration saved
+  ✓ Service installed and started
+
+╭──────────────────────────────────────────────────╮
+│              ✓ Setup Complete!                   │
+╰──────────────────────────────────────────────────╯
+Web Interface: http://192.168.1.100:5000
+```
+
+### After Setup
 
 ```bash
-mkdir -p ~/.config/ipmi-monitor
+# Add more servers
+ipmi-monitor add-server --bmc-ip 192.168.1.82 --username admin
+
+# Check status
+ipmi-monitor status
+
+# View logs
+ipmi-monitor logs
 ```
 
-**~/.config/ipmi-monitor/servers.yaml:**
+### Quick Setup with Config File (Alternative)
+
+For automated deployment, create a config file first:
+
+```bash
+mkdir -p /etc/ipmi-monitor
+```
+
+**servers.yaml:**
 ```yaml
 servers:
   - name: GPU-Server-01
     bmc_ip: 192.168.1.80
-    username: admin
-    password: your-ipmi-password
+    bmc_user: admin
+    bmc_password: your-ipmi-password
     server_ip: 192.168.1.81      # Optional: for SSH
     ssh_user: root
     ssh_key: ~/.ssh/id_rsa       # Or use ssh_password
 
   - name: GPU-Server-02
     bmc_ip: 192.168.1.82
-    username: admin
-    password: your-ipmi-password
-    server_ip: 192.168.1.83
+    bmc_user: admin
+    bmc_password: your-ipmi-password
 
   - name: Storage-Server
     bmc_ip: 192.168.1.84

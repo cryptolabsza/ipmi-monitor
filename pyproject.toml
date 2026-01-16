@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ipmi-monitor"
+version = "1.0.3"
+description = "IPMI/BMC Server Monitoring with AI-Powered Insights"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "CryptoLabs", email = "info@cryptolabs.co.za"}
+]
+keywords = ["ipmi", "bmc", "server", "monitoring", "gpu", "datacenter", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "flask>=3.0.0",
+    "flask-sqlalchemy>=3.1.1",
+    "gunicorn>=21.2.0",
+    "requests>=2.31.0",
+    "prometheus-client>=0.19.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "questionary>=2.0.0",
+    "pyyaml>=6.0",
+    "paramiko>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/cryptolabsza/ipmi-monitor"
+Documentation = "https://cryptolabsza.github.io/ipmi-monitor/"
+Repository = "https://github.com/cryptolabsza/ipmi-monitor"
+Issues = "https://github.com/cryptolabsza/ipmi-monitor/issues"
+Discord = "https://discord.gg/7yeHdf5BuC"
+
+[project.scripts]
+ipmi-monitor = "ipmi_monitor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ipmi_monitor = [
+    "templates/*.html",
+    "static/*",
+    "knowledge/*.md",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N", "B", "C4"]
+ignore = ["E501"]

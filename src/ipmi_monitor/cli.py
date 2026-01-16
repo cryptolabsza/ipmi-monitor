@@ -15,6 +15,7 @@ from rich import print as rprint
 from . import __version__
 from .wizard import SetupWizard
 from .service import ServiceManager
+from .quickstart import run_quickstart
 
 console = Console()
 
@@ -28,15 +29,39 @@ def main():
     Monitor your servers' BMC/IPMI interfaces with a beautiful web dashboard
     and optional AI-powered diagnostics.
     
+    \b
     Quick Start:
+        pip install ipmi-monitor
+        sudo ipmi-monitor quickstart
     
-        ipmi-monitor setup       # Run the setup wizard
-        
-        ipmi-monitor run         # Start the web interface
-        
-        ipmi-monitor daemon      # Run as background service
+    \b
+    Commands:
+        quickstart   ⚡ One-command setup (recommended)
+        add-server   Add another server to monitor
+        status       Check service status
     """
     pass
+
+
+@main.command()
+def quickstart():
+    """
+    ⚡ One-command setup - does everything!
+    
+    Just answer a few questions and your IPMI monitoring will be set up.
+    
+    \b
+    WHAT IT DOES:
+        - Prompts for your server's BMC/IPMI credentials
+        - Optionally configures SSH for detailed monitoring
+        - Sets up AI Insights (if you have a license)
+        - Installs and starts the service
+    
+    \b
+    EXAMPLE:
+        sudo ipmi-monitor quickstart
+    """
+    run_quickstart()
 
 
 @main.command()
