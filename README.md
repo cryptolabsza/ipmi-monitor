@@ -1,5 +1,6 @@
 # IPMI Monitor
 
+[![PyPI](https://img.shields.io/pypi/v/ipmi-monitor.svg)](https://pypi.org/project/ipmi-monitor/)
 [![Docker Build](https://github.com/cryptolabsza/ipmi-monitor/actions/workflows/docker-build.yml/badge.svg)](https://github.com/cryptolabsza/ipmi-monitor/actions/workflows/docker-build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -46,9 +47,86 @@
 
 ---
 
-## 🚀 Quick Start (5 minutes)
+## 🚀 Quick Start
 
-### Option 1: Docker Compose (Recommended)
+### Option 1: pip install (Recommended)
+
+The easiest way to get started - interactive setup wizard with text UI.
+
+```bash
+# Install
+pip install ipmi-monitor
+
+# Run setup wizard (interactive)
+ipmi-monitor setup
+
+# Or with systemd service
+sudo ipmi-monitor setup --install-service
+
+# Start the web interface
+ipmi-monitor run
+```
+
+**What the setup wizard does:**
+- Prompts for BMC/IPMI details (IP, username, password)
+- Optional SSH configuration for system logs
+- Optional CryptoLabs AI features setup
+- Creates config in `~/.config/ipmi-monitor/`
+
+### Quick Setup with Config File
+
+For faster deployment, create a config file first:
+
+```bash
+mkdir -p ~/.config/ipmi-monitor
+```
+
+**~/.config/ipmi-monitor/servers.yaml:**
+```yaml
+servers:
+  - name: GPU-Server-01
+    bmc_ip: 192.168.1.80
+    username: admin
+    password: your-ipmi-password
+    server_ip: 192.168.1.81      # Optional: for SSH
+    ssh_user: root
+    ssh_key: ~/.ssh/id_rsa       # Or use ssh_password
+
+  - name: GPU-Server-02
+    bmc_ip: 192.168.1.82
+    username: admin
+    password: your-ipmi-password
+    server_ip: 192.168.1.83
+
+  - name: Storage-Server
+    bmc_ip: 192.168.1.84
+    username: ADMIN
+    password: different-password
+```
+
+Then run:
+```bash
+ipmi-monitor setup --non-interactive --install-service
+sudo systemctl start ipmi-monitor
+```
+
+### CLI Commands
+
+```bash
+ipmi-monitor setup              # Interactive setup wizard
+ipmi-monitor run                # Start web interface
+ipmi-monitor run --port 8080    # Custom port
+ipmi-monitor daemon             # Run as daemon (for systemd)
+ipmi-monitor status             # Show status and config
+ipmi-monitor add-server         # Add a server interactively
+ipmi-monitor list-servers       # List configured servers
+```
+
+---
+
+### Option 2: Docker Compose
+
+For containerized deployments or if you prefer Docker:
 
 **Step 1:** Create project directory
 ```bash
@@ -90,7 +168,7 @@ docker-compose up -d
 
 ---
 
-### Option 2: Docker Run
+### Option 3: Docker Run
 
 ```bash
 # Create a named volume for data persistence
@@ -127,9 +205,51 @@ volumes:
 
 ---
 
+## 📁 Configuration File Reference
+
+### servers.yaml
+
+```yaml
+servers:
+  - name: GPU-Server-01           # Display name
+    bmc_ip: 192.168.1.80          # BMC/IPMI IP (required)
+    username: admin               # BMC username
+    password: ipmi-password       # BMC password
+    protocol: auto                # auto, ipmi, or redfish
+    
+    # Optional: SSH for system logs
+    server_ip: 192.168.1.81       # Server OS IP
+    ssh_user: root
+    ssh_port: 22
+    ssh_password: ssh-password    # Or use ssh_key
+    ssh_key: ~/.ssh/id_rsa        # Path to SSH private key
+```
+
+### config.yaml
+
+```yaml
+settings:
+  web_port: 5000
+  refresh_interval: 60           # Seconds between collections
+  enable_prometheus: true        # /metrics endpoint
+
+ai:
+  enabled: false                 # Enable AI features
+  license_key: sk-ipmi-xxxx      # CryptoLabs license key
+```
+
+---
+
 ## 🔄 Keeping Up to Date
 
-### Manual Update
+### pip install
+
+```bash
+pip install --upgrade ipmi-monitor
+sudo systemctl restart ipmi-monitor
+```
+
+### Docker Manual Update
 
 ```bash
 # Pull the latest image
@@ -139,7 +259,7 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
 docker-compose up -d
 ```
 
-### Automatic Updates with Watchtower (Recommended)
+### Automatic Updates with Watchtower (Docker)
 
 Add Watchtower to your `docker-compose.yml`:
 
@@ -222,9 +342,7 @@ docker run --rm -v OLD_VOLUME:/from -v NEW_VOLUME:/to alpine cp -av /from/. /to/
 
 ---
 
-## ⚙️ Configuration
-
-### Environment Variables
+## ⚙️ Environment Variables (Docker)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -486,6 +604,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🔗 Links
 
+- **PyPI**: [pypi.org/project/ipmi-monitor](https://pypi.org/project/ipmi-monitor/)
 - **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
 - **Docker Image**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
 - **Documentation**: [github.com/cryptolabsza/ipmi-monitor/docs](https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs)
