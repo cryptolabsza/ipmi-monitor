@@ -106,41 +106,55 @@ ipmi-monitor status
 ipmi-monitor logs
 ```
 
-### Quick Setup with Config File (Alternative)
+### Bulk Import (Many Servers)
 
-For automated deployment, create a config file first:
+Create a simple text file and paste when prompted:
+
+**Option 1: SSH only (no IPMI)**
+```
+global:root,sshpassword
+192.168.1.101
+192.168.1.102
+192.168.1.103
+```
+
+**Option 2: SSH + IPMI (full monitoring)**
+```
+globalSSH:root,sshpassword
+globalIPMI:ADMIN,ipmipassword
+192.168.1.101,192.168.1.80
+192.168.1.102,192.168.1.82
+192.168.1.103,192.168.1.84
+```
+
+**Option 3: Per-server credentials**
+```
+# serverIP,sshUser,sshPass,ipmiUser,ipmiPass,bmcIP
+192.168.1.101,root,pass1,ADMIN,ipmi1,192.168.1.80
+192.168.1.102,root,pass2,ADMIN,ipmi2,192.168.1.82
+```
+
+---
+
+## 🔗 Full Datacenter Suite
+
+For complete GPU datacenter monitoring, combine with [DC Overview](https://github.com/cryptolabsza/dc-overview):
 
 ```bash
-mkdir -p /etc/ipmi-monitor
+# On master server - install both tools
+pip install dc-overview ipmi-monitor
+
+# dc-overview: Grafana + Prometheus + GPU metrics
+sudo dc-overview quickstart
+
+# ipmi-monitor: BMC/IPMI health + SEL logs + AI insights
+sudo ipmi-monitor quickstart
 ```
 
-**servers.yaml:**
-```yaml
-servers:
-  - name: GPU-Server-01
-    bmc_ip: 192.168.1.80
-    bmc_user: admin
-    bmc_password: your-ipmi-password
-    server_ip: 192.168.1.81      # Optional: for SSH
-    ssh_user: root
-    ssh_key: ~/.ssh/id_rsa       # Or use ssh_password
-
-  - name: GPU-Server-02
-    bmc_ip: 192.168.1.82
-    bmc_user: admin
-    bmc_password: your-ipmi-password
-
-  - name: Storage-Server
-    bmc_ip: 192.168.1.84
-    username: ADMIN
-    password: different-password
-```
-
-Then run:
-```bash
-ipmi-monitor setup --non-interactive --install-service
-sudo systemctl start ipmi-monitor
-```
+| Tool | What it monitors |
+|------|------------------|
+| **dc-overview** | GPU utilization, temperature, power, CPU, RAM, disk |
+| **ipmi-monitor** | BMC health, SEL events, ECC errors, sensors, system logs |
 
 ### CLI Commands
 
