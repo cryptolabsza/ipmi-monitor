@@ -76,27 +76,29 @@ def run_quickstart():
     
     console.print(f"[dim]Detected: {hostname} ({local_ip})[/dim]\n")
     
-    # ============ Step 1: Add first server ============
-    console.print("[bold]Step 1: Add Server to Monitor[/bold]\n")
+    # ============ Step 1: Add servers ============
+    console.print("[bold]Step 1: Add Servers to Monitor[/bold]\n")
+    
+    # Ask how many servers
+    server_count = questionary.select(
+        "How many servers do you want to monitor?",
+        choices=[
+            questionary.Choice("Just one server", value="single"),
+            questionary.Choice("Multiple servers (same credentials)", value="bulk"),
+        ],
+        style=custom_style
+    ).ask()
     
     servers = []
     
-    # Add servers
-    while True:
-        add = questionary.confirm(
-            "Add a server to monitor?" if not servers else "Add another server?",
-            default=len(servers) == 0,
-            style=custom_style
-        ).ask()
-        
-        if not add:
-            break
-        
+    if server_count == "single":
         server = add_server_interactive()
         if server:
             servers.append(server)
             console.print(f"[green]✓[/green] Added {server['name']}")
-        
+    else:
+        servers = add_servers_bulk()
+    
     if not servers:
         console.print("[yellow]No servers added. Run again to add servers.[/yellow]")
         return
@@ -170,6 +172,131 @@ def run_quickstart():
     
     # Show summary
     show_summary(servers, local_ip, int(web_port), license_key is not None)
+
+
+def add_servers_bulk() -> List[Dict]:
+    """Add multiple servers with the same credentials."""
+    console.print(Panel(
+        "[bold]Adding Multiple Servers[/bold]\n\n"
+        "You'll provide:\n"
+        "  • ONE set of BMC/IPMI credentials (used for all servers)\n"
+        "  • A list of BMC IP addresses\n"
+        "  • Optionally: SSH credentials for detailed monitoring",
+        border_style="cyan"
+    ))
+    console.print()
+    
+    # BMC credentials (same for all)
+    console.print("[bold]IPMI/BMC Credentials[/bold] (used for all servers)\n")
+    
+    bmc_user = questionary.text(
+        "BMC username:",
+        default="ADMIN",
+        style=custom_style
+    ).ask()
+    
+    bmc_pass = questionary.password(
+        "BMC password:",
+        style=custom_style
+    ).ask()
+    
+    # Get BMC IPs
+    console.print("\n[bold]BMC IP Addresses[/bold]")
+    console.print("[dim]Enter one IP per line. Press Enter on blank line when done.[/dim]\n")
+    
+    bmc_ips = []
+    while True:
+        ip = questionary.text(
+            f"  BMC {len(bmc_ips)+1}:",
+            style=custom_style
+        ).ask()
+        
+        if not ip or ip.strip() == "":
+            break
+        
+        # Handle comma/space separated
+        for single_ip in ip.replace(",", " ").split():
+            single_ip = single_ip.strip()
+            if single_ip:
+                bmc_ips.append(single_ip)
+    
+    if not bmc_ips:
+        return []
+    
+    # Optional SSH access
+    console.print("\n[bold]SSH Access (Optional)[/bold]")
+    console.print("[dim]SSH enables: CPU info, storage details, system logs, GPU errors[/dim]\n")
+    
+    add_ssh = questionary.confirm(
+        "Add SSH access for detailed monitoring?",
+        default=True,
+        style=custom_style
+    ).ask()
+    
+    ssh_user = None
+    ssh_pass = None
+    ssh_key = None
+    
+    if add_ssh:
+        ssh_user = questionary.text(
+            "SSH username:",
+            default="root",
+            style=custom_style
+        ).ask()
+        
+        auth_method = questionary.select(
+            "SSH authentication:",
+            choices=["Password", "SSH Key"],
+            style=custom_style
+        ).ask()
+        
+        if auth_method == "Password":
+            ssh_pass = questionary.password(
+                "SSH password:",
+                style=custom_style
+            ).ask()
+        else:
+            ssh_key = questionary.text(
+                "SSH key path:",
+                default="/root/.ssh/id_rsa",
+                style=custom_style
+            ).ask()
+    
+    # Build server list
+    console.print(f"\n[dim]Testing {len(bmc_ips)} servers...[/dim]\n")
+    
+    servers = []
+    for i, bmc_ip in enumerate(bmc_ips):
+        name = f"server-{i+1:02d}"
+        
+        server = {
+            "name": name,
+            "bmc_ip": bmc_ip,
+            "bmc_user": bmc_user,
+            "bmc_password": bmc_pass
+        }
+        
+        # Test IPMI
+        if test_ipmi_connection(bmc_ip, bmc_user, bmc_pass):
+            console.print(f"[green]✓[/green] {name} ({bmc_ip}) - IPMI OK")
+        else:
+            console.print(f"[yellow]⚠[/yellow] {name} ({bmc_ip}) - IPMI failed (check credentials)")
+        
+        # Add SSH if configured
+        if add_ssh and ssh_user:
+            # Assume server IP is BMC IP with different last octet or same network
+            # User can edit this in the web UI later
+            server["ssh_user"] = ssh_user
+            if ssh_pass:
+                server["ssh_password"] = ssh_pass
+            if ssh_key:
+                server["ssh_key"] = ssh_key
+            server["ssh_port"] = 22
+            # Server IP will need to be set per-server in UI
+        
+        servers.append(server)
+    
+    return servers
 
 
 def add_server_interactive() -> Optional[Dict]:
