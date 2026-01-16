@@ -175,17 +175,174 @@ def run_quickstart():
 
 
 def add_servers_bulk() -> List[Dict]:
-    """Add multiple servers with the same credentials."""
+    """Add multiple servers - import file or manual entry."""
     console.print(Panel(
         "[bold]Adding Multiple Servers[/bold]\n\n"
-        "You'll provide:\n"
-        "  • ONE set of BMC/IPMI credentials (used for all servers)\n"
-        "  • A list of BMC IP addresses\n"
-        "  • Optionally: SSH credentials for detailed monitoring",
+        "Choose how to add servers:\n"
+        "  • [cyan]Import file[/cyan] - Paste a simple text file\n"
+        "  • [cyan]Enter manually[/cyan] - Type IPs one by one",
         border_style="cyan"
     ))
     console.print()
     
+    method = questionary.select(
+        "How do you want to add servers?",
+        choices=[
+            questionary.Choice("Import from file/paste (recommended)", value="import"),
+            questionary.Choice("Enter manually", value="manual"),
+        ],
+        style=custom_style
+    ).ask()
+    
+    if method == "import":
+        return import_servers_from_text()
+    else:
+        return add_servers_manual()
+
+
+def import_servers_from_text() -> List[Dict]:
+    """Import servers from a simple text format."""
+    console.print(Panel(
+        "[bold]Import Format[/bold]\n\n"
+        "[cyan]Option 1: SSH only (Grafana monitoring)[/cyan]\n"
+        "  global:root,sshpassword\n"
+        "  192.168.1.101\n"
+        "  192.168.1.102\n\n"
+        "[cyan]Option 2: SSH + IPMI (full monitoring)[/cyan]\n"
+        "  globalSSH:root,sshpassword\n"
+        "  globalIPMI:ADMIN,ipmipassword\n"
+        "  192.168.1.101,192.168.1.80\n"
+        "  192.168.1.102,192.168.1.82\n\n"
+        "[cyan]Option 3: Per-server credentials[/cyan]\n"
+        "  192.168.1.101,root,sshpass,ADMIN,ipmipass,192.168.1.80\n"
+        "  192.168.1.102,root,sshpass,ADMIN,ipmipass,192.168.1.82\n\n"
+        "[dim]Format: serverIP,sshUser,sshPass,ipmiUser,ipmiPass,bmcIP[/dim]\n"
+        "[dim]Paste your list below, then press Enter twice.[/dim]",
+        border_style="cyan"
+    ))
+    
+    console.print("\n[bold]Paste your server list:[/bold]")
+    
+    lines = []
+    while True:
+        line = questionary.text("", style=custom_style).ask()
+        if not line or line.strip() == "":
+            break
+        lines.append(line.strip())
+    
+    if not lines:
+        return []
+    
+    return parse_ipmi_server_list(lines)
+
+
+def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
+    """Parse server list supporting SSH and IPMI credentials."""
+    servers = []
+    global_ssh_user = None
+    global_ssh_pass = None
+    global_ipmi_user = None
+    global_ipmi_pass = None
+    
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        
+        # Check for global SSH credentials
+        if line.lower().startswith("globalssh:") or line.lower().startswith("global:"):
+            prefix = "globalssh:" if line.lower().startswith("globalssh:") else "global:"
+            parts = line[len(prefix):].split(",")
+            if len(parts) >= 2:
+                global_ssh_user = parts[0].strip()
+                global_ssh_pass = parts[1].strip()
+            continue
+        
+        # Check for global IPMI credentials
+        if line.lower().startswith("globalipmi:"):
+            parts = line[11:].split(",")
+            if len(parts) >= 2:
+                global_ipmi_user = parts[0].strip()
+                global_ipmi_pass = parts[1].strip()
+            continue
+        
+        # Parse server line
+        parts = [p.strip() for p in line.split(",")]
+        
+        server = {"name": f"server-{len(servers)+1:02d}"}
+        
+        if len(parts) == 1:
+            # Just server IP - use globals
+            server["server_ip"] = parts[0]
+            if global_ssh_user:
+                server["ssh_user"] = global_ssh_user
+                server["ssh_password"] = global_ssh_pass
+            if global_ipmi_user:
+                server["bmc_user"] = global_ipmi_user
+                server["bmc_password"] = global_ipmi_pass
+                # BMC IP often same network as server, different last octet
+                # Will need to be configured in UI
+                
+        elif len(parts) == 2:
+            # serverIP, bmcIP - use globals
+            server["server_ip"] = parts[0]
+            server["bmc_ip"] = parts[1]
+            if global_ssh_user:
+                server["ssh_user"] = global_ssh_user
+                server["ssh_password"] = global_ssh_pass
+            if global_ipmi_user:
+                server["bmc_user"] = global_ipmi_user
+                server["bmc_password"] = global_ipmi_pass
+                
+        elif len(parts) == 3:
+            # serverIP, sshUser, sshPass
+            server["server_ip"] = parts[0]
+            server["ssh_user"] = parts[1]
+            server["ssh_password"] = parts[2]
+            if global_ipmi_user:
+                server["bmc_user"] = global_ipmi_user
+                server["bmc_password"] = global_ipmi_pass
+                
+        elif len(parts) == 5:
+            # serverIP, sshUser, sshPass, ipmiUser, ipmiPass
+            server["server_ip"] = parts[0]
+            server["ssh_user"] = parts[1]
+            server["ssh_password"] = parts[2]
+            server["bmc_user"] = parts[3]
+            server["bmc_password"] = parts[4]
+            
+        elif len(parts) >= 6:
+            # serverIP, sshUser, sshPass, ipmiUser, ipmiPass, bmcIP
+            server["server_ip"] = parts[0]
+            server["ssh_user"] = parts[1]
+            server["ssh_password"] = parts[2]
+            server["bmc_user"] = parts[3]
+            server["bmc_password"] = parts[4]
+            server["bmc_ip"] = parts[5]
+        else:
+            continue
+        
+        # Validate has at least server_ip
+        if not server.get("server_ip"):
+            continue
+        
+        # Test IPMI if configured
+        if server.get("bmc_ip") and server.get("bmc_user"):
+            if test_ipmi_connection(server["bmc_ip"], server["bmc_user"], server["bmc_password"]):
+                console.print(f"[green]✓[/green] {server['name']} - IPMI OK ({server['bmc_ip']})")
+            else:
+                console.print(f"[yellow]⚠[/yellow] {server['name']} - IPMI failed ({server['bmc_ip']})")
+        else:
+            console.print(f"[blue]•[/blue] {server['name']} - SSH only ({server['server_ip']})")
+        
+        server["ssh_port"] = 22
+        servers.append(server)
+    
+    return servers
+
+
+def add_servers_manual() -> List[Dict]:
+    """Add multiple servers manually with shared credentials."""
     # BMC credentials (same for all)
     console.print("[bold]IPMI/BMC Credentials[/bold] (used for all servers)\n")
     
@@ -202,7 +359,7 @@ def add_servers_bulk() -> List[Dict]:
     
     # Get BMC IPs
     console.print("\n[bold]BMC IP Addresses[/bold]")
-    console.print("[dim]Enter one IP per line. Press Enter on blank line when done.[/dim]\n")
+    console.print("[dim]Enter one IP per line. Blank line to finish.[/dim]\n")
     
     bmc_ips = []
     while True:
@@ -225,7 +382,7 @@ def add_servers_bulk() -> List[Dict]:
     
     # Optional SSH access
     console.print("\n[bold]SSH Access (Optional)[/bold]")
-    console.print("[dim]SSH enables: CPU info, storage details, system logs, GPU errors[/dim]\n")
+    console.print("[dim]SSH enables: CPU info, storage, system logs, GPU errors[/dim]\n")
     
     add_ssh = questionary.confirm(
         "Add SSH access for detailed monitoring?",
@@ -280,19 +437,16 @@ def add_servers_bulk() -> List[Dict]:
         if test_ipmi_connection(bmc_ip, bmc_user, bmc_pass):
             console.print(f"[green]✓[/green] {name} ({bmc_ip}) - IPMI OK")
         else:
-            console.print(f"[yellow]⚠[/yellow] {name} ({bmc_ip}) - IPMI failed (check credentials)")
+            console.print(f"[yellow]⚠[/yellow] {name} ({bmc_ip}) - IPMI failed")
         
         # Add SSH if configured
         if add_ssh and ssh_user:
-            # Assume server IP is BMC IP with different last octet or same network
-            # User can edit this in the web UI later
             server["ssh_user"] = ssh_user
             if ssh_pass:
                 server["ssh_password"] = ssh_pass
             if ssh_key:
                 server["ssh_key"] = ssh_key
             server["ssh_port"] = 22
-            # Server IP will need to be set per-server in UI
         
         servers.append(server)
     
