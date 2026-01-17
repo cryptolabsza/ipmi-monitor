@@ -1,17 +1,12 @@
 name: Publish to PyPI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'pyproject.toml'
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (leave empty for auto-increment)'
+        description: 'Version to publish (must match pyproject.toml)'
         required: false
 
 jobs:
@@ -19,13 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write  # For version bump commit
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,31 +26,12 @@ jobs:
       - name: Install build tools
         run: pip install build twine
 
-      - name: Get current version
+      - name: Get version
         id: get_version
         run: |
-          CURRENT=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "Current version: $CURRENT"
-
-      - name: Auto-increment version (on push)
-        if: github.event_name == 'push'
-        id: bump_version
-        run: |
-          CURRENT="${{ steps.get_version.outputs.current }}"
-          # Extract major.minor.patch
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-          # Increment patch
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
-          echo "new=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Bumping version: $CURRENT -> $NEW_VERSION"
-          sed -i "s/version = \"$CURRENT\"/version = \"$NEW_VERSION\"/" pyproject.toml
-
-      - name: Set version (manual/release)
-        if: github.event_name != 'push' && github.event.inputs.version != ''
-        run: |
-          sed -i 's/version = ".*"/version = "${{ github.event.inputs.version }}"/' pyproject.toml
+          VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
 
       - name: Build package
         run: python -m build
@@ -70,21 +42,12 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: python -m twine upload dist/* --skip-existing
 
-      - name: Commit version bump
-        if: github.event_name == 'push'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add pyproject.toml
-          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new }}"
-          git push
-
       - name: Summary
         run: |
-          VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          VERSION=${{ steps.get_version.outputs.version }}
           echo "## 📦 Published ipmi-monitor $VERSION to PyPI" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Install with:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "pipx install ipmi-monitor" >> $GITHUB_STEP_SUMMARY
+          echo "pipx install ipmi-monitor==$VERSION" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
