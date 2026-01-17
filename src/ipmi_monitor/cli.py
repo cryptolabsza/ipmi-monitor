@@ -300,6 +300,65 @@ def list_servers():
     console.print(table)
 
 
+@main.command("setup-ssl")
+@click.option("--domain", "-d", help="Domain name (e.g., ipmi.example.com)")
+@click.option("--email", "-e", help="Email for Let's Encrypt certificate")
+@click.option("--letsencrypt", is_flag=True, help="Use Let's Encrypt instead of self-signed")
+@click.option("--site-name", default="IPMI Monitor", help="Name shown on landing page")
+@click.option("--dc-overview/--no-dc-overview", default=False, help="Include DC Overview (Grafana/Prometheus) in reverse proxy")
+@click.option("--vastai/--no-vastai", default=False, help="Show Vast.ai link on landing page")
+def setup_ssl(domain: str, email: str, letsencrypt: bool, site_name: str, dc_overview: bool, vastai: bool):
+    """
+    Set up reverse proxy with SSL (nginx).
+    
+    Creates a branded landing page with links to all services.
+    
+    \b
+    MODES:
+        Self-signed (default): Works immediately, browser shows warning
+        Let's Encrypt: Requires valid domain and ports 80/443 open
+    
+    \b
+    EXAMPLES:
+        sudo ipmi-monitor setup-ssl                         # Self-signed for IP access
+        sudo ipmi-monitor setup-ssl -d ipmi.example.com    # Self-signed with domain
+        sudo ipmi-monitor setup-ssl -d ipmi.example.com --letsencrypt -e admin@example.com
+    
+    \b
+    DNS SETUP (for domain):
+        Add these DNS records:
+          A    ipmi.example.com        → <server-ip>
+          A    grafana.ipmi.example.com → <server-ip>  (if --dc-overview)
+    
+    \b
+    CROSS-PROMOTION:
+        If you also have dc-overview installed, add --dc-overview to include Grafana/Prometheus links.
+        The landing page will promote dc-overview if not enabled, helping users discover the full suite.
+    """
+    if os.geteuid() != 0:
+        console.print("[red]Error:[/red] Setting up SSL requires root. Run with sudo.")
+        sys.exit(1)
+    
+    if letsencrypt and not email:
+        console.print("[red]Error:[/red] Let's Encrypt requires --email")
+        sys.exit(1)
+    
+    if letsencrypt and not domain:
+        console.print("[red]Error:[/red] Let's Encrypt requires --domain")
+        sys.exit(1)
+    
+    from .reverse_proxy import setup_reverse_proxy
+    
+    setup_reverse_proxy(
+        domain=domain,
+        email=email,
+        site_name=site_name,
+        grafana_enabled=dc_overview,
+        vastai_enabled=vastai,
+        use_letsencrypt=letsencrypt,
+    )
+
+
 def get_config_dir() -> Path:
     """Get the configuration directory."""
     # Check environment variable first

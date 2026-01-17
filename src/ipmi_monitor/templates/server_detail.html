@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+    <title>Server {{ bmc_ip }} - {{ app_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a25;
+            --border-color: #2a2a3a;
+            --text-primary: #e8e8f0;
+            --text-secondary: #8888a0;
+            --accent-blue: #4a9eff;
+            --accent-green: #00d68f;
+            --accent-yellow: #ffaa00;
+            --accent-red: #ff4757;
+            --accent-purple: #a855f7;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        [data-theme="light"] {
+            --bg-primary: #f5f7fa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #1a202c;
+            --text-secondary: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+        
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .breadcrumb a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        h1 {
+            font-size: 1.5rem;
+            font-family: 'JetBrains Mono', monospace;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 500;
+            background: var(--accent-blue);
+            color: white;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            opacity: 0.9;
+        }
+        
+        .btn-danger {
+            background: var(--accent-red);
+        }
+        
+        .btn-warning {
+            background: var(--accent-yellow);
+        }
+        
+        /* Power menu styling */
+        .power-option:hover {
+            background: var(--bg-secondary) !important;
+            color: #000;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .theme-toggle {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-toggle:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-blue);
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: var(--accent-purple);
+            border-radius: 2px;
+        }
+        
+        .events-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .events-table th,
+        .events-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .events-table th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+        
+        .events-table tr:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .events-table td {
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .severity-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical {
+            background: rgba(255, 71, 87, 0.15);
+            color: var(--accent-red);
+        }
+        
+        .severity-warning {
+            background: rgba(255, 170, 0, 0.15);
+            color: var(--accent-yellow);
+        }
+        
+        .severity-info {
+            background: rgba(74, 158, 255, 0.15);
+            color: var(--accent-blue);
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-group label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        
+        select, input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .mini-stat {
+            background: var(--bg-secondary);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .mini-stat .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .mini-stat .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+        
+        .mini-stat.critical .value { color: var(--accent-red); }
+        .mini-stat.warning .value { color: var(--accent-yellow); }
+        .mini-stat.info .value { color: var(--accent-blue); }
+        .mini-stat.total .value { color: var(--text-primary); }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 15px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+        
+        .tab-btn {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .tab-btn.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* System info grid */
+        .system-info-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .system-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .system-info-row:last-child {
+            border-bottom: none;
+        }
+        
+        .system-info-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+        
+        .system-info-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            text-align: right;
+            word-break: break-word;
+        }
+        
+        .system-info-value.success {
+            color: var(--accent-green);
+        }
+        
+        .system-info-value.warning {
+            color: var(--accent-yellow);
+        }
+        
+        .system-info-value.error {
+            color: var(--accent-red);
+        }
+        
+        /* Sensor cards */
+        .sensors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .sensor-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        
+        .sensor-card.ok { border-left: 4px solid var(--accent-green); }
+        .sensor-card.warning { border-left: 4px solid var(--accent-yellow); }
+        .sensor-card.critical { border-left: 4px solid var(--accent-red); }
+        .sensor-card.nr { border-left: 4px solid var(--accent-purple); }
+        
+        .sensor-name {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        
+        .sensor-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .sensor-type-section {
+            margin-bottom: 25px;
+        }
+        
+        .sensor-type-title {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sensor-type-title::before {
+            font-size: 1.2rem;
+        }
+        
+        .sensor-type-title.temperature::before { content: '🌡️'; }
+        .sensor-type-title.fan::before { content: '💨'; }
+        .sensor-type-title.voltage::before { content: '⚡'; }
+        .sensor-type-title.power::before { content: '🔌'; }
+        .sensor-type-title.memory::before { content: '💾'; }
+        .sensor-type-title.other::before { content: '📊'; }
+        
+        .no-sensors {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div>
+                <div class="breadcrumb">
+                    <a href="/">← Dashboard</a>
+                    <span>/</span>
+                    <span>Server Detail</span>
+                </div>
+                <h1>{{ bmc_ip }}</h1>
+            </div>
+            <div class="btn-group">
+                <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
+                <button class="btn btn-warning write-required" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
+                <button class="btn btn-danger write-required" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
+                
+                <!-- Power Management Dropdown - Admin and Readwrite -->
+                <div class="power-dropdown write-required" style="display: none; position: relative;">
+                    <button class="btn" onclick="togglePowerMenu()" id="powerMenuBtn" style="background: var(--accent-purple);">
+                        ⚡ Power <span id="powerStatusBadge" style="margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">...</span>
+                    </button>
+                    <div id="powerMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 0; min-width: 180px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                        <button class="power-option" onclick="powerAction('on')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-green);">🟢</span> Power On
+                        </button>
+                        <button class="power-option" onclick="powerAction('soft')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-yellow);">🟡</span> Soft Shutdown
+                        </button>
+                        <button class="power-option" onclick="powerAction('reset')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-blue);">🔄</span> Reset (Warm)
+                        </button>
+                        <button class="power-option" onclick="powerAction('cycle')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-purple);">🔁</span> Power Cycle
+                        </button>
+                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
+                        <div style="padding: 4px 16px; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase;">BMC Management</div>
+                        <button class="power-option" onclick="bmcAction('reset-cold')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;" title="Reboots BMC only - server keeps running">
+                            <span style="color: var(--accent-cyan);">🔧</span> BMC Cold Reset
+                        </button>
+                        <button class="power-option" onclick="bmcAction('reset-warm')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;" title="Soft restart of BMC - server keeps running">
+                            <span style="color: var(--accent-cyan);">🔄</span> BMC Warm Reset
+                        </button>
+                        <button class="power-option" onclick="bmcAction('info')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>ℹ️</span> BMC Info
+                        </button>
+                        <hr style="border: none; border-top: 1px solid var(--border-color); margin: 8px 0;">
+                        <button class="power-option" onclick="powerAction('off')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--accent-red); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>🔴</span> Force Power Off
+                        </button>
+                    </div>
+                </div>
+                
+                <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
+                    <span id="themeIcon">🌙</span>
+                </button>
+            </div>
+        </header>
+        
+        <div class="stats-row" id="statsRow">
+            <div class="mini-stat critical">
+                <div class="value" id="criticalCount">-</div>
+                <div class="label">Critical</div>
+            </div>
+            <div class="mini-stat warning">
+                <div class="value" id="warningCount">-</div>
+                <div class="label">Warning</div>
+            </div>
+            <div class="mini-stat info">
+                <div class="value" id="infoCount">-</div>
+                <div class="label">Info</div>
+            </div>
+            <div class="mini-stat total">
+                <div class="value" id="totalCount">-</div>
+                <div class="label">Total Events</div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('events')">📋 Events</button>
+            <button class="tab-btn" onclick="switchTab('sensors')">🌡️ Sensors</button>
+            <button class="tab-btn" onclick="switchTab('inventory')">🔧 Inventory</button>
+            <button class="tab-btn" onclick="switchTab('system')" id="systemTabBtn" style="display: none;">🖥️ System</button>
+            <button class="tab-btn" onclick="switchTab('syslogs')" id="syslogsTabBtn" style="display: none;">📜 System Logs <span id="syslogsTabCount" class="badge" style="display: none;"></span></button>
+        </div>
+        
+        <!-- Events Tab -->
+        <div id="eventsTab" class="tab-content active">
+            <div class="card">
+                <h2 class="section-title">Event Log</h2>
+                
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label>Severity:</label>
+                        <select id="severityFilter" onchange="loadEvents()">
+                            <option value="">All</option>
+                            <option value="critical">Critical</option>
+                            <option value="warning">Warning</option>
+                            <option value="info">Info</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Sensor Type:</label>
+                        <input type="text" id="sensorFilter" placeholder="Filter..." oninput="filterTable()">
+                    </div>
+                </div>
+                
+                <div id="eventsContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading events...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sensors Tab -->
+        <div id="sensorsTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Live Sensor Data</h2>
+                    <button class="btn" onclick="loadSensors()">🔄 Refresh Sensors</button>
+                </div>
+                
+                <div id="sensorsContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading sensors...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Inventory Tab -->
+        <div id="inventoryTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Hardware Inventory</h2>
+                    <button class="btn" onclick="collectInventory()" id="collectInventoryBtn">🔄 Collect Inventory</button>
+                </div>
+                
+                <!-- Inventory Collection Console -->
+                <div id="inventoryConsole" style="display: none; margin-bottom: 20px;">
+                    <div style="background: #1a1a2e; border-radius: 8px; padding: 15px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #333;">
+                            <span style="color: #4ade80;">📋 Collection Log</span>
+                            <button onclick="hideInventoryConsole()" style="background: none; border: none; color: #888; cursor: pointer; font-size: 1.2rem;">✕</button>
+                        </div>
+                        <div id="inventoryLog" style="max-height: 300px; overflow-y: auto; line-height: 1.6;"></div>
+                    </div>
+                </div>
+                
+                <div id="inventoryContainer">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading inventory...
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Connectivity Status -->
+            <div class="card" style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Connectivity Status</h2>
+                    <button class="btn btn-secondary" onclick="checkConnectivity()">🔍 Check Now</button>
+                </div>
+                <div id="connectivityStatus">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">BMC IP</div>
+                            <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="invBmcIp">{{ bmc_ip }}</div>
+                            <div id="bmcStatus" style="margin-top: 5px; color: var(--text-secondary);">Click "Check Now" →</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">Primary/OS IP</div>
+                            <div style="font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="invPrimaryIp">-</div>
+                            <div id="primaryIpStatus" style="margin-top: 5px; color: var(--text-secondary);">Click "Check Now" →</div>
+                        </div>
+                        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                            <div style="color: var(--text-secondary); font-size: 0.85rem;">Overall Status</div>
+                            <div id="overallStatus" style="font-weight: 600; font-size: 1.1rem; margin-top: 5px; color: var(--text-secondary);">Click "Check Now" →</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Diagnostics Section -->
+            <div class="card admin-only" style="margin-top: 20px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">🔧 Diagnostics</h2>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                    <!-- Raw SEL Download -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📋 Raw SEL Log</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            Collect unparsed IPMI SEL events
+                        </div>
+                        <button class="btn btn-secondary" onclick="downloadRawSel()" style="width: 100%;">
+                            Download Raw SEL
+                        </button>
+                    </div>
+                    
+                    <!-- Raw Sensors Download -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">🌡️ Raw Sensor Data</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            All sensors with thresholds
+                        </div>
+                        <button class="btn btn-secondary" onclick="downloadRawSensors()" style="width: 100%;">
+                            Download Sensors
+                        </button>
+                    </div>
+                    
+                    <!-- SSH Logs -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 8px;">🖥️ SSH Logs</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            dmesg, journalctl, GPU logs
+                        </div>
+                        <button class="btn btn-secondary" onclick="collectSshLogs()" style="width: 100%;">
+                            Collect SSH Logs
+                        </button>
+                    </div>
+                    
+                    <!-- Full Diagnostic Package -->
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--accent-blue);">
+                        <div style="font-weight: 600; margin-bottom: 8px;">📦 Full Diagnostic Package</div>
+                        <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
+                            Everything in a ZIP bundle
+                        </div>
+                        <button class="btn" onclick="downloadFullDiagnostics()" style="width: 100%;">
+                            Download ZIP
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Custom Command Section -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <div style="font-weight: 600; margin-bottom: 10px;">⚡ Custom Command (Admin Only)</div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <select id="cmdType" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary);">
+                            <option value="ipmi">IPMI</option>
+                            <option value="ssh">SSH</option>
+                        </select>
+                        <input type="text" id="customCmd" placeholder="Enter command (e.g., sensor list)" 
+                               style="flex: 1; min-width: 200px; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-family: 'JetBrains Mono', monospace;">
+                        <button class="btn" onclick="executeCustomCommand()">Execute</button>
+                    </div>
+                    <div id="cmdOutput" style="margin-top: 15px; display: none;">
+                        <div style="background: #000; color: #0f0; padding: 15px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; white-space: pre-wrap; overflow-x: auto; max-height: 300px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Tab (SSH-based OS info) -->
+        <div id="systemTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h2 class="section-title" style="margin-bottom: 0;">System Information</h2>
+                        <span id="systemCacheIndicator" style="display: none;"></span>
+                    </div>
+                    <button class="btn" onclick="loadSystemInfo(true)" id="refreshSystemBtn" title="Force refresh from server via SSH">🔄 Refresh (Live)</button>
+                </div>
+                
+                <div id="systemNoSsh" style="display: none; padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🔒</div>
+                    <h3 style="margin-bottom: 10px;">SSH Access Required</h3>
+                    <p style="color: var(--text-secondary);">
+                        System information requires SSH access to the server's primary IP.
+                        <br>Make sure:
+                    </p>
+                    <ul style="text-align: left; display: inline-block; margin-top: 10px; color: var(--text-secondary);">
+                        <li>Primary/OS IP is configured in the inventory</li>
+                        <li>SSH credentials are set up in admin settings</li>
+                        <li>The server is reachable via SSH</li>
+                    </ul>
+                </div>
+                
+                <div id="systemInfoContainer" style="display: none;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        
+                        <!-- OS Information -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-blue);">🖥️ Operating System</h3>
+                            <div class="system-info-grid" id="osInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Kernel Information -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-green);">🐧 Kernel</h3>
+                            <div class="system-info-grid" id="kernelInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Docker Information -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-purple);">🐳 Docker</h3>
+                            <div class="system-info-grid" id="dockerInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- GPU Drivers -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-yellow);">🎮 GPU Drivers</h3>
+                            <div class="system-info-grid" id="gpuDriverInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Network (Mellanox) -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--accent-red);">🔌 Network Drivers</h3>
+                            <div class="system-info-grid" id="networkDriverInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Uptime & Load -->
+                        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px;">
+                            <h3 style="font-size: 1rem; margin-bottom: 15px; color: var(--text-secondary);">⏱️ Uptime & Load</h3>
+                            <div class="system-info-grid" id="uptimeInfo">
+                                <div class="loading"><div class="spinner"></div> Loading...</div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Raw Output (collapsible) -->
+                    <details style="margin-top: 20px; background: var(--bg-secondary); padding: 15px; border-radius: 8px;">
+                        <summary style="cursor: pointer; font-weight: 600;">📜 Raw Command Output</summary>
+                        <pre id="systemRawOutput" style="margin-top: 15px; background: #000; color: #0f0; padding: 15px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; white-space: pre-wrap; overflow-x: auto; max-height: 400px; overflow-y: auto;">
+No data collected yet. Click "Refresh" to collect system information.
+                        </pre>
+                    </details>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Logs Tab (SSH-collected logs: dmesg, journalctl, syslog) -->
+        <div id="syslogsTab" class="tab-content">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <h2 class="section-title" style="margin-bottom: 0;">System Logs</h2>
+                        <span id="syslogsLastCollected" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+                    </div>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button class="btn" onclick="loadSystemLogs()" title="Refresh logs">🔄</button>
+                        <button class="btn btn-secondary" onclick="clearSyslogFilters()" title="Clear all filters">✖ Clear</button>
+                    </div>
+                </div>
+                
+                <!-- Enhanced Filters Row -->
+                <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                    <!-- Severity Filter -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Severity</label>
+                        <select id="syslogsSeverityFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); min-width: 130px;">
+                            <option value="">All Severities</option>
+                            <option value="critical">🔴 Critical</option>
+                            <option value="error">🟠 Error</option>
+                            <option value="warning">🟡 Warning</option>
+                            <option value="info">🔵 Info</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Log Type Filter (dynamically populated) -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Log Type</label>
+                        <select id="syslogsTypeFilter" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); min-width: 150px;">
+                            <option value="">All Types</option>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    
+                    <!-- Start Date -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">From Date</label>
+                        <input type="date" id="syslogsStartDate" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    </div>
+                    
+                    <!-- End Date -->
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">To Date</label>
+                        <input type="date" id="syslogsEndDate" onchange="loadSystemLogs()" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary);">
+                    </div>
+                    
+                    <!-- Keyword Search -->
+                    <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-width: 200px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Search Message</label>
+                        <div style="display: flex; gap: 5px;">
+                            <input type="text" id="syslogsSearchInput" placeholder="Enter keyword..." 
+                                onkeydown="if(event.key==='Enter')loadSystemLogs()" 
+                                style="padding: 8px 12px; border-radius: 6px; background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-primary); flex-grow: 1;">
+                            <button class="btn btn-secondary" onclick="loadSystemLogs()" title="Search">🔍</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Time Range Buttons -->
+                <div style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem; align-self: center;">Quick range:</span>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('1h')" style="padding: 4px 10px; font-size: 0.85rem;">1h</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('6h')" style="padding: 4px 10px; font-size: 0.85rem;">6h</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('24h')" style="padding: 4px 10px; font-size: 0.85rem;">24h</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('7d')" style="padding: 4px 10px; font-size: 0.85rem;">7d</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('30d')" style="padding: 4px 10px; font-size: 0.85rem;">30d</button>
+                    <button class="btn btn-secondary btn-sm" onclick="setSyslogTimeRange('all')" style="padding: 4px 10px; font-size: 0.85rem;">All</button>
+                    <span id="syslogsDateRange" style="color: var(--text-muted); font-size: 0.8rem; align-self: center; margin-left: 10px;"></span>
+                </div>
+                
+                <!-- Log Stats -->
+                <div id="syslogsStats" style="display: none; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,71,87,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsCriticalCount" style="font-size: 1.5rem; font-weight: 700; color: #ff4757;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Critical</div>
+                        </div>
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(255,159,67,0.2), rgba(255,159,67,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsErrorCount" style="font-size: 1.5rem; font-weight: 700; color: #ff9f43;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Errors</div>
+                        </div>
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(255,221,89,0.2), rgba(255,221,89,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsWarningCount" style="font-size: 1.5rem; font-weight: 700; color: #ffdd59;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Warnings</div>
+                        </div>
+                        <div style="padding: 12px 20px; background: linear-gradient(135deg, rgba(84,160,255,0.2), rgba(84,160,255,0.1)); border-radius: 8px; text-align: center; min-width: 100px;">
+                            <div id="syslogsInfoCount" style="font-size: 1.5rem; font-weight: 700; color: #54a0ff;">0</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Info</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Log Entries Table -->
+                <div id="syslogsLoading" style="text-align: center; padding: 40px;">
+                    <div class="spinner"></div>
+                    <div style="margin-top: 10px; color: var(--text-muted);">Loading system logs...</div>
+                </div>
+                
+                <div id="syslogsEmpty" style="display: none; text-align: center; padding: 40px; background: var(--bg-secondary); border-radius: 8px;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">📭</div>
+                    <h3 style="margin-bottom: 10px;">No System Logs Collected</h3>
+                    <p style="color: var(--text-secondary);">
+                        Enable SSH Log Collection in Settings to capture dmesg, journalctl, syslog, and mcelog entries.
+                    </p>
+                </div>
+                
+                <div id="syslogsTableContainer" style="display: none;">
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 150px;">Timestamp</th>
+                                <th style="width: 80px;">Severity</th>
+                                <th style="width: 80px;">Type</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="syslogsTableBody">
+                        </tbody>
+                    </table>
+                    
+                    <!-- Pagination -->
+                    <div id="syslogsPagination" style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div id="syslogsPageInfo" style="color: var(--text-muted); font-size: 0.9rem;"></div>
+                        <div style="display: flex; gap: 5px;">
+                            <button class="btn btn-secondary" id="syslogsPrevBtn" onclick="loadSystemLogs(syslogsPage - 1)" disabled>◀ Prev</button>
+                            <button class="btn btn-secondary" id="syslogsNextBtn" onclick="loadSystemLogs(syslogsPage + 1)">Next ▶</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+        
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        }
+        
+        function updateThemeIcon(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+            }
+        }
+        
+        // Initialize theme immediately
+        initTheme();
+        
+        const bmcIp = '{{ bmc_ip }}';
+        let allEvents = [];
+        
+        async function loadEvents() {
+            try {
+                const severity = document.getElementById('severityFilter').value;
+                let url = `/api/server/${bmcIp}/events?limit=1000`;
+                
+                const response = await fetch(url);
+                allEvents = await response.json();
+                
+                // Update stats
+                const stats = {
+                    critical: allEvents.filter(e => e.severity === 'critical').length,
+                    warning: allEvents.filter(e => e.severity === 'warning').length,
+                    info: allEvents.filter(e => e.severity === 'info').length,
+                    total: allEvents.length
+                };
+                
+                document.getElementById('criticalCount').textContent = stats.critical;
+                document.getElementById('warningCount').textContent = stats.warning;
+                document.getElementById('infoCount').textContent = stats.info;
+                document.getElementById('totalCount').textContent = stats.total;
+                
+                renderTable(allEvents);
+            } catch (e) {
+                console.error('Failed to load events:', e);
+                document.getElementById('eventsContainer').innerHTML = 
+                    '<div class="loading">Failed to load events</div>';
+            }
+        }
+        
+        function renderTable(events) {
+            const severityFilter = document.getElementById('severityFilter').value;
+            const sensorFilter = document.getElementById('sensorFilter').value.toLowerCase();
+            
+            let filtered = events;
+            if (severityFilter) {
+                filtered = filtered.filter(e => e.severity === severityFilter);
+            }
+            if (sensorFilter) {
+                filtered = filtered.filter(e => 
+                    e.sensor_type.toLowerCase().includes(sensorFilter) ||
+                    e.event_description.toLowerCase().includes(sensorFilter)
+                );
+            }
+            
+            if (filtered.length === 0) {
+                document.getElementById('eventsContainer').innerHTML = 
+                    '<div class="loading">No events found</div>';
+                return;
+            }
+            
+            const html = `
+                <table class="events-table">
+                    <thead>
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Severity</th>
+                            <th>Sensor Type</th>
+                            <th>Event Description</th>
+                            <th>SEL ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(event => {
+                            const date = new Date(event.event_date);
+                            return `
+                                <tr>
+                                    <td>${date.toLocaleString()}</td>
+                                    <td>
+                                        <span class="severity-badge severity-${event.severity}">
+                                            ${event.severity}
+                                        </span>
+                                    </td>
+                                    <td>${event.sensor_type}</td>
+                                    <td>${event.event_description}</td>
+                                    <td>${event.sel_id}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('eventsContainer').innerHTML = html;
+        }
+        
+        function filterTable() {
+            renderTable(allEvents);
+        }
+        
+        function exportEvents() {
+            const csv = [
+                'Date,Severity,Sensor Type,Event Description,SEL ID',
+                ...allEvents.map(e => 
+                    `"${e.event_date}","${e.severity}","${e.sensor_type}","${e.event_description}","${e.sel_id}"`
+                )
+            ].join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ipmi_events_${bmcIp}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+        }
+        
+        async function clearDbEvents() {
+            if (!confirm('Clear all events from the database for this server?\n\nThis will NOT clear the BMC SEL log.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/clear_db_events`, { method: 'POST', credentials: 'same-origin' });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert(data.message);
+                    loadEvents();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Failed to clear events: ' + e.message);
+            }
+        }
+        
+        async function clearSel() {
+            if (!confirm('⚠️ WARNING: This will permanently clear the SEL log on the BMC!\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) {
+                return;
+            }
+            
+            if (!confirm('FINAL CONFIRMATION:\n\nClear SEL on BMC ' + bmcIp + '?')) {
+                return;
+            }
+            
+            try {
+                const btn = document.querySelector('.btn-danger');
+                btn.textContent = '⏳ Clearing...';
+                btn.disabled = true;
+                
+                const response = await fetch(`/api/server/${bmcIp}/clear_sel`, { method: 'POST', credentials: 'same-origin' });
+                const data = await response.json();
+                
+                btn.textContent = '⚠️ Clear BMC SEL';
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    alert('SEL cleared successfully!\n\n' + data.output);
+                    loadEvents();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (e) {
+                alert('Failed to clear SEL: ' + e.message);
+            }
+        }
+        
+        // ============== Power Management ==============
+        
+        function togglePowerMenu() {
+            const menu = document.getElementById('powerMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Close power menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('powerMenu');
+            const btn = document.getElementById('powerMenuBtn');
+            if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+        
+        async function loadPowerStatus() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/power`, { credentials: 'same-origin' });
+                const data = await response.json();
+                
+                const badge = document.getElementById('powerStatusBadge');
+                if (!badge) {
+                    console.warn('Power status badge element not found');
+                    return;
+                }
+                
+                if (data.status === 'success') {
+                    if (data.power_status === 'on') {
+                        badge.textContent = 'ON';
+                        badge.style.background = 'var(--accent-green)';
+                        badge.style.color = 'white';
+                    } else {
+                        badge.textContent = 'OFF';
+                        badge.style.background = 'var(--accent-red)';
+                        badge.style.color = 'white';
+                    }
+                } else {
+                    badge.textContent = '?';
+                    badge.style.background = 'var(--text-secondary)';
+                }
+            } catch (e) {
+                console.error('Failed to load power status:', e);
+            }
+        }
+        
+        async function powerAction(action) {
+            const actionNames = {
+                'on': 'Power On',
+                'off': 'Force Power Off (DANGEROUS!)',
+                'soft': 'Soft Shutdown (Graceful)',
+                'cycle': 'Power Cycle (Reboot)',
+                'reset': 'Reset (Warm Reboot)'
+            };
+            
+            const warnings = {
+                'off': '⚠️ WARNING: This will immediately cut power to the server!\n\nRunning processes will be terminated without saving.\nFilesystems may be corrupted.\n\nUse "Soft Shutdown" for graceful shutdown.',
+                'cycle': '⚠️ This will power cycle the server.\n\nThe server will go offline briefly.',
+                'reset': '⚠️ This will perform a warm reset.\n\nThe server will reboot.',
+                'soft': 'This will send an ACPI shutdown signal.\n\nThe OS should shut down gracefully.',
+                'on': 'This will power on the server.'
+            };
+            
+            // Close the menu
+            document.getElementById('powerMenu').style.display = 'none';
+            
+            // Show confirmation
+            if (!confirm(`${warnings[action]}\n\nProceed with ${actionNames[action]}?`)) {
+                return;
+            }
+            
+            // Extra confirmation for dangerous actions
+            if (action === 'off' || action === 'cycle') {
+                if (!confirm(`FINAL CONFIRMATION:\n\n${actionNames[action]} on ${bmcIp}?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                const btn = document.getElementById('powerMenuBtn');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Executing...';
+                
+                const response = await fetch(`/api/server/${bmcIp}/power/${action}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+                
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    alert(`✅ ${data.message}\n\n${data.output || ''}`);
+                    // Refresh power status after a delay
+                    setTimeout(loadPowerStatus, 3000);
+                } else {
+                    alert(`❌ Error: ${data.message}`);
+                }
+                
+                // Restore button
+                loadPowerStatus();
+                
+            } catch (e) {
+                alert('Failed to execute power command: ' + e.message);
+                loadPowerStatus();
+            }
+        }
+        
+        async function bmcAction(action) {
+            const actionNames = {
+                'reset-cold': 'BMC Cold Reset',
+                'reset-warm': 'BMC Warm Reset',
+                'info': 'BMC Info'
+            };
+            
+            const descriptions = {
+                'reset-cold': '🔧 BMC Cold Reset\n\nThis will fully reboot the BMC (Baseboard Management Controller).\n\n✅ Server/workloads WILL KEEP RUNNING\n✅ Only the management interface restarts\n⚠️ BMC will be offline for ~60-120 seconds\n\nThis is safe and does NOT affect running workloads.',
+                'reset-warm': '🔄 BMC Warm Reset\n\nThis will perform a soft restart of the BMC.\n\n✅ Server/workloads WILL KEEP RUNNING\n✅ Faster than cold reset\n⚠️ BMC will be offline briefly\n\nThis is safe and does NOT affect running workloads.',
+                'info': 'Get BMC firmware and version information.'
+            };
+            
+            // Close the menu
+            document.getElementById('powerMenu').style.display = 'none';
+            
+            // Show confirmation for reset actions
+            if (action !== 'info') {
+                if (!confirm(`${descriptions[action]}\n\nProceed with ${actionNames[action]}?`)) {
+                    return;
+                }
+            }
+            
+            try {
+                const btn = document.getElementById('powerMenuBtn');
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Executing...';
+                
+                const response = await fetch(`/api/server/${bmcIp}/bmc/${action}`, {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+                const data = await response.json();
+                
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    if (action === 'info' && data.bmc_info) {
+                        // Format BMC info nicely
+                        let infoText = '📋 BMC Information\n\n';
+                        for (const [key, value] of Object.entries(data.bmc_info)) {
+                            infoText += `${key}: ${value}\n`;
+                        }
+                        alert(infoText);
+                    } else {
+                        alert(`✅ ${data.message}\n\n${data.output || ''}\n\n⏳ BMC will be offline for ~60-120 seconds.`);
+                    }
+                } else {
+                    alert(`❌ Error: ${data.message}`);
+                }
+                
+                // Restore button
+                loadPowerStatus();
+                
+            } catch (e) {
+                alert('Failed to execute BMC command: ' + e.message);
+                loadPowerStatus();
+            }
+        }
+        
+        // Tab switching
+        function switchTab(tabName) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'sensors') {
+                loadSensors();
+            } else if (tabName === 'inventory') {
+                loadInventory();
+                checkConnectivity();
+            } else if (tabName === 'system') {
+                loadSystemInfo();
+            } else if (tabName === 'syslogs') {
+                loadSystemLogs();
+            }
+        }
+        
+        // System Info (SSH-based)
+        let systemInfoData = null;
+        
+        async function loadSystemInfo() {
+            const container = document.getElementById('systemInfoContainer');
+            const noSshMsg = document.getElementById('systemNoSsh');
+            const btn = document.getElementById('refreshSystemBtn');
+            
+            // Reset UI
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="display:inline-block;width:14px;height:14px;"></span> Loading...';
+            
+            // Set all info sections to loading
+            ['osInfo', 'kernelInfo', 'dockerInfo', 'gpuDriverInfo', 'networkDriverInfo', 'uptimeInfo'].forEach(id => {
+                document.getElementById(id).innerHTML = '<div class="loading"><div class="spinner"></div> Loading...</div>';
+            });
+            
+            // Check if refresh was requested (default: use cached if available)
+            const refresh = arguments[0] === true;
+            const url = refresh ? `/api/server/${bmcIp}/system-info?refresh=true` : `/api/server/${bmcIp}/system-info`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error === 'no_ssh' || data.error === 'ssh_failed') {
+                    // SSH not available
+                    container.style.display = 'none';
+                    noSshMsg.style.display = 'block';
+                    return;
+                }
+                
+                container.style.display = 'block';
+                noSshMsg.style.display = 'none';
+                systemInfoData = data;
+                
+                // Show cached data indicator if applicable
+                const cacheIndicator = document.getElementById('systemCacheIndicator');
+                if (cacheIndicator) {
+                    if (data.cached) {
+                        const collectedAt = data.collected_at ? new Date(data.collected_at).toLocaleString() : 'Unknown';
+                        cacheIndicator.innerHTML = `<span style="color: var(--text-secondary); font-size: 0.85rem;">📦 From inventory (${collectedAt})</span>`;
+                        cacheIndicator.style.display = 'inline';
+                    } else {
+                        cacheIndicator.innerHTML = `<span style="color: var(--accent-green); font-size: 0.85rem;">✅ Live data</span>`;
+                        cacheIndicator.style.display = 'inline';
+                    }
+                }
+                
+                // Render OS Info
+                document.getElementById('osInfo').innerHTML = renderSystemSection([
+                    ['OS', data.os?.name || 'N/A'],
+                    ['Version', data.os?.version || 'N/A'],
+                    ['Architecture', data.os?.arch || 'N/A'],
+                    ['Hostname', data.os?.hostname || 'N/A']
+                ]);
+                
+                // Render Kernel Info
+                document.getElementById('kernelInfo').innerHTML = renderSystemSection([
+                    ['Kernel', data.kernel?.version || 'N/A'],
+                    ['Release', data.kernel?.release || 'N/A']
+                ]);
+                
+                // Render Docker Info
+                if (data.docker?.installed) {
+                    document.getElementById('dockerInfo').innerHTML = renderSystemSection([
+                        ['Docker', data.docker?.version || 'N/A', 'success'],
+                        ['Compose', data.docker?.compose_version || 'N/A'],
+                        ['Containers', data.docker?.containers_running || '0']
+                    ]);
+                } else {
+                    document.getElementById('dockerInfo').innerHTML = `
+                        <div class="system-info-row">
+                            <span class="system-info-label">Status</span>
+                            <span class="system-info-value warning">Not Installed</span>
+                        </div>
+                    `;
+                }
+                
+                // Render GPU Drivers
+                if (data.gpu?.driver) {
+                    document.getElementById('gpuDriverInfo').innerHTML = renderSystemSection([
+                        ['NVIDIA Driver', data.gpu?.driver || 'N/A', 'success'],
+                        ['CUDA', data.gpu?.cuda_version || 'N/A'],
+                        ['GPU Count', data.gpu?.gpu_count || '0']
+                    ]);
+                } else {
+                    document.getElementById('gpuDriverInfo').innerHTML = `
+                        <div class="system-info-row">
+                            <span class="system-info-label">Status</span>
+                            <span class="system-info-value">No NVIDIA GPU detected</span>
+                        </div>
+                    `;
+                }
+                
+                // Render Network Drivers (Mellanox)
+                if (data.network?.mlx_driver) {
+                    document.getElementById('networkDriverInfo').innerHTML = renderSystemSection([
+                        ['Mellanox/OFED', data.network?.mlx_driver || 'N/A', 'success'],
+                        ['Firmware', data.network?.mlx_firmware || 'N/A'],
+                        ['Interfaces', data.network?.mlx_interfaces?.join(', ') || 'N/A']
+                    ]);
+                } else {
+                    document.getElementById('networkDriverInfo').innerHTML = `
+                        <div class="system-info-row">
+                            <span class="system-info-label">Status</span>
+                            <span class="system-info-value">No Mellanox detected</span>
+                        </div>
+                    `;
+                }
+                
+                // Render Uptime
+                document.getElementById('uptimeInfo').innerHTML = renderSystemSection([
+                    ['Uptime', data.uptime?.human || 'N/A'],
+                    ['Load (1m)', data.uptime?.load_1m || 'N/A'],
+                    ['Load (5m)', data.uptime?.load_5m || 'N/A'],
+                    ['Load (15m)', data.uptime?.load_15m || 'N/A']
+                ]);
+                
+                // Raw output
+                document.getElementById('systemRawOutput').textContent = data.raw_output || 'No raw output available';
+                
+            } catch (e) {
+                console.error('Failed to load system info:', e);
+                container.style.display = 'none';
+                noSshMsg.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🔄 Refresh';
+            }
+        }
+        
+        function renderSystemSection(rows) {
+            return rows.map(([label, value, className]) => `
+                <div class="system-info-row">
+                    <span class="system-info-label">${label}</span>
+                    <span class="system-info-value ${className || ''}">${value}</span>
+                </div>
+            `).join('');
+        }
+        
+        // Check if SSH is available and show System tab
+        async function checkSshAvailability() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/ssh-available`);
+                const data = await response.json();
+                
+                console.log('SSH availability check:', data);  // Debug log
+                
+                if (data.available) {
+                    // Show the System tab button
+                    document.getElementById('systemTabBtn').style.display = 'inline-block';
+                } else {
+                    // Log why SSH is not available for debugging
+                    console.log('System tab hidden - reason:', data.reason);
+                    // Reasons: no_primary_ip, no_ssh_credentials, server_not_found
+                }
+            } catch (e) {
+                console.log('SSH check failed:', e);
+            }
+        }
+        
+        // Load sensors
+        async function loadSensors() {
+            const container = document.getElementById('sensorsContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading sensors...</div>';
+            
+            try {
+                const response = await fetch(`/api/sensors/${bmcIp}`);
+                const sensors = await response.json();
+                
+                if (sensors.length === 0) {
+                    container.innerHTML = `
+                        <div class="no-sensors">
+                            <p>No sensor data available.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">Click "Collect Sensors" on the dashboard to gather sensor data.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Group sensors by type
+                const grouped = {};
+                sensors.forEach(s => {
+                    const type = s.sensor_type || 'other';
+                    if (!grouped[type]) grouped[type] = [];
+                    grouped[type].push(s);
+                });
+                
+                // Render sensors
+                let html = '';
+                const typeOrder = ['temperature', 'fan', 'voltage', 'power', 'memory', 'other'];
+                
+                typeOrder.forEach(type => {
+                    if (!grouped[type] || grouped[type].length === 0) return;
+                    
+                    const typeTitle = type.charAt(0).toUpperCase() + type.slice(1);
+                    html += `
+                        <div class="sensor-type-section">
+                            <div class="sensor-type-title ${type}">${typeTitle}</div>
+                            <div class="sensors-grid">
+                                ${grouped[type].map(s => `
+                                    <div class="sensor-card ${s.status || 'ok'}">
+                                        <div class="sensor-name">${s.sensor_name}</div>
+                                        <div class="sensor-value">${s.value !== null ? s.value + ' ' + (s.unit || '') : 'N/A'}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Handle any types not in order
+                Object.keys(grouped).forEach(type => {
+                    if (!typeOrder.includes(type) && grouped[type].length > 0) {
+                        const typeTitle = type.charAt(0).toUpperCase() + type.slice(1);
+                        html += `
+                            <div class="sensor-type-section">
+                                <div class="sensor-type-title other">${typeTitle}</div>
+                                <div class="sensors-grid">
+                                    ${grouped[type].map(s => `
+                                        <div class="sensor-card ${s.status || 'ok'}">
+                                            <div class="sensor-name">${s.sensor_name}</div>
+                                            <div class="sensor-value">${s.value !== null ? s.value + ' ' + (s.unit || '') : 'N/A'}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+                
+                container.innerHTML = html || '<div class="no-sensors">No sensor data available</div>';
+                
+            } catch (e) {
+                console.error('Failed to load sensors:', e);
+                container.innerHTML = '<div class="no-sensors">Failed to load sensors: ' + e.message + '</div>';
+            }
+        }
+        
+        // Check auth status and show/hide admin buttons
+        async function checkAuthAndSetup() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                // Show write-required buttons for admin and readwrite users
+                // This includes: Clear DB Events, Clear BMC SEL, Power Control
+                if (data.logged_in && (data.role === 'admin' || data.role === 'readwrite')) {
+                    document.querySelectorAll('.write-required').forEach(el => {
+                        el.style.display = '';
+                    });
+                    // Load power status for users with write access
+                    loadPowerStatus();
+                }
+                
+                // Show admin-only buttons (user management, AI config) only for admins
+                if (data.logged_in && data.role === 'admin') {
+                    document.querySelectorAll('.admin-only').forEach(el => {
+                        el.style.display = '';
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to check auth status:', e);
+            }
+        }
+        
+        // Load inventory data
+        async function loadInventory() {
+            const container = document.getElementById('inventoryContainer');
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading inventory...</div>';
+            
+            try {
+                const response = await fetch(`/api/servers/${bmcIp}/inventory`);
+                const data = await response.json();
+                
+                if (data.status === 'not_collected') {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                            <div style="font-size: 3rem; margin-bottom: 15px;">📦</div>
+                            <p>Hardware inventory has not been collected yet.</p>
+                            <p style="font-size: 0.9rem; margin-top: 10px;">Click "Collect Inventory" to gather hardware details via IPMI.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Update primary IP display
+                if (data.primary_ip) {
+                    document.getElementById('invPrimaryIp').textContent = data.primary_ip;
+                }
+                
+                container.innerHTML = renderInventory(data);
+            } catch (e) {
+                console.error('Failed to load inventory:', e);
+                container.innerHTML = '<div class="loading">Failed to load inventory</div>';
+            }
+        }
+        
+        function renderInventory(inv) {
+            return `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <!-- System Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-blue);">🖥️ System</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Manufacturer:</span> <strong>${inv.manufacturer || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Product:</span> <strong>${inv.product_name || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Serial:</span> <code style="font-family: 'JetBrains Mono', monospace;">${inv.serial_number || '-'}</code></div>
+                            <div><span style="color: var(--text-secondary);">Part Number:</span> <code>${inv.part_number || '-'}</code></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Board Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-green);">🔌 Motherboard</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Manufacturer:</span> <strong>${inv.board_manufacturer || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Product:</span> <strong>${inv.board_product || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Serial:</span> <code>${inv.board_serial || '-'}</code></div>
+                        </div>
+                    </div>
+                    
+                    <!-- BMC Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-yellow);">📡 BMC</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">MAC Address:</span> <code>${inv.bmc_mac_address || '-'}</code></div>
+                            <div><span style="color: var(--text-secondary);">Firmware:</span> <strong>${inv.bmc_firmware || '-'}</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- CPU Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-purple);">⚡ CPU</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Model:</span> <strong>${inv.cpu_model || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Count:</span> <strong>${inv.cpu_count || '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Cores:</span> <strong>${inv.cpu_cores || '-'}</strong></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Memory Info -->
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-red);">💾 Memory</h3>
+                        <div style="display: grid; gap: 10px;">
+                            <div><span style="color: var(--text-secondary);">Total:</span> <strong>${inv.memory_total_gb ? inv.memory_total_gb + ' GB' : '-'}</strong></div>
+                            <div><span style="color: var(--text-secondary);">Slots:</span> <strong>${inv.memory_slots_used || '-'} / ${inv.memory_slots_total || '-'}</strong></div>
+                        </div>
+                        ${inv.memory_dimms && inv.memory_dimms.length > 0 ? `
+                        <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 10px;">DIMM Details:</div>
+                            <div style="display: grid; gap: 8px; max-height: 300px; overflow-y: auto;">
+                                ${inv.memory_dimms.map(dimm => {
+                                    // Handle both Redfish (PascalCase) and dmidecode (snake_case) formats
+                                    const slot = dimm.DeviceLocator || dimm.Name || dimm.slot || dimm.locator || '-';
+                                    const manufacturer = dimm.Manufacturer || dimm.manufacturer || 'Unknown';
+                                    const partNumber = dimm.PartNumber || dimm.part_number || '';
+                                    const capacityMB = dimm.CapacityMiB || 0;
+                                    const sizeStr = capacityMB ? Math.round(capacityMB / 1024) + ' GB' : (dimm.size || '-');
+                                    const memType = dimm.MemoryType || dimm.type || '';
+                                    const speed = dimm.OperatingSpeedMhz || dimm.configured_speed || dimm.speed || '-';
+                                    const ratedSpeed = dimm.AllowedSpeedsMHz ? dimm.AllowedSpeedsMHz[0] : (dimm.speed || null);
+                                    const speedStr = speed + (speed !== '-' ? ' MHz' : '');
+                                    return `
+                                <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--bg-card); border-radius: 8px; font-size: 0.85rem;">
+                                    <div style="min-width: 70px; font-weight: 600; color: var(--accent-blue);">${slot}</div>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">${manufacturer} ${partNumber}</div>
+                                        <div style="color: var(--text-secondary); font-size: 0.8rem;">
+                                            ${sizeStr} ${memType} @ ${speedStr}
+                                            ${ratedSpeed && speed !== ratedSpeed ? 
+                                                '<span style="color: var(--accent-yellow);"> (rated: ' + ratedSpeed + ' MHz)</span>' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                `}).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    <!-- Network MACs -->
+                    ${inv.network_macs && inv.network_macs.length > 0 ? `
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-blue);">🌐 Network</h3>
+                        <div style="display: grid; gap: 8px;">
+                            ${inv.network_macs.map(n => `
+                                <div><span style="color: var(--text-secondary);">${n.interface}:</span> <code>${n.mac}</code></div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- GPU Info -->
+                    ${inv.gpu_info && inv.gpu_info.length > 0 ? `
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; grid-column: span 2;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-green);">🎮 GPU (${inv.gpu_count || inv.gpu_info.length})</h3>
+                        <div style="display: grid; gap: 10px;">
+                            ${inv.gpu_info.map(gpu => `
+                                <div style="display: flex; align-items: center; gap: 15px; padding: 12px; background: var(--bg-card); border-radius: 8px;">
+                                    <span style="font-size: 1.8rem;">${gpu.manufacturer && gpu.manufacturer.toUpperCase().includes('NVIDIA') ? '💚' : '🖥️'}</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">${gpu.name || 'GPU'}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                            ${gpu.manufacturer || ''}
+                                            ${gpu.id ? ` • ${gpu.id}` : ''}
+                                            ${gpu.socket ? ` • Socket ${gpu.socket}` : ''}
+                                            ${gpu.serial ? ` • S/N: ${gpu.serial}` : ''}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        ${gpu.status === 'OK' || gpu.status === 'Enabled' ? `
+                                            <div style="font-weight: 600; color: var(--accent-green);">✅ Healthy</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-secondary);">${gpu.state || 'Enabled'}</div>
+                                        ` : gpu.status ? `
+                                            <div style="font-weight: 600; color: var(--accent-red);">⚠️ ${gpu.status}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-secondary);">${gpu.state || ''}</div>
+                                        ` : `
+                                            <div style="font-size: 0.85rem; color: var(--text-secondary);">Detected</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-secondary);">via lspci</div>
+                                        `}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Storage Info -->
+                    ${inv.storage_info && inv.storage_info.length > 0 ? `
+                    <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; grid-column: span 2;">
+                        <h3 style="margin: 0 0 15px 0; font-size: 1rem; color: var(--accent-purple);">💿 Storage</h3>
+                        <div style="display: grid; gap: 10px;">
+                            ${inv.storage_info.filter(drive => {
+                                // Filter out NVMe controllers if we already have the NVMe block device
+                                if (drive.type === 'nvme' && drive.name && drive.name.includes(':')) {
+                                    // This is a PCI address (controller), check if we have the actual drive
+                                    const hasNvmeDrive = inv.storage_info.some(d => 
+                                        d.name && d.name.startsWith('nvme') && !d.name.includes(':')
+                                    );
+                                    return !hasNvmeDrive;
+                                }
+                                return true;
+                            }).map(drive => `
+                                <div style="display: flex; align-items: center; gap: 15px; padding: 10px; background: var(--bg-card); border-radius: 8px;">
+                                    <span style="font-size: 1.5rem;">${drive.name && (drive.name.startsWith('nvme') || drive.type === 'nvme') ? '⚡' : '💾'}</span>
+                                    <div style="flex: 1;">
+                                        <div style="font-weight: 600; color: var(--text-primary);">${drive.name && drive.name.includes(':') ? drive.name : '/dev/' + drive.name}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-secondary);">${drive.model || 'Unknown model'}</div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-weight: 600; color: var(--accent-green);">${drive.size || 'N/A'}</div>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${drive.type || 'disk'}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div style="margin-top: 15px; color: var(--text-secondary); font-size: 0.85rem;">
+                    Last collected: ${inv.collected_at ? new Date(inv.collected_at).toLocaleString() : 'Never'}
+                </div>
+                
+                ${(!inv.cpu_model || !inv.memory_total_gb || !inv.storage_info || inv.storage_info.length === 0) ? `
+                <div style="margin-top: 15px; padding: 15px; background: linear-gradient(135deg, rgba(0, 150, 255, 0.1), rgba(138, 43, 226, 0.1)); border: 1px solid var(--accent-blue); border-radius: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="font-size: 1.5rem;">💡</span>
+                        <div style="flex: 1; min-width: 200px;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Missing detailed inventory data</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                Click <strong>Collect Inventory</strong> above to gather CPU, memory, and storage details via SSH.
+                                If SSH isn't configured, set it up in Settings → SSH tab first.
+                            </div>
+                        </div>
+                        <button onclick="collectInventory()" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem;">
+                            🔄 Collect Now
+                        </button>
+                    </div>
+                </div>
+                ` : ''}
+            `;
+        }
+        
+        function showInventoryConsole() {
+            document.getElementById('inventoryConsole').style.display = 'block';
+            document.getElementById('inventoryLog').innerHTML = '';
+        }
+        
+        function hideInventoryConsole() {
+            document.getElementById('inventoryConsole').style.display = 'none';
+        }
+        
+        function appendLog(message, status = 'info') {
+            const log = document.getElementById('inventoryLog');
+            const colors = {
+                'info': '#a0aec0',
+                'success': '#4ade80',
+                'warning': '#fbbf24',
+                'error': '#f87171'
+            };
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.style.color = colors[status] || colors.info;
+            line.innerHTML = `<span style="color: #666;">[${time}]</span> ${message}`;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        async function collectInventory() {
+            const btn = document.getElementById('collectInventoryBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Collecting...';
+            
+            // Show console and start streaming
+            showInventoryConsole();
+            appendLog('🚀 Starting inventory collection...', 'info');
+            
+            try {
+                const eventSource = new EventSource(`/api/servers/${bmcIp}/inventory/stream`);
+                
+                eventSource.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'start') {
+                        appendLog(`📡 Connected to ${data.server} (${data.bmc_ip})`, 'info');
+                    } else if (data.type === 'log') {
+                        appendLog(data.message, data.status);
+                    } else if (data.type === 'complete') {
+                        eventSource.close();
+                        if (data.status === 'success') {
+                            appendLog('🎉 Inventory collection complete!', 'success');
+                            loadInventory();
+                        } else {
+                            appendLog(`❌ Collection failed: ${data.error || 'Unknown error'}`, 'error');
+                        }
+                        btn.disabled = false;
+                        btn.textContent = '🔄 Collect Inventory';
+                    }
+                };
+                
+                eventSource.onerror = function(e) {
+                    eventSource.close();
+                    appendLog('❌ Connection lost or error occurred', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Collect Inventory';
+                };
+                
+            } catch (e) {
+                appendLog(`❌ Failed to start: ${e.message}`, 'error');
+                btn.disabled = false;
+                btn.textContent = '🔄 Collect Inventory';
+            }
+        }
+        
+        async function checkConnectivity() {
+            const bmcStatus = document.getElementById('bmcStatus');
+            const primaryStatus = document.getElementById('primaryIpStatus');
+            const overallStatus = document.getElementById('overallStatus');
+            const checkBtn = document.querySelector('button[onclick="checkConnectivity()"]');
+            
+            // Show loading state
+            const loadingSpinner = '<span style="color: var(--text-secondary);">⏳ Checking...</span>';
+            bmcStatus.innerHTML = loadingSpinner;
+            primaryStatus.innerHTML = loadingSpinner;
+            overallStatus.innerHTML = loadingSpinner;
+            
+            // Disable button while checking
+            if (checkBtn) {
+                checkBtn.disabled = true;
+                checkBtn.innerHTML = '⏳ Checking...';
+            }
+            
+            try {
+                const response = await fetch(`/api/servers/${bmcIp}/check-connectivity`, { method: 'POST', credentials: 'same-origin' });
+                const data = await response.json();
+                
+                // Update BMC status
+                bmcStatus.innerHTML = data.bmc_reachable 
+                    ? '<span style="color: var(--accent-green);">✅ Online</span>'
+                    : '<span style="color: var(--accent-red);">❌ Offline</span>';
+                
+                // Update primary IP
+                if (data.primary_ip) {
+                    document.getElementById('invPrimaryIp').textContent = data.primary_ip;
+                }
+                primaryStatus.innerHTML = data.primary_ip_reachable
+                    ? '<span style="color: var(--accent-green);">✅ Online</span>'
+                    : '<span style="color: var(--accent-red);">❌ Offline</span>';
+                
+                // Update overall status
+                const statusMap = {
+                    'online': { text: '✅ All Online', color: 'var(--accent-green)' },
+                    'os_offline': { text: '⚠️ OS Offline (BMC OK)', color: 'var(--accent-yellow)' },
+                    'bmc_offline': { text: '⚠️ BMC Offline (OS OK)', color: 'var(--accent-yellow)' },
+                    'offline': { text: '❌ Fully Offline', color: 'var(--accent-red)' }
+                };
+                const status = statusMap[data.status] || { text: data.status, color: 'var(--text-secondary)' };
+                overallStatus.innerHTML = `<span style="color: ${status.color};">${status.text}</span>`;
+                
+            } catch (e) {
+                console.error('Failed to check connectivity:', e);
+                bmcStatus.innerHTML = '<span style="color: var(--accent-red);">❌ Check failed</span>';
+                primaryStatus.innerHTML = '<span style="color: var(--accent-red);">❌ Check failed</span>';
+                overallStatus.innerHTML = '<span style="color: var(--accent-red);">❌ Check failed</span>';
+            } finally {
+                // Re-enable button
+                if (checkBtn) {
+                    checkBtn.disabled = false;
+                    checkBtn.innerHTML = '🔍 Check Now';
+                }
+            }
+        }
+        
+        // Initial load
+        checkAuthAndSetup();
+        loadEvents();
+        checkSshAvailability();  // Check if System tab should be shown
+        
+        // ============== Diagnostics Functions ==============
+        
+        async function downloadRawSel() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/diagnostics/sel-raw`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Create downloadable text file
+                    const blob = new Blob([data.raw_output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sel_raw_${bmcIp}_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to collect SEL'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        async function downloadRawSensors() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/diagnostics/sensors-raw`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const blob = new Blob([data.raw_output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `sensors_raw_${bmcIp}_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to collect sensors'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        async function collectSshLogs() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/diagnostics/ssh-logs`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Format logs for download
+                    let output = `SSH Logs for ${data.server_name} (${data.server_ip})\n`;
+                    output += `Collected at: ${data.collected_at}\n`;
+                    output += '='.repeat(80) + '\n\n';
+                    
+                    for (const [logType, logData] of Object.entries(data.logs)) {
+                        output += `\n${'='.repeat(40)}\n`;
+                        output += `${logType.toUpperCase()}\n`;
+                        output += `${'='.repeat(40)}\n\n`;
+                        
+                        if (logData.status === 'success') {
+                            output += logData.output + '\n';
+                        } else {
+                            output += `Error: ${logData.error}\n`;
+                        }
+                    }
+                    
+                    const blob = new Blob([output], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ssh_logs_${bmcIp}_${new Date().toISOString().split('T')[0]}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert('Error: ' + (data.message || 'Failed to collect SSH logs'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        
+        function downloadFullDiagnostics() {
+            // Direct download - the endpoint returns a ZIP file
+            window.location.href = `/api/server/${bmcIp}/diagnostics/full`;
+        }
+        
+        async function executeCustomCommand() {
+            const cmdType = document.getElementById('cmdType').value;
+            const command = document.getElementById('customCmd').value.trim();
+            
+            if (!command) {
+                alert('Please enter a command');
+                return;
+            }
+            
+            const outputDiv = document.getElementById('cmdOutput');
+            const outputContent = outputDiv.querySelector('div');
+            
+            outputDiv.style.display = 'block';
+            outputContent.textContent = 'Executing...';
+            
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/execute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: cmdType,
+                        command: command,
+                        timeout: 60
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    outputContent.textContent = data.stdout || '(no output)';
+                    outputContent.style.color = '#0f0';
+                } else {
+                    outputContent.textContent = `Error: ${data.message || data.stderr || 'Command failed'}`;
+                    outputContent.style.color = '#f55';
+                }
+                
+                // Show audit info
+                if (data.audit) {
+                    outputContent.textContent += `\n\n[Audit: Logged by ${data.audit.admin_user} at ${data.audit.timestamp}]`;
+                }
+            } catch (e) {
+                outputContent.textContent = 'Error: ' + e.message;
+                outputContent.style.color = '#f55';
+            }
+        }
+        
+        // ============== System Logs (SSH-collected) ==============
+        let syslogsPage = 1;
+        const syslogsPageSize = 50;
+        let syslogsTotalCount = 0;
+        let syslogsTypesLoaded = false;
+        
+        function getLogTypeIcon(logType) {
+            const icons = {
+                'syslog': '📜',
+                'kernel': '🐧',
+                'dmesg': '🐧',
+                'journal': '📔',
+                'journald': '📔',
+                'mcelog': '⚠️',
+                'hardware': '🔧',
+                'gpu': '🎮',
+                'nvidia': '🎮',
+                'docker': '🐳',
+                'pcie': '🔌',
+                'memory': '💾',
+                'disk': '💿',
+                'network': '🌐',
+                'vastai': '☁️',
+                'runpod': '☁️',
+                'daemon': '⚙️',
+                'agent': '🤖',
+                'error': '❌',
+                'security': '🔒',
+                'auth': '🔑'
+            };
+            return icons[logType?.toLowerCase()] || '📄';
+        }
+        
+        function setSyslogTimeRange(range) {
+            const startDateInput = document.getElementById('syslogsStartDate');
+            const endDateInput = document.getElementById('syslogsEndDate');
+            const now = new Date();
+            let startDate = null;
+            
+            if (range === 'all') {
+                startDateInput.value = '';
+                endDateInput.value = '';
+            } else {
+                endDateInput.value = now.toISOString().split('T')[0];
+                
+                switch(range) {
+                    case '1h':
+                        startDate = new Date(now - 1 * 60 * 60 * 1000);
+                        break;
+                    case '6h':
+                        startDate = new Date(now - 6 * 60 * 60 * 1000);
+                        break;
+                    case '24h':
+                        startDate = new Date(now - 24 * 60 * 60 * 1000);
+                        break;
+                    case '7d':
+                        startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                        break;
+                    case '30d':
+                        startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                        break;
+                }
+                if (startDate) {
+                    startDateInput.value = startDate.toISOString().split('T')[0];
+                }
+            }
+            loadSystemLogs(1);
+        }
+        
+        function clearSyslogFilters() {
+            document.getElementById('syslogsSeverityFilter').value = '';
+            document.getElementById('syslogsTypeFilter').value = '';
+            document.getElementById('syslogsStartDate').value = '';
+            document.getElementById('syslogsEndDate').value = '';
+            document.getElementById('syslogsSearchInput').value = '';
+            loadSystemLogs(1);
+        }
+        
+        async function loadSystemLogs(page = 1) {
+            syslogsPage = page;
+            
+            const loading = document.getElementById('syslogsLoading');
+            const empty = document.getElementById('syslogsEmpty');
+            const tableContainer = document.getElementById('syslogsTableContainer');
+            const stats = document.getElementById('syslogsStats');
+            
+            const severity = document.getElementById('syslogsSeverityFilter').value;
+            const logType = document.getElementById('syslogsTypeFilter').value;
+            const startDate = document.getElementById('syslogsStartDate').value;
+            const endDate = document.getElementById('syslogsEndDate').value;
+            const search = document.getElementById('syslogsSearchInput').value.trim();
+            
+            loading.style.display = 'block';
+            empty.style.display = 'none';
+            tableContainer.style.display = 'none';
+            
+            try {
+                const params = new URLSearchParams({
+                    page: page,
+                    limit: syslogsPageSize
+                });
+                if (severity) params.append('severity', severity);
+                if (logType) params.append('log_type', logType);
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                if (search) params.append('search', search);
+                
+                const response = await fetch(`/api/server/${bmcIp}/ssh-logs?${params}`);
+                const data = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (!data.logs || data.logs.length === 0) {
+                    // Use total_all to check if ANY logs exist for this server
+                    const hasAnyLogs = (data.total_all || 0) > 0;
+                    
+                    if (!hasAnyLogs) {
+                        // No logs collected at all
+                        empty.style.display = 'block';
+                        stats.style.display = 'none';
+                    } else {
+                        // Filters resulted in no data, but logs exist
+                        tableContainer.style.display = 'block';
+                        stats.style.display = 'block';
+                        
+                        // Still update stats to show what exists
+                        document.getElementById('syslogsCriticalCount').textContent = data.stats?.critical || 0;
+                        document.getElementById('syslogsErrorCount').textContent = data.stats?.error || 0;
+                        document.getElementById('syslogsWarningCount').textContent = data.stats?.warning || 0;
+                        document.getElementById('syslogsInfoCount').textContent = data.stats?.info || 0;
+                        
+                        const severity = document.getElementById('syslogsSeverityFilter').value;
+                        const logType = document.getElementById('syslogsTypeFilter').value;
+                        const filterDesc = [];
+                        if (severity) filterDesc.push(severity);
+                        if (logType) filterDesc.push(logType);
+                        
+                        document.getElementById('syslogsTableBody').innerHTML = `
+                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                                <div style="font-size: 2rem; margin-bottom: 10px;">🔍</div>
+                                <div>No logs matching filter: <strong>${filterDesc.join(' + ') || 'selected criteria'}</strong></div>
+                                <div style="margin-top: 10px; font-size: 0.9rem;">
+                                    Total logs available: ${data.total_all.toLocaleString()}
+                                </div>
+                            </td></tr>
+                        `;
+                    }
+                    return;
+                }
+                
+                // Update stats
+                stats.style.display = 'block';
+                document.getElementById('syslogsCriticalCount').textContent = data.stats?.critical || 0;
+                document.getElementById('syslogsErrorCount').textContent = data.stats?.error || 0;
+                document.getElementById('syslogsWarningCount').textContent = data.stats?.warning || 0;
+                document.getElementById('syslogsInfoCount').textContent = data.stats?.info || 0;
+                
+                syslogsTotalCount = data.total || data.logs.length;
+                
+                // Populate log types dropdown dynamically (only once)
+                if (!syslogsTypesLoaded && data.log_types && data.log_types.length > 0) {
+                    const typeSelect = document.getElementById('syslogsTypeFilter');
+                    const currentValue = typeSelect.value;
+                    typeSelect.innerHTML = '<option value="">All Types</option>';
+                    
+                    // Add log type options with count
+                    data.log_types.forEach(lt => {
+                        const icon = getLogTypeIcon(lt.type);
+                        const option = document.createElement('option');
+                        option.value = lt.type;
+                        option.textContent = `${icon} ${lt.type} (${lt.count.toLocaleString()})`;
+                        typeSelect.appendChild(option);
+                    });
+                    
+                    // Restore previous selection if still valid
+                    if (currentValue) {
+                        typeSelect.value = currentValue;
+                    }
+                    syslogsTypesLoaded = true;
+                }
+                
+                // Show date range info
+                if (data.date_range && data.date_range.earliest) {
+                    const earliest = new Date(data.date_range.earliest);
+                    const latest = new Date(data.date_range.latest);
+                    document.getElementById('syslogsDateRange').textContent = 
+                        `Available: ${earliest.toLocaleDateString()} - ${latest.toLocaleDateString()}`;
+                }
+                
+                // Update last collected
+                if (data.last_collected) {
+                    document.getElementById('syslogsLastCollected').textContent = 
+                        `Last collected: ${new Date(data.last_collected).toLocaleString()}`;
+                }
+                
+                // Update tab badge
+                const badge = document.getElementById('syslogsTabCount');
+                if (data.stats?.critical > 0 || data.stats?.error > 0) {
+                    badge.textContent = (data.stats?.critical || 0) + (data.stats?.error || 0);
+                    badge.style.display = 'inline-block';
+                    badge.style.background = data.stats?.critical > 0 ? 'var(--accent-red)' : 'var(--accent-orange)';
+                    badge.style.color = 'white';
+                    badge.style.padding = '2px 6px';
+                    badge.style.borderRadius = '10px';
+                    badge.style.fontSize = '0.75rem';
+                    badge.style.marginLeft = '5px';
+                }
+                
+                // Render table
+                const tbody = document.getElementById('syslogsTableBody');
+                const searchTerm = document.getElementById('syslogsSearchInput').value.trim().toLowerCase();
+                
+                tbody.innerHTML = data.logs.map(log => {
+                    const severityColors = {
+                        critical: '#ff4757',
+                        error: '#ff9f43',
+                        warning: '#ffdd59',
+                        info: '#54a0ff',
+                        notice: '#5f27cd',
+                        debug: '#576574'
+                    };
+                    const color = severityColors[log.severity] || 'var(--text-muted)';
+                    const severityBadge = log.severity ? 
+                        `<span style="background: ${color}22; color: ${color}; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${log.severity}</span>` : '';
+                    
+                    const typeIcon = getLogTypeIcon(log.log_type);
+                    
+                    // Parse timestamp with fallback for various formats
+                    let ts = '-';
+                    if (log.timestamp) {
+                        try {
+                            const d = new Date(log.timestamp);
+                            ts = isNaN(d.getTime()) ? log.timestamp : d.toLocaleString();
+                        } catch (e) {
+                            ts = log.timestamp; // Show raw if parsing fails
+                        }
+                    }
+                    
+                    // Highlight search term in message
+                    let msg = (log.message || '').substring(0, 300) + ((log.message || '').length > 300 ? '...' : '');
+                    if (searchTerm && msg.toLowerCase().includes(searchTerm)) {
+                        const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                        msg = escapeHtml(msg).replace(regex, '<mark style="background: #ffeb3b; color: #000; padding: 1px 2px; border-radius: 2px;">$1</mark>');
+                    } else {
+                        msg = escapeHtml(msg);
+                    }
+                    
+                    return `
+                        <tr>
+                            <td style="font-family: monospace; font-size: 0.85rem; white-space: nowrap;">${ts}</td>
+                            <td>${severityBadge}</td>
+                            <td style="white-space: nowrap;">${typeIcon} ${log.log_type || '-'}</td>
+                            <td style="font-family: monospace; font-size: 0.85rem; word-break: break-word;">${msg}</td>
+                        </tr>
+                    `;
+                }).join('');
+                
+                tableContainer.style.display = 'block';
+                
+                // Update pagination
+                const totalPages = Math.ceil(syslogsTotalCount / syslogsPageSize);
+                document.getElementById('syslogsPageInfo').textContent = 
+                    `Showing ${(page-1)*syslogsPageSize + 1}-${Math.min(page*syslogsPageSize, syslogsTotalCount)} of ${syslogsTotalCount} entries`;
+                document.getElementById('syslogsPrevBtn').disabled = page <= 1;
+                document.getElementById('syslogsNextBtn').disabled = page >= totalPages;
+                
+            } catch (e) {
+                loading.style.display = 'none';
+                console.error('Failed to load system logs:', e);
+                empty.style.display = 'block';
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Check for SSH logs on page load and show tab if available
+        async function checkSyslogsAvailable() {
+            try {
+                const response = await fetch(`/api/server/${bmcIp}/ssh-logs?limit=1`);
+                const data = await response.json();
+                
+                if (data.total > 0 || (data.logs && data.logs.length > 0)) {
+                    document.getElementById('syslogsTabBtn').style.display = 'inline-flex';
+                }
+            } catch (e) {
+                // Tab stays hidden if no logs
+            }
+        }
+        
+        // Call on page load
+        checkSyslogsAvailable();
+    </script>
+</body>
+</html>
+

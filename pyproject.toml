@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ipmi-monitor"
-version = "1.0.3"
+version = "1.0.4"
 description = "IPMI/BMC Server Monitoring with AI-Powered Insights"
 readme = "README.md"
 license = {text = "MIT"}
@@ -40,6 +40,7 @@ dependencies = [
     "questionary>=2.0.0",
     "pyyaml>=6.0",
     "paramiko>=3.0.0",
+    "jinja2>=3.0.0",
 ]
 
 [project.optional-dependencies]
@@ -66,6 +67,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 ipmi_monitor = [
     "templates/*.html",
+    "templates/*.j2",
+    "templates/*.conf",
     "static/*",
     "knowledge/*.md",
 ]

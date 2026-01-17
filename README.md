@@ -51,8 +51,23 @@
 
 ### One Command Setup ⚡
 
+**Ubuntu 24.04+ / Python 3.12+** (uses pipx):
+```bash
+sudo apt install pipx -y
+pipx install ipmi-monitor
+pipx ensurepath && source ~/.bashrc
+sudo ipmi-monitor quickstart
+```
+
+**Ubuntu 22.04 / Python 3.10** (direct pip):
 ```bash
 pip install ipmi-monitor
+sudo ipmi-monitor quickstart
+```
+
+**Alternative** (if you get "externally-managed-environment" error):
+```bash
+pip install ipmi-monitor --break-system-packages
 sudo ipmi-monitor quickstart
 ```
 

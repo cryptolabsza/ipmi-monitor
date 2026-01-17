@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation - IPMI Monitor</title>
+    <style>
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #252540;
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --accent-blue: #4dabf7;
+            --accent-green: #00d68f;
+            --accent-yellow: #ffd43b;
+            --accent-red: #ff6b6b;
+            --accent-purple: #9775fa;
+            --border-color: #3a3a5c;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            gap: 30px;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 20px;
+            height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 20px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header h1 {
+            font-size: 1.3rem;
+            margin-bottom: 5px;
+        }
+        
+        .sidebar-header p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .nav-section {
+            margin-bottom: 20px;
+        }
+        
+        .nav-section h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            padding-left: 15px;
+        }
+        
+        .nav-link {
+            display: block;
+            padding: 10px 15px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        .nav-link:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .nav-link.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+        
+        /* Main Content */
+        .content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .doc-section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .doc-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            color: var(--accent-blue);
+        }
+        
+        .doc-section h3 {
+            font-size: 1.3rem;
+            margin: 25px 0 15px 0;
+            color: var(--accent-green);
+        }
+        
+        .doc-section h4 {
+            font-size: 1.1rem;
+            margin: 20px 0 10px 0;
+            color: var(--accent-purple);
+        }
+        
+        .doc-section p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+        
+        .doc-section ul, .doc-section ol {
+            margin: 15px 0 15px 25px;
+            color: var(--text-secondary);
+        }
+        
+        .doc-section li {
+            margin-bottom: 8px;
+        }
+        
+        .doc-section code {
+            background: var(--bg-secondary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9em;
+            color: var(--accent-yellow);
+        }
+        
+        .doc-section pre {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .doc-section pre code {
+            background: transparent;
+            padding: 0;
+        }
+        
+        .tip-box {
+            background: rgba(0, 214, 143, 0.1);
+            border-left: 4px solid var(--accent-green);
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+        }
+        
+        .tip-box.warning {
+            background: rgba(255, 212, 59, 0.1);
+            border-color: var(--accent-yellow);
+        }
+        
+        .tip-box.danger {
+            background: rgba(255, 107, 107, 0.1);
+            border-color: var(--accent-red);
+        }
+        
+        .tip-box strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        td {
+            color: var(--text-secondary);
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent-blue);
+            text-decoration: none;
+            margin-bottom: 20px;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .search-box {
+            width: 100%;
+            padding: 12px 15px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        
+        .search-box:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                position: static;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h1>📖 IPMI Monitor</h1>
+                <p>Documentation & User Guide</p>
+            </div>
+            
+            <input type="text" class="search-box" placeholder="🔍 Search docs..." id="searchDocs">
+            
+            <div class="nav-section">
+                <h3>Getting Started</h3>
+                <a href="#overview" class="nav-link active">Overview</a>
+                <a href="#quickstart" class="nav-link">Quick Start</a>
+                <a href="#concepts" class="nav-link">Key Concepts</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Dashboard</h3>
+                <a href="#dashboard" class="nav-link">Main Dashboard</a>
+                <a href="#server-detail" class="nav-link">Server Details</a>
+                <a href="#events" class="nav-link">Events & Logs</a>
+                <a href="#sensors" class="nav-link">Sensor Readings</a>
+                <a href="#inventory" class="nav-link">Hardware Inventory</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Settings</h3>
+                <a href="#manage-servers" class="nav-link">Manage Servers</a>
+                <a href="#ssh-config" class="nav-link">SSH Configuration</a>
+                <a href="#alerts" class="nav-link">Alerts & Rules</a>
+                <a href="#notifications" class="nav-link">Notifications</a>
+                <a href="#security" class="nav-link">Security & Users</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Integrations</h3>
+                <a href="#prometheus" class="nav-link">Prometheus & Grafana</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>AI Features</h3>
+                <a href="#ai-overview" class="nav-link">AI Overview</a>
+                <a href="#ai-chat" class="nav-link">AI Chat</a>
+                <a href="#maintenance-tasks" class="nav-link">Maintenance Tasks</a>
+            </div>
+            
+            <div class="nav-section">
+                <h3>Reference</h3>
+                <a href="#troubleshooting" class="nav-link">Troubleshooting</a>
+                <a href="#glossary" class="nav-link">Glossary</a>
+                <a href="#api" class="nav-link">API Reference</a>
+            </div>
+        </nav>
+        
+        <!-- Main Content -->
+        <main class="content">
+            <a href="/" class="back-link">← Back to Dashboard</a>
+            
+            <!-- Overview -->
+            <section id="overview" class="doc-section">
+                <h2>📊 Overview</h2>
+                <p>IPMI Monitor is a web-based tool for monitoring server hardware via <strong>IPMI</strong> (Intelligent Platform Management Interface) and <strong>Redfish</strong> APIs. It provides real-time visibility into your server fleet's health.</p>
+                
+                <h3>What It Monitors</h3>
+                <ul>
+                    <li><strong>System Event Log (SEL)</strong> - Hardware events, errors, warnings</li>
+                    <li><strong>Sensor Readings</strong> - Temperature, voltage, fan speed, power consumption</li>
+                    <li><strong>Hardware Inventory</strong> - CPU, memory, storage, GPU information</li>
+                    <li><strong>Connectivity Status</strong> - BMC and OS reachability</li>
+                    <li><strong>Power State</strong> - On/off status with remote control</li>
+                </ul>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip</strong>
+                    IPMI Monitor works with any server that has an IPMI-compliant BMC (Baseboard Management Controller), including Dell iDRAC, HP iLO, Supermicro, ASUS, and Lenovo servers.
+                </div>
+            </section>
+            
+            <!-- Quick Start -->
+            <section id="quickstart" class="doc-section">
+                <h2>🚀 Quick Start</h2>
+                
+                <h3>1. Add Your First Server</h3>
+                <ol>
+                    <li>Go to <strong>Settings → Manage Servers</strong></li>
+                    <li>Click <strong>➕ Add New Server</strong></li>
+                    <li>Enter the BMC IP address (e.g., <code>192.168.1.100</code>)</li>
+                    <li>Give it a friendly name (e.g., <code>server-01</code>)</li>
+                    <li>Click <strong>Add Server</strong></li>
+                </ol>
+                
+                <h3>2. Configure IPMI Credentials</h3>
+                <p>If your servers use custom IPMI credentials:</p>
+                <ol>
+                    <li>Click the server in the list to edit</li>
+                    <li>Enter the IPMI username and password</li>
+                    <li>Click <strong>🔌 Test BMC</strong> to verify</li>
+                    <li>Save changes</li>
+                </ol>
+                
+                <h3>3. View Server Health</h3>
+                <p>Return to the <strong>Dashboard</strong> to see your servers. Click any server card to view detailed events, sensors, and inventory.</p>
+            </section>
+            
+            <!-- Key Concepts -->
+            <section id="concepts" class="doc-section">
+                <h2>🎯 Key Concepts</h2>
+                
+                <h3>BMC (Baseboard Management Controller)</h3>
+                <p>A dedicated processor on the server motherboard that operates independently of the main CPU. It allows remote monitoring and management even when the server is powered off or the OS has crashed.</p>
+                
+                <h3>IPMI vs Redfish</h3>
+                <table>
+                    <tr>
+                        <th>IPMI</th>
+                        <th>Redfish</th>
+                    </tr>
+                    <tr>
+                        <td>Legacy protocol (port 623)</td>
+                        <td>Modern REST API (HTTPS port 443)</td>
+                    </tr>
+                    <tr>
+                        <td>Widely supported</td>
+                        <td>More detailed information</td>
+                    </tr>
+                    <tr>
+                        <td>Binary protocol</td>
+                        <td>JSON responses</td>
+                    </tr>
+                </table>
+                
+                <div class="tip-box">
+                    <strong>💡 Recommendation</strong>
+                    Use <strong>Auto</strong> protocol mode - IPMI Monitor will try Redfish first for more detailed data, then fall back to IPMI.
+                </div>
+                
+                <h3>BMC IP vs OS IP</h3>
+                <ul>
+                    <li><strong>BMC IP</strong> - The management network IP (often ends in .0, e.g., 192.168.1.100)</li>
+                    <li><strong>OS IP</strong> - The server's main network IP where the OS runs (often .1, e.g., 192.168.1.101)</li>
+                </ul>
+            </section>
+            
+            <!-- Dashboard -->
+            <section id="dashboard" class="doc-section">
+                <h2>📱 Dashboard</h2>
+                <p>The main dashboard shows all monitored servers in a grid view.</p>
+                
+                <h3>Server Cards</h3>
+                <p>Each card displays:</p>
+                <ul>
+                    <li><strong>Server Name</strong> and BMC IP</li>
+                    <li><strong>Status Badge</strong>: 🟢 Online, 🔴 Offline, 🟡 Warning</li>
+                    <li><strong>Event Count</strong>: Recent events in last 24 hours</li>
+                    <li><strong>Temperature</strong>: Current CPU/inlet temperature</li>
+                </ul>
+                
+                <h3>Auto-Refresh</h3>
+                <p>Data refreshes automatically every 60 seconds. Event collection runs every 5 minutes by default (configurable via <code>POLL_INTERVAL</code>).</p>
+            </section>
+            
+            <!-- Server Detail -->
+            <section id="server-detail" class="doc-section">
+                <h2>🖥️ Server Details</h2>
+                <p>Click any server card to view detailed information across three tabs.</p>
+                
+                <h3>Events Tab</h3>
+                <p>Shows System Event Log (SEL) entries with:</p>
+                <ul>
+                    <li><strong>Timestamp</strong> - When the event occurred</li>
+                    <li><strong>Severity</strong> - Critical (🔴), Warning (🟡), Info (🔵)</li>
+                    <li><strong>Description</strong> - Event message from BMC</li>
+                </ul>
+                
+                <h4>Event Actions</h4>
+                <ul>
+                    <li><strong>Clear DB Events</strong> - Remove from IPMI Monitor only (BMC unaffected)</li>
+                    <li><strong>Clear BMC SEL</strong> - Clear actual BMC log (⚠️ Admin only, use carefully)</li>
+                </ul>
+                
+                <h3>Sensors Tab</h3>
+                <p>Real-time sensor readings including:</p>
+                <ul>
+                    <li>Temperature sensors (CPU, inlet, exhaust, DIMMs)</li>
+                    <li>Voltage sensors (3.3V, 5V, 12V, battery)</li>
+                    <li>Fan speeds (RPM)</li>
+                    <li>Power consumption (Watts)</li>
+                </ul>
+                
+                <h3>Inventory Tab</h3>
+                <p>Hardware information collected via IPMI FRU, Redfish, and SSH:</p>
+                <ul>
+                    <li>System manufacturer, model, serial number</li>
+                    <li>CPU model, core count</li>
+                    <li>Memory total, slots used</li>
+                    <li>Storage devices with sizes</li>
+                    <li>GPU information (if present)</li>
+                </ul>
+                
+                <div class="tip-box">
+                    <strong>💡 For detailed inventory</strong>
+                    Enable SSH in Settings → SSH tab. This allows collection of exact CPU model, memory configuration, and storage details.
+                </div>
+            </section>
+            
+            <!-- Events -->
+            <section id="events" class="doc-section">
+                <h2>📋 Events & Logs</h2>
+                
+                <h3>Common Event Types</h3>
+                <table>
+                    <tr>
+                        <th>Event</th>
+                        <th>Meaning</th>
+                        <th>Action</th>
+                    </tr>
+                    <tr>
+                        <td>Correctable ECC Error</td>
+                        <td>Memory error detected and corrected</td>
+                        <td>Monitor frequency; replace DIMM if recurring</td>
+                    </tr>
+                    <tr>
+                        <td>Uncorrectable ECC Error</td>
+                        <td>Memory error that couldn't be fixed</td>
+                        <td>Replace DIMM immediately</td>
+                    </tr>
+                    <tr>
+                        <td>Temperature Threshold</td>
+                        <td>Component exceeded temperature limit</td>
+                        <td>Check cooling, clean dust, verify airflow</td>
+                    </tr>
+                    <tr>
+                        <td>Fan Failure</td>
+                        <td>Fan stopped or below speed threshold</td>
+                        <td>Replace fan ASAP to prevent overheating</td>
+                    </tr>
+                    <tr>
+                        <td>Power Supply Failure</td>
+                        <td>PSU issue detected</td>
+                        <td>Check/replace PSU, verify redundancy</td>
+                    </tr>
+                </table>
+            </section>
+            
+            <!-- Sensors -->
+            <section id="sensors" class="doc-section">
+                <h2>🌡️ Sensor Readings</h2>
+                
+                <h3>Temperature Guidelines</h3>
+                <table>
+                    <tr>
+                        <th>Sensor</th>
+                        <th>Normal</th>
+                        <th>Warning</th>
+                        <th>Critical</th>
+                    </tr>
+                    <tr>
+                        <td>CPU Temperature</td>
+                        <td>&lt; 70°C</td>
+                        <td>70-85°C</td>
+                        <td>&gt; 85°C</td>
+                    </tr>
+                    <tr>
+                        <td>Inlet Temperature</td>
+                        <td>&lt; 30°C</td>
+                        <td>30-40°C</td>
+                        <td>&gt; 40°C</td>
+                    </tr>
+                    <tr>
+                        <td>DIMM Temperature</td>
+                        <td>&lt; 60°C</td>
+                        <td>60-75°C</td>
+                        <td>&gt; 75°C</td>
+                    </tr>
+                </table>
+                
+                <h3>Voltage Guidelines</h3>
+                <table>
+                    <tr>
+                        <th>Rail</th>
+                        <th>Normal Range</th>
+                    </tr>
+                    <tr>
+                        <td>3.3V</td>
+                        <td>3.1V - 3.5V</td>
+                    </tr>
+                    <tr>
+                        <td>5V</td>
+                        <td>4.75V - 5.25V</td>
+                    </tr>
+                    <tr>
+                        <td>12V</td>
+                        <td>11.4V - 12.6V</td>
+                    </tr>
+                    <tr>
+                        <td>VBAT (Backup Battery)</td>
+                        <td>2.8V - 3.3V</td>
+                    </tr>
+                </table>
+                
+                <div class="tip-box warning">
+                    <strong>⚠️ Low VBAT Warning</strong>
+                    If VBAT drops below 2.5V, the CMOS battery needs replacement. This can cause BIOS settings to reset.
+                </div>
+            </section>
+            
+            <!-- Inventory -->
+            <section id="inventory" class="doc-section">
+                <h2>🔧 Hardware Inventory</h2>
+                
+                <h3>Data Sources</h3>
+                <table>
+                    <tr>
+                        <th>Source</th>
+                        <th>Data Collected</th>
+                        <th>Requirements</th>
+                    </tr>
+                    <tr>
+                        <td>IPMI FRU</td>
+                        <td>Manufacturer, model, serial, board info</td>
+                        <td>IPMI access</td>
+                    </tr>
+                    <tr>
+                        <td>IPMI SDR</td>
+                        <td>Sensor list, CPU/DIMM counts</td>
+                        <td>IPMI access</td>
+                    </tr>
+                    <tr>
+                        <td>Redfish API</td>
+                        <td>Detailed CPU, memory, storage, GPU</td>
+                        <td>Redfish-enabled BMC</td>
+                    </tr>
+                    <tr>
+                        <td>SSH to OS</td>
+                        <td>Exact CPU model, memory config, drives</td>
+                        <td>SSH enabled + credentials</td>
+                    </tr>
+                </table>
+                
+                <h3>Collecting Inventory</h3>
+                <p>Inventory is collected automatically during setup. To refresh:</p>
+                <ol>
+                    <li>Go to Server Detail → Inventory tab</li>
+                    <li>Click <strong>📦 Collect Inventory</strong></li>
+                    <li>Wait for collection to complete</li>
+                </ol>
+                
+                <p>For bulk collection: Settings → Manage Servers → <strong>📦 Collect All Inventory</strong></p>
+            </section>
+            
+            <!-- Manage Servers -->
+            <section id="manage-servers" class="doc-section">
+                <h2>⚙️ Manage Servers</h2>
+                
+                <h3>Adding Servers</h3>
+                <p>Go to Settings → Manage Servers → Add New Server:</p>
+                <ul>
+                    <li><strong>BMC IP</strong> - The IPMI management IP</li>
+                    <li><strong>Server Name</strong> - A friendly name for identification</li>
+                    <li><strong>OS IP</strong> - Optional, for SSH inventory collection</li>
+                    <li><strong>Protocol</strong> - Auto (recommended), IPMI only, or Redfish only</li>
+                </ul>
+                
+                <h3>Editing Servers</h3>
+                <p>Click any server in the list to open the edit dialog:</p>
+                <ul>
+                    <li>Change name, IPs, protocol</li>
+                    <li>Set custom IPMI credentials</li>
+                    <li>Configure SSH credentials</li>
+                    <li><strong>Test BMC</strong> - Verify IPMI connection</li>
+                    <li><strong>Test SSH</strong> - Verify SSH connection</li>
+                    <li><strong>Check Redfish</strong> - Test Redfish availability</li>
+                </ul>
+                
+                <h3>Bulk Import</h3>
+                <p>Import servers from a YAML/JSON file. Mount your config file to <code>/app/config/servers.yaml</code></p>
+                
+                <pre><code># servers.yaml example
+servers:
+  - name: server-01
+    bmc_ip: 192.168.1.100
+    server_ip: 192.168.1.101
+  - name: server-02
+    bmc_ip: 192.168.1.102
+    server_ip: 192.168.1.103</code></pre>
+            </section>
+            
+            <!-- SSH Configuration -->
+            <section id="ssh-config" class="doc-section">
+                <h2>🔐 SSH Configuration</h2>
+                <p>SSH enables detailed inventory collection from the server's OS.</p>
+                
+                <h3>Enable SSH</h3>
+                <ol>
+                    <li>Go to Settings → SSH tab</li>
+                    <li>Toggle <strong>Enable SSH to OS</strong></li>
+                    <li>Configure default credentials</li>
+                </ol>
+                
+                <h3>SSH Key Management</h3>
+                <p>Store SSH keys centrally and assign them to servers:</p>
+                <ol>
+                    <li>Click <strong>➕ Add New Key</strong></li>
+                    <li>Give it a name (e.g., "Production Key")</li>
+                    <li>Paste the private key content</li>
+                    <li>Use the dropdown in server edit to assign</li>
+                </ol>
+                
+                <div class="tip-box">
+                    <strong>💡 Key Format</strong>
+                    Keys should be in OpenSSH format, starting with <code>-----BEGIN OPENSSH PRIVATE KEY-----</code>
+                </div>
+                
+                <h3>Per-Server Overrides</h3>
+                <p>Each server can have custom SSH settings different from the defaults:</p>
+                <ul>
+                    <li>Custom OS IP (if different from BMC IP pattern)</li>
+                    <li>Custom username</li>
+                    <li>Different SSH key</li>
+                    <li>Custom port</li>
+                </ul>
+            </section>
+            
+            <!-- Alerts -->
+            <section id="alerts" class="doc-section">
+                <h2>🔔 Alerts & Rules</h2>
+                
+                <h3>Alert Rules</h3>
+                <p>Pre-configured rules watch for:</p>
+                <ul>
+                    <li>Temperature exceeding thresholds</li>
+                    <li>Fan speed below minimum</li>
+                    <li>ECC memory errors</li>
+                    <li>Power supply issues</li>
+                    <li>Critical BMC events</li>
+                </ul>
+                
+                <h3>Creating Custom Rules</h3>
+                <ol>
+                    <li>Go to Settings → Alerts</li>
+                    <li>Click <strong>Add Rule</strong></li>
+                    <li>Select alert type and condition</li>
+                    <li>Set threshold and severity</li>
+                    <li>Enable notification channels</li>
+                </ol>
+                
+                <h3>Cooldown</h3>
+                <p>Each rule has a cooldown period to prevent alert spam. Default is 5-15 minutes depending on severity.</p>
+            </section>
+            
+            <!-- Notifications -->
+            <section id="notifications" class="doc-section">
+                <h2>📬 Notifications</h2>
+                
+                <h3>Telegram Setup</h3>
+                <ol>
+                    <li>Message <code>@BotFather</code> on Telegram</li>
+                    <li>Create a new bot with <code>/newbot</code></li>
+                    <li>Copy the bot token</li>
+                    <li>Get your chat ID (message <code>@userinfobot</code>)</li>
+                    <li>Paste both in Settings → Notifications → Telegram</li>
+                    <li>Click <strong>Test</strong> to verify</li>
+                </ol>
+                
+                <h3>Email Setup</h3>
+                <p>Configure SMTP settings for email notifications. Works with Gmail, SendGrid, or any SMTP server.</p>
+                
+                <h3>Webhook</h3>
+                <p>Send alerts to Slack, Discord, or custom endpoints. Webhooks receive JSON payloads with alert details.</p>
+            </section>
+            
+            <!-- Security -->
+            <section id="security" class="doc-section">
+                <h2>🛡️ Security & Users</h2>
+                
+                <h3>User Roles</h3>
+                <table>
+                    <tr>
+                        <th>Role</th>
+                        <th>Permissions</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Admin</strong></td>
+                        <td>Full access: manage users, security, AI features, power control</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Read-Write</strong></td>
+                        <td>Manage servers, run power commands, but not user management</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Read-Only</strong></td>
+                        <td>View only - no changes allowed</td>
+                    </tr>
+                </table>
+                
+                <h3>Anonymous Access</h3>
+                <p>Enable to allow viewing the dashboard without login. Anonymous users get read-only access.</p>
+                
+                <div class="tip-box warning">
+                    <strong>⚠️ Security Note</strong>
+                    Only enable anonymous access on trusted networks. Sensitive information like server names and events will be visible.
+                </div>
+            </section>
+            
+            <!-- Prometheus & Grafana -->
+            <section id="prometheus" class="doc-section">
+                <h2>📊 Prometheus & Grafana Integration</h2>
+                <p>IPMI Monitor provides a built-in Prometheus exporter for integration with your existing monitoring stack.</p>
+                
+                <h3>Prometheus Metrics Endpoint</h3>
+                <p>Metrics are exposed at <code>/metrics</code> in Prometheus text format:</p>
+                <pre><code>http://your-ipmi-monitor:5000/metrics</code></pre>
+                
+                <h3>Available Metrics</h3>
+                <table>
+                    <tr><th>Metric</th><th>Type</th><th>Description</th></tr>
+                    <tr><td><code>ipmi_server_reachable</code></td><td>Gauge</td><td>Whether BMC is reachable (1=yes, 0=no)</td></tr>
+                    <tr><td><code>ipmi_server_power_on</code></td><td>Gauge</td><td>Server power state (1=on, 0=off)</td></tr>
+                    <tr><td><code>ipmi_temperature_celsius</code></td><td>Gauge</td><td>Temperature readings per sensor</td></tr>
+                    <tr><td><code>ipmi_fan_speed_rpm</code></td><td>Gauge</td><td>Fan speed readings</td></tr>
+                    <tr><td><code>ipmi_voltage_volts</code></td><td>Gauge</td><td>Voltage sensor readings</td></tr>
+                    <tr><td><code>ipmi_power_watts</code></td><td>Gauge</td><td>Power consumption</td></tr>
+                    <tr><td><code>ipmi_events_total</code></td><td>Gauge</td><td>Total events collected per server</td></tr>
+                    <tr><td><code>ipmi_events_critical_24h</code></td><td>Gauge</td><td>Critical events in last 24h</td></tr>
+                    <tr><td><code>ipmi_events_warning_24h</code></td><td>Gauge</td><td>Warning events in last 24h</td></tr>
+                    <tr><td><code>ipmi_total_servers</code></td><td>Gauge</td><td>Total monitored servers</td></tr>
+                    <tr><td><code>ipmi_reachable_servers</code></td><td>Gauge</td><td>Number of reachable servers</td></tr>
+                    <tr><td><code>ipmi_alerts_total</code></td><td>Gauge</td><td>Total fired alerts</td></tr>
+                    <tr><td><code>ipmi_alerts_unacknowledged</code></td><td>Gauge</td><td>Unacknowledged alerts</td></tr>
+                    <tr><td><code>ipmi_last_collection_timestamp</code></td><td>Gauge</td><td>Unix timestamp of last collection</td></tr>
+                </table>
+                
+                <h3>Prometheus Configuration</h3>
+                <p>Add this to your <code>prometheus.yml</code>:</p>
+                <pre><code>scrape_configs:
+  - job_name: 'ipmi-monitor'
+    static_configs:
+      - targets: ['ipmi-monitor:5000']
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    metrics_path: /metrics</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Target Configuration</strong>
+                    <ul style="margin: 10px 0 0 20px;">
+                        <li><code>ipmi-monitor:5000</code> - Docker network (container name)</li>
+                        <li><code>localhost:5000</code> - Same host</li>
+                        <li><code>192.168.1.50:5000</code> - Remote IP</li>
+                    </ul>
+                </div>
+                
+                <h3>Pre-built Grafana Dashboard</h3>
+                <p>We provide a ready-to-import Grafana dashboard with:</p>
+                <ul>
+                    <li><strong>Fleet Overview</strong> - Total servers, reachable count, alerts</li>
+                    <li><strong>Server Health</strong> - Per-server temperature, power, events</li>
+                    <li><strong>Event Timeline</strong> - Critical/warning events over time</li>
+                    <li><strong>Temperature Heatmap</strong> - Temperature trends across fleet</li>
+                    <li><strong>Alert History</strong> - Alert counts and status</li>
+                </ul>
+                
+                <h4>Import Dashboard</h4>
+                <ol>
+                    <li>Go to Grafana → Dashboards → Import</li>
+                    <li>Download the dashboard JSON from: <br>
+                        <a href="https://github.com/cryptolabsza/ipmi-monitor/blob/main/grafana/dashboards/ipmi-monitor.json" target="_blank" style="color: var(--accent-blue);">github.com/cryptolabsza/ipmi-monitor/grafana/dashboards/ipmi-monitor.json</a>
+                    </li>
+                    <li>Upload or paste the JSON</li>
+                    <li>Select your Prometheus data source</li>
+                    <li>Click Import</li>
+                </ol>
+                
+                <h3>Example Grafana Alerts</h3>
+                <p>Create Grafana alerts based on IPMI Monitor metrics:</p>
+                <pre><code># High Temperature Alert
+ipmi_temperature_celsius{sensor=~"CPU.*"} > 80
+
+# Server Unreachable
+ipmi_server_reachable == 0
+
+# Critical Events Spike
+increase(ipmi_events_critical_24h[1h]) > 5
+
+# Multiple Servers Down
+count(ipmi_server_reachable == 0) > 2</code></pre>
+                
+                <div class="tip-box">
+                    <strong>💡 Scrape Interval Note</strong>
+                    Scraping <code>/metrics</code> reads cached data from the last collection cycle (default: every 5 minutes). Faster scrape intervals won't give you fresher data - they'll just read the same values repeatedly.
+                </div>
+            </section>
+            
+            <!-- AI Overview -->
+            <section id="ai-overview" class="doc-section">
+                <h2>🤖 AI Features</h2>
+                <p>Premium AI features provide intelligent analysis of your server fleet.</p>
+                
+                <h3>Features Included</h3>
+                <ul>
+                    <li><strong>Fleet Health Summaries</strong> - Daily overview of all servers</li>
+                    <li><strong>Maintenance Tasks</strong> - AI-identified work items with priorities</li>
+                    <li><strong>Predictive Analytics</strong> - Failure predictions before they happen</li>
+                    <li><strong>Root Cause Analysis</strong> - Deep analysis of specific events</li>
+                    <li><strong>AI Chat</strong> - Interactive assistant for questions</li>
+                </ul>
+                
+                <h3>Getting Started</h3>
+                <ol>
+                    <li>Go to Settings → AI Features</li>
+                    <li>Click <strong>Start Free Trial</strong></li>
+                    <li>Sign up for a CryptoLabs account</li>
+                    <li>AI features activate automatically</li>
+                </ol>
+                
+                <h3>Pricing</h3>
+                <ul>
+                    <li>1 month free trial</li>
+                    <li>Then $100/month for up to 50 servers</li>
+                    <li>+$15 per additional 10 servers</li>
+                </ul>
+            </section>
+            
+            <!-- AI Chat -->
+            <section id="ai-chat" class="doc-section">
+                <h2>💬 AI Chat</h2>
+                <p>Ask questions about your servers in natural language.</p>
+                
+                <h3>Example Questions</h3>
+                <ul>
+                    <li>"Which servers have high temperatures?"</li>
+                    <li>"Show me servers with ECC errors"</li>
+                    <li>"What maintenance is needed this week?"</li>
+                    <li>"Explain this error: [paste event]"</li>
+                    <li>"How do I add a new server?"</li>
+                    <li>"What does ECC mean?"</li>
+                </ul>
+                
+                <h3>Tips for Better Responses</h3>
+                <ul>
+                    <li>Be specific about which server if asking about one</li>
+                    <li>Include time ranges when relevant ("in the last 24 hours")</li>
+                    <li>Ask follow-up questions for more detail</li>
+                </ul>
+            </section>
+            
+            <!-- Maintenance Tasks -->
+            <section id="maintenance-tasks" class="doc-section">
+                <h2>🔧 Maintenance Tasks</h2>
+                <p>AI analyzes events and sensors to generate maintenance work items.</p>
+                
+                <h3>Priority Levels</h3>
+                <table>
+                    <tr>
+                        <th>Priority</th>
+                        <th>Meaning</th>
+                        <th>Timeframe</th>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-red);">Critical</td>
+                        <td>Immediate risk of outage</td>
+                        <td>Today</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-yellow);">High</td>
+                        <td>Component degrading</td>
+                        <td>This week</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--accent-blue);">Medium</td>
+                        <td>Needs attention</td>
+                        <td>Next maintenance window</td>
+                    </tr>
+                    <tr>
+                        <td style="color: var(--text-secondary);">Low</td>
+                        <td>Monitor and plan</td>
+                        <td>When convenient</td>
+                    </tr>
+                </table>
+                
+                <h3>Task Information</h3>
+                <p>Each task includes:</p>
+                <ul>
+                    <li><strong>Affected Servers</strong> - Specific server names</li>
+                    <li><strong>Component</strong> - What hardware needs attention</li>
+                    <li><strong>Reason</strong> - Why this task was generated</li>
+                    <li><strong>Suggested Action</strong> - What to do</li>
+                    <li><strong>Evidence</strong> - Supporting data from events/sensors</li>
+                </ul>
+            </section>
+            
+            <!-- Troubleshooting -->
+            <section id="troubleshooting" class="doc-section">
+                <h2>🔍 Troubleshooting</h2>
+                
+                <h3>Server Shows Offline</h3>
+                <ol>
+                    <li>Verify BMC IP is reachable: <code>ping 192.168.1.100</code></li>
+                    <li>Check IPMI credentials in server edit</li>
+                    <li>Use <strong>Test BMC</strong> button to diagnose</li>
+                    <li>Verify firewall allows port 623 (IPMI)</li>
+                    <li>Try accessing BMC web interface directly</li>
+                </ol>
+                
+                <h3>SSH Test Fails</h3>
+                <ul>
+                    <li><strong>"Permission denied"</strong> - Wrong SSH key or password</li>
+                    <li><strong>"Connection refused"</strong> - SSH not running or wrong port</li>
+                    <li><strong>"No route to host"</strong> - Wrong IP or network issue</li>
+                    <li><strong>"error in libcrypto"</strong> - Key format issue, re-paste the key</li>
+                </ul>
+                
+                <h3>Missing Inventory Data</h3>
+                <ol>
+                    <li>Enable SSH in Settings → SSH tab</li>
+                    <li>Configure SSH credentials for the server</li>
+                    <li>Click <strong>Collect Inventory</strong></li>
+                    <li>Check SSH connectivity with Test SSH button</li>
+                </ol>
+                
+                <h3>No Events Showing</h3>
+                <ul>
+                    <li>Wait for collection cycle (default 5 minutes)</li>
+                    <li>Verify server is enabled in settings</li>
+                    <li>Some BMCs have empty SEL by default</li>
+                    <li>Check BMC firmware supports SEL</li>
+                </ul>
+            </section>
+            
+            <!-- Glossary -->
+            <section id="glossary" class="doc-section">
+                <h2>📚 Glossary</h2>
+                <table>
+                    <tr><th>Term</th><th>Definition</th></tr>
+                    <tr><td><strong>BMC</strong></td><td>Baseboard Management Controller - dedicated processor for server management</td></tr>
+                    <tr><td><strong>IPMI</strong></td><td>Intelligent Platform Management Interface - protocol for BMC communication</td></tr>
+                    <tr><td><strong>Redfish</strong></td><td>Modern REST API alternative to IPMI</td></tr>
+                    <tr><td><strong>SEL</strong></td><td>System Event Log - BMC's record of hardware events</td></tr>
+                    <tr><td><strong>FRU</strong></td><td>Field Replaceable Unit - hardware inventory data</td></tr>
+                    <tr><td><strong>SDR</strong></td><td>Sensor Data Record - sensor configuration data</td></tr>
+                    <tr><td><strong>ECC</strong></td><td>Error Correcting Code - memory error detection/correction</td></tr>
+                    <tr><td><strong>DIMM</strong></td><td>Dual Inline Memory Module - RAM stick</td></tr>
+                    <tr><td><strong>PSU</strong></td><td>Power Supply Unit</td></tr>
+                    <tr><td><strong>VBAT</strong></td><td>Backup battery voltage (usually CR2032 for CMOS)</td></tr>
+                    <tr><td><strong>iDRAC</strong></td><td>Dell's BMC implementation</td></tr>
+                    <tr><td><strong>iLO</strong></td><td>HP's BMC implementation</td></tr>
+                </table>
+            </section>
+            
+            <!-- API Reference -->
+            <section id="api" class="doc-section">
+                <h2>🔌 API Reference</h2>
+                <p>IPMI Monitor provides a REST API for integration.</p>
+                
+                <h3>Authentication</h3>
+                <p>API endpoints require session authentication. Login via POST to <code>/login</code>.</p>
+                
+                <h3>Key Endpoints</h3>
+                <pre><code>GET  /api/servers           - List all servers
+GET  /api/servers/managed   - List managed servers
+GET  /api/server/{ip}/events - Get server events
+GET  /api/server/{ip}/sensors - Get sensor readings
+GET  /api/servers/{ip}/inventory - Get hardware inventory
+POST /api/servers/{ip}/inventory - Collect inventory
+GET  /api/auth/status       - Check auth status
+POST /api/test/bmc          - Test BMC connection
+POST /api/test/ssh          - Test SSH connection</code></pre>
+                
+                <div class="tip-box">
+                    <strong>📖 Full API Documentation</strong>
+                    For complete API docs, see the <a href="https://github.com/cryptolabsza/ipmi-monitor" style="color: var(--accent-blue);">GitHub repository</a>.
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <script>
+        // Smooth scrolling for nav links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const target = document.getElementById(targetId);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    // Update active link
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                }
+            });
+        });
+        
+        // Search functionality
+        document.getElementById('searchDocs').addEventListener('input', function(e) {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('.doc-section').forEach(section => {
+                const text = section.textContent.toLowerCase();
+                section.style.display = text.includes(query) ? 'block' : 'none';
+            });
+        });
+        
+        // Highlight active section on scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.id;
+                    document.querySelectorAll('.nav-link').forEach(link => {
+                        link.classList.toggle('active', link.getAttribute('href') === '#' + id);
+                    });
+                }
+            });
+        }, { threshold: 0.3 });
+        
+        document.querySelectorAll('.doc-section').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+</body>
+</html>
+
