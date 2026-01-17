@@ -1,0 +1,2 @@
+[console_scripts]
+ipmi-monitor = ipmi_monitor.cli:main

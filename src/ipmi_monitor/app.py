@@ -18,6 +18,7 @@ import time
 import json
 import os
 import re
+from pathlib import Path
 import hmac
 import ipaddress
 import requests
@@ -29,8 +30,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
-# Use absolute path for database - data volume is mounted at /app/data
-DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
+# Use proper paths - check for user config first, then fall back to system paths
+def get_data_dir():
+    """Get data directory - user config or system path."""
+    if os.environ.get('DATA_DIR'):
+        return os.environ['DATA_DIR']
+    # Running as root or via sudo
+    if os.geteuid() == 0:
+        return '/var/lib/ipmi-monitor'
+    # Running as regular user
+    return os.path.expanduser('~/.config/ipmi-monitor')
+
+DATA_DIR = get_data_dir()
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # =============================================================================
@@ -393,8 +404,13 @@ DEFAULT_ADMIN_USER = os.environ.get('ADMIN_USER', 'admin')
 DEFAULT_ADMIN_PASS = os.environ.get('ADMIN_PASS', 'admin')  # Default: admin/admin
 
 # Server config file paths (checked on startup)
-# Mount a config file to /app/config/servers.yaml (or .json, .csv)
-CONFIG_DIR = os.environ.get('CONFIG_DIR', '/app/config')
+def get_config_dir():
+    """Get config directory - same as data dir for simplicity."""
+    if os.environ.get('CONFIG_DIR'):
+        return os.environ['CONFIG_DIR']
+    return DATA_DIR  # Use same directory as data
+
+CONFIG_DIR = get_config_dir()
 SERVERS_CONFIG_FILE = os.environ.get('SERVERS_CONFIG_FILE', '')  # Override specific file
 
 # Setup complete flag
@@ -18059,12 +18075,49 @@ def auto_load_servers_config():
             app.logger.error(f"❌ Error auto-loading servers: {e}")
 
 
-# Auto-load servers from config file
-auto_load_servers_config()
+# Flag to track if background threads have been started
+_background_started = False
 
-# Start background collector thread
-collector_thread = threading.Thread(target=background_collector, daemon=True)
-collector_thread.start()
+
+def create_app(config_dir=None):
+    """
+    Factory function for creating the Flask app.
+    
+    Args:
+        config_dir: Optional path to configuration directory.
+                   If provided, will look for servers.yaml/yml/json/csv there.
+    
+    Returns:
+        Configured Flask application
+    """
+    global DATA_DIR, CONFIG_DIR, _background_started
+    
+    if config_dir:
+        # Override data/config directory
+        config_path = Path(config_dir) if isinstance(config_dir, str) else config_dir
+        DATA_DIR = str(config_path)
+        CONFIG_DIR = str(config_path)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        
+        # Update app config
+        app.config['DATA_DIR'] = DATA_DIR
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{DATA_DIR}/ipmi_events.db'
+        
+        # Re-initialize database with new path
+        with app.app_context():
+            db.create_all()
+    
+    # Load servers config and start background threads (only once)
+    if not _background_started:
+        _background_started = True
+        auto_load_servers_config()
+        
+        # Start background collector thread
+        collector_thread = threading.Thread(target=background_collector, daemon=True)
+        collector_thread.start()
+    
+    return app
+
 
 if __name__ == '__main__':
     # Run Flask app directly (for development)
