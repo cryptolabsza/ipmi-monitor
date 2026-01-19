@@ -4335,7 +4335,7 @@
             
             try {
                 // Use SSE streaming endpoint for real-time progress
-                const eventSource = new EventSource(apiUrl('/api/ssh-logs/collect-all/stream');
+                const eventSource = new EventSource(apiUrl('/api/ssh-logs/collect-all/stream'));
                 
                 eventSource.onmessage = (event) => {
                     const data = JSON.parse(event.data);
