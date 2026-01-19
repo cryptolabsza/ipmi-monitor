@@ -334,14 +334,75 @@ APP_VERSION = __version__  # Use version from package
 def get_build_info():
     """
     Get build information including git commit and timestamp.
-    Build info is set during Docker build via build args.
+    Priority:
+    1. Environment variables (Docker builds)
+    2. build_info.json file (pip package builds)
+    3. Live git info (development)
+    4. Fallback to unknown
     """
+    import subprocess
+    from pathlib import Path
+    
+    # Try environment variables first (Docker builds)
+    git_branch = os.environ.get('GIT_BRANCH')
+    git_commit = os.environ.get('GIT_COMMIT')
+    build_time = os.environ.get('BUILD_TIME')
+    
+    if git_commit and git_commit != 'unknown':
+        return {
+            'version': APP_VERSION,
+            'git_branch': git_branch or 'unknown',
+            'git_commit': git_commit[:7],
+            'git_commit_full': git_commit,
+            'build_time': build_time or 'unknown',
+        }
+    
+    # Try build_info.json file (pip package builds)
+    try:
+        build_info_path = Path(__file__).parent / 'build_info.json'
+        if build_info_path.exists():
+            import json
+            with open(build_info_path) as f:
+                info = json.load(f)
+                return {
+                    'version': APP_VERSION,
+                    'git_branch': info.get('git_branch', 'unknown'),
+                    'git_commit': info.get('git_commit', 'unknown')[:7],
+                    'git_commit_full': info.get('git_commit', 'unknown'),
+                    'build_time': info.get('build_time', 'unknown'),
+                }
+    except Exception:
+        pass
+    
+    # Try live git info (development mode)
+    try:
+        git_commit = subprocess.check_output(
+            ['git', 'rev-parse', 'HEAD'], 
+            stderr=subprocess.DEVNULL,
+            cwd=Path(__file__).parent
+        ).decode().strip()
+        git_branch = subprocess.check_output(
+            ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+            stderr=subprocess.DEVNULL,
+            cwd=Path(__file__).parent
+        ).decode().strip()
+        return {
+            'version': APP_VERSION,
+            'git_branch': git_branch,
+            'git_commit': git_commit[:7],
+            'git_commit_full': git_commit,
+            'build_time': datetime.now().strftime('%Y-%m-%d %H:%M UTC'),
+        }
+    except Exception:
+        pass
+    
+    # Fallback
     return {
         'version': APP_VERSION,
-        'git_branch': os.environ.get('GIT_BRANCH', 'unknown'),
-        'git_commit': os.environ.get('GIT_COMMIT', 'unknown')[:7] if os.environ.get('GIT_COMMIT') else 'dev',
-        'git_commit_full': os.environ.get('GIT_COMMIT', 'unknown'),
-        'build_time': os.environ.get('BUILD_TIME', 'unknown'),
+        'git_branch': 'unknown',
+        'git_commit': 'dev',
+        'git_commit_full': 'unknown',
+        'build_time': 'unknown',
     }
 
 def get_version_string():

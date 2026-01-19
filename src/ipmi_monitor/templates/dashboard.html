@@ -1797,19 +1797,15 @@
                         <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(168, 85, 247, 0.1)); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
                             <p style="margin: 0 0 10px 0; font-weight: 600;">📋 How to get started:</p>
                             <ol style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
-                                <li style="margin-bottom: 5px;">Click "Login/Register" below to create your account</li>
-                                <li style="margin-bottom: 5px;">Check your email and click the verification link</li>
-                                <li style="margin-bottom: 5px;">Return here and click "Start Free Trial"</li>
-                                <li>Your account will link automatically!</li>
+                                <li style="margin-bottom: 5px;">Click "Start Free Trial" below</li>
+                                <li style="margin-bottom: 5px;">Create account or sign in</li>
+                                <li>You'll be redirected back automatically with AI enabled!</li>
                             </ol>
                         </div>
                         
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-                            <a href="https://www.cryptolabs.co.za/login/" target="_blank" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer;">
-                                Login / Register →
-                            </a>
-                            <a id="startTrialBtn" href="#" onclick="startFreeTrial()" class="ai-upgrade-btn" style="display: inline-block; background: var(--bg-secondary); color: var(--text-primary); padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color);">
-                                Start Free Trial
+                            <a id="startTrialBtn" href="#" onclick="startFreeTrial()" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer;">
+                                🚀 Start Free Trial / Sign In →
                             </a>
                         </div>
                         
@@ -3603,7 +3599,8 @@
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
             const redirectUri = encodeURIComponent(window.location.origin + apiUrl('/api/ai/oauth-callback'));
             const ipmiHost = encodeURIComponent(window.location.host);
-            const signupUrl = `https://cryptolabs.co.za/ipmi-monitor/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
+            // Go directly to signup page (not landing page) for fewer clicks
+            const signupUrl = `https://www.cryptolabs.co.za/ipmi_signup/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
             
             // Open in same window so they can return easily
             window.open(signupUrl, '_blank');
