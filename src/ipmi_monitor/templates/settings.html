@@ -385,7 +385,7 @@
     <div class="container">
         <header>
             <div class="breadcrumb">
-                <a href="/">← Dashboard</a>
+                <a href="{{ url_for('dashboard') }}">← Dashboard</a>
                 <span>/</span>
                 <h1>Settings</h1>
             </div>
@@ -1409,7 +1409,7 @@
                 </p>
                 
                 <div style="margin-bottom: 15px;">
-                    <a href="/api/grafana/dashboard" download="ipmi-monitor-dashboard.json" class="btn" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <a href="{{ url_for('api_grafana_dashboard') }}" download="ipmi-monitor-dashboard.json" class="btn" style="display: inline-flex; align-items: center; gap: 8px;">
                         📊 Download Grafana Dashboard JSON
                     </a>
                     <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px;">
@@ -1764,7 +1764,7 @@
                         <span class="server-ip">Session is active</span>
                     </div>
                     <div class="server-badges">
-                        <a href="/logout" class="btn btn-secondary" style="text-decoration: none;">🚪 Logout</a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none;">🚪 Logout</a>
                     </div>
                 </div>
             </div>
@@ -2004,6 +2004,13 @@
     </div>
     
     <script>
+        // Base path for API calls (supports reverse proxy subpath like /ipmi/)
+        const BASE_PATH = '{{ base_path }}';
+        function apiUrl(path) {
+            if (!path.startsWith('/')) path = '/' + path;
+            return BASE_PATH + path;
+        }
+        
         // Theme management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -2085,7 +2092,7 @@
                 
                 // Fetch current server count to compare with limit
                 try {
-                    const serversResp = await fetch('/api/servers');
+                    const serversResp = await fetch(apiUrl('/api/servers'));
                     const serversData = await serversResp.json();
                     const currentServerCount = serversData.servers?.length || serversData.length || 0;
                     
@@ -2132,7 +2139,7 @@
         // Redirect to CryptoLabs signup page with return URL
         function startFreeTrial() {
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
-            const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
+            const redirectUri = encodeURIComponent(window.location.origin + apiUrl('/api/ai/oauth-callback'));
             const ipmiHost = encodeURIComponent(window.location.host);
             const signupUrl = `https://www.cryptolabs.co.za/ipmi_signup/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
             
@@ -2229,7 +2236,7 @@
             }
             
             try {
-                const response = await fetch('/api/ai/config', {
+                const response = await fetch(apiUrl('/api/ai/config'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2251,7 +2258,7 @@
         async function testAiConnection() {
             // Check if connected via config (don't rely on hidden field since key is masked)
             try {
-                const configResponse = await fetch('/api/ai/config');
+                const configResponse = await fetch(apiUrl('/api/ai/config'));
                 const config = await configResponse.json();
                 
                 if (!config || !config.license_key) {
@@ -2264,7 +2271,7 @@
             }
             
             try {
-                const response = await fetch('/api/ai/test', {
+                const response = await fetch(apiUrl('/api/ai/test'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ license_key: licenseKey })
@@ -2284,7 +2291,7 @@
         
         async function loadAiConfig() {
             try {
-                const response = await fetch('/api/ai/config');
+                const response = await fetch(apiUrl('/api/ai/config'));
                 if (!response.ok) {
                     updateAiUI(null);
                     return;
@@ -2318,7 +2325,7 @@
             const siteLocation = document.getElementById('aiSiteLocation').value.trim();
             
             try {
-                const response = await fetch('/api/ai/config', {
+                const response = await fetch(apiUrl('/api/ai/config'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2344,7 +2351,7 @@
         
         async function triggerAiSync() {
             try {
-                const response = await fetch('/api/ai/sync', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -2364,7 +2371,7 @@
         // Check if AI is linked and show/hide email alerts accordingly
         async function loadEmailAlertStatus() {
             try {
-                const response = await fetch('/api/ai/config');
+                const response = await fetch(apiUrl('/api/ai/config'));
                 if (!response.ok) return;
                 
                 const config = await response.json();
@@ -2392,7 +2399,7 @@
         
         async function loadEmailAlertPrefs() {
             try {
-                const response = await fetch('/api/ai/email-preferences');
+                const response = await fetch(apiUrl('/api/ai/email-preferences'));
                 if (!response.ok) return;
                 
                 const data = await response.json();
@@ -2427,7 +2434,7 @@
             });
             
             try {
-                const response = await fetch('/api/ai/email-preferences', {
+                const response = await fetch(apiUrl('/api/ai/email-preferences'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2461,7 +2468,7 @@
             document.getElementById('emailAlertStatus').innerHTML = '<span style="color: var(--accent-blue);">📧 Sending test...</span>';
             
             try {
-                const response = await fetch('/api/ai/email-test', {
+                const response = await fetch(apiUrl('/api/ai/email-test'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -2493,11 +2500,24 @@
         // ============== Server Management ==============
         
         async function loadManagedServers() {
+            const serverList = document.getElementById('managedServerList');
             try {
-                const response = await fetch('/api/servers/managed');
-                MANAGED_SERVERS = await response.json();
+                const response = await fetch(apiUrl('/api/servers/managed'));
+                const data = await response.json();
                 
-                const serverList = document.getElementById('managedServerList');
+                // Handle error response
+                if (!response.ok) {
+                    serverList.innerHTML = `<p style="color: var(--accent-red); padding: 20px;">Error loading servers: ${data.error || 'Unknown error'}</p>`;
+                    return;
+                }
+                
+                // Handle non-array response
+                if (!Array.isArray(data)) {
+                    serverList.innerHTML = '<p style="color: var(--accent-red); padding: 20px;">Invalid server data received</p>';
+                    return;
+                }
+                
+                MANAGED_SERVERS = data;
                 
                 if (MANAGED_SERVERS.length === 0) {
                     serverList.innerHTML = '<p style="color: var(--text-secondary); padding: 20px;">No servers in database. Click "Initialize from Defaults" to add the default servers.</p>';
@@ -2519,6 +2539,7 @@
                 `).join('');
             } catch (e) {
                 console.error('Failed to load managed servers:', e);
+                serverList.innerHTML = `<p style="color: var(--accent-red); padding: 20px;">Failed to load servers: ${e.message}</p>`;
             }
         }
         
@@ -2543,7 +2564,7 @@
             
             try {
                 // Add server
-                const response = await fetch('/api/servers/add', {
+                const response = await fetch(apiUrl('/api/servers/add'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -2561,7 +2582,7 @@
                     if (ssh_key_id) credData.ssh_key_id = parseInt(ssh_key_id);
                     
                     if (Object.keys(credData).length > 0) {
-                        await fetch(`/api/config/server/${bmc_ip}`, {
+                        await fetch(apiUrl(`/api/config/server/${bmc_ip}`), {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
                             credentials: 'same-origin',
@@ -2648,7 +2669,7 @@
             
             // Load server-specific credentials
             try {
-                const response = await fetch(`/api/config/server/${bmc_ip}`, { credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`), { credentials: 'same-origin' });
                 if (response.ok) {
                     const config = await response.json();
                     // IPMI creds
@@ -2676,7 +2697,7 @@
             resultsDiv.innerHTML = '⏳ Testing BMC connection to ' + bmc_ip + '...';
             
             try {
-                const response = await fetch('/api/test/bmc', {
+                const response = await fetch(apiUrl('/api/test/bmc'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -2694,7 +2715,7 @@
                     resultsDiv.style.background = 'rgba(255, 170, 0, 0.2)';
                     resultsDiv.innerHTML = `
                         ⚠️ <strong>Session Expired</strong><br>
-                        <small>Please <a href="/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
+                        <small>Please <a href="${BASE_PATH}/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
                     `;
                     return;
                 }
@@ -2734,7 +2755,7 @@
             resultsDiv.innerHTML = '⏳ Testing SSH connection to ' + server_ip + '...';
             
             try {
-                const response = await fetch('/api/test/ssh', {
+                const response = await fetch(apiUrl('/api/test/ssh'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -2754,7 +2775,7 @@
                     resultsDiv.style.background = 'rgba(255, 170, 0, 0.2)';
                     resultsDiv.innerHTML = `
                         ⚠️ <strong>Session Expired</strong><br>
-                        <small>Please <a href="/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
+                        <small>Please <a href="${BASE_PATH}/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
                     `;
                     return;
                 }
@@ -2790,13 +2811,13 @@
             statusDiv.style.background = 'var(--bg-secondary)';
             
             try {
-                const response = await fetch(`/api/redfish/status/${bmc_ip}`, { credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/redfish/status/${bmc_ip}`), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 // Handle session timeout
                 if (response.status === 401 || data.error === 'Authentication required') {
                     statusDiv.style.background = 'rgba(255, 170, 0, 0.2)';
-                    statusDiv.innerHTML = `⚠️ <strong>Session Expired</strong> - <a href="/login" style="color: var(--accent-blue);">Log in</a>`;
+                    statusDiv.innerHTML = `⚠️ <strong>Session Expired</strong> - <a href="${BASE_PATH}/login" style="color: var(--accent-blue);">Log in</a>`;
                     return;
                 }
                 
@@ -2834,7 +2855,7 @@
             statusDiv.style.background = 'var(--bg-secondary)';
             
             try {
-                const response = await fetch(`/api/redfish/enable/${bmc_ip}`, {
+                const response = await fetch(apiUrl(`/api/redfish/enable/${bmc_ip}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enable: enable })
@@ -2901,7 +2922,7 @@
                     serverData.new_bmc_ip = newBmcIp;
                 }
                 
-                const response = await fetch(`/api/servers/${originalBmcIp}`, {
+                const response = await fetch(apiUrl(`/api/servers/${originalBmcIp}`), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -2930,7 +2951,7 @@
                 
                 // Save credentials
                 const targetBmc = newBmcIp !== originalBmcIp ? newBmcIp : originalBmcIp;
-                await fetch(`/api/config/server/${targetBmc}`, {
+                await fetch(apiUrl(`/api/config/server/${targetBmc}`), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -2954,7 +2975,7 @@
             }
             
             try {
-                const response = await fetch(`/api/servers/${bmc_ip}`, { method: 'DELETE' });
+                const response = await fetch(apiUrl(`/api/servers/${bmc_ip}`), { method: 'DELETE' });
                 const result = await response.json();
                 showAlert(result.message, 'success');
                 closeEditModal();
@@ -2967,7 +2988,7 @@
         
         async function initFromDefaults() {
             try {
-                const response = await fetch('/api/servers/init-from-defaults', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/servers/init-from-defaults'), { method: 'POST' });
                 const result = await response.json();
                 showAlert(`Added ${result.added} servers from defaults`, 'success');
                 loadManagedServers();
@@ -3029,7 +3050,7 @@
             
             try {
                 // Use SSE streaming endpoint for real-time progress
-                const eventSource = new EventSource('/api/inventory/collect-all/stream');
+                const eventSource = new EventSource(apiUrl('/api/inventory/collect-all/stream'));
                 
                 eventSource.onmessage = (event) => {
                     const data = JSON.parse(event.data);
@@ -3135,7 +3156,7 @@
             }
             
             try {
-                const response = await fetch('/api/servers/import', {
+                const response = await fetch(apiUrl('/api/servers/import'), {
                     method: 'POST',
                     headers: {'Content-Type': 'text/plain'},
                     body: ini
@@ -3152,7 +3173,7 @@
         
         async function exportServers(format) {
             try {
-                const response = await fetch(`/api/servers/export?format=${format}`);
+                const response = await fetch(apiUrl(`/api/servers/export?format=${format}`));
                 const content = format === 'json' ? JSON.stringify(await response.json(), null, 2) : await response.text();
                 document.getElementById('exportPreview').value = content;
                 
@@ -3170,7 +3191,7 @@
         
         async function loadExportPreview() {
             try {
-                const response = await fetch('/api/servers/export?format=ini');
+                const response = await fetch(apiUrl('/api/servers/export?format=ini'));
                 document.getElementById('exportPreview').value = await response.text();
             } catch (e) {
                 console.error('Failed to load export preview:', e);
@@ -3186,7 +3207,7 @@
             try {
                 // Use the new /api/backup endpoint for full backups with secrets
                 // or /api/config/export for config-only exports
-                const endpoint = includeSecrets ? '/api/backup' : '/api/config/export?include_secrets=false';
+                const endpoint = includeSecrets ? apiUrl('/api/backup') : apiUrl('/api/config/export?include_secrets=false');
                 
                 const response = await fetch(endpoint, { 
                     credentials: 'same-origin' 
@@ -3323,7 +3344,7 @@
                     const params = new URLSearchParams({
                         clear_existing: !merge
                     });
-                    response = await fetch(`/api/restore?${params}`, {
+                    response = await fetch(apiUrl(`/api/restore?${params}`), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
@@ -3338,7 +3359,7 @@
                         skip_alerts: skipAlerts,
                         skip_settings: skipSettings
                     });
-                    response = await fetch(`/api/config/import?${params}`, {
+                    response = await fetch(apiUrl(`/api/config/import?${params}`), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
@@ -3397,7 +3418,7 @@
         async function loadAdminCredentials() {
             try {
                 // Load current user credentials
-                const response = await fetch('/api/admin/credentials', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/admin/credentials'), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 document.getElementById('currentUsername').value = data.username || 'admin';
@@ -3412,13 +3433,13 @@
                 }
                 
                 // Load session user
-                const authResponse = await fetch('/api/auth/status', { credentials: 'same-origin' });
+                const authResponse = await fetch(apiUrl('/api/auth/status'), { credentials: 'same-origin' });
                 const auth = await authResponse.json();
                 document.getElementById('sessionUser').textContent = auth.username || 'admin';
                 document.getElementById('sessionRole').textContent = (auth.role || 'admin').toUpperCase();
                 
                 // Load anonymous setting
-                const settingsResponse = await fetch('/api/settings', { credentials: 'same-origin' });
+                const settingsResponse = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });
                 const settings = await settingsResponse.json();
                 document.getElementById('allowAnonymous').checked = settings.allow_anonymous_read === 'true';
                 
@@ -3435,7 +3456,7 @@
         
         async function loadUserList() {
             try {
-                const response = await fetch('/api/users', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/users'), { credentials: 'same-origin' });
                 const data = await response.json();
                 const users = Array.isArray(data) ? data : (data.users || []);
                 
@@ -3481,7 +3502,7 @@
             const allow = document.getElementById('allowAnonymous').checked;
             
             try {
-                const response = await fetch('/api/settings', {
+                const response = await fetch(apiUrl('/api/settings'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -3506,7 +3527,7 @@
         async function loadWorkerSettings(settings) {
             try {
                 // Get system info including CPU count
-                const sysResponse = await fetch('/api/system/info', { credentials: 'same-origin' });
+                const sysResponse = await fetch(apiUrl('/api/system/info'), { credentials: 'same-origin' });
                 if (sysResponse.ok) {
                     const sysInfo = await sysResponse.json();
                     systemCpuCount = sysInfo.cpu_count || 4;
@@ -3552,7 +3573,7 @@
         
         async function saveWorkerSetting(value) {
             try {
-                const response = await fetch('/api/settings', {
+                const response = await fetch(apiUrl('/api/settings'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -3561,7 +3582,7 @@
                 
                 if (response.ok) {
                     // Update the info display
-                    const sysResponse = await fetch('/api/system/info', { credentials: 'same-origin' });
+                    const sysResponse = await fetch(apiUrl('/api/system/info'), { credentials: 'same-origin' });
                     if (sysResponse.ok) {
                         const sysInfo = await sysResponse.json();
                         document.getElementById('workerInfo').textContent = `(Current: ${sysInfo.current_workers} workers)`;
@@ -3580,7 +3601,7 @@
         async function loadBackupStatus() {
             try {
                 // Check if AI is enabled for cloud backup
-                const response = await fetch('/api/ai/status', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/ai/status'), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     const cloudSection = document.getElementById('cloudBackupStatus');
@@ -3611,7 +3632,7 @@
         async function exportConfig() {
             const includeSecrets = document.getElementById('exportIncludeSecrets').checked;
             try {
-                const url = `/api/config/export?download=true&include_secrets=${includeSecrets}`;
+                const url = apiUrl(`/api/config/export?download=true&include_secrets=${includeSecrets}`);
                 window.location.href = url;
                 showAlert('Configuration exported', 'success');
             } catch (e) {
@@ -3641,7 +3662,7 @@
                         return;
                     }
                     
-                    const response = await fetch('/api/config/import?merge=true', {
+                    const response = await fetch(apiUrl('/api/config/import?merge=true'), {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         credentials: 'same-origin',
@@ -3673,7 +3694,7 @@
             try {
                 showAlert('Backing up to cloud...', 'info');
                 
-                const response = await fetch('/api/config/backup-to-cloud', {
+                const response = await fetch(apiUrl('/api/config/backup-to-cloud'), {
                     method: 'POST',
                     credentials: 'same-origin'
                 });
@@ -3692,7 +3713,7 @@
         
         async function showCloudBackups() {
             try {
-                const response = await fetch('/api/config/cloud-backups', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/config/cloud-backups'), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 if (!response.ok || !data.backups?.length) {
@@ -3726,7 +3747,7 @@
             try {
                 showAlert('Restoring from cloud...', 'info');
                 
-                const response = await fetch(`/api/config/restore-from-cloud?backup_id=${backupId}`, {
+                const response = await fetch(apiUrl(`/api/config/restore-from-cloud?backup_id=${backupId}`), {
                     method: 'POST',
                     credentials: 'same-origin'
                 });
@@ -3768,7 +3789,7 @@
             }
             
             try {
-                const response = await fetch('/api/users', {
+                const response = await fetch(apiUrl('/api/users'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -3810,7 +3831,7 @@
         
         async function updateUser(id, data) {
             try {
-                const response = await fetch(`/api/users/${id}`, {
+                const response = await fetch(apiUrl(`/api/users/${id}`), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -3834,7 +3855,7 @@
             if (!confirm(`Delete user ${username}? This cannot be undone.`)) return;
             
             try {
-                const response = await fetch(`/api/users/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/users/${id}`), { method: 'DELETE', credentials: 'same-origin' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -3875,7 +3896,7 @@
             }
             
             try {
-                const response = await fetch('/api/admin/credentials', {
+                const response = await fetch(apiUrl('/api/admin/credentials'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -3909,8 +3930,15 @@
         
         async function loadServers() {
             try {
-                const response = await fetch('/api/servers');
-                const servers = await response.json();
+                const response = await fetch(apiUrl('/api/servers'));
+                const data = await response.json();
+                
+                // Handle auth error or non-array response
+                if (!response.ok || !Array.isArray(data)) {
+                    console.warn('loadServers: Auth required or invalid response');
+                    return;
+                }
+                const servers = data;
                 
                 // Sort servers by name (natural sort for numbers like brickbox-1, brickbox-10)
                 servers.sort((a, b) => {
@@ -3957,7 +3985,7 @@
             
             try {
                 // Fetch server config including OS IP from Server table
-                const response = await fetch(`/api/config/server/${bmc_ip}`);
+                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`));
                 if (response.ok) {
                     const data = await response.json();
                     // OS IP from Server table (managed servers)
@@ -3988,7 +4016,7 @@
             
             try {
                 // Save to system settings (defaults)
-                const response = await fetch('/api/settings/credentials/defaults', {
+                const response = await fetch(apiUrl('/api/settings/credentials/defaults'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4010,7 +4038,7 @@
         
         async function loadSshSettings() {
             try {
-                const response = await fetch('/api/settings', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });
                 const settings = await response.json();
                 const enabled = settings.enable_ssh_inventory === 'true';
                 document.getElementById('enableSshInventory').checked = enabled;
@@ -4030,7 +4058,7 @@
         
         async function loadSshKeys() {
             try {
-                const response = await fetch('/api/ssh-keys', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/ssh-keys'), { credentials: 'same-origin' });
                 const keys = await response.json();
                 SSH_KEYS = keys;
                 
@@ -4100,7 +4128,7 @@
             }
             
             try {
-                const response = await fetch('/api/ssh-keys', {
+                const response = await fetch(apiUrl('/api/ssh-keys'), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4127,7 +4155,7 @@
             }
             
             try {
-                const response = await fetch(`/api/ssh-keys/${keyId}`, {
+                const response = await fetch(apiUrl(`/api/ssh-keys/${keyId}`), {
                     method: 'DELETE',
                     credentials: 'same-origin'
                 });
@@ -4153,7 +4181,7 @@
         async function toggleSshInventory() {
             const enabled = document.getElementById('enableSshInventory').checked;
             try {
-                const response = await fetch('/api/settings', {
+                const response = await fetch(apiUrl('/api/settings'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4192,7 +4220,7 @@
                 };
                 if (password) settingsData.ssh_password = password;
                 
-                const response = await fetch('/api/settings', {
+                const response = await fetch(apiUrl('/api/settings'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4221,7 +4249,7 @@
             
             // Save the setting
             try {
-                const response = await fetch('/api/settings', {
+                const response = await fetch(apiUrl('/api/settings'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4242,7 +4270,7 @@
             const collectRunpod = document.getElementById('collectRunpodLogs').checked;
             
             try {
-                const response = await fetch('/api/settings', {
+                const response = await fetch(apiUrl('/api/settings'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4307,7 +4335,7 @@
             
             try {
                 // Use SSE streaming endpoint for real-time progress
-                const eventSource = new EventSource('/api/ssh-logs/collect-all/stream');
+                const eventSource = new EventSource(apiUrl('/api/ssh-logs/collect-all/stream');
                 
                 eventSource.onmessage = (event) => {
                     const data = JSON.parse(event.data);
@@ -4410,7 +4438,7 @@
         
         async function loadSshLogStats() {
             try {
-                const response = await fetch('/api/ssh-logs/stats', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/ssh-logs/stats'), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('sshLogTotalEntries').textContent = data.total_entries || 0;
@@ -4426,7 +4454,7 @@
         
         async function loadSshLogSettings() {
             try {
-                const response = await fetch('/api/settings', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     
@@ -4486,7 +4514,7 @@
                     ssh_pass: password || ''
                 };
                 
-                const response = await fetch(`/api/config/server/${bmc_ip}`, {
+                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`), {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -4510,7 +4538,7 @@
         
         async function loadBulkServerList() {
             try {
-                const response = await fetch('/api/servers', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/servers'), { credentials: 'same-origin' });
                 const servers = await response.json();
                 BULK_SERVERS = servers;
                 
@@ -4525,7 +4553,7 @@
                 // Get config status for each server
                 let configsResponse;
                 try {
-                    configsResponse = await fetch('/api/config/servers', { credentials: 'same-origin' });
+                    configsResponse = await fetch(apiUrl('/api/config/servers'), { credentials: 'same-origin' });
                 } catch (e) {
                     // Fallback: no config info available
                     configsResponse = { ok: false };
@@ -4624,7 +4652,7 @@
             resultDiv.innerHTML = `<span style="color: var(--accent-blue);">⏳ Applying to ${serverIps.length} servers...</span>`;
             
             try {
-                const response = await fetch('/api/settings/credentials/apply', {
+                const response = await fetch(apiUrl('/api/settings/credentials/apply'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
@@ -4666,7 +4694,7 @@
             const pass = document.getElementById('bulkIpmiPass').value;
             
             try {
-                const response = await fetch('/api/settings/credentials/defaults', {
+                const response = await fetch(apiUrl('/api/settings/credentials/defaults'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
@@ -4689,7 +4717,7 @@
         
         async function loadDefaultCredentials() {
             try {
-                const response = await fetch('/api/settings/credentials/defaults', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/settings/credentials/defaults'), { credentials: 'same-origin' });
                 if (!response.ok) return;
                 
                 const defaults = await response.json();
@@ -4731,7 +4759,7 @@
         
         async function loadAlertStats() {
             try {
-                const response = await fetch('/api/alerts/stats');
+                const response = await fetch(apiUrl('/api/alerts/stats'));
                 const stats = await response.json();
                 
                 document.getElementById('statAlertsTotal').textContent = stats.alerts_7d || 0;
@@ -4745,7 +4773,7 @@
         
         async function loadEccTracking() {
             try {
-                const response = await fetch('/api/ecc/tracking');
+                const response = await fetch(apiUrl('/api/ecc/tracking'));
                 const trackers = await response.json();
                 
                 const eccList = document.getElementById('eccTracking');
@@ -4788,7 +4816,7 @@
             if (!confirm(`Reset ${type} ECC counts for all servers?`)) return;
             
             try {
-                const response = await fetch(`/api/ecc/reset?type=${type}`, { method: 'POST' });
+                const response = await fetch(apiUrl(`/api/ecc/reset?type=${type}`), { method: 'POST' });
                 const result = await response.json();
                 if (response.ok) {
                     showAlert(result.message, 'success');
@@ -4803,7 +4831,7 @@
         
         async function loadAlertRules() {
             try {
-                const response = await fetch('/api/alerts/rules');
+                const response = await fetch(apiUrl('/api/alerts/rules'));
                 ALERT_RULES = await response.json();
                 
                 const rulesList = document.getElementById('alertRulesList');
@@ -4834,7 +4862,7 @@
         
         async function loadAlertHistory() {
             try {
-                const response = await fetch('/api/alerts/history?limit=50');
+                const response = await fetch(apiUrl('/api/alerts/history?limit=50'));
                 const alerts = await response.json();
                 
                 const historyList = document.getElementById('alertHistory');
@@ -4870,7 +4898,7 @@
         
         async function acknowledgeAlert(alertId) {
             try {
-                const response = await fetch(`/api/alerts/history/${alertId}/acknowledge`, { method: 'POST' });
+                const response = await fetch(apiUrl(`/api/alerts/history/${alertId}/acknowledge`), { method: 'POST' });
                 if (response.ok) {
                     loadAlertHistory();
                     loadAlertStats();
@@ -4949,7 +4977,7 @@
             };
             
             try {
-                const url = ruleId ? `/api/alerts/rules/${ruleId}` : '/api/alerts/rules';
+                const url = ruleId ? apiUrl(`/api/alerts/rules/${ruleId}`) : apiUrl('/api/alerts/rules');
                 const method = ruleId ? 'PUT' : 'POST';
                 
                 const response = await fetch(url, {
@@ -4978,7 +5006,7 @@
             if (!confirm('Delete this alert rule?')) return;
             
             try {
-                const response = await fetch(`/api/alerts/rules/${ruleId}`, { method: 'DELETE' });
+                const response = await fetch(apiUrl(`/api/alerts/rules/${ruleId}`), { method: 'DELETE' });
                 if (response.ok) {
                     showAlert('Rule deleted', 'success');
                     closeRuleModal();
@@ -4994,7 +5022,7 @@
             
             // Delete all existing rules
             for (const rule of ALERT_RULES) {
-                await fetch(`/api/alerts/rules/${rule.id}`, { method: 'DELETE' });
+                await fetch(apiUrl(`/api/alerts/rules/${rule.id}`), { method: 'DELETE' });
             }
             
             // Re-initialize defaults by restarting (or API call)
@@ -5006,7 +5034,7 @@
         
         async function loadNotificationConfigs() {
             try {
-                const response = await fetch('/api/alerts/notifications');
+                const response = await fetch(apiUrl('/api/alerts/notifications'));
                 const configs = await response.json();
                 
                 // Telegram
@@ -5059,7 +5087,7 @@
         
         async function saveTelegramConfig() {
             try {
-                const response = await fetch('/api/alerts/notifications/telegram', {
+                const response = await fetch(apiUrl('/api/alerts/notifications/telegram'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -5098,7 +5126,7 @@
             
             // Save first
             try {
-                await fetch('/api/alerts/notifications/telegram', {
+                await fetch(apiUrl('/api/alerts/notifications/telegram'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
@@ -5114,7 +5142,7 @@
             
             // Then test
             try {
-                const response = await fetch('/api/alerts/notifications/telegram/test', { 
+                const response = await fetch(apiUrl('/api/alerts/notifications/telegram/test'), { 
                     method: 'POST',
                     credentials: 'same-origin'
                 });
@@ -5134,7 +5162,7 @@
             const toAddresses = document.getElementById('emailTo').value.split(',').map(e => e.trim()).filter(e => e);
             
             try {
-                const response = await fetch('/api/alerts/notifications/email', {
+                const response = await fetch(apiUrl('/api/alerts/notifications/email'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -5166,7 +5194,7 @@
             resultDiv.innerHTML = '⏳ Sending test...';
             
             try {
-                const response = await fetch('/api/alerts/notifications/email/test', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/alerts/notifications/email/test'), { method: 'POST' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -5190,7 +5218,7 @@
             }
             
             try {
-                const response = await fetch('/api/alerts/notifications/webhook', {
+                const response = await fetch(apiUrl('/api/alerts/notifications/webhook'), {
                     method: 'PUT',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -5217,7 +5245,7 @@
             resultDiv.innerHTML = '⏳ Sending test...';
             
             try {
-                const response = await fetch('/api/alerts/notifications/webhook/test', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/alerts/notifications/webhook/test'), { method: 'POST' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -5243,7 +5271,7 @@
                 
                 try {
                     // Save the API key to the backend
-                    const response = await fetch('/api/ai/config', {
+                    const response = await fetch(apiUrl('/api/ai/config'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
@@ -5263,7 +5291,7 @@
                         showAlert(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
                         
                         // Trigger initial sync
-                        fetch('/api/ai/sync', { 
+                        fetch(apiUrl('/api/ai/sync'), { 
                             method: 'POST',
                             credentials: 'same-origin'
                         }).catch(e => console.log('Sync started in background'));
@@ -5304,7 +5332,7 @@
         // Check auth status and show admin-only tabs
         (async function() {
             try {
-                const response = await fetch('/api/auth/status', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/auth/status'), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 console.log('[Settings] Auth status:', data);

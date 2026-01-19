@@ -1707,11 +1707,11 @@
                 <span id="adminButtons" style="display: none;">
                     <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
                     <a href="https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
-                    <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
+                    <a href="{{ url_for('settings_page') }}" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
                 </span>
                 <span id="authButtons">
-                    <a href="/login" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
-                    <a href="/logout" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
+                    <a href="{{ url_for('login') }}" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
                 </span>
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
                     <span class="icon" id="themeIcon">🌙</span>
@@ -2624,6 +2624,17 @@
     </div>
     
     <script>
+        // Base path for API calls (supports reverse proxy subpath like /ipmi/)
+        const BASE_PATH = '{{ base_path }}';
+        const API_BASE = BASE_PATH;
+        
+        // Helper function to build API URLs
+        function apiUrl(path) {
+            // Ensure path starts with /
+            if (!path.startsWith('/')) path = '/' + path;
+            return BASE_PATH + path;
+        }
+        
         // Theme management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -2655,7 +2666,7 @@
             badge.textContent = 'Checking...';
             
             try {
-                const response = await fetch('/api/version/check');
+                const response = await fetch(apiUrl('/api/version/check'));
                 const data = await response.json();
                 updateInfo = data;
                 
@@ -2712,7 +2723,7 @@
         // Check for updates on page load (silent)
         setTimeout(async () => {
             try {
-                const response = await fetch('/api/version/check');
+                const response = await fetch(apiUrl('/api/version/check'));
                 const data = await response.json();
                 updateInfo = data;
                 if (data.update_available) {
@@ -2811,7 +2822,7 @@
         
         async function loadAiEmbedConfig() {
             try {
-                const response = await fetch('/api/ai/embed-config');
+                const response = await fetch(apiUrl('/api/ai/embed-config'));
                 if (response.ok) {
                     aiEmbedConfig = await response.json();
                     useAiEmbeds = aiEmbedConfig.enabled;
@@ -2898,9 +2909,9 @@
             try {
                 // Load subscription and usage
                 const [subResponse, usageResponse, serversResponse] = await Promise.all([
-                    fetch('/api/ai/subscription'),
-                    fetch('/api/ai/usage'),
-                    fetch('/api/ai/servers/ai-enabled')
+                    fetch(apiUrl('/api/ai/subscription')),
+                    fetch(apiUrl('/api/ai/usage')),
+                    fetch(apiUrl('/api/ai/servers/ai-enabled'))
                 ]);
                 
                 if (subResponse.ok) {
@@ -3030,7 +3041,7 @@
         
         async function loadUsageHistory() {
             try {
-                const response = await fetch('/api/ai/usage');
+                const response = await fetch(apiUrl('/api/ai/usage'));
                 if (response.ok) {
                     usageData = await response.json();
                     updateUsageHistoryUI(usageData);
@@ -3115,7 +3126,7 @@
                     is_enabled: srv.ai_enabled
                 }));
                 
-                const response = await fetch('/api/ai/servers/ai-enabled', {
+                const response = await fetch(apiUrl('/api/ai/servers/ai-enabled'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ servers: serversToSave })
@@ -3148,7 +3159,7 @@
         
         async function loadAgentStatus() {
             try {
-                const response = await fetch('/api/ai/agent/status');
+                const response = await fetch(apiUrl('/api/ai/agent/status'));
                 if (response.ok) {
                     const data = await response.json();
                     updateAgentStatusUI(data);
@@ -3161,7 +3172,7 @@
         
         async function loadAgentSettings() {
             try {
-                const response = await fetch('/api/ai/agent/settings');
+                const response = await fetch(apiUrl('/api/ai/agent/settings'));
                 if (response.ok) {
                     const data = await response.json();
                     agentSettings = data.settings || agentSettings;
@@ -3206,7 +3217,7 @@
             agentSettings.permissions = permissions;
             
             try {
-                await fetch('/api/ai/agent/settings', {
+                await fetch(apiUrl('/api/ai/agent/settings'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ settings: agentSettings })
@@ -3256,7 +3267,7 @@
         async function checkSSHPrerequisites() {
             try {
                 // Count servers with SSH enabled
-                const response = await fetch('/api/servers', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/servers'), { credentials: 'same-origin' });
                 if (!response.ok) return;
                 
                 const servers = await response.json();
@@ -3279,7 +3290,7 @@
         // Recovery permissions management
         async function loadRecoveryPermissions() {
             try {
-                const response = await fetch('/api/recovery/permissions', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/recovery/permissions'), { credentials: 'same-origin' });
                 if (!response.ok) return;
                 
                 const data = await response.json();
@@ -3320,7 +3331,7 @@
             }
             
             try {
-                const response = await fetch('/api/recovery/permissions/default', {
+                const response = await fetch(apiUrl('/api/recovery/permissions/default'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
@@ -3361,7 +3372,7 @@
             btn.innerHTML = '<span class="spinner"></span> Analyzing...';
             
             try {
-                const response = await fetch('/api/ai/agent/analyze', {
+                const response = await fetch(apiUrl('/api/ai/agent/analyze'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -3424,7 +3435,7 @@
             const content = document.getElementById('recoveryHistoryContent');
             
             try {
-                const response = await fetch('/api/ai/agent/recovery/history');
+                const response = await fetch(apiUrl('/api/ai/agent/recovery/history'));
                 if (!response.ok) throw new Error('Failed to load history');
                 
                 const data = await response.json();
@@ -3478,7 +3489,7 @@
                 sseConnection.close();
             }
             
-            sseConnection = new EventSource('/api/stream');
+            sseConnection = new EventSource(apiUrl('/api/stream'));
             
             sseConnection.onopen = function() {
                 console.log('[SSE] Connected for real-time updates');
@@ -3590,7 +3601,7 @@
         
         function startFreeTrial() {
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
-            const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
+            const redirectUri = encodeURIComponent(window.location.origin + apiUrl('/api/ai/oauth-callback'));
             const ipmiHost = encodeURIComponent(window.location.host);
             const signupUrl = `https://cryptolabs.co.za/ipmi-monitor/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
             
@@ -3661,7 +3672,7 @@
         
         async function loadAiStatus() {
             try {
-                const response = await fetch('/api/ai/status');
+                const response = await fetch(apiUrl('/api/ai/status'));
                 const data = await response.json();
                 
                 aiEnabled = data.subscription_valid && data.enabled;
@@ -3793,7 +3804,7 @@
                 progressPercent.textContent = '30%';
                 progressText.textContent = 'Gathering server data...';
                 
-                const response = await fetch('/api/ai/sync', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' });
                 
                 progressBar.style.width = '70%';
                 progressPercent.textContent = '70%';
@@ -3892,7 +3903,7 @@
             
             try {
                 const range = document.querySelector('input[name="rcaRange"]:checked').value;
-                const response = await fetch(`/api/events?hours=${range}&server=${encodeURIComponent(device)}&limit=20`);
+                const response = await fetch(apiUrl(`/api/events?hours=${range}&server=${encodeURIComponent(device)}&limit=20`));
                 const data = await response.json();
                 
                 if (!data.events || data.events.length === 0) {
@@ -4030,7 +4041,7 @@
             if (useAiEmbeds) return;
             
             try {
-                const response = await fetch('/api/ai/results');
+                const response = await fetch(apiUrl('/api/ai/results'));
                 const data = await response.json();
                 
                 // Show cached summary if available
@@ -4149,7 +4160,7 @@
                                 🖥️ <strong>Affected Servers</strong> (click to ${showExpanded ? 'collapse' : 'expand'})
                             </div>
                             <div id="task-servers-${idx}" style="display: ${showExpanded ? 'block' : 'none'}; margin-top: 6px; max-height: 150px; overflow-y: auto;">
-                                ${affectedServers.map(s => `<a href="/server/${s}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${s}</a>`).join('')}
+                                ${affectedServers.map(s => `<a href="${BASE_PATH}/server/${s}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${s}</a>`).join('')}
                             </div>
                         </div>
                     ` : ''}
@@ -4193,7 +4204,7 @@
             const devices = getSelectedDevices('summary');
             
             try {
-                const response = await fetch('/api/ai/summary/generate', {
+                const response = await fetch(apiUrl('/api/ai/summary/generate'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -4230,7 +4241,7 @@
             const devices = getSelectedDevices('tasks');
             
             try {
-                const response = await fetch('/api/ai/tasks/generate', {
+                const response = await fetch(apiUrl('/api/ai/tasks/generate'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -4263,7 +4274,7 @@
             btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Analyzing...';
             
             try {
-                const response = await fetch('/api/ai/predictions', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/ai/predictions'), { method: 'POST' });
                 const data = await response.json();
                 
                 document.getElementById('predictionsOutput').style.display = 'block';
@@ -4284,7 +4295,7 @@
         
         async function loadEventsForRca() {
             try {
-                const response = await fetch(`/api/events?hours=72&limit=20`);
+                const response = await fetch(apiUrl(`/api/events?hours=72&limit=20`));
                 const data = await response.json();
                 recentEventsForRca = data.events || [];
                 
@@ -4338,7 +4349,7 @@
             }
             
             try {
-                const response = await fetch('/api/ai/rca', {
+                const response = await fetch(apiUrl('/api/ai/rca'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -4409,7 +4420,7 @@
         async function askAIStreaming(question, progressDiv) {
             // Use streaming endpoint with Server-Sent Events for progress updates
             try {
-                const response = await fetch('/api/ai/chat/stream', {
+                const response = await fetch(apiUrl('/api/ai/chat/stream'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -4463,7 +4474,7 @@
             progressDiv.innerHTML = '<div class="spinner" style="width: 16px; height: 16px;"></div> <span>🤔 Pondering your question...</span>';
             
             try {
-                const response = await fetch('/api/ai/chat', {
+                const response = await fetch(apiUrl('/api/ai/chat'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -4530,7 +4541,7 @@
         
         async function getAiConfig() {
             try {
-                const response = await fetch('/api/ai/status');
+                const response = await fetch(apiUrl('/api/ai/status'));
                 if (response.ok) {
                     return await response.json();
                 }
@@ -4548,7 +4559,7 @@
         async function loadStats() {
             try {
                 const hours = getTimeRange();
-                const response = await fetch(`/api/stats?hours=${hours}`);
+                const response = await fetch(apiUrl(`/api/stats?hours=${hours}`));
                 const data = await response.json();
                 
                 document.getElementById('totalServers').textContent = data.total_servers;
@@ -4563,7 +4574,7 @@
         async function loadAiConfig() {
             try {
                 // Use public status endpoint that doesn't require auth
-                const response = await fetch('/api/ai/status');
+                const response = await fetch(apiUrl('/api/ai/status'));
                 if (response.ok) {
                     const config = await response.json();
                     aiConfig = {
@@ -4623,7 +4634,7 @@
                 
                 // STEP 2: Fetch fresh data in background
                 const hours = getTimeRange();
-                const response = await fetch(`/api/servers?hours=${hours}`);
+                const response = await fetch(apiUrl(`/api/servers?hours=${hours}`));
                 const freshData = await response.json();
                 
                 // Ensure freshData is an array
@@ -4815,7 +4826,7 @@
                         '') : '';
                 
                 return `
-                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}" data-bmc-ip="${server.bmc_ip}">
+                <div class="server-card" onclick="window.location='${BASE_PATH}/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}" data-bmc-ip="${server.bmc_ip}">
                     <div class="server-header">
                         <div>
                             <div class="server-name">${server.server_name}${aiIcon}</div>
@@ -4873,7 +4884,7 @@
             }
             
             try {
-                let url = '/api/events?limit=50';
+                let url = apiUrl('/api/events?limit=50');
                 if (currentFilter !== 'all') {
                     url += `&severity=${currentFilter}`;
                 }
@@ -4942,7 +4953,7 @@
                 btn.textContent = '⏳ Collecting...';
                 btn.disabled = true;
                 
-                await fetch('/api/collect', { method: 'POST' });
+                await fetch(apiUrl('/api/collect'), { method: 'POST' });
                 
                 // Wait a bit for collection to start
                 setTimeout(() => {
@@ -4969,7 +4980,7 @@
                 btn.textContent = '⏳ Clearing...';
                 btn.disabled = true;
                 
-                const response = await fetch('/api/clear_all_sel', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/clear_all_sel'), { method: 'POST' });
                 const data = await response.json();
                 
                 btn.textContent = '⚠️ Clear All SEL';
@@ -4988,7 +4999,7 @@
                 btn.textContent = '⏳ Collecting Sensors...';
                 btn.disabled = true;
                 
-                await fetch('/api/sensors/collect', { method: 'POST' });
+                await fetch(apiUrl('/api/sensors/collect'), { method: 'POST' });
                 
                 setTimeout(() => {
                     btn.textContent = '📊 Collect Sensors';
@@ -5032,7 +5043,7 @@
         // Check auth status
         async function checkAuth() {
             try {
-                const response = await fetch('/api/auth/status');
+                const response = await fetch(apiUrl('/api/auth/status'));
                 const data = await response.json();
                 
                 if (data.is_admin) {
@@ -5152,7 +5163,7 @@
                 
                 try {
                     // Save the API key to the backend
-                    const response = await fetch('/api/ai/config', {
+                    const response = await fetch(apiUrl('/api/ai/config'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
@@ -5172,7 +5183,7 @@
                         showNotification(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
                         
                         // Trigger initial sync
-                        fetch('/api/ai/sync', { 
+                        fetch(apiUrl('/api/ai/sync'), { 
                             method: 'POST',
                             credentials: 'same-origin'
                         }).catch(e => console.log('Sync started in background'));
@@ -5248,7 +5259,7 @@
         
         async function checkForContainerUpdate() {
             try {
-                const response = await fetch('/api/version');
+                const response = await fetch(apiUrl('/api/version'));
                 if (!response.ok) return;
                 
                 const data = await response.json();

@@ -572,6 +572,13 @@
     </div>
     
     <script>
+        // Base path for API calls (supports reverse proxy subpath like /ipmi/)
+        const BASE_PATH = '{{ base_path }}';
+        function apiUrl(path) {
+            if (!path.startsWith('/')) path = '/' + path;
+            return BASE_PATH + path;
+        }
+        
         // State
         let currentStep = 1;
         let serversList = [];
@@ -970,7 +977,7 @@ storage-server,192.168.1.102,,,,false`
             };
             
             try {
-                const response = await fetch('/api/setup/complete', {
+                const response = await fetch(apiUrl('/api/setup/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(setupData)

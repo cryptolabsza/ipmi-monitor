@@ -272,6 +272,54 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent XSS access to cookies
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session timeout
 
+# =============================================================================
+# REVERSE PROXY / SUBPATH SUPPORT
+# =============================================================================
+# Support running behind a reverse proxy at a subpath like /ipmi/
+# Set via environment variable or X-Script-Name header from nginx
+APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', os.environ.get('SCRIPT_NAME', ''))
+if APPLICATION_ROOT:
+    app.config['APPLICATION_ROOT'] = APPLICATION_ROOT
+
+class ReverseProxyMiddleware:
+    """
+    Middleware to handle reverse proxy subpath routing.
+    Respects X-Script-Name header from nginx proxy_set_header.
+    """
+    def __init__(self, app):
+        self.app = app
+    
+    def __call__(self, environ, start_response):
+        # Check for X-Script-Name header (set by nginx)
+        script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
+        if script_name:
+            environ['SCRIPT_NAME'] = script_name
+            # Strip the prefix from PATH_INFO
+            path_info = environ.get('PATH_INFO', '')
+            if path_info.startswith(script_name):
+                environ['PATH_INFO'] = path_info[len(script_name):] or '/'
+        # Also check environment variable
+        elif APPLICATION_ROOT:
+            environ['SCRIPT_NAME'] = APPLICATION_ROOT
+            path_info = environ.get('PATH_INFO', '')
+            if path_info.startswith(APPLICATION_ROOT):
+                environ['PATH_INFO'] = path_info[len(APPLICATION_ROOT):] or '/'
+        
+        return self.app(environ, start_response)
+
+# Apply middleware
+app.wsgi_app = ReverseProxyMiddleware(app.wsgi_app)
+
+@app.context_processor
+def inject_base_path():
+    """Inject base path into all templates for JavaScript API calls."""
+    # Get base path from SCRIPT_NAME (set by middleware) or config
+    base_path = request.environ.get('SCRIPT_NAME', '') or app.config.get('APPLICATION_ROOT', '')
+    return {
+        'base_path': base_path,
+        'api_base': base_path  # Alias for clarity in JS
+    }
+
 db = SQLAlchemy(app)
 
 # Branding - customize for your organization
@@ -280,7 +328,8 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.0.4-dev'  # Development version after v1.0.3 release
+from ipmi_monitor import __version__
+APP_VERSION = __version__  # Use version from package
 
 def get_build_info():
     """
