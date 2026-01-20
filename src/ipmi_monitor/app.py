@@ -6758,6 +6758,31 @@ def check_uptime_and_detect_reboot(bmc_ip, server_name, current_uptime_seconds):
                 app.logger.info(f"✅ Server {server_name} rebooted as expected (recovery action)")
             
             uptime_record.last_boot_time = new_boot_time
+            
+            # Trigger inventory collection after reboot (hardware may have changed)
+            # Run in background thread to avoid blocking the uptime check
+            def collect_inventory_after_reboot(bmc_ip, server_name):
+                try:
+                    # Wait for server to fully boot and services to stabilize
+                    import time
+                    time.sleep(120)  # 2 minutes delay
+                    
+                    with app.app_context():
+                        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+                        if server:
+                            ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+                            collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server.server_ip)
+                            app.logger.info(f"📦 Post-reboot inventory collected for {server_name}")
+                except Exception as e:
+                    app.logger.debug(f"Post-reboot inventory collection failed for {bmc_ip}: {e}")
+            
+            inventory_thread = threading.Thread(
+                target=collect_inventory_after_reboot,
+                args=(bmc_ip, server_name),
+                daemon=True
+            )
+            inventory_thread.start()
+            app.logger.info(f"📦 Scheduled post-reboot inventory collection for {server_name}")
         
         uptime_record.last_uptime_seconds = current_uptime_seconds
         uptime_record.last_check = datetime.utcnow()
