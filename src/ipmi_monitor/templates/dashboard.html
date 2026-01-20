@@ -3972,6 +3972,9 @@
             const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
             const dropdown = document.getElementById('chatHistory');
             
+            // Guard against null element (tab not visible or not yet rendered)
+            if (!dropdown) return;
+            
             dropdown.innerHTML = '<option value="new">New Conversation</option>' +
                 history.map(h => {
                     const date = new Date(h.timestamp);
