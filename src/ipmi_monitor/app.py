@@ -9739,8 +9739,14 @@ def update_prometheus_metrics():
                 prom_fan_speed.labels(**labels).set(sensor.value)
             elif sensor.sensor_type == 'voltage':
                 prom_voltage.labels(**labels).set(sensor.value)
+            elif sensor.sensor_type == 'power' and sensor.unit and 'watt' in sensor.unit.lower():
+                # Power sensors from regular IPMI sensors (e.g. "Pwr Consumption")
+                prom_power_watts.labels(
+                    bmc_ip=sensor.bmc_ip,
+                    server_name=sensor.server_name
+                ).set(sensor.value)
         
-        # Power readings
+        # Also check PowerReading table (from DCMI power reading)
         power_readings = PowerReading.query.filter(
             PowerReading.collected_at >= cutoff_1h
         ).all()
