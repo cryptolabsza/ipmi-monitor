@@ -246,7 +246,7 @@ def status():
     table.add_row("Version", __version__)
     table.add_row("Config Dir", str(config_path))
     table.add_row("Config Exists", "✓" if (config_path / "config.yaml").exists() else "✗")
-    table.add_row("Database", str(config_path / "ipmi_monitor.db"))
+    table.add_row("Database", "/var/lib/ipmi-monitor/ipmi_events.db")
     
     # Check if service is installed
     service_mgr = ServiceManager()
