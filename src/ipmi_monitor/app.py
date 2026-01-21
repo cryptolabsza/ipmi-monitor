@@ -3169,6 +3169,7 @@ def sync_to_cloud(initial_sync=False):
                 'servers': [{
                     'name': s.server_name,
                     'bmc_ip': s.bmc_ip,
+                    'server_ip': s.server_ip,  # OS IP for SSH access
                     'description': s.notes or ''
                 } for s in servers],
                 'events': [{
@@ -3190,6 +3191,8 @@ def sync_to_cloud(initial_sync=False):
                 'inventory': [{
                     'server_name': inv.server_name,
                     'bmc_ip': inv.bmc_ip,
+                    # Include server_ip from Server table (OS IP for SSH)
+                    'server_ip': next((s.server_ip for s in servers if s.bmc_ip == inv.bmc_ip), None),
                     'manufacturer': inv.manufacturer,
                     'product_name': inv.product_name,
                     'serial_number': inv.serial_number,
