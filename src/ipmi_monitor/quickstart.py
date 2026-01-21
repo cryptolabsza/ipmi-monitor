@@ -201,6 +201,29 @@ def run_quickstart():
     with open(config_dir / "config.yaml", "w") as f:
         yaml.dump(config, f, default_flow_style=False)
     
+    # Create data directory first (needed for database operations)
+    data_dir = Path("/var/lib/ipmi-monitor")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    db_path = data_dir / "ipmi_events.db"
+    
+    # Process SSH keys - read from file paths and store in database
+    # Track unique SSH keys to avoid duplicates
+    ssh_key_map = {}  # path -> key_name
+    ssh_key_counter = 0
+    
+    for srv in servers:
+        if srv.get("ssh_key"):
+            key_path = srv["ssh_key"]
+            if key_path not in ssh_key_map:
+                # Read key content from file
+                key_content = read_ssh_key_file(key_path)
+                if key_content:
+                    ssh_key_counter += 1
+                    key_name = f"quickstart-key-{ssh_key_counter}" if ssh_key_counter > 1 else "default-key"
+                    key_id = create_ssh_key_in_database(key_name, key_content, db_path)
+                    if key_id:
+                        ssh_key_map[key_path] = key_name
+    
     # Save servers in the format Flask's parse_yaml_servers() expects
     # Convert from quickstart format to Flask format
     flask_servers = []
@@ -220,8 +243,9 @@ def run_quickstart():
             flask_srv["ssh_user"] = srv["ssh_user"]
         if srv.get("ssh_password"):
             flask_srv["ssh_pass"] = srv["ssh_password"]
-        if srv.get("ssh_key"):
-            flask_srv["ssh_key"] = srv["ssh_key"]
+        # SSH key - use key_name reference instead of path
+        if srv.get("ssh_key") and srv["ssh_key"] in ssh_key_map:
+            flask_srv["ssh_key_name"] = ssh_key_map[srv["ssh_key"]]
         if srv.get("ssh_port"):
             flask_srv["ssh_port"] = srv["ssh_port"]
         flask_servers.append(flask_srv)
@@ -232,14 +256,9 @@ def run_quickstart():
     
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
-    # Create data directory
-    data_dir = Path("/var/lib/ipmi-monitor")
-    data_dir.mkdir(parents=True, exist_ok=True)
-    
     # Set admin password if custom (before service starts)
     # Note: Flask's auto_load_servers_config() will import servers on first startup
     if admin_password != "admin":
-        db_path = data_dir / "ipmi_events.db"
         set_admin_password(admin_password, db_path)
     
     # Install and start service
@@ -737,6 +756,93 @@ def set_admin_password(password: str, db_path: Path):
         
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Could not set admin password: {e}")
+
+
+def read_ssh_key_file(key_path: str) -> Optional[str]:
+    """Read SSH key content from a file path."""
+    try:
+        key_path = os.path.expanduser(key_path)
+        if os.path.exists(key_path):
+            with open(key_path, 'r') as f:
+                content = f.read().strip()
+            # Validate it looks like an SSH key
+            if content.startswith('-----BEGIN') and 'PRIVATE KEY' in content:
+                return content
+            else:
+                console.print(f"[yellow]⚠[/yellow] File {key_path} doesn't appear to be a valid SSH private key")
+                return None
+        else:
+            console.print(f"[yellow]⚠[/yellow] SSH key file not found: {key_path}")
+            return None
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Could not read SSH key: {e}")
+        return None
+
+
+def create_ssh_key_in_database(name: str, key_content: str, db_path: Path) -> Optional[int]:
+    """Create an SSH key entry in the database and return its ID."""
+    import sqlite3
+    import hashlib
+    import base64
+    from datetime import datetime
+    
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Create ssh_key table if needed (matching Flask's SSHKey model)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ssh_key (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(50) NOT NULL UNIQUE,
+                key_content TEXT NOT NULL,
+                fingerprint VARCHAR(100),
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
+        
+        # Generate fingerprint
+        fingerprint = None
+        try:
+            # Extract the base64 part of the key for fingerprint
+            lines = key_content.strip().split('\n')
+            key_data = ''.join(line for line in lines if not line.startswith('-----'))
+            key_bytes = base64.b64decode(key_data)
+            fingerprint = hashlib.sha256(key_bytes).hexdigest()[:32]
+        except:
+            pass
+        
+        now = datetime.now().isoformat()
+        
+        # Check if key with this name exists
+        cursor.execute("SELECT id FROM ssh_key WHERE name = ?", (name,))
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing key
+            cursor.execute("""
+                UPDATE ssh_key SET key_content = ?, fingerprint = ?, updated_at = ?
+                WHERE name = ?
+            """, (key_content, fingerprint, now, name))
+            key_id = existing[0]
+        else:
+            # Insert new key
+            cursor.execute("""
+                INSERT INTO ssh_key (name, key_content, fingerprint, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (name, key_content, fingerprint, now, now))
+            key_id = cursor.lastrowid
+        
+        conn.commit()
+        conn.close()
+        
+        console.print(f"[green]✓[/green] SSH key '{name}' stored in database")
+        return key_id
+        
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Could not store SSH key: {e}")
+        return None
 
 
 def setup_https_access(local_ip: str) -> Optional[str]:
