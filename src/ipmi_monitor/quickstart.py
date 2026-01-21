@@ -462,16 +462,30 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
         if not server.get("server_ip"):
             continue
         
+        server["ssh_port"] = 22
+        
+        # Test SSH and get hostname if SSH credentials configured
+        if server.get("server_ip") and server.get("ssh_user"):
+            success, hostname, error = test_ssh_connection(
+                server["server_ip"],
+                server["ssh_user"],
+                password=server.get("ssh_password"),
+                key_path=server.get("ssh_key"),
+                port=22
+            )
+            if success and hostname:
+                server["name"] = hostname
+        
         # Test IPMI if configured
         if server.get("bmc_ip") and server.get("bmc_user"):
             if test_ipmi_connection(server["bmc_ip"], server["bmc_user"], server["bmc_password"]):
                 console.print(f"[green]✓[/green] {server['name']} - IPMI OK ({server['bmc_ip']})")
             else:
                 console.print(f"[yellow]⚠[/yellow] {server['name']} - IPMI failed ({server['bmc_ip']})")
-        else:
-            console.print(f"[blue]•[/blue] {server['name']} - SSH only ({server['server_ip']})")
+        elif server.get("server_ip"):
+            ssh_status = "[green]SSH OK[/green]" if (server.get("ssh_user") and hostname) else "[yellow]SSH?[/yellow]"
+            console.print(f"[blue]•[/blue] {server['name']} - {ssh_status} ({server['server_ip']})")
         
-        server["ssh_port"] = 22
         servers.append(server)
     
     return servers
@@ -658,27 +672,50 @@ def add_servers_manual() -> List[Dict]:
             if not ssh_key:
                 add_ssh = False  # Can't have SSH without key
     
-    # Build server list
+    # Build server list and test SSH connections
     servers = []
+    console.print("\n[dim]Building server list...[/dim]\n")
+    
     for i, bmc_ip in enumerate(bmc_ips):
-        name = f"server-{i+1:02d}"
+        server_ip = server_ips.get(bmc_ip, bmc_ip) if add_ssh else None
+        default_name = f"server-{i+1:02d}"
+        hostname = None
         
         server = {
-            "name": name,
+            "name": default_name,
             "bmc_ip": bmc_ip,
             "bmc_user": bmc_user,
             "bmc_password": bmc_pass
         }
         
-        # Add SSH if configured
-        if add_ssh and ssh_user:
-            server["server_ip"] = server_ips.get(bmc_ip, bmc_ip)
+        # Add SSH if configured and test connection
+        if add_ssh and ssh_user and server_ip:
+            server["server_ip"] = server_ip
             server["ssh_user"] = ssh_user
             if ssh_pass:
                 server["ssh_password"] = ssh_pass
             if ssh_key:
                 server["ssh_key"] = ssh_key
             server["ssh_port"] = 22
+            
+            # Test SSH and get hostname
+            console.print(f"[dim]Testing SSH to {server_ip}...[/dim]", end=" ")
+            success, hostname, error = test_ssh_connection(
+                server_ip, ssh_user, 
+                password=ssh_pass, 
+                key_path=ssh_key,
+                port=22
+            )
+            
+            if success:
+                if hostname:
+                    server["name"] = hostname
+                    console.print(f"[green]✓[/green] {hostname}")
+                else:
+                    console.print(f"[green]✓[/green] Connected (using {default_name})")
+            else:
+                console.print(f"[yellow]⚠[/yellow] Failed: {error}")
+                console.print(f"    [dim]Server will be added but SSH may not work[/dim]")
         
         servers.append(server)
     
@@ -790,8 +827,85 @@ def add_server_interactive() -> Optional[Dict]:
         server["server_ip"] = ssh_host
         server["ssh_user"] = ssh_user
         server["ssh_port"] = 22
+        
+        # Test SSH connection and get hostname
+        console.print("[dim]Testing SSH connection...[/dim]")
+        success, hostname, error = test_ssh_connection(
+            ssh_host, ssh_user,
+            password=server.get("ssh_password"),
+            key_path=server.get("ssh_key"),
+            port=22
+        )
+        
+        if success:
+            if hostname:
+                # Offer to use the retrieved hostname
+                use_hostname = questionary.confirm(
+                    f"Use retrieved hostname '{hostname}' as server name?",
+                    default=True,
+                    style=custom_style
+                ).ask()
+                if use_hostname:
+                    server["name"] = hostname
+                console.print(f"[green]✓[/green] SSH connection successful")
+            else:
+                console.print(f"[green]✓[/green] SSH connection successful")
+        else:
+            console.print(f"[yellow]⚠[/yellow] SSH test failed: {error}")
+            console.print("[dim]Server will be added but SSH may not work. Check credentials.[/dim]")
     
     return server
+
+
+def test_ssh_connection(ip: str, user: str, password: str = None, key_path: str = None, port: int = 22) -> tuple:
+    """Test SSH connectivity and retrieve hostname.
+    
+    Returns:
+        tuple: (success: bool, hostname: str or None, error: str or None)
+    """
+    import tempfile
+    
+    try:
+        ssh_opts = [
+            "-o", "ConnectTimeout=10",
+            "-o", "StrictHostKeyChecking=no",
+            "-o", "BatchMode=yes",
+            "-p", str(port)
+        ]
+        
+        if key_path:
+            key_path = os.path.expanduser(key_path)
+            if not os.path.exists(key_path):
+                return (False, None, f"SSH key not found: {key_path}")
+            ssh_opts.extend(["-i", key_path])
+        
+        # Build SSH command to get hostname
+        cmd = ["ssh"] + ssh_opts + [f"{user}@{ip}", "hostname"]
+        
+        if password and not key_path:
+            # Use sshpass for password auth
+            try:
+                # Check if sshpass is available
+                subprocess.run(["which", "sshpass"], capture_output=True, check=True)
+                cmd = ["sshpass", "-p", password] + cmd
+                # Remove BatchMode for password auth
+                cmd = [c for c in cmd if c != "BatchMode=yes"]
+            except subprocess.CalledProcessError:
+                return (False, None, "sshpass not installed (needed for password auth)")
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        
+        if result.returncode == 0:
+            hostname = result.stdout.strip()
+            return (True, hostname if hostname else None, None)
+        else:
+            error = result.stderr.strip() if result.stderr else "Connection failed"
+            return (False, None, error)
+            
+    except subprocess.TimeoutExpired:
+        return (False, None, "Connection timed out")
+    except Exception as e:
+        return (False, None, str(e))
 
 
 def test_ipmi_connection(ip: str, user: str, password: str) -> bool:
