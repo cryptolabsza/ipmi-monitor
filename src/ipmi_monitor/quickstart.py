@@ -189,7 +189,7 @@ def run_quickstart():
             "port": int(web_port),
             "host": "0.0.0.0"
         },
-        "database": "/var/lib/ipmi-monitor/ipmi_monitor.db"
+        "database": "/var/lib/ipmi-monitor/ipmi_events.db"
     }
     
     if license_key:
@@ -204,9 +204,9 @@ def run_quickstart():
     # Create data directory first (needed for database operations)
     data_dir = Path("/var/lib/ipmi-monitor")
     data_dir.mkdir(parents=True, exist_ok=True)
-    # Use ipmi_monitor.db - this is Flask's main database for users, servers, configs
-    # (ipmi_events.db is only for sensor/event time-series data)
-    db_path = data_dir / "ipmi_monitor.db"
+    # Use ipmi_events.db - this is what Flask uses for SQLAlchemy
+    # (Flask puts everything in this database: users, servers, configs, sensors)
+    db_path = data_dir / "ipmi_events.db"
     
     # Process SSH keys - read from file paths and store in database
     # Track unique SSH keys to avoid duplicates
