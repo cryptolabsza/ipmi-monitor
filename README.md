@@ -71,12 +71,16 @@ pip install ipmi-monitor --break-system-packages
 sudo ipmi-monitor quickstart
 ```
 
-**That's it!** Answer a few questions:
+**That's it!** Answer a few questions and Docker containers are deployed automatically:
 
 ```
 ╭──────────────────────────────────────────────────╮
 │           IPMI Monitor - Quick Setup             │
+│                                                  │
+│   Deploys via Docker with automatic updates.    │
 ╰──────────────────────────────────────────────────╯
+
+✓ Docker is installed
 
 Detected: my-server (192.168.1.100)
 
@@ -95,30 +99,52 @@ Step 1: Add Server to Monitor
 Step 2: Web Interface Settings
   Web interface port: [5000]
 
-Step 3: AI Features (Optional)
+Step 3: Web Admin Password
+  Set a custom admin password? [Y/n]: y
+  Admin password: ******
+
+Step 4: AI Features (Optional)
   Enable AI Insights? [y/N]: n
 
-Step 4: Starting IPMI Monitor
-  ✓ Configuration saved
-  ✓ Service installed and started
+Step 5: Auto-Updates
+  Enable automatic updates? [Y/n]: y
+
+Step 6: HTTPS Access (Optional)
+  Set up HTTPS reverse proxy? [y/N]: n
+
+Step 7: Deploying IPMI Monitor
+  ✓ Server configuration saved
+  ✓ Environment configuration saved
+  ✓ Docker Compose configuration saved
+  ✓ Docker image pulled
+  ✓ IPMI Monitor started
 
 ╭──────────────────────────────────────────────────╮
 │              ✓ Setup Complete!                   │
 ╰──────────────────────────────────────────────────╯
 Web Interface: http://192.168.1.100:5000
+Auto-Updates: Enabled ✓ (Watchtower)
 ```
 
 ### After Setup
 
 ```bash
-# Add more servers
-ipmi-monitor add-server --bmc-ip 192.168.1.82 --username admin
-
-# Check status
+# Check container status
 ipmi-monitor status
 
 # View logs
-ipmi-monitor logs
+ipmi-monitor logs -f
+
+# Upgrade to latest version
+ipmi-monitor upgrade
+
+# Stop/start containers
+ipmi-monitor stop
+ipmi-monitor start
+
+# Direct Docker commands
+docker logs ipmi-monitor
+docker restart ipmi-monitor
 ```
 
 ### Bulk Import (Many Servers)
@@ -188,13 +214,26 @@ sudo ipmi-monitor quickstart
 ### CLI Commands
 
 ```bash
-ipmi-monitor setup              # Interactive setup wizard
-ipmi-monitor run                # Start web interface
-ipmi-monitor run --port 8080    # Custom port
-ipmi-monitor daemon             # Run as daemon (for systemd)
-ipmi-monitor status             # Show status and config
+# Quickstart (recommended)
+sudo ipmi-monitor quickstart    # Interactive Docker deployment
+
+# Container management
+ipmi-monitor status             # Show container status
+ipmi-monitor logs               # View container logs
+ipmi-monitor logs -f            # Follow logs
+ipmi-monitor stop               # Stop containers
+ipmi-monitor start              # Start containers
+ipmi-monitor restart            # Restart containers
+ipmi-monitor upgrade            # Pull latest image & restart
+
+# Server management
 ipmi-monitor add-server         # Add a server interactively
 ipmi-monitor list-servers       # List configured servers
+
+# Advanced (for non-Docker setups)
+ipmi-monitor setup              # Interactive setup wizard
+ipmi-monitor run                # Start web interface directly
+ipmi-monitor daemon             # Run as daemon (for systemd)
 ```
 
 ---
@@ -317,11 +356,21 @@ ai:
 
 ## 🔄 Keeping Up to Date
 
-### pip install
+### Quickstart Deployment (Recommended)
+
+If you used `sudo ipmi-monitor quickstart`, updates are automatic via Watchtower:
+
+```bash
+# Check for updates manually
+ipmi-monitor upgrade
+
+# Or just wait - Watchtower checks every 5 minutes
+```
+
+### pip CLI Update
 
 ```bash
 pip install --upgrade ipmi-monitor
-sudo systemctl restart ipmi-monitor
 ```
 
 ### Docker Manual Update
@@ -331,12 +380,12 @@ sudo systemctl restart ipmi-monitor
 docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
 
 # Recreate the container (preserves data volume)
-docker-compose up -d
+cd /etc/ipmi-monitor && docker compose up -d
 ```
 
-### Automatic Updates with Watchtower (Docker)
+### Automatic Updates with Watchtower
 
-Add Watchtower to your `docker-compose.yml`:
+If you used quickstart, Watchtower is already included. For manual Docker setups, add Watchtower to your `docker-compose.yml`:
 
 ```yaml
 services:

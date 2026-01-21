@@ -2176,17 +2176,30 @@ class User(db.Model):
     
     @staticmethod
     def initialize_default():
-        """Create default admin if none exists"""
+        """Create default admin if none exists.
+        
+        Password is read from ADMIN_PASS environment variable (set by quickstart).
+        Falls back to 'admin' for backwards compatibility.
+        """
         admin = User.query.filter_by(role='admin').first()
         if not admin:
+            # Get password from env var (set by quickstart via .env file)
+            admin_pass = os.environ.get('ADMIN_PASS', 'admin')
+            is_custom = admin_pass != 'admin'
+            
             admin = User(
                 username='admin',
-                password_hash=User.hash_password('admin'),
+                password_hash=User.hash_password(admin_pass),
                 role='admin',
-                password_changed=False
+                password_changed=is_custom  # Mark as changed if custom password
             )
             db.session.add(admin)
             db.session.commit()
+            
+            if is_custom:
+                app.logger.info("✓ Admin user created with custom password from ADMIN_PASS")
+            else:
+                app.logger.info("✓ Admin user created with default password (admin/admin)")
         return admin
 
 class SystemSettings(db.Model):
@@ -2244,17 +2257,8 @@ class AdminConfig(db.Model):
     
     @staticmethod
     def initialize_default():
-        """Create default admin if none exists - now uses User model"""
-        admin = User.query.filter_by(role='admin').first()
-        if not admin:
-            admin = User(
-                username='admin',
-                password_hash=AdminConfig.hash_password('admin'),
-                password_changed=False
-            )
-            db.session.add(admin)
-            db.session.commit()
-        return admin
+        """Create default admin if none exists - delegates to User model"""
+        return User.initialize_default()
 
 
 # ============== Cloud Sync (AI Features) ==============
@@ -18202,6 +18206,71 @@ def init_db():
 init_db()
 
 
+def auto_load_ssh_keys():
+    """
+    Auto-load SSH keys from mounted volume on startup.
+    
+    This allows quickstart to copy SSH keys to /etc/ipmi-monitor/ssh_keys/
+    and have them automatically imported into the database.
+    
+    Looks in /app/ssh_keys (Docker) or CONFIG_DIR/ssh_keys
+    """
+    with app.app_context():
+        try:
+            # Check multiple possible locations for SSH keys
+            ssh_key_dirs = [
+                Path('/app/ssh_keys'),  # Docker mount
+                Path(CONFIG_DIR) / 'ssh_keys' if CONFIG_DIR else None,
+                Path('/etc/ipmi-monitor/ssh_keys'),  # Native install
+            ]
+            
+            imported = 0
+            for key_dir in ssh_key_dirs:
+                if not key_dir or not key_dir.exists():
+                    continue
+                
+                for key_file in key_dir.glob('*.pem'):
+                    key_name = key_file.stem  # Filename without extension
+                    
+                    # Skip if key already exists
+                    if SSHKey.query.filter_by(name=key_name).first():
+                        continue
+                    
+                    try:
+                        key_content = key_file.read_text().strip()
+                        
+                        # Validate it looks like an SSH key
+                        if not ('-----BEGIN' in key_content and 'PRIVATE KEY' in key_content):
+                            app.logger.warning(f"⚠️ Skipping {key_file}: not a valid SSH key")
+                            continue
+                        
+                        # Normalize content
+                        key_content = key_content.replace('\r\n', '\n') + '\n'
+                        fingerprint = SSHKey.get_fingerprint(key_content)
+                        
+                        key = SSHKey(
+                            name=key_name,
+                            key_content=key_content,
+                            fingerprint=fingerprint
+                        )
+                        db.session.add(key)
+                        imported += 1
+                        app.logger.info(f"🔑 Imported SSH key: {key_name}")
+                        
+                    except Exception as e:
+                        app.logger.warning(f"⚠️ Failed to import {key_file}: {e}")
+                
+                if imported > 0:
+                    db.session.commit()
+                    break  # Only import from first directory that has keys
+            
+            if imported > 0:
+                app.logger.info(f"✅ Auto-loaded {imported} SSH key(s)")
+                
+        except Exception as e:
+            app.logger.error(f"❌ Error auto-loading SSH keys: {e}")
+
+
 def auto_load_servers_config():
     """
     Auto-load servers from config file on startup.
@@ -18268,6 +18337,9 @@ def create_app(config_dir=None):
     # Load servers config and start background threads (only once)
     if not _background_started:
         _background_started = True
+        # Import SSH keys first (needed for server config references)
+        auto_load_ssh_keys()
+        # Then import servers
         auto_load_servers_config()
         
         # Start background collector thread

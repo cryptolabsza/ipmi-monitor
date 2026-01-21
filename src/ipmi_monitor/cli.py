@@ -5,6 +5,7 @@ IPMI Monitor CLI - Command line interface with setup wizard
 import click
 import os
 import sys
+import subprocess
 from pathlib import Path
 
 from rich.console import Console
@@ -18,6 +19,9 @@ from .service import ServiceManager
 from .quickstart import run_quickstart
 
 console = Console()
+
+# Docker config directory (where quickstart puts files)
+DOCKER_CONFIG_DIR = Path("/etc/ipmi-monitor")
 
 
 @click.group()
@@ -231,8 +235,10 @@ def daemon(config_dir: str):
 def status():
     """
     Show IPMI Monitor status and configuration.
+    
+    Checks both Docker container status and systemd service status.
     """
-    config_path = get_config_dir()
+    config_path = DOCKER_CONFIG_DIR if DOCKER_CONFIG_DIR.exists() else get_config_dir()
     
     console.print(Panel.fit(
         "[bold cyan]IPMI Monitor Status[/bold cyan]",
@@ -245,15 +251,199 @@ def status():
     
     table.add_row("Version", __version__)
     table.add_row("Config Dir", str(config_path))
-    table.add_row("Config Exists", "✓" if (config_path / "config.yaml").exists() else "✗")
-    table.add_row("Database", "/var/lib/ipmi-monitor/ipmi_events.db")
     
-    # Check if service is installed
+    # Check Docker deployment
+    docker_status = get_docker_container_status()
+    if docker_status:
+        table.add_row("Docker Container", docker_status)
+        table.add_row("Compose File", "✓" if (config_path / "docker-compose.yml").exists() else "✗")
+    
+    # Check if systemd service exists (legacy)
     service_mgr = ServiceManager()
     service_status = service_mgr.status()
-    table.add_row("Service", service_status)
+    if service_status and "not installed" not in service_status.lower():
+        table.add_row("Systemd Service", service_status)
     
     console.print(table)
+    
+    # Show helpful commands
+    if docker_status:
+        console.print("\n[bold]Commands:[/bold]")
+        console.print("  [cyan]ipmi-monitor logs[/cyan]     - View container logs")
+        console.print("  [cyan]ipmi-monitor stop[/cyan]     - Stop containers")
+        console.print("  [cyan]ipmi-monitor start[/cyan]    - Start containers")
+        console.print("  [cyan]ipmi-monitor upgrade[/cyan]  - Pull latest image & restart")
+
+
+def get_docker_container_status() -> str:
+    """Get status of ipmi-monitor Docker container."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Status}}", "ipmi-monitor"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            status = result.stdout.strip()
+            if status == "running":
+                return "[green]running ✓[/green]"
+            elif status == "exited":
+                return "[red]stopped[/red]"
+            else:
+                return f"[yellow]{status}[/yellow]"
+        return None
+    except Exception:
+        return None
+
+
+@main.command()
+@click.option("-f", "--follow", is_flag=True, help="Follow log output")
+@click.option("-n", "--lines", default=100, help="Number of lines to show")
+def logs(follow: bool, lines: int):
+    """
+    View IPMI Monitor container logs.
+    
+    Example:
+    
+        ipmi-monitor logs -f          # Follow logs
+        ipmi-monitor logs -n 50       # Last 50 lines
+    """
+    cmd = ["docker", "logs"]
+    if follow:
+        cmd.append("-f")
+    cmd.extend(["--tail", str(lines), "ipmi-monitor"])
+    
+    try:
+        subprocess.run(cmd)
+    except FileNotFoundError:
+        console.print("[red]Error:[/red] Docker is not installed")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        pass
+
+
+@main.command()
+def stop():
+    """
+    Stop IPMI Monitor containers.
+    
+    Stops the Docker containers defined in docker-compose.yml.
+    """
+    if not DOCKER_CONFIG_DIR.exists():
+        console.print("[red]Error:[/red] Config directory not found. Run quickstart first.")
+        sys.exit(1)
+    
+    compose_file = DOCKER_CONFIG_DIR / "docker-compose.yml"
+    if not compose_file.exists():
+        console.print("[red]Error:[/red] docker-compose.yml not found. Run quickstart first.")
+        sys.exit(1)
+    
+    success, output = run_docker_compose_cmd("down")
+    if success:
+        console.print("[green]✓[/green] IPMI Monitor stopped")
+    else:
+        console.print(f"[red]Error:[/red] {output}")
+
+
+@main.command()
+def start():
+    """
+    Start IPMI Monitor containers.
+    
+    Starts the Docker containers defined in docker-compose.yml.
+    """
+    if not DOCKER_CONFIG_DIR.exists():
+        console.print("[red]Error:[/red] Config directory not found. Run quickstart first.")
+        sys.exit(1)
+    
+    compose_file = DOCKER_CONFIG_DIR / "docker-compose.yml"
+    if not compose_file.exists():
+        console.print("[red]Error:[/red] docker-compose.yml not found. Run quickstart first.")
+        sys.exit(1)
+    
+    success, output = run_docker_compose_cmd("up -d")
+    if success:
+        console.print("[green]✓[/green] IPMI Monitor started")
+    else:
+        console.print(f"[red]Error:[/red] {output}")
+
+
+@main.command()
+def upgrade():
+    """
+    Upgrade IPMI Monitor to the latest version.
+    
+    Pulls the latest Docker image and restarts the containers.
+    """
+    console.print("[dim]Pulling latest image...[/dim]")
+    
+    try:
+        result = subprocess.run(
+            ["docker", "pull", "ghcr.io/cryptolabsza/ipmi-monitor:latest"],
+            capture_output=True, text=True
+        )
+        
+        if result.returncode != 0:
+            console.print(f"[red]Error pulling image:[/red] {result.stderr}")
+            sys.exit(1)
+        
+        console.print("[green]✓[/green] Image updated")
+        
+        # Restart containers
+        if DOCKER_CONFIG_DIR.exists() and (DOCKER_CONFIG_DIR / "docker-compose.yml").exists():
+            console.print("[dim]Restarting containers...[/dim]")
+            success, output = run_docker_compose_cmd("up -d")
+            if success:
+                console.print("[green]✓[/green] IPMI Monitor upgraded and restarted")
+            else:
+                console.print(f"[yellow]Warning:[/yellow] Container restart failed: {output}")
+        else:
+            console.print("[yellow]Note:[/yellow] No docker-compose.yml found. Manual restart required.")
+            
+    except FileNotFoundError:
+        console.print("[red]Error:[/red] Docker is not installed")
+        sys.exit(1)
+
+
+@main.command()
+def restart():
+    """
+    Restart IPMI Monitor containers.
+    """
+    if not DOCKER_CONFIG_DIR.exists():
+        console.print("[red]Error:[/red] Config directory not found. Run quickstart first.")
+        sys.exit(1)
+    
+    success, output = run_docker_compose_cmd("restart")
+    if success:
+        console.print("[green]✓[/green] IPMI Monitor restarted")
+    else:
+        console.print(f"[red]Error:[/red] {output}")
+
+
+def run_docker_compose_cmd(command: str):
+    """Run a docker compose command in the config directory."""
+    compose_file = DOCKER_CONFIG_DIR / "docker-compose.yml"
+    
+    # Try docker compose (v2) first
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "-f", str(compose_file)] + command.split(),
+            capture_output=True, text=True, cwd=str(DOCKER_CONFIG_DIR)
+        )
+        if result.returncode == 0:
+            return True, result.stdout
+    except Exception:
+        pass
+    
+    # Try docker-compose (v1)
+    try:
+        result = subprocess.run(
+            ["docker-compose", "-f", str(compose_file)] + command.split(),
+            capture_output=True, text=True, cwd=str(DOCKER_CONFIG_DIR)
+        )
+        return result.returncode == 0, result.stdout if result.returncode == 0 else result.stderr
+    except Exception as e:
+        return False, str(e)
 
 
 @main.command("add-server")

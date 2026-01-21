@@ -1,16 +1,18 @@
 """
-IPMI Monitor QuickStart - One command setup
+IPMI Monitor QuickStart - One command Docker deployment
 
 The client runs:
     pip install ipmi-monitor
     sudo ipmi-monitor quickstart
 
-And answers a few questions. That's it.
+And answers a few questions. Docker containers are deployed automatically.
 """
 
 import os
 import subprocess
 import sys
+import secrets
+import shutil
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -20,8 +22,8 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
-from rich.prompt import Prompt
 import yaml
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 console = Console()
 
@@ -33,6 +35,17 @@ custom_style = Style([
     ('highlighted', 'fg:cyan bold'),
     ('selected', 'fg:green'),
 ])
+
+# Config directory for Docker deployment
+CONFIG_DIR = Path("/etc/ipmi-monitor")
+
+
+def get_jinja_env():
+    """Get Jinja2 environment for templates"""
+    return Environment(
+        loader=PackageLoader("ipmi_monitor", "templates"),
+        autoescape=select_autoescape(["html", "xml"]),
+    )
 
 
 def check_root():
@@ -56,8 +69,93 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
+def check_docker_installed() -> bool:
+    """Check if Docker is installed and running."""
+    try:
+        result = subprocess.run(["docker", "--version"], capture_output=True, text=True)
+        if result.returncode != 0:
+            return False
+        
+        # Check if Docker daemon is running
+        result = subprocess.run(["docker", "info"], capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def install_docker():
+    """Install Docker using the official convenience script."""
+    console.print("\n[bold]Installing Docker...[/bold]\n")
+    
+    try:
+        # Download and run Docker install script
+        with Progress(SpinnerColumn(), TextColumn("Downloading Docker installer..."), console=console) as progress:
+            progress.add_task("", total=None)
+            subprocess.run(
+                ["curl", "-fsSL", "https://get.docker.com", "-o", "/tmp/get-docker.sh"],
+                check=True, capture_output=True
+            )
+        
+        with Progress(SpinnerColumn(), TextColumn("Installing Docker (this may take a few minutes)..."), console=console) as progress:
+            progress.add_task("", total=None)
+            subprocess.run(["sh", "/tmp/get-docker.sh"], check=True, capture_output=True)
+        
+        # Start Docker service
+        subprocess.run(["systemctl", "start", "docker"], capture_output=True)
+        subprocess.run(["systemctl", "enable", "docker"], capture_output=True)
+        
+        console.print("[green]✓[/green] Docker installed successfully")
+        return True
+        
+    except subprocess.CalledProcessError as e:
+        console.print(f"[red]✗[/red] Docker installation failed: {e}")
+        console.print("[dim]Please install Docker manually: https://docs.docker.com/engine/install/[/dim]")
+        return False
+
+
+def check_docker_compose_installed() -> bool:
+    """Check if Docker Compose is available."""
+    try:
+        # Try docker compose (v2)
+        result = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            return True
+        
+        # Try docker-compose (v1)
+        result = subprocess.run(["docker-compose", "--version"], capture_output=True, text=True)
+        return result.returncode == 0
+    except FileNotFoundError:
+        return False
+
+
+def run_docker_compose(config_dir: Path, command: str = "up -d"):
+    """Run docker compose command."""
+    # Try docker compose (v2) first, then docker-compose (v1)
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "-f", str(config_dir / "docker-compose.yml")] + command.split(),
+            capture_output=True, text=True, cwd=str(config_dir)
+        )
+        if result.returncode == 0:
+            return True, result.stdout
+        
+        # Try v1 syntax
+        result = subprocess.run(
+            ["docker-compose", "-f", str(config_dir / "docker-compose.yml")] + command.split(),
+            capture_output=True, text=True, cwd=str(config_dir)
+        )
+        return result.returncode == 0, result.stdout if result.returncode == 0 else result.stderr
+    except Exception as e:
+        return False, str(e)
+
+
+def generate_secret_key() -> str:
+    """Generate a secure random secret key."""
+    return secrets.token_hex(32)
+
+
 def run_quickstart():
-    """Main quickstart wizard - does everything."""
+    """Main quickstart wizard - deploys via Docker."""
     check_root()
     
     console.print()
@@ -65,10 +163,31 @@ def run_quickstart():
         "[bold cyan]IPMI Monitor - Quick Setup[/bold cyan]\n\n"
         "Monitor your servers' IPMI/BMC health, temperatures, and sensors.\n"
         "Just answer a few questions and everything will be configured.\n\n"
+        "[dim]Deploys via Docker with automatic updates via Watchtower.[/dim]\n"
         "[dim]Press Ctrl+C to cancel at any time.[/dim]",
         border_style="cyan"
     ))
     console.print()
+    
+    # Check Docker
+    if not check_docker_installed():
+        console.print("[yellow]Docker is not installed.[/yellow]")
+        install = questionary.confirm(
+            "Install Docker now?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if install:
+            if not install_docker():
+                console.print("[red]Cannot continue without Docker.[/red]")
+                return
+        else:
+            console.print("[red]Cannot continue without Docker.[/red]")
+            console.print("[dim]Install Docker manually: https://docs.docker.com/engine/install/[/dim]")
+            return
+    else:
+        console.print("[green]✓[/green] Docker is installed")
     
     # Detect environment
     local_ip = get_local_ip()
@@ -79,7 +198,6 @@ def run_quickstart():
     # ============ Step 1: Add servers ============
     console.print("[bold]Step 1: Add Servers to Monitor[/bold]\n")
     
-    # Ask how many servers
     server_count = questionary.select(
         "How many servers do you want to monitor?",
         choices=[
@@ -89,7 +207,6 @@ def run_quickstart():
         style=custom_style
     ).ask()
     
-    # Handle cancellation
     if server_count is None:
         console.print("[yellow]Cancelled.[/yellow]")
         return
@@ -119,7 +236,6 @@ def run_quickstart():
         style=custom_style
     ).ask()
     
-    # Handle cancellation - use default
     if web_port is None:
         web_port = "5000"
     
@@ -133,7 +249,7 @@ def run_quickstart():
         style=custom_style
     ).ask()
     
-    admin_password = "admin"  # Default
+    admin_password = "admin"
     if change_password:
         admin_password = questionary.password(
             "Admin password:",
@@ -164,7 +280,6 @@ def run_quickstart():
         style=custom_style
     ).ask()
     
-    # Handle cancellation
     if enable_ai is None:
         enable_ai = False
     
@@ -177,64 +292,205 @@ def run_quickstart():
             style=custom_style
         ).ask()
     
-    # ============ Step 5: Save Config & Start Service ============
-    console.print("\n[bold]Step 5: Starting IPMI Monitor[/bold]\n")
+    # ============ Step 5: Auto-Updates ============
+    console.print("\n[bold]Step 5: Auto-Updates[/bold]\n")
+    console.print("[dim]Watchtower automatically updates IPMI Monitor when new versions are released.[/dim]\n")
     
-    config_dir = Path("/etc/ipmi-monitor")
-    config_dir.mkdir(parents=True, exist_ok=True)
+    enable_watchtower = questionary.confirm(
+        "Enable automatic updates? (recommended)",
+        default=True,
+        style=custom_style
+    ).ask()
     
-    # Save config
-    config = {
-        "web": {
-            "port": int(web_port),
-            "host": "0.0.0.0"
-        },
-        "database": "/var/lib/ipmi-monitor/ipmi_events.db"
-    }
+    if enable_watchtower is None:
+        enable_watchtower = True
     
-    if license_key:
-        config["ai"] = {
-            "enabled": True,
-            "license_key": license_key
-        }
+    # ============ Step 6: HTTPS Access (Optional) ============
+    console.print("\n[bold]Step 6: HTTPS Access (Optional)[/bold]\n")
+    console.print("[dim]Set up nginx reverse proxy with SSL for secure remote access.[/dim]\n")
     
-    with open(config_dir / "config.yaml", "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
+    setup_ssl = questionary.confirm(
+        "Set up HTTPS reverse proxy?",
+        default=True,
+        style=custom_style
+    ).ask()
     
-    # Create data directory first (needed for database operations)
-    data_dir = Path("/var/lib/ipmi-monitor")
-    data_dir.mkdir(parents=True, exist_ok=True)
-    # Use ipmi_events.db - this is what Flask uses for SQLAlchemy
-    # (Flask puts everything in this database: users, servers, configs, sensors)
-    db_path = data_dir / "ipmi_events.db"
+    if setup_ssl is None:
+        setup_ssl = False
     
-    # Process SSH keys - read from file paths and store in database
-    # Track unique SSH keys to avoid duplicates
-    ssh_key_map = {}  # path -> key_name
+    domain = None
+    letsencrypt_email = None
+    use_letsencrypt = False
+    
+    if setup_ssl:
+        use_domain = questionary.confirm(
+            "Do you have a domain name pointing to this server?",
+            default=False,
+            style=custom_style
+        ).ask()
+        
+        if use_domain:
+            domain = questionary.text(
+                "Domain name (e.g., ipmi.example.com):",
+                validate=lambda x: True if (len(x) > 0 and '.' in x) else "Please enter a valid domain",
+                style=custom_style
+            ).ask()
+            
+            use_letsencrypt = questionary.confirm(
+                "Use Let's Encrypt for a free trusted certificate?",
+                default=True,
+                style=custom_style
+            ).ask()
+            
+            if use_letsencrypt:
+                console.print("[dim]Let's Encrypt requires ports 80 and 443 to be open.[/dim]")
+                letsencrypt_email = questionary.text(
+                    "Email for Let's Encrypt notifications:",
+                    validate=lambda x: '@' in x,
+                    style=custom_style
+                ).ask()
+    
+    # ============ Step 7: Deploy ============
+    console.print("\n[bold]Step 7: Deploying IPMI Monitor[/bold]\n")
+    
+    # Create config directory
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    
+    # Extract default IPMI credentials from first server (if available)
+    default_ipmi_user = "admin"
+    default_ipmi_pass = ""
+    for srv in servers:
+        if srv.get("bmc_user"):
+            default_ipmi_user = srv["bmc_user"]
+        if srv.get("bmc_password"):
+            default_ipmi_pass = srv["bmc_password"]
+            break
+    
+    # Handle SSH keys - copy to config directory
+    ssh_keys_dir = CONFIG_DIR / "ssh_keys"
+    ssh_key_map = {}  # original_path -> key_name
     ssh_key_counter = 0
     
     for srv in servers:
         if srv.get("ssh_key"):
             key_path = srv["ssh_key"]
             if key_path not in ssh_key_map:
-                # Read key content from file
                 key_content = read_ssh_key_file(key_path)
                 if key_content:
+                    ssh_keys_dir.mkdir(parents=True, exist_ok=True)
                     ssh_key_counter += 1
-                    key_name = f"quickstart-key-{ssh_key_counter}" if ssh_key_counter > 1 else "default-key"
-                    key_id = create_ssh_key_in_database(key_name, key_content, db_path)
-                    if key_id:
-                        ssh_key_map[key_path] = key_name
+                    key_name = f"key-{ssh_key_counter}" if ssh_key_counter > 1 else "default-key"
+                    key_file = ssh_keys_dir / f"{key_name}.pem"
+                    key_file.write_text(key_content)
+                    os.chmod(key_file, 0o600)
+                    ssh_key_map[key_path] = key_name
+                    console.print(f"[green]✓[/green] SSH key copied: {key_name}")
     
-    # Save servers in the format Flask's parse_yaml_servers() expects
-    # Convert from quickstart format to Flask format
+    # Generate servers.yaml
+    generate_servers_yaml(servers, CONFIG_DIR, ssh_key_map)
+    console.print(f"[green]✓[/green] Server configuration saved")
+    
+    # Generate .env file
+    env_content = f"""# IPMI Monitor Environment Configuration
+# Generated by quickstart
+
+# Admin credentials
+ADMIN_PASS={admin_password}
+SECRET_KEY={generate_secret_key()}
+
+# Default IPMI credentials
+IPMI_USER={default_ipmi_user}
+IPMI_PASS={default_ipmi_pass}
+"""
+    if license_key:
+        env_content += f"\n# AI Features\nAI_LICENSE_KEY={license_key}\n"
+    
+    (CONFIG_DIR / ".env").write_text(env_content)
+    os.chmod(CONFIG_DIR / ".env", 0o600)  # Protect credentials
+    console.print(f"[green]✓[/green] Environment configuration saved")
+    
+    # Generate docker-compose.yml
+    env = get_jinja_env()
+    template = env.get_template("docker-compose.yml.j2")
+    
+    compose_content = template.render(
+        image_tag="latest",
+        web_port=web_port,
+        app_name="IPMI Monitor",
+        poll_interval=300,
+        ai_enabled=enable_ai,
+        enable_watchtower=enable_watchtower,
+        enable_nginx=setup_ssl,
+        letsencrypt_domain=domain if use_letsencrypt else None,
+        domain=domain,
+        ssh_keys_dir=bool(ssh_key_map),
+        network_mode=None,  # Use bridge network
+    )
+    
+    (CONFIG_DIR / "docker-compose.yml").write_text(compose_content)
+    console.print(f"[green]✓[/green] Docker Compose configuration saved")
+    
+    # Generate nginx config if HTTPS enabled
+    if setup_ssl:
+        nginx_template = env.get_template("nginx-docker.conf.j2")
+        nginx_content = nginx_template.render(
+            domain=domain or local_ip,
+            letsencrypt_domain=domain if use_letsencrypt else None,
+        )
+        (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
+        
+        if not use_letsencrypt:
+            # Generate self-signed certificate
+            generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
+        
+        console.print(f"[green]✓[/green] Nginx configuration saved")
+    
+    # Pull Docker image
+    with Progress(SpinnerColumn(), TextColumn("Pulling IPMI Monitor image..."), console=console) as progress:
+        progress.add_task("", total=None)
+        result = subprocess.run(
+            ["docker", "pull", "ghcr.io/cryptolabsza/ipmi-monitor:latest"],
+            capture_output=True, text=True
+        )
+    
+    if result.returncode == 0:
+        console.print(f"[green]✓[/green] Docker image pulled")
+    else:
+        console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
+    
+    # Start containers
+    with Progress(SpinnerColumn(), TextColumn("Starting containers..."), console=console) as progress:
+        progress.add_task("", total=None)
+        success, output = run_docker_compose(CONFIG_DIR, "up -d")
+    
+    if success:
+        console.print(f"[green]✓[/green] IPMI Monitor started")
+    else:
+        console.print(f"[red]✗[/red] Failed to start: {output}")
+        return
+    
+    # Handle Let's Encrypt certificate
+    if setup_ssl and use_letsencrypt and domain and letsencrypt_email:
+        console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
+        obtain_letsencrypt_cert(CONFIG_DIR, domain, letsencrypt_email)
+    
+    # Show summary
+    saved_servers = [s for s in servers if s.get("bmc_ip")]
+    show_summary(saved_servers, local_ip, int(web_port), license_key is not None, domain, setup_ssl)
+
+
+def generate_servers_yaml(servers: List[Dict], config_dir: Path, ssh_key_map: Dict[str, str]):
+    """Generate servers.yaml for Docker volume mount."""
+    
+    # Convert to Flask format
     flask_servers = []
     for srv in servers:
         flask_srv = {
             "name": srv.get("name", f"server-{srv.get('bmc_ip', 'unknown')}"),
-            "bmc_ip": srv.get("bmc_ip"),
         }
-        # Map credential fields to Flask's expected names
+        
+        if srv.get("bmc_ip"):
+            flask_srv["bmc_ip"] = srv["bmc_ip"]
         if srv.get("bmc_user"):
             flask_srv["ipmi_user"] = srv["bmc_user"]
         if srv.get("bmc_password"):
@@ -245,26 +501,27 @@ def run_quickstart():
             flask_srv["ssh_user"] = srv["ssh_user"]
         if srv.get("ssh_password"):
             flask_srv["ssh_pass"] = srv["ssh_password"]
-        # SSH key - use key_name reference instead of path
         if srv.get("ssh_key") and srv["ssh_key"] in ssh_key_map:
+            # Reference the key name (Flask will look in /app/ssh_keys/)
             flask_srv["ssh_key_name"] = ssh_key_map[srv["ssh_key"]]
         if srv.get("ssh_port"):
             flask_srv["ssh_port"] = srv["ssh_port"]
+        
         flask_servers.append(flask_srv)
     
-    # Write servers.yaml manually to ensure 'name' comes first (Flask parser requires it)
-    # Filter out servers without bmc_ip (Flask requires it)
+    # Filter servers without bmc_ip
     valid_servers = [srv for srv in flask_servers if srv.get('bmc_ip')]
     skipped = len(flask_servers) - len(valid_servers)
     if skipped > 0:
-        console.print(f"[yellow]⚠[/yellow] Skipped {skipped} server(s) without BMC IP (IPMI monitoring requires BMC)")
+        console.print(f"[yellow]⚠[/yellow] Skipped {skipped} server(s) without BMC IP")
     
+    # Write YAML with name first (Flask parser requirement)
     with open(config_dir / "servers.yaml", "w") as f:
         f.write("servers:\n")
         for srv in valid_servers:
-            # name must come first for Flask's parse_yaml_servers()
             f.write(f"  - name: {srv.get('name', 'unknown')}\n")
-            f.write(f"    bmc_ip: {srv.get('bmc_ip')}\n")
+            if srv.get('bmc_ip'):
+                f.write(f"    bmc_ip: {srv['bmc_ip']}\n")
             if srv.get('ipmi_user'):
                 f.write(f"    ipmi_user: {srv['ipmi_user']}\n")
             if srv.get('ipmi_pass'):
@@ -279,38 +536,71 @@ def run_quickstart():
                 f.write(f"    ssh_key_name: {srv['ssh_key_name']}\n")
             if srv.get('ssh_port'):
                 f.write(f"    ssh_port: {srv['ssh_port']}\n")
-    
-    console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
-    
-    # Always create admin user with proper schema (even for default password)
-    # This ensures Flask has a properly structured user table on startup
-    set_admin_password(admin_password, db_path)
-    
-    # Install and start service
-    install_service()
-    
-    # ============ Step 6: HTTPS Access (Optional) ============
-    console.print("\n[bold]Step 6: HTTPS Access (Optional)[/bold]\n")
-    console.print("[dim]Set up nginx reverse proxy with SSL for secure remote access.[/dim]\n")
-    
-    setup_ssl = questionary.confirm(
-        "Set up HTTPS reverse proxy?",
-        default=True,
-        style=custom_style
-    ).ask()
-    
-    # Handle cancellation
-    if setup_ssl is None:
-        setup_ssl = False
-    
-    domain = None
-    if setup_ssl:
-        domain = setup_https_access(local_ip, int(web_port))
-    
-    # Show summary (use servers with bmc_ip only - those that were actually saved)
-    saved_servers = [s for s in servers if s.get("bmc_ip")]
-    show_summary(saved_servers, local_ip, int(web_port), license_key is not None, domain)
 
+
+def generate_self_signed_cert(ssl_dir: Path, domain: str):
+    """Generate self-signed SSL certificate."""
+    ssl_dir.mkdir(parents=True, exist_ok=True)
+    
+    cert_path = ssl_dir / "server.crt"
+    key_path = ssl_dir / "server.key"
+    
+    cmd = [
+        "openssl", "req", "-x509", "-nodes",
+        "-days", "365",
+        "-newkey", "rsa:2048",
+        "-keyout", str(key_path),
+        "-out", str(cert_path),
+        "-subj", f"/CN={domain}/O=IPMI Monitor/C=US",
+    ]
+    
+    try:
+        subprocess.run(cmd, check=True, capture_output=True)
+        os.chmod(key_path, 0o600)
+        console.print(f"[green]✓[/green] Self-signed certificate generated")
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Could not generate certificate: {e}")
+
+
+def obtain_letsencrypt_cert(config_dir: Path, domain: str, email: str):
+    """Obtain Let's Encrypt certificate using certbot container."""
+    certbot_dir = config_dir / "certbot"
+    certbot_dir.mkdir(parents=True, exist_ok=True)
+    (certbot_dir / "conf").mkdir(exist_ok=True)
+    (certbot_dir / "www").mkdir(exist_ok=True)
+    
+    try:
+        # Run certbot in Docker
+        result = subprocess.run([
+            "docker", "run", "--rm",
+            "-v", f"{certbot_dir}/conf:/etc/letsencrypt",
+            "-v", f"{certbot_dir}/www:/var/www/certbot",
+            "-p", "80:80",
+            "certbot/certbot", "certonly",
+            "--standalone",
+            "-d", domain,
+            "--email", email,
+            "--agree-tos",
+            "--non-interactive",
+        ], capture_output=True, text=True, timeout=120)
+        
+        if result.returncode == 0:
+            console.print(f"[green]✓[/green] Let's Encrypt certificate obtained")
+            # Restart nginx to pick up cert
+            run_docker_compose(config_dir, "restart nginx")
+        else:
+            console.print(f"[yellow]⚠[/yellow] Let's Encrypt failed: {result.stderr[:200]}")
+            console.print("[dim]You can retry later with: sudo ipmi-monitor setup-ssl[/dim]")
+            
+    except subprocess.TimeoutExpired:
+        console.print("[yellow]⚠[/yellow] Let's Encrypt timed out")
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Let's Encrypt error: {e}")
+
+
+# ============================================================================
+# Server Input Functions (kept from original - these are valuable)
+# ============================================================================
 
 def add_servers_bulk() -> List[Dict]:
     """Add multiple servers - import file or manual entry."""
@@ -455,7 +745,6 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
         server = {"name": f"server-{len(servers)+1:02d}"}
         
         if len(parts) == 1:
-            # Just server IP - use globals
             server["server_ip"] = parts[0]
             if global_ssh_user:
                 server["ssh_user"] = global_ssh_user
@@ -463,11 +752,8 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
             if global_ipmi_user:
                 server["bmc_user"] = global_ipmi_user
                 server["bmc_password"] = global_ipmi_pass
-                # BMC IP often same network as server, different last octet
-                # Will need to be configured in UI
                 
         elif len(parts) == 2:
-            # serverIP, bmcIP - use globals
             server["server_ip"] = parts[0]
             server["bmc_ip"] = parts[1]
             if global_ssh_user:
@@ -478,7 +764,6 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
                 server["bmc_password"] = global_ipmi_pass
                 
         elif len(parts) == 3:
-            # serverIP, sshUser, sshPass
             server["server_ip"] = parts[0]
             server["ssh_user"] = parts[1]
             server["ssh_password"] = parts[2]
@@ -487,7 +772,6 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
                 server["bmc_password"] = global_ipmi_pass
                 
         elif len(parts) == 5:
-            # serverIP, sshUser, sshPass, ipmiUser, ipmiPass
             server["server_ip"] = parts[0]
             server["ssh_user"] = parts[1]
             server["ssh_password"] = parts[2]
@@ -495,7 +779,6 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
             server["bmc_password"] = parts[4]
             
         elif len(parts) >= 6:
-            # serverIP, sshUser, sshPass, ipmiUser, ipmiPass, bmcIP
             server["server_ip"] = parts[0]
             server["ssh_user"] = parts[1]
             server["ssh_password"] = parts[2]
@@ -505,13 +788,12 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
         else:
             continue
         
-        # Validate has at least server_ip
         if not server.get("server_ip"):
             continue
         
         server["ssh_port"] = 22
         
-        # Test SSH and get hostname if SSH credentials configured
+        # Test SSH and get hostname
         if server.get("server_ip") and server.get("ssh_user"):
             success, hostname, error = test_ssh_connection(
                 server["server_ip"],
@@ -530,7 +812,7 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
             else:
                 console.print(f"[yellow]⚠[/yellow] {server['name']} - IPMI failed ({server['bmc_ip']})")
         elif server.get("server_ip"):
-            ssh_status = "[green]SSH OK[/green]" if (server.get("ssh_user") and hostname) else "[yellow]SSH?[/yellow]"
+            ssh_status = "[green]SSH OK[/green]" if (server.get("ssh_user") and server.get("name") != f"server-{len(servers)+1:02d}") else "[yellow]SSH?[/yellow]"
             console.print(f"[blue]•[/blue] {server['name']} - {ssh_status} ({server['server_ip']})")
         
         servers.append(server)
@@ -541,7 +823,6 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
 def add_servers_manual() -> List[Dict]:
     """Add multiple servers manually with shared credentials."""
     
-    # Get BMC IPs first
     console.print("[bold]BMC IP Addresses[/bold]")
     console.print("[dim]Enter one IP per line. Blank line to finish.[/dim]\n")
     
@@ -555,7 +836,6 @@ def add_servers_manual() -> List[Dict]:
         if not ip or ip.strip() == "":
             break
         
-        # Handle comma/space separated
         for single_ip in ip.replace(",", " ").split():
             single_ip = single_ip.strip()
             if single_ip:
@@ -585,7 +865,6 @@ def add_servers_manual() -> List[Dict]:
         if bmc_pass is None:
             return []
         
-        # Test all servers
         console.print(f"\n[dim]Testing {len(bmc_ips)} servers...[/dim]\n")
         
         failed_servers = []
@@ -600,7 +879,6 @@ def add_servers_manual() -> List[Dict]:
                 console.print(f"[yellow]⚠[/yellow] {name} ({bmc_ip}) - IPMI failed")
                 failed_servers.append((name, bmc_ip))
         
-        # If any failed, offer retry
         if failed_servers:
             console.print(f"\n[yellow]{len(failed_servers)} server(s) failed IPMI test.[/yellow]")
             
@@ -625,7 +903,6 @@ def add_servers_manual() -> List[Dict]:
                     console.print("[yellow]No working servers. Please check your credentials.[/yellow]")
                     continue
         
-        # All tests passed or user chose to continue
         break
     
     # Optional SSH access
@@ -641,10 +918,9 @@ def add_servers_manual() -> List[Dict]:
     ssh_user = None
     ssh_pass = None
     ssh_key = None
-    server_ips = {}  # bmc_ip -> server_ip mapping
+    server_ips = {}
     
     if add_ssh:
-        # Ask how server IPs relate to BMC IPs
         console.print("\n[dim]SSH connects to the server OS IP (not the BMC IP).[/dim]")
         
         ip_pattern = questionary.select(
@@ -659,7 +935,7 @@ def add_servers_manual() -> List[Dict]:
         
         if ip_pattern == "offset":
             offset = questionary.text(
-                "Server IP offset from BMC (e.g., BMC ends in .83 -> Server ends in .84, offset=1):",
+                "Server IP offset from BMC:",
                 default="1",
                 validate=lambda x: x.lstrip('-').isdigit(),
                 style=custom_style
@@ -678,7 +954,7 @@ def add_servers_manual() -> List[Dict]:
             for bmc_ip in bmc_ips:
                 server_ips[bmc_ip] = bmc_ip
                 
-        else:  # manual
+        else:
             console.print("\n[bold]Enter server IP for each BMC:[/bold]")
             for bmc_ip in bmc_ips:
                 server_ip = questionary.text(
@@ -700,7 +976,6 @@ def add_servers_manual() -> List[Dict]:
             style=custom_style
         ).ask()
         
-        # Handle cancellation
         if auth_method is None:
             add_ssh = False
         elif auth_method == "Password":
@@ -709,7 +984,7 @@ def add_servers_manual() -> List[Dict]:
                 style=custom_style
             ).ask()
             if not ssh_pass:
-                add_ssh = False  # Can't have SSH without password
+                add_ssh = False
         else:
             ssh_key = questionary.text(
                 "SSH key path:",
@@ -717,16 +992,15 @@ def add_servers_manual() -> List[Dict]:
                 style=custom_style
             ).ask()
             if not ssh_key:
-                add_ssh = False  # Can't have SSH without key
+                add_ssh = False
     
-    # Build server list and test SSH connections
+    # Build server list
     servers = []
     console.print("\n[dim]Building server list...[/dim]\n")
     
     for i, bmc_ip in enumerate(bmc_ips):
         server_ip = server_ips.get(bmc_ip, bmc_ip) if add_ssh else None
         default_name = f"server-{i+1:02d}"
-        hostname = None
         
         server = {
             "name": default_name,
@@ -735,7 +1009,6 @@ def add_servers_manual() -> List[Dict]:
             "bmc_password": bmc_pass
         }
         
-        # Add SSH if configured and test connection
         if add_ssh and ssh_user and server_ip:
             server["server_ip"] = server_ip
             server["ssh_user"] = ssh_user
@@ -745,7 +1018,6 @@ def add_servers_manual() -> List[Dict]:
                 server["ssh_key"] = ssh_key
             server["ssh_port"] = 22
             
-            # Test SSH and get hostname
             console.print(f"[dim]Testing SSH to {server_ip}...[/dim]", end=" ")
             success, hostname, error = test_ssh_connection(
                 server_ip, ssh_user, 
@@ -762,7 +1034,6 @@ def add_servers_manual() -> List[Dict]:
                     console.print(f"[green]✓[/green] Connected (using {default_name})")
             else:
                 console.print(f"[yellow]⚠[/yellow] Failed: {error}")
-                console.print(f"    [dim]Server will be added but SSH may not work[/dim]")
         
         servers.append(server)
     
@@ -770,7 +1041,7 @@ def add_servers_manual() -> List[Dict]:
 
 
 def add_server_interactive() -> Optional[Dict]:
-    """Interactively add a server."""
+    """Interactively add a single server."""
     console.print()
     
     name = questionary.text(
@@ -782,7 +1053,6 @@ def add_server_interactive() -> Optional[Dict]:
     if not name:
         return None
     
-    # BMC/IPMI settings
     console.print("\n[dim]Enter IPMI/BMC credentials for out-of-band management[/dim]")
     
     bmc_ip = questionary.text(
@@ -809,7 +1079,6 @@ def add_server_interactive() -> Optional[Dict]:
         "bmc_password": bmc_pass
     }
     
-    # Test IPMI connection
     console.print("[dim]Testing IPMI connection...[/dim]")
     
     if test_ipmi_connection(bmc_ip, bmc_user, bmc_pass):
@@ -817,7 +1086,6 @@ def add_server_interactive() -> Optional[Dict]:
     else:
         console.print(f"[yellow]⚠[/yellow] Could not connect to IPMI (check credentials later)")
     
-    # Optional SSH access
     add_ssh = questionary.confirm(
         "Add SSH access for detailed monitoring (CPU, storage, logs)?",
         default=True,
@@ -832,7 +1100,7 @@ def add_server_interactive() -> Optional[Dict]:
         ).ask()
         
         if not ssh_host:
-            return server  # Skip SSH if cancelled
+            return server
         
         ssh_user = questionary.text(
             "SSH username:",
@@ -841,7 +1109,7 @@ def add_server_interactive() -> Optional[Dict]:
         ).ask()
         
         if not ssh_user:
-            return server  # Skip SSH if cancelled
+            return server
         
         ssh_method = questionary.select(
             "SSH authentication:",
@@ -850,7 +1118,7 @@ def add_server_interactive() -> Optional[Dict]:
         ).ask()
         
         if ssh_method is None:
-            return server  # Skip SSH if cancelled
+            return server
         elif ssh_method == "Password":
             ssh_pass = questionary.password(
                 "SSH password:",
@@ -859,7 +1127,7 @@ def add_server_interactive() -> Optional[Dict]:
             if ssh_pass:
                 server["ssh_password"] = ssh_pass
             else:
-                return server  # Skip SSH if cancelled
+                return server
         else:
             ssh_key = questionary.text(
                 "SSH key path:",
@@ -869,13 +1137,12 @@ def add_server_interactive() -> Optional[Dict]:
             if ssh_key:
                 server["ssh_key"] = ssh_key
             else:
-                return server  # Skip SSH if cancelled
+                return server
         
         server["server_ip"] = ssh_host
         server["ssh_user"] = ssh_user
         server["ssh_port"] = 22
         
-        # Test SSH connection and get hostname
         console.print("[dim]Testing SSH connection...[/dim]")
         success, hostname, error = test_ssh_connection(
             ssh_host, ssh_user,
@@ -886,7 +1153,6 @@ def add_server_interactive() -> Optional[Dict]:
         
         if success:
             if hostname:
-                # Offer to use the retrieved hostname
                 use_hostname = questionary.confirm(
                     f"Use retrieved hostname '{hostname}' as server name?",
                     default=True,
@@ -899,19 +1165,16 @@ def add_server_interactive() -> Optional[Dict]:
                 console.print(f"[green]✓[/green] SSH connection successful")
         else:
             console.print(f"[yellow]⚠[/yellow] SSH test failed: {error}")
-            console.print("[dim]Server will be added but SSH may not work. Check credentials.[/dim]")
     
     return server
 
 
+# ============================================================================
+# Testing Functions (kept from original)
+# ============================================================================
+
 def test_ssh_connection(ip: str, user: str, password: str = None, key_path: str = None, port: int = 22) -> tuple:
-    """Test SSH connectivity and retrieve hostname.
-    
-    Returns:
-        tuple: (success: bool, hostname: str or None, error: str or None)
-    """
-    import tempfile
-    
+    """Test SSH connectivity and retrieve hostname."""
     try:
         ssh_opts = [
             "-o", "ConnectTimeout=10",
@@ -926,16 +1189,12 @@ def test_ssh_connection(ip: str, user: str, password: str = None, key_path: str 
                 return (False, None, f"SSH key not found: {key_path}")
             ssh_opts.extend(["-i", key_path])
         
-        # Build SSH command to get hostname
         cmd = ["ssh"] + ssh_opts + [f"{user}@{ip}", "hostname"]
         
         if password and not key_path:
-            # Use sshpass for password auth
             try:
-                # Check if sshpass is available
                 subprocess.run(["which", "sshpass"], capture_output=True, check=True)
                 cmd = ["sshpass", "-p", password] + cmd
-                # Remove BatchMode for password auth
                 cmd = [c for c in cmd if c != "BatchMode=yes"]
             except subprocess.CalledProcessError:
                 return (False, None, "sshpass not installed (needed for password auth)")
@@ -968,132 +1227,6 @@ def test_ipmi_connection(ip: str, user: str, password: str) -> bool:
         return False
 
 
-def set_admin_password(password: str, db_path: Path):
-    """Set the admin password in the database.
-    
-    Creates user table matching Flask's User model schema exactly.
-    Also handles upgrading existing tables that may have missing columns.
-    """
-    import sqlite3
-    from datetime import datetime
-    from werkzeug.security import generate_password_hash
-    
-    # Log file for debugging quickstart issues
-    log_file = Path("/var/lib/ipmi-monitor/quickstart.log")
-    
-    def log(msg):
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(log_file, "a") as f:
-                f.write(f"[{datetime.now().isoformat()}] {msg}\n")
-        except:
-            pass
-    
-    try:
-        log(f"Setting admin password in database: {db_path}")
-        
-        # Ensure parent directory exists
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        conn = sqlite3.connect(str(db_path))
-        cursor = conn.cursor()
-        
-        log("Connected to database, creating user table...")
-        
-        # Create user table matching Flask's User model exactly
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS user (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username VARCHAR(50) NOT NULL UNIQUE,
-                password_hash VARCHAR(255) NOT NULL,
-                role VARCHAR(20) NOT NULL DEFAULT 'readonly',
-                enabled BOOLEAN DEFAULT 1,
-                password_changed BOOLEAN DEFAULT 0,
-                created_at DATETIME,
-                updated_at DATETIME,
-                last_login DATETIME,
-                wp_user_id INTEGER,
-                wp_email VARCHAR(100),
-                wp_linked_at DATETIME
-            )
-        """)
-        
-        log("User table created/verified")
-        
-        # Ensure all columns exist (handle partial/old table schemas)
-        # Get existing columns
-        cursor.execute("PRAGMA table_info(user)")
-        existing_cols = {row[1] for row in cursor.fetchall()}
-        log(f"Existing columns: {existing_cols}")
-        
-        required_cols = {
-            'last_login': 'DATETIME',
-            'wp_user_id': 'INTEGER', 
-            'wp_email': 'VARCHAR(100)',
-            'wp_linked_at': 'DATETIME'
-        }
-        
-        for col, col_type in required_cols.items():
-            if col not in existing_cols:
-                try:
-                    cursor.execute(f"ALTER TABLE user ADD COLUMN {col} {col_type}")
-                    log(f"Added missing column: {col}")
-                except sqlite3.OperationalError as e:
-                    log(f"Could not add column {col}: {e}")
-        
-        now = datetime.now().isoformat()
-        password_hash = generate_password_hash(password)
-        
-        log(f"Generated password hash (length: {len(password_hash)})")
-        
-        # Check if admin user exists
-        cursor.execute("SELECT id FROM user WHERE username = 'admin'")
-        existing = cursor.fetchone()
-        
-        # Set password_changed based on whether it's a custom password
-        is_custom = password != "admin"
-        
-        if existing:
-            # Update existing admin
-            log(f"Updating existing admin user (id: {existing[0]})")
-            cursor.execute("""
-                UPDATE user SET password_hash = ?, password_changed = ?, role = 'admin', updated_at = ?
-                WHERE username = 'admin'
-            """, (password_hash, 1 if is_custom else 0, now))
-        else:
-            # Insert new admin user
-            log("Inserting new admin user")
-            cursor.execute("""
-                INSERT INTO user (username, password_hash, role, enabled, password_changed, created_at, updated_at)
-                VALUES ('admin', ?, 'admin', 1, ?, ?, ?)
-            """, (password_hash, 1 if is_custom else 0, now, now))
-        
-        conn.commit()
-        log("Database committed successfully")
-        
-        # Verify the user was created
-        cursor.execute("SELECT id, username, role, password_changed FROM user WHERE username = 'admin'")
-        verify = cursor.fetchone()
-        if verify:
-            log(f"Verified admin user: id={verify[0]}, role={verify[2]}, password_changed={verify[3]}")
-        else:
-            log("ERROR: Admin user not found after insert!")
-        
-        conn.close()
-        log("Database connection closed")
-        
-        if is_custom:
-            console.print("[green]✓[/green] Admin password set")
-        else:
-            console.print("[green]✓[/green] Admin user created (default: admin/admin)")
-        
-    except Exception as e:
-        log(f"ERROR: {e}")
-        import traceback
-        log(traceback.format_exc())
-        console.print(f"[yellow]⚠[/yellow] Could not set admin password: {e}")
-
-
 def read_ssh_key_file(key_path: str) -> Optional[str]:
     """Read SSH key content from a file path."""
     try:
@@ -1101,7 +1234,6 @@ def read_ssh_key_file(key_path: str) -> Optional[str]:
         if os.path.exists(key_path):
             with open(key_path, 'r') as f:
                 content = f.read().strip()
-            # Validate it looks like an SSH key
             if content.startswith('-----BEGIN') and 'PRIVATE KEY' in content:
                 return content
             else:
@@ -1115,199 +1247,11 @@ def read_ssh_key_file(key_path: str) -> Optional[str]:
         return None
 
 
-def create_ssh_key_in_database(name: str, key_content: str, db_path: Path) -> Optional[int]:
-    """Create an SSH key entry in the database and return its ID."""
-    import sqlite3
-    import hashlib
-    import base64
-    from datetime import datetime
-    
-    # Log file for debugging quickstart issues
-    log_file = Path("/var/lib/ipmi-monitor/quickstart.log")
-    
-    def log(msg):
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(log_file, "a") as f:
-                f.write(f"[{datetime.now().isoformat()}] SSH_KEY: {msg}\n")
-        except:
-            pass
-    
-    try:
-        log(f"Creating SSH key '{name}' in database: {db_path}")
-        conn = sqlite3.connect(str(db_path))
-        cursor = conn.cursor()
-        
-        # Create ssh_key table if needed (matching Flask's SSHKey model)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS ssh_key (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(50) NOT NULL UNIQUE,
-                key_content TEXT NOT NULL,
-                fingerprint VARCHAR(100),
-                created_at DATETIME,
-                updated_at DATETIME
-            )
-        """)
-        
-        # Generate fingerprint
-        fingerprint = None
-        try:
-            # Extract the base64 part of the key for fingerprint
-            lines = key_content.strip().split('\n')
-            key_data = ''.join(line for line in lines if not line.startswith('-----'))
-            key_bytes = base64.b64decode(key_data)
-            fingerprint = hashlib.sha256(key_bytes).hexdigest()[:32]
-        except:
-            pass
-        
-        now = datetime.now().isoformat()
-        
-        # Check if key with this name exists
-        cursor.execute("SELECT id FROM ssh_key WHERE name = ?", (name,))
-        existing = cursor.fetchone()
-        
-        if existing:
-            # Update existing key
-            cursor.execute("""
-                UPDATE ssh_key SET key_content = ?, fingerprint = ?, updated_at = ?
-                WHERE name = ?
-            """, (key_content, fingerprint, now, name))
-            key_id = existing[0]
-        else:
-            # Insert new key
-            cursor.execute("""
-                INSERT INTO ssh_key (name, key_content, fingerprint, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?)
-            """, (name, key_content, fingerprint, now, now))
-            key_id = cursor.lastrowid
-        
-        conn.commit()
-        conn.close()
-        
-        console.print(f"[green]✓[/green] SSH key '{name}' stored in database")
-        return key_id
-        
-    except Exception as e:
-        console.print(f"[yellow]⚠[/yellow] Could not store SSH key: {e}")
-        return None
+# ============================================================================
+# Summary and Display
+# ============================================================================
 
-
-def setup_https_access(local_ip: str, web_port: int = 5000) -> Optional[str]:
-    """Set up HTTPS reverse proxy with optional domain."""
-    from .reverse_proxy import setup_reverse_proxy
-    
-    # Ask about domain
-    use_domain = questionary.confirm(
-        "Do you have a domain name pointing to this server?",
-        default=False,
-        style=custom_style
-    ).ask()
-    
-    domain = None
-    email = None
-    use_letsencrypt = False
-    
-    if use_domain:
-        domain = questionary.text(
-            "Domain name (e.g., ipmi.example.com):",
-            validate=lambda x: True if (len(x) > 0 and '.' in x) else "Please enter a valid domain (e.g., ipmi.example.com)",
-            style=custom_style
-        ).ask()
-        
-        use_letsencrypt = questionary.confirm(
-            "Use Let's Encrypt for a free trusted certificate?",
-            default=True,
-            style=custom_style
-        ).ask()
-        
-        if use_letsencrypt:
-            console.print("[dim]Let's Encrypt requires ports 80 and 443 to be open.[/dim]")
-            email = questionary.text(
-                "Email for Let's Encrypt notifications:",
-                validate=lambda x: '@' in x,
-                style=custom_style
-            ).ask()
-    
-    # Check if dc-overview/grafana is installed
-    grafana_enabled = False
-    prometheus_enabled = False
-    try:
-        import subprocess
-        result = subprocess.run(["docker", "ps", "--format", "{{.Names}}"], capture_output=True, text=True)
-        if "grafana" in result.stdout:
-            grafana_enabled = True
-            prometheus_enabled = True
-            console.print("[dim]Detected DC Overview (Grafana/Prometheus) - will include in reverse proxy[/dim]")
-    except Exception:
-        pass
-    
-    # Set up reverse proxy
-    console.print("\n[dim]Setting up reverse proxy...[/dim]")
-    
-    try:
-        setup_reverse_proxy(
-            domain=domain,
-            email=email,
-            site_name="IPMI Monitor",
-            grafana_enabled=grafana_enabled,
-            prometheus_enabled=prometheus_enabled,
-            use_letsencrypt=use_letsencrypt,
-            ipmi_port=web_port,
-        )
-        return domain
-    except Exception as e:
-        console.print(f"[yellow]⚠[/yellow] Reverse proxy setup failed: {e}")
-        console.print("[dim]You can set it up later with: sudo ipmi-monitor setup-ssl[/dim]")
-        return None
-
-
-def install_service():
-    """Install and start systemd service."""
-    
-    # Create data directory BEFORE starting service (Flask needs it for databases)
-    data_dir = Path("/var/lib/ipmi-monitor")
-    data_dir.mkdir(parents=True, exist_ok=True)
-    console.print(f"[green]✓[/green] Data directory created: {data_dir}")
-    
-    service = """[Unit]
-Description=IPMI Monitor - Server Health Monitoring
-After=network.target
-
-[Service]
-Type=simple
-User=root
-Environment=IPMI_MONITOR_CONFIG=/etc/ipmi-monitor
-Environment=SERVERS_CONFIG_FILE=/etc/ipmi-monitor/servers.yaml
-ExecStart=/usr/local/bin/ipmi-monitor daemon
-WorkingDirectory=/etc/ipmi-monitor
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-"""
-    
-    service_path = Path("/etc/systemd/system/ipmi-monitor.service")
-    service_path.write_text(service)
-    
-    with Progress(SpinnerColumn(), TextColumn("Starting IPMI Monitor service..."), console=console) as progress:
-        progress.add_task("", total=None)
-        
-        subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
-        subprocess.run(["systemctl", "enable", "ipmi-monitor"], capture_output=True)
-        subprocess.run(["systemctl", "start", "ipmi-monitor"], capture_output=True)
-    
-    # Check if running
-    result = subprocess.run(["systemctl", "is-active", "ipmi-monitor"], capture_output=True, text=True)
-    
-    if result.stdout.strip() == "active":
-        console.print("[green]✓[/green] IPMI Monitor service started")
-    else:
-        console.print("[yellow]⚠[/yellow] Service may need manual start: sudo systemctl start ipmi-monitor")
-
-
-def show_summary(servers: List[Dict], local_ip: str, port: int, ai_enabled: bool, domain: Optional[str] = None):
+def show_summary(servers: List[Dict], local_ip: str, port: int, ai_enabled: bool, domain: Optional[str] = None, https_enabled: bool = False):
     """Show setup summary."""
     console.print()
     console.print(Panel(
@@ -1320,31 +1264,41 @@ def show_summary(servers: List[Dict], local_ip: str, port: int, ai_enabled: bool
     table.add_column("")
     
     if domain:
-        table.add_row("Web Interface", f"https://{domain}/ipmi/")
+        table.add_row("Web Interface", f"https://{domain}/")
+    elif https_enabled:
+        table.add_row("Web Interface", f"https://{local_ip}/")
     else:
-        table.add_row("Web Interface", f"https://{local_ip}/ipmi/" if Path("/etc/nginx/sites-enabled/ipmi-monitor").exists() else f"http://{local_ip}:{port}")
+        table.add_row("Web Interface", f"http://{local_ip}:{port}")
+    
     table.add_row("Servers Monitored", str(len(servers)))
     table.add_row("AI Insights", "Enabled ✓" if ai_enabled else "Not configured")
-    table.add_row("Config Directory", "/etc/ipmi-monitor")
-    table.add_row("HTTPS", "Enabled ✓" if domain or Path("/etc/nginx/sites-enabled/ipmi-monitor").exists() else "Not configured")
+    table.add_row("Config Directory", str(CONFIG_DIR))
+    table.add_row("HTTPS", "Enabled ✓" if https_enabled else "Not configured")
+    table.add_row("Auto-Updates", "Enabled ✓ (Watchtower)")
     
     console.print(table)
     
     console.print("\n[bold]Monitored Servers:[/bold]")
     for srv in servers:
-        ssh_info = f" + SSH" if srv.get("server_ip") else ""
+        ssh_info = " + SSH" if srv.get("server_ip") else ""
         bmc_ip = srv.get('bmc_ip', srv.get('server_ip', 'unknown'))
         console.print(f"  • {srv['name']} - BMC: {bmc_ip}{ssh_info}")
     
-    console.print("\n[bold]Commands:[/bold]")
-    console.print("  [cyan]ipmi-monitor status[/cyan]        - Check service status")
-    console.print("  [cyan]ipmi-monitor add-server[/cyan]    - Add another server")
-    console.print("  [cyan]ipmi-monitor setup-ssl[/cyan]     - Set up/update HTTPS")
+    console.print("\n[bold]Docker Commands:[/bold]")
+    console.print(f"  [cyan]docker logs ipmi-monitor[/cyan]     - View logs")
+    console.print(f"  [cyan]docker restart ipmi-monitor[/cyan]  - Restart")
+    console.print(f"  [cyan]cd {CONFIG_DIR} && docker compose down[/cyan] - Stop")
+    console.print(f"  [cyan]cd {CONFIG_DIR} && docker compose up -d[/cyan] - Start")
+    
+    console.print("\n[bold]CLI Commands:[/bold]")
+    console.print("  [cyan]ipmi-monitor status[/cyan]   - Check container status")
+    console.print("  [cyan]ipmi-monitor logs[/cyan]     - View logs")
+    console.print("  [cyan]ipmi-monitor upgrade[/cyan]  - Pull latest image")
     
     if domain:
-        console.print(f"\n[bold]Open your browser:[/bold] [cyan]https://{domain}/ipmi/[/cyan]")
-    elif Path("/etc/nginx/sites-enabled/ipmi-monitor").exists():
-        console.print(f"\n[bold]Open your browser:[/bold] [cyan]https://{local_ip}/ipmi/[/cyan]")
+        console.print(f"\n[bold]Open your browser:[/bold] [cyan]https://{domain}/[/cyan]")
+    elif https_enabled:
+        console.print(f"\n[bold]Open your browser:[/bold] [cyan]https://{local_ip}/[/cyan]")
     else:
         console.print(f"\n[bold]Open your browser:[/bold] [cyan]http://{local_ip}:{port}[/cyan]")
 
