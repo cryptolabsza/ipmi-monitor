@@ -110,6 +110,7 @@ def run_quickstart():
     
     # ============ Step 2: Web Interface Settings ============
     console.print("\n[bold]Step 2: Web Interface Settings[/bold]\n")
+    console.print("[dim]Port 5000 is the default. Only change if you have a conflict.[/dim]\n")
     
     web_port = questionary.text(
         "Web interface port:",
