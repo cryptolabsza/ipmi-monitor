@@ -408,19 +408,33 @@ def get_build_info():
 def get_version_string():
     """
     Get formatted version string.
+    Always includes commit hash and build time when available.
     Examples:
       - Production: v0.7.0 (main@8d7150c, 2025-12-07 05:47 UTC)
-      - Development: v0.7.0-dev (develop@8d7150c, 2025-12-07 05:47 UTC)
-      - Local: v0.7.0 (development)
+      - Development: v0.7.0-dev (dev@8d7150c, 2025-12-07 05:47 UTC)
+      - Local dev: v0.7.0-dev (local@abc1234, 2025-12-07 05:47 UTC)
     """
     info = get_build_info()
     branch = info['git_branch']
+    commit = info['git_commit']
+    build_time = info['build_time']
     
-    if info['git_commit'] != 'dev' and info['git_commit'] != 'unknown':
-        # Add -dev suffix when running from develop branch
-        version_suffix = '-dev' if branch in ['develop', 'dev'] else ''
-        return f"v{info['version']}{version_suffix} ({branch}@{info['git_commit']}, {info['build_time']})"
-    return f"v{info['version']} (development)"
+    # Add -dev suffix when running from develop/dev branch or local development
+    is_dev = branch in ['develop', 'dev', 'unknown'] or commit in ['dev', 'unknown']
+    version_suffix = '-dev' if is_dev else ''
+    
+    # Always try to show commit and time
+    if commit not in ('dev', 'unknown') and build_time != 'unknown':
+        return f"v{info['version']}{version_suffix} ({branch}@{commit}, {build_time})"
+    elif commit not in ('dev', 'unknown'):
+        return f"v{info['version']}{version_suffix} ({branch}@{commit})"
+    elif build_time != 'unknown':
+        return f"v{info['version']}{version_suffix} ({branch}, {build_time})"
+    else:
+        # Final fallback: show current time as build time for local dev
+        from datetime import datetime
+        now = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+        return f"v{info['version']}{version_suffix} (local, {now})"
 
 def check_for_updates():
     """
