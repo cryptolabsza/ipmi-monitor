@@ -89,6 +89,11 @@ def run_quickstart():
         style=custom_style
     ).ask()
     
+    # Handle cancellation
+    if server_count is None:
+        console.print("[yellow]Cancelled.[/yellow]")
+        return
+    
     servers = []
     
     if server_count == "single":
@@ -113,6 +118,10 @@ def run_quickstart():
         style=custom_style
     ).ask()
     
+    # Handle cancellation - use default
+    if web_port is None:
+        web_port = "5000"
+    
     # ============ Step 3: AI Features (Optional) ============
     console.print("\n[bold]Step 3: AI Features (Optional)[/bold]\n")
     console.print("[dim]AI Insights analyzes server issues and suggests fixes.[/dim]")
@@ -123,6 +132,10 @@ def run_quickstart():
         default=False,
         style=custom_style
     ).ask()
+    
+    # Handle cancellation
+    if enable_ai is None:
+        enable_ai = False
     
     license_key = None
     if enable_ai:
@@ -179,6 +192,10 @@ def run_quickstart():
         default=True,
         style=custom_style
     ).ask()
+    
+    # Handle cancellation
+    if setup_ssl is None:
+        setup_ssl = False
     
     domain = None
     if setup_ssl:
@@ -357,22 +374,9 @@ def parse_ipmi_server_list(lines: List[str]) -> List[Dict]:
 
 def add_servers_manual() -> List[Dict]:
     """Add multiple servers manually with shared credentials."""
-    # BMC credentials (same for all)
-    console.print("[bold]IPMI/BMC Credentials[/bold] (used for all servers)\n")
     
-    bmc_user = questionary.text(
-        "BMC username:",
-        default="ADMIN",
-        style=custom_style
-    ).ask()
-    
-    bmc_pass = questionary.password(
-        "BMC password:",
-        style=custom_style
-    ).ask()
-    
-    # Get BMC IPs
-    console.print("\n[bold]BMC IP Addresses[/bold]")
+    # Get BMC IPs first
+    console.print("[bold]BMC IP Addresses[/bold]")
     console.print("[dim]Enter one IP per line. Blank line to finish.[/dim]\n")
     
     bmc_ips = []
@@ -393,6 +397,70 @@ def add_servers_manual() -> List[Dict]:
     
     if not bmc_ips:
         return []
+    
+    # BMC credentials with retry loop
+    while True:
+        console.print("\n[bold]IPMI/BMC Credentials[/bold] (used for all servers)\n")
+        
+        bmc_user = questionary.text(
+            "BMC username:",
+            default="ADMIN",
+            style=custom_style
+        ).ask()
+        
+        if bmc_user is None:
+            return []
+        
+        bmc_pass = questionary.password(
+            "BMC password:",
+            style=custom_style
+        ).ask()
+        
+        if bmc_pass is None:
+            return []
+        
+        # Test all servers
+        console.print(f"\n[dim]Testing {len(bmc_ips)} servers...[/dim]\n")
+        
+        failed_servers = []
+        success_servers = []
+        
+        for i, bmc_ip in enumerate(bmc_ips):
+            name = f"server-{i+1:02d}"
+            if test_ipmi_connection(bmc_ip, bmc_user, bmc_pass):
+                console.print(f"[green]✓[/green] {name} ({bmc_ip}) - IPMI OK")
+                success_servers.append((name, bmc_ip))
+            else:
+                console.print(f"[yellow]⚠[/yellow] {name} ({bmc_ip}) - IPMI failed")
+                failed_servers.append((name, bmc_ip))
+        
+        # If any failed, offer retry
+        if failed_servers:
+            console.print(f"\n[yellow]{len(failed_servers)} server(s) failed IPMI test.[/yellow]")
+            
+            retry_choice = questionary.select(
+                "What would you like to do?",
+                choices=[
+                    questionary.Choice("Re-enter credentials and try again", value="retry"),
+                    questionary.Choice("Continue anyway (add all servers)", value="continue"),
+                    questionary.Choice("Continue with only working servers", value="working_only"),
+                    questionary.Choice("Cancel", value="cancel"),
+                ],
+                style=custom_style
+            ).ask()
+            
+            if retry_choice == "retry":
+                continue
+            elif retry_choice == "cancel":
+                return []
+            elif retry_choice == "working_only":
+                bmc_ips = [ip for name, ip in success_servers]
+                if not bmc_ips:
+                    console.print("[yellow]No working servers. Please check your credentials.[/yellow]")
+                    continue
+        
+        # All tests passed or user chose to continue
+        break
     
     # Optional SSH access
     console.print("\n[bold]SSH Access (Optional)[/bold]")
@@ -434,8 +502,6 @@ def add_servers_manual() -> List[Dict]:
             ).ask()
     
     # Build server list
-    console.print(f"\n[dim]Testing {len(bmc_ips)} servers...[/dim]\n")
-    
     servers = []
     for i, bmc_ip in enumerate(bmc_ips):
         name = f"server-{i+1:02d}"
@@ -446,12 +512,6 @@ def add_servers_manual() -> List[Dict]:
             "bmc_user": bmc_user,
             "bmc_password": bmc_pass
         }
-        
-        # Test IPMI
-        if test_ipmi_connection(bmc_ip, bmc_user, bmc_pass):
-            console.print(f"[green]✓[/green] {name} ({bmc_ip}) - IPMI OK")
-        else:
-            console.print(f"[yellow]⚠[/yellow] {name} ({bmc_ip}) - IPMI failed")
         
         # Add SSH if configured
         if add_ssh and ssh_user:
