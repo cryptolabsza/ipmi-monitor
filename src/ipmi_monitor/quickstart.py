@@ -250,9 +250,27 @@ def run_quickstart():
             flask_srv["ssh_port"] = srv["ssh_port"]
         flask_servers.append(flask_srv)
     
-    servers_config = {"servers": flask_servers}
+    # Write servers.yaml manually to ensure 'name' comes first (Flask parser requires it)
     with open(config_dir / "servers.yaml", "w") as f:
-        yaml.dump(servers_config, f, default_flow_style=False)
+        f.write("servers:\n")
+        for srv in flask_servers:
+            # name must come first for Flask's parse_yaml_servers()
+            f.write(f"  - name: {srv.get('name', 'unknown')}\n")
+            f.write(f"    bmc_ip: {srv.get('bmc_ip', '')}\n")
+            if srv.get('ipmi_user'):
+                f.write(f"    ipmi_user: {srv['ipmi_user']}\n")
+            if srv.get('ipmi_pass'):
+                f.write(f"    ipmi_pass: {srv['ipmi_pass']}\n")
+            if srv.get('server_ip'):
+                f.write(f"    server_ip: {srv['server_ip']}\n")
+            if srv.get('ssh_user'):
+                f.write(f"    ssh_user: {srv['ssh_user']}\n")
+            if srv.get('ssh_pass'):
+                f.write(f"    ssh_pass: {srv['ssh_pass']}\n")
+            if srv.get('ssh_key_name'):
+                f.write(f"    ssh_key_name: {srv['ssh_key_name']}\n")
+            if srv.get('ssh_port'):
+                f.write(f"    ssh_port: {srv['ssh_port']}\n")
     
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
@@ -717,7 +735,10 @@ def test_ipmi_connection(ip: str, user: str, password: str) -> bool:
 
 
 def set_admin_password(password: str, db_path: Path):
-    """Set the admin password in the database."""
+    """Set the admin password in the database.
+    
+    Creates user table matching Flask's User model schema exactly.
+    """
     import sqlite3
     from datetime import datetime
     from werkzeug.security import generate_password_hash
@@ -726,28 +747,43 @@ def set_admin_password(password: str, db_path: Path):
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         
-        # Create user table if needed
+        # Create user table matching Flask's User model exactly
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS user (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username VARCHAR(50) NOT NULL UNIQUE,
                 password_hash VARCHAR(255) NOT NULL,
-                role VARCHAR(20) DEFAULT 'admin',
+                role VARCHAR(20) NOT NULL DEFAULT 'readonly',
                 enabled BOOLEAN DEFAULT 1,
-                password_changed BOOLEAN DEFAULT 1,
+                password_changed BOOLEAN DEFAULT 0,
                 created_at DATETIME,
-                updated_at DATETIME
+                updated_at DATETIME,
+                last_login DATETIME,
+                wp_user_id INTEGER,
+                wp_email VARCHAR(100),
+                wp_linked_at DATETIME
             )
         """)
         
         now = datetime.now().isoformat()
         password_hash = generate_password_hash(password)
         
-        # Insert or update admin user
-        cursor.execute("""
-            INSERT OR REPLACE INTO user (username, password_hash, role, enabled, password_changed, created_at, updated_at)
-            VALUES ('admin', ?, 'admin', 1, 1, ?, ?)
-        """, (password_hash, now, now))
+        # Check if admin user exists
+        cursor.execute("SELECT id FROM user WHERE username = 'admin'")
+        existing = cursor.fetchone()
+        
+        if existing:
+            # Update existing admin
+            cursor.execute("""
+                UPDATE user SET password_hash = ?, password_changed = 1, updated_at = ?
+                WHERE username = 'admin'
+            """, (password_hash, now))
+        else:
+            # Insert new admin user
+            cursor.execute("""
+                INSERT INTO user (username, password_hash, role, enabled, password_changed, created_at, updated_at)
+                VALUES ('admin', ?, 'admin', 1, 1, ?, ?)
+            """, (password_hash, now, now))
         
         conn.commit()
         conn.close()
