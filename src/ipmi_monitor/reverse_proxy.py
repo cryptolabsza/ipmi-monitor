@@ -224,9 +224,14 @@ def enable_nginx_site(config_path: str = "/etc/nginx/sites-available/ipmi-monito
         print(f"✗ Nginx config test failed: {result.stderr}")
         return False
     
-    # Reload nginx
-    subprocess.run(["systemctl", "reload", "nginx"], check=True)
-    print("✓ Nginx reloaded")
+    # Start or reload nginx (reload fails if nginx is stopped)
+    status = subprocess.run(["systemctl", "is-active", "nginx"], capture_output=True, text=True)
+    if status.stdout.strip() == "active":
+        subprocess.run(["systemctl", "reload", "nginx"], check=True)
+        print("✓ Nginx reloaded")
+    else:
+        subprocess.run(["systemctl", "start", "nginx"], check=True)
+        print("✓ Nginx started")
     
     return True
 

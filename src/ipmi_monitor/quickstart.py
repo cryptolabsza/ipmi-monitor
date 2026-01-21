@@ -654,7 +654,7 @@ def setup_https_access(local_ip: str) -> Optional[str]:
     if use_domain:
         domain = questionary.text(
             "Domain name (e.g., ipmi.example.com):",
-            validate=lambda x: len(x) > 0 and '.' in x,
+            validate=lambda x: True if (len(x) > 0 and '.' in x) else "Please enter a valid domain (e.g., ipmi.example.com)",
             style=custom_style
         ).ask()
         
