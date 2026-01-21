@@ -652,6 +652,8 @@ After=network.target
 [Service]
 Type=simple
 User=root
+Environment=IPMI_MONITOR_CONFIG=/etc/ipmi-monitor
+Environment=SERVERS_CONFIG_FILE=/etc/ipmi-monitor/servers.yaml
 ExecStart=/usr/local/bin/ipmi-monitor daemon
 WorkingDirectory=/etc/ipmi-monitor
 Restart=always
