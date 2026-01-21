@@ -123,8 +123,38 @@ def run_quickstart():
     if web_port is None:
         web_port = "5000"
     
-    # ============ Step 3: AI Features (Optional) ============
-    console.print("\n[bold]Step 3: AI Features (Optional)[/bold]\n")
+    # ============ Step 3: Web Admin Password ============
+    console.print("\n[bold]Step 3: Web Admin Password[/bold]\n")
+    console.print("[dim]Set a password for the web interface. Default: admin/admin[/dim]\n")
+    
+    change_password = questionary.confirm(
+        "Set a custom admin password? (recommended)",
+        default=True,
+        style=custom_style
+    ).ask()
+    
+    admin_password = "admin"  # Default
+    if change_password:
+        admin_password = questionary.password(
+            "Admin password:",
+            validate=lambda x: len(x) >= 4 or "Password must be at least 4 characters",
+            style=custom_style
+        ).ask()
+        
+        if admin_password:
+            confirm_password = questionary.password(
+                "Confirm password:",
+                style=custom_style
+            ).ask()
+            
+            if admin_password != confirm_password:
+                console.print("[yellow]⚠[/yellow] Passwords don't match. Using default: admin")
+                admin_password = "admin"
+        else:
+            admin_password = "admin"
+    
+    # ============ Step 4: AI Features (Optional) ============
+    console.print("\n[bold]Step 4: AI Features (Optional)[/bold]\n")
     console.print("[dim]AI Insights analyzes server issues and suggests fixes.[/dim]")
     console.print("[dim]Requires a CryptoLabs AI account (free tier available).[/dim]\n")
     
@@ -147,8 +177,8 @@ def run_quickstart():
             style=custom_style
         ).ask()
     
-    # ============ Step 4: Save Config & Start Service ============
-    console.print("\n[bold]Step 4: Starting IPMI Monitor[/bold]\n")
+    # ============ Step 5: Save Config & Start Service ============
+    console.print("\n[bold]Step 5: Starting IPMI Monitor[/bold]\n")
     
     config_dir = Path("/etc/ipmi-monitor")
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -179,13 +209,21 @@ def run_quickstart():
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
     # Create data directory
-    Path("/var/lib/ipmi-monitor").mkdir(parents=True, exist_ok=True)
+    data_dir = Path("/var/lib/ipmi-monitor")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Import servers into database
+    import_servers_to_database(servers, data_dir / "ipmi_events.db")
+    
+    # Set admin password if custom
+    if admin_password != "admin":
+        set_admin_password(admin_password, data_dir / "ipmi_events.db")
     
     # Install and start service
     install_service()
     
-    # ============ Step 5: HTTPS Access (Optional) ============
-    console.print("\n[bold]Step 5: HTTPS Access (Optional)[/bold]\n")
+    # ============ Step 6: HTTPS Access (Optional) ============
+    console.print("\n[bold]Step 6: HTTPS Access (Optional)[/bold]\n")
     console.print("[dim]Set up nginx reverse proxy with SSL for secure remote access.[/dim]\n")
     
     setup_ssl = questionary.confirm(
@@ -634,6 +672,123 @@ def test_ipmi_connection(ip: str, user: str, password: str) -> bool:
         return result.returncode == 0
     except Exception:
         return False
+
+
+def set_admin_password(password: str, db_path: Path):
+    """Set the admin password in the database."""
+    import sqlite3
+    from datetime import datetime
+    from werkzeug.security import generate_password_hash
+    
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Create user table if needed
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS user (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username VARCHAR(50) NOT NULL UNIQUE,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20) DEFAULT 'admin',
+                enabled BOOLEAN DEFAULT 1,
+                password_changed BOOLEAN DEFAULT 1,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
+        
+        now = datetime.now().isoformat()
+        password_hash = generate_password_hash(password)
+        
+        # Insert or update admin user
+        cursor.execute("""
+            INSERT OR REPLACE INTO user (username, password_hash, role, enabled, password_changed, created_at, updated_at)
+            VALUES ('admin', ?, 'admin', 1, 1, ?, ?)
+        """, (password_hash, now, now))
+        
+        conn.commit()
+        conn.close()
+        
+        console.print("[green]✓[/green] Admin password set")
+        
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Could not set admin password: {e}")
+
+
+def import_servers_to_database(servers: List[Dict], db_path: Path):
+    """Import servers directly into SQLite database."""
+    import sqlite3
+    from datetime import datetime
+    
+    try:
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Create tables if they don't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS server (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bmc_ip VARCHAR(45) NOT NULL UNIQUE,
+                server_name VARCHAR(50) NOT NULL,
+                server_ip VARCHAR(45),
+                enabled BOOLEAN DEFAULT 1,
+                protocol VARCHAR(20) DEFAULT 'auto',
+                status VARCHAR(20) DEFAULT 'unknown',
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS server_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                bmc_ip VARCHAR(20) NOT NULL UNIQUE,
+                server_name VARCHAR(50) NOT NULL,
+                server_ip VARCHAR(20),
+                ipmi_user VARCHAR(50),
+                ipmi_pass VARCHAR(100),
+                ssh_user VARCHAR(50),
+                ssh_pass VARCHAR(100),
+                ssh_key TEXT,
+                ssh_port INTEGER DEFAULT 22,
+                created_at DATETIME,
+                updated_at DATETIME
+            )
+        """)
+        
+        now = datetime.now().isoformat()
+        
+        for server in servers:
+            name = server.get('name', f"server-{server.get('bmc_ip', 'unknown')}")
+            bmc_ip = server.get('bmc_ip', '')
+            server_ip = server.get('server_ip', '')
+            bmc_user = server.get('bmc_user', 'admin')
+            bmc_pass = server.get('bmc_password', '')
+            ssh_user = server.get('ssh_user', '')
+            ssh_pass = server.get('ssh_password', '')
+            ssh_key = server.get('ssh_key', '')
+            ssh_port = server.get('ssh_port', 22)
+            
+            # Insert into server table
+            cursor.execute("""
+                INSERT OR REPLACE INTO server (bmc_ip, server_name, server_ip, enabled, protocol, status, created_at)
+                VALUES (?, ?, ?, 1, 'auto', 'unknown', ?)
+            """, (bmc_ip, name, server_ip, now))
+            
+            # Insert into server_config table
+            cursor.execute("""
+                INSERT OR REPLACE INTO server_config (bmc_ip, server_name, server_ip, ipmi_user, ipmi_pass, ssh_user, ssh_pass, ssh_key, ssh_port, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (bmc_ip, name, server_ip, bmc_user, bmc_pass, ssh_user, ssh_pass, ssh_key, ssh_port, now))
+        
+        conn.commit()
+        conn.close()
+        
+        console.print(f"[green]✓[/green] Imported {len(servers)} servers to database")
+        
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Could not import servers to database: {e}")
 
 
 def setup_https_access(local_ip: str) -> Optional[str]:
