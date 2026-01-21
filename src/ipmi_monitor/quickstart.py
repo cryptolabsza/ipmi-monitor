@@ -204,7 +204,9 @@ def run_quickstart():
     # Create data directory first (needed for database operations)
     data_dir = Path("/var/lib/ipmi-monitor")
     data_dir.mkdir(parents=True, exist_ok=True)
-    db_path = data_dir / "ipmi_events.db"
+    # Use ipmi_monitor.db - this is Flask's main database for users, servers, configs
+    # (ipmi_events.db is only for sensor/event time-series data)
+    db_path = data_dir / "ipmi_monitor.db"
     
     # Process SSH keys - read from file paths and store in database
     # Track unique SSH keys to avoid duplicates
@@ -931,9 +933,26 @@ def set_admin_password(password: str, db_path: Path):
     from datetime import datetime
     from werkzeug.security import generate_password_hash
     
+    # Log file for debugging quickstart issues
+    log_file = Path("/var/lib/ipmi-monitor/quickstart.log")
+    
+    def log(msg):
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"[{datetime.now().isoformat()}] {msg}\n")
+        except:
+            pass
+    
     try:
+        log(f"Setting admin password in database: {db_path}")
+        
+        # Ensure parent directory exists
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
+        
+        log("Connected to database, creating user table...")
         
         # Create user table matching Flask's User model exactly
         cursor.execute("""
@@ -953,10 +972,13 @@ def set_admin_password(password: str, db_path: Path):
             )
         """)
         
+        log("User table created/verified")
+        
         # Ensure all columns exist (handle partial/old table schemas)
         # Get existing columns
         cursor.execute("PRAGMA table_info(user)")
         existing_cols = {row[1] for row in cursor.fetchall()}
+        log(f"Existing columns: {existing_cols}")
         
         required_cols = {
             'last_login': 'DATETIME',
@@ -969,11 +991,14 @@ def set_admin_password(password: str, db_path: Path):
             if col not in existing_cols:
                 try:
                     cursor.execute(f"ALTER TABLE user ADD COLUMN {col} {col_type}")
-                except sqlite3.OperationalError:
-                    pass  # Column might already exist
+                    log(f"Added missing column: {col}")
+                except sqlite3.OperationalError as e:
+                    log(f"Could not add column {col}: {e}")
         
         now = datetime.now().isoformat()
         password_hash = generate_password_hash(password)
+        
+        log(f"Generated password hash (length: {len(password_hash)})")
         
         # Check if admin user exists
         cursor.execute("SELECT id FROM user WHERE username = 'admin'")
@@ -984,19 +1009,32 @@ def set_admin_password(password: str, db_path: Path):
         
         if existing:
             # Update existing admin
+            log(f"Updating existing admin user (id: {existing[0]})")
             cursor.execute("""
                 UPDATE user SET password_hash = ?, password_changed = ?, role = 'admin', updated_at = ?
                 WHERE username = 'admin'
             """, (password_hash, 1 if is_custom else 0, now))
         else:
             # Insert new admin user
+            log("Inserting new admin user")
             cursor.execute("""
                 INSERT INTO user (username, password_hash, role, enabled, password_changed, created_at, updated_at)
                 VALUES ('admin', ?, 'admin', 1, ?, ?, ?)
             """, (password_hash, 1 if is_custom else 0, now, now))
         
         conn.commit()
+        log("Database committed successfully")
+        
+        # Verify the user was created
+        cursor.execute("SELECT id, username, role, password_changed FROM user WHERE username = 'admin'")
+        verify = cursor.fetchone()
+        if verify:
+            log(f"Verified admin user: id={verify[0]}, role={verify[2]}, password_changed={verify[3]}")
+        else:
+            log("ERROR: Admin user not found after insert!")
+        
         conn.close()
+        log("Database connection closed")
         
         if is_custom:
             console.print("[green]✓[/green] Admin password set")
@@ -1004,6 +1042,9 @@ def set_admin_password(password: str, db_path: Path):
             console.print("[green]✓[/green] Admin user created (default: admin/admin)")
         
     except Exception as e:
+        log(f"ERROR: {e}")
+        import traceback
+        log(traceback.format_exc())
         console.print(f"[yellow]⚠[/yellow] Could not set admin password: {e}")
 
 
@@ -1035,7 +1076,18 @@ def create_ssh_key_in_database(name: str, key_content: str, db_path: Path) -> Op
     import base64
     from datetime import datetime
     
+    # Log file for debugging quickstart issues
+    log_file = Path("/var/lib/ipmi-monitor/quickstart.log")
+    
+    def log(msg):
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"[{datetime.now().isoformat()}] SSH_KEY: {msg}\n")
+        except:
+            pass
+    
     try:
+        log(f"Creating SSH key '{name}' in database: {db_path}")
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
         
