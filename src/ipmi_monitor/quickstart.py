@@ -208,16 +208,16 @@ def run_quickstart():
     
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
-    # Create data directory
-    data_dir = Path("/var/lib/ipmi-monitor")
-    data_dir.mkdir(parents=True, exist_ok=True)
+    # Create data directory (same as config_dir since Flask uses config_dir as data_dir)
+    # Note: Flask's create_app() sets DATA_DIR = config_dir when config_dir is provided
+    db_path = config_dir / "ipmi_events.db"
     
     # Import servers into database
-    import_servers_to_database(servers, data_dir / "ipmi_events.db")
+    import_servers_to_database(servers, db_path)
     
     # Set admin password if custom
     if admin_password != "admin":
-        set_admin_password(admin_password, data_dir / "ipmi_events.db")
+        set_admin_password(admin_password, db_path)
     
     # Install and start service
     install_service()
