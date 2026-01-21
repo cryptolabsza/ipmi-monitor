@@ -938,6 +938,7 @@ def set_admin_password(password: str, db_path: Path):
     
     def log(msg):
         try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
             with open(log_file, "a") as f:
                 f.write(f"[{datetime.now().isoformat()}] {msg}\n")
         except:
@@ -1081,6 +1082,7 @@ def create_ssh_key_in_database(name: str, key_content: str, db_path: Path) -> Op
     
     def log(msg):
         try:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
             with open(log_file, "a") as f:
                 f.write(f"[{datetime.now().isoformat()}] SSH_KEY: {msg}\n")
         except:
@@ -1217,6 +1219,12 @@ def setup_https_access(local_ip: str, web_port: int = 5000) -> Optional[str]:
 
 def install_service():
     """Install and start systemd service."""
+    
+    # Create data directory BEFORE starting service (Flask needs it for databases)
+    data_dir = Path("/var/lib/ipmi-monitor")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    console.print(f"[green]✓[/green] Data directory created: {data_dir}")
+    
     service = """[Unit]
 Description=IPMI Monitor - Server Health Monitoring
 After=network.target
