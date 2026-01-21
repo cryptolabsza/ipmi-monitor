@@ -201,24 +201,45 @@ def run_quickstart():
     with open(config_dir / "config.yaml", "w") as f:
         yaml.dump(config, f, default_flow_style=False)
     
-    # Save servers
-    servers_config = {"servers": servers}
+    # Save servers in the format Flask's parse_yaml_servers() expects
+    # Convert from quickstart format to Flask format
+    flask_servers = []
+    for srv in servers:
+        flask_srv = {
+            "name": srv.get("name", f"server-{srv.get('bmc_ip', 'unknown')}"),
+            "bmc_ip": srv.get("bmc_ip"),
+        }
+        # Map credential fields to Flask's expected names
+        if srv.get("bmc_user"):
+            flask_srv["ipmi_user"] = srv["bmc_user"]
+        if srv.get("bmc_password"):
+            flask_srv["ipmi_pass"] = srv["bmc_password"]
+        if srv.get("server_ip"):
+            flask_srv["server_ip"] = srv["server_ip"]
+        if srv.get("ssh_user"):
+            flask_srv["ssh_user"] = srv["ssh_user"]
+        if srv.get("ssh_password"):
+            flask_srv["ssh_pass"] = srv["ssh_password"]
+        if srv.get("ssh_key"):
+            flask_srv["ssh_key"] = srv["ssh_key"]
+        if srv.get("ssh_port"):
+            flask_srv["ssh_port"] = srv["ssh_port"]
+        flask_servers.append(flask_srv)
+    
+    servers_config = {"servers": flask_servers}
     with open(config_dir / "servers.yaml", "w") as f:
         yaml.dump(servers_config, f, default_flow_style=False)
     
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
-    # Create data directory - Flask uses /var/lib/ipmi-monitor by default when running as root
-    # Note: DATA_DIR is set at module import time, not affected by config_dir parameter
+    # Create data directory
     data_dir = Path("/var/lib/ipmi-monitor")
     data_dir.mkdir(parents=True, exist_ok=True)
-    db_path = data_dir / "ipmi_events.db"
     
-    # Import servers into database
-    import_servers_to_database(servers, db_path)
-    
-    # Set admin password if custom
+    # Set admin password if custom (before service starts)
+    # Note: Flask's auto_load_servers_config() will import servers on first startup
     if admin_password != "admin":
+        db_path = data_dir / "ipmi_events.db"
         set_admin_password(admin_password, db_path)
     
     # Install and start service
@@ -716,81 +737,6 @@ def set_admin_password(password: str, db_path: Path):
         
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Could not set admin password: {e}")
-
-
-def import_servers_to_database(servers: List[Dict], db_path: Path):
-    """Import servers directly into SQLite database."""
-    import sqlite3
-    from datetime import datetime
-    
-    try:
-        conn = sqlite3.connect(str(db_path))
-        cursor = conn.cursor()
-        
-        # Create tables if they don't exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS server (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                bmc_ip VARCHAR(45) NOT NULL UNIQUE,
-                server_name VARCHAR(50) NOT NULL,
-                server_ip VARCHAR(45),
-                enabled BOOLEAN DEFAULT 1,
-                protocol VARCHAR(20) DEFAULT 'auto',
-                status VARCHAR(20) DEFAULT 'unknown',
-                created_at DATETIME,
-                updated_at DATETIME
-            )
-        """)
-        
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS server_config (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                bmc_ip VARCHAR(20) NOT NULL UNIQUE,
-                server_name VARCHAR(50) NOT NULL,
-                server_ip VARCHAR(20),
-                ipmi_user VARCHAR(50),
-                ipmi_pass VARCHAR(100),
-                ssh_user VARCHAR(50),
-                ssh_pass VARCHAR(100),
-                ssh_key TEXT,
-                ssh_port INTEGER DEFAULT 22,
-                created_at DATETIME,
-                updated_at DATETIME
-            )
-        """)
-        
-        now = datetime.now().isoformat()
-        
-        for server in servers:
-            name = server.get('name', f"server-{server.get('bmc_ip', 'unknown')}")
-            bmc_ip = server.get('bmc_ip', '')
-            server_ip = server.get('server_ip', '')
-            bmc_user = server.get('bmc_user', 'admin')
-            bmc_pass = server.get('bmc_password', '')
-            ssh_user = server.get('ssh_user', '')
-            ssh_pass = server.get('ssh_password', '')
-            ssh_key = server.get('ssh_key', '')
-            ssh_port = server.get('ssh_port', 22)
-            
-            # Insert into server table
-            cursor.execute("""
-                INSERT OR REPLACE INTO server (bmc_ip, server_name, server_ip, enabled, protocol, status, created_at)
-                VALUES (?, ?, ?, 1, 'auto', 'unknown', ?)
-            """, (bmc_ip, name, server_ip, now))
-            
-            # Insert into server_config table
-            cursor.execute("""
-                INSERT OR REPLACE INTO server_config (bmc_ip, server_name, server_ip, ipmi_user, ipmi_pass, ssh_user, ssh_pass, ssh_key, ssh_port, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (bmc_ip, name, server_ip, bmc_user, bmc_pass, ssh_user, ssh_pass, ssh_key, ssh_port, now))
-        
-        conn.commit()
-        conn.close()
-        
-        console.print(f"[green]✓[/green] Imported {len(servers)} servers to database")
-        
-    except Exception as e:
-        console.print(f"[yellow]⚠[/yellow] Could not import servers to database: {e}")
 
 
 def setup_https_access(local_ip: str) -> Optional[str]:
