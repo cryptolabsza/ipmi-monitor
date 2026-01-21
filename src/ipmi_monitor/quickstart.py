@@ -251,12 +251,18 @@ def run_quickstart():
         flask_servers.append(flask_srv)
     
     # Write servers.yaml manually to ensure 'name' comes first (Flask parser requires it)
+    # Filter out servers without bmc_ip (Flask requires it)
+    valid_servers = [srv for srv in flask_servers if srv.get('bmc_ip')]
+    skipped = len(flask_servers) - len(valid_servers)
+    if skipped > 0:
+        console.print(f"[yellow]⚠[/yellow] Skipped {skipped} server(s) without BMC IP (IPMI monitoring requires BMC)")
+    
     with open(config_dir / "servers.yaml", "w") as f:
         f.write("servers:\n")
-        for srv in flask_servers:
+        for srv in valid_servers:
             # name must come first for Flask's parse_yaml_servers()
             f.write(f"  - name: {srv.get('name', 'unknown')}\n")
-            f.write(f"    bmc_ip: {srv.get('bmc_ip', '')}\n")
+            f.write(f"    bmc_ip: {srv.get('bmc_ip')}\n")
             if srv.get('ipmi_user'):
                 f.write(f"    ipmi_user: {srv['ipmi_user']}\n")
             if srv.get('ipmi_pass'):
@@ -274,10 +280,9 @@ def run_quickstart():
     
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
-    # Set admin password if custom (before service starts)
-    # Note: Flask's auto_load_servers_config() will import servers on first startup
-    if admin_password != "admin":
-        set_admin_password(admin_password, db_path)
+    # Always create admin user with proper schema (even for default password)
+    # This ensures Flask has a properly structured user table on startup
+    set_admin_password(admin_password, db_path)
     
     # Install and start service
     install_service()
@@ -300,8 +305,9 @@ def run_quickstart():
     if setup_ssl:
         domain = setup_https_access(local_ip)
     
-    # Show summary
-    show_summary(servers, local_ip, int(web_port), license_key is not None, domain)
+    # Show summary (use servers with bmc_ip only - those that were actually saved)
+    saved_servers = [s for s in servers if s.get("bmc_ip")]
+    show_summary(saved_servers, local_ip, int(web_port), license_key is not None, domain)
 
 
 def add_servers_bulk() -> List[Dict]:
@@ -574,8 +580,53 @@ def add_servers_manual() -> List[Dict]:
     ssh_user = None
     ssh_pass = None
     ssh_key = None
+    server_ips = {}  # bmc_ip -> server_ip mapping
     
     if add_ssh:
+        # Ask how server IPs relate to BMC IPs
+        console.print("\n[dim]SSH connects to the server OS IP (not the BMC IP).[/dim]")
+        
+        ip_pattern = questionary.select(
+            "How do server IPs relate to BMC IPs?",
+            choices=[
+                questionary.Choice("Same network, different last octet (e.g., BMC .0 -> Server .1)", value="offset"),
+                questionary.Choice("Same IP as BMC", value="same"),
+                questionary.Choice("Enter each server IP manually", value="manual"),
+            ],
+            style=custom_style
+        ).ask()
+        
+        if ip_pattern == "offset":
+            offset = questionary.text(
+                "Server IP offset from BMC (e.g., BMC ends in .83 -> Server ends in .84, offset=1):",
+                default="1",
+                validate=lambda x: x.lstrip('-').isdigit(),
+                style=custom_style
+            ).ask()
+            offset = int(offset) if offset else 1
+            
+            for bmc_ip in bmc_ips:
+                parts = bmc_ip.rsplit('.', 1)
+                if len(parts) == 2 and parts[1].isdigit():
+                    server_ip = f"{parts[0]}.{int(parts[1]) + offset}"
+                    server_ips[bmc_ip] = server_ip
+                else:
+                    server_ips[bmc_ip] = bmc_ip
+                    
+        elif ip_pattern == "same":
+            for bmc_ip in bmc_ips:
+                server_ips[bmc_ip] = bmc_ip
+                
+        else:  # manual
+            console.print("\n[bold]Enter server IP for each BMC:[/bold]")
+            for bmc_ip in bmc_ips:
+                server_ip = questionary.text(
+                    f"  Server IP for BMC {bmc_ip}:",
+                    default=bmc_ip,
+                    style=custom_style
+                ).ask()
+                server_ips[bmc_ip] = server_ip if server_ip else bmc_ip
+        
         ssh_user = questionary.text(
             "SSH username:",
             default="root",
@@ -614,6 +665,7 @@ def add_servers_manual() -> List[Dict]:
         
         # Add SSH if configured
         if add_ssh and ssh_user:
+            server["server_ip"] = server_ips.get(bmc_ip, bmc_ip)
             server["ssh_user"] = ssh_user
             if ssh_pass:
                 server["ssh_password"] = ssh_pass
@@ -738,6 +790,7 @@ def set_admin_password(password: str, db_path: Path):
     """Set the admin password in the database.
     
     Creates user table matching Flask's User model schema exactly.
+    Also handles upgrading existing tables that may have missing columns.
     """
     import sqlite3
     from datetime import datetime
@@ -765,6 +818,25 @@ def set_admin_password(password: str, db_path: Path):
             )
         """)
         
+        # Ensure all columns exist (handle partial/old table schemas)
+        # Get existing columns
+        cursor.execute("PRAGMA table_info(user)")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+        
+        required_cols = {
+            'last_login': 'DATETIME',
+            'wp_user_id': 'INTEGER', 
+            'wp_email': 'VARCHAR(100)',
+            'wp_linked_at': 'DATETIME'
+        }
+        
+        for col, col_type in required_cols.items():
+            if col not in existing_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE user ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass  # Column might already exist
+        
         now = datetime.now().isoformat()
         password_hash = generate_password_hash(password)
         
@@ -772,23 +844,29 @@ def set_admin_password(password: str, db_path: Path):
         cursor.execute("SELECT id FROM user WHERE username = 'admin'")
         existing = cursor.fetchone()
         
+        # Set password_changed based on whether it's a custom password
+        is_custom = password != "admin"
+        
         if existing:
             # Update existing admin
             cursor.execute("""
-                UPDATE user SET password_hash = ?, password_changed = 1, updated_at = ?
+                UPDATE user SET password_hash = ?, password_changed = ?, role = 'admin', updated_at = ?
                 WHERE username = 'admin'
-            """, (password_hash, now))
+            """, (password_hash, 1 if is_custom else 0, now))
         else:
             # Insert new admin user
             cursor.execute("""
                 INSERT INTO user (username, password_hash, role, enabled, password_changed, created_at, updated_at)
-                VALUES ('admin', ?, 'admin', 1, 1, ?, ?)
-            """, (password_hash, now, now))
+                VALUES ('admin', ?, 'admin', 1, ?, ?, ?)
+            """, (password_hash, 1 if is_custom else 0, now, now))
         
         conn.commit()
         conn.close()
         
-        console.print("[green]✓[/green] Admin password set")
+        if is_custom:
+            console.print("[green]✓[/green] Admin password set")
+        else:
+            console.print("[green]✓[/green] Admin user created (default: admin/admin)")
         
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Could not set admin password: {e}")
