@@ -264,7 +264,12 @@ def setup_reverse_proxy(
     
     # Generate SSL certificate
     if use_letsencrypt and domain and email:
-        ssl_cert, ssl_key = setup_letsencrypt(domain, email)
+        try:
+            ssl_cert, ssl_key = setup_letsencrypt(domain, email)
+        except Exception as e:
+            print(f"⚠ Let's Encrypt failed: {e}")
+            print("  Falling back to self-signed certificate...")
+            ssl_cert, ssl_key = generate_self_signed_cert(domain or "localhost")
     else:
         ssl_cert, ssl_key = generate_self_signed_cert(domain or "localhost")
     
