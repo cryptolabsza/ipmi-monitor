@@ -123,26 +123,40 @@ ipmi-monitor logs
 
 ### Bulk Import (Many Servers)
 
-Create a simple text file and paste when prompted:
+During quickstart, choose "Import from file" or "Paste text" to add multiple servers at once.
 
-**Option 1: SSH only (no IPMI)**
-```
-global:root,sshpassword
-192.168.1.101
-192.168.1.102
-192.168.1.103
-```
+**Create a servers.txt file:**
+```bash
+# servers.txt - Example server list
+# Lines starting with # are comments
 
-**Option 2: SSH + IPMI (full monitoring)**
-```
+# Set global credentials (applied to all servers below)
 globalSSH:root,sshpassword
 globalIPMI:ADMIN,ipmipassword
+
+# Server list: serverIP,bmcIP (or just serverIP if same)
 192.168.1.101,192.168.1.80
 192.168.1.102,192.168.1.82
 192.168.1.103,192.168.1.84
 ```
 
-**Option 3: Per-server credentials**
+**Then run quickstart and select "Import from file":**
+```bash
+sudo ipmi-monitor quickstart
+# Select: "Import from file (e.g., servers.txt)"
+# Enter path: /root/servers.txt
+```
+
+**Alternative formats:**
+
+**SSH only (no IPMI):**
+```
+global:root,sshpassword
+192.168.1.101
+192.168.1.102
+```
+
+**Per-server credentials:**
 ```
 # serverIP,sshUser,sshPass,ipmiUser,ipmiPass,bmcIP
 192.168.1.101,root,pass1,ADMIN,ipmi1,192.168.1.80

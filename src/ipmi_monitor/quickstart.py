@@ -317,7 +317,8 @@ def add_servers_bulk() -> List[Dict]:
     console.print(Panel(
         "[bold]Adding Multiple Servers[/bold]\n\n"
         "Choose how to add servers:\n"
-        "  • [cyan]Import file[/cyan] - Paste a simple text file\n"
+        "  • [cyan]Import from file[/cyan] - Load from a text file\n"
+        "  • [cyan]Paste text[/cyan] - Paste server list directly\n"
         "  • [cyan]Enter manually[/cyan] - Type IPs one by one",
         border_style="cyan"
     ))
@@ -326,20 +327,64 @@ def add_servers_bulk() -> List[Dict]:
     method = questionary.select(
         "How do you want to add servers?",
         choices=[
-            questionary.Choice("Import from file/paste (recommended)", value="import"),
+            questionary.Choice("Import from file (e.g., servers.txt)", value="file"),
+            questionary.Choice("Paste text directly", value="paste"),
             questionary.Choice("Enter manually", value="manual"),
         ],
         style=custom_style
     ).ask()
     
-    if method == "import":
+    if method == "file":
+        return import_servers_from_file()
+    elif method == "paste":
         return import_servers_from_text()
     else:
         return add_servers_manual()
 
 
+def import_servers_from_file() -> List[Dict]:
+    """Import servers from a text file."""
+    console.print(Panel(
+        "[bold]Import from File[/bold]\n\n"
+        "Enter the path to your server list file.\n"
+        "The file should contain one server per line.\n\n"
+        "[dim]Example: /root/servers.txt or ./servers.txt[/dim]",
+        border_style="cyan"
+    ))
+    
+    file_path = questionary.path(
+        "Server list file:",
+        style=custom_style
+    ).ask()
+    
+    if not file_path:
+        console.print("[yellow]No file selected[/yellow]")
+        return []
+    
+    file_path = os.path.expanduser(file_path)
+    
+    if not os.path.exists(file_path):
+        console.print(f"[red]File not found: {file_path}[/red]")
+        return []
+    
+    try:
+        with open(file_path, 'r') as f:
+            lines = [line.strip() for line in f.readlines() if line.strip() and not line.strip().startswith('#')]
+        
+        if not lines:
+            console.print("[yellow]File is empty or contains only comments[/yellow]")
+            return []
+        
+        console.print(f"[green]✓[/green] Loaded {len(lines)} lines from {file_path}")
+        return parse_ipmi_server_list(lines)
+        
+    except Exception as e:
+        console.print(f"[red]Error reading file: {e}[/red]")
+        return []
+
+
 def import_servers_from_text() -> List[Dict]:
-    """Import servers from a simple text format."""
+    """Import servers from pasted text."""
     console.print(Panel(
         "[bold]Import Format[/bold]\n\n"
         "[cyan]Option 1: SSH only (Grafana monitoring)[/cyan]\n"
