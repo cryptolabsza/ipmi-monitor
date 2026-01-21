@@ -185,10 +185,23 @@ def daemon(config_dir: str):
     
     This is used by the systemd service. For manual use, prefer 'run'.
     """
+    import yaml
     from .app import create_app
     from gunicorn.app.base import BaseApplication
     
     config_path = Path(config_dir) if config_dir else get_config_dir()
+    
+    # Read port from config file (default 5000)
+    port = 5000
+    config_file = config_path / "config.yaml"
+    if config_file.exists():
+        try:
+            with open(config_file) as f:
+                cfg = yaml.safe_load(f) or {}
+                port = cfg.get("web", {}).get("port", 5000)
+        except Exception:
+            pass  # Use default if config read fails
+    
     app = create_app(config_dir=config_path)
     
     class DaemonApplication(BaseApplication):
@@ -206,7 +219,7 @@ def daemon(config_dir: str):
             return self.application
     
     options = {
-        "bind": "0.0.0.0:5000",
+        "bind": f"0.0.0.0:{port}",
         "workers": 2,
         "threads": 4,
         "daemon": False,  # systemd manages the daemon

@@ -110,6 +110,7 @@ def generate_nginx_config(
     prometheus_enabled: bool = False,
     ipmi_subdomain: bool = False,
     grafana_subdomain: bool = False,
+    ipmi_port: int = 5000,
     output_path: str = "/etc/nginx/sites-available/ipmi-monitor",
 ) -> str:
     """
@@ -118,6 +119,7 @@ def generate_nginx_config(
     Args:
         prometheus_enabled: Whether to expose Prometheus via reverse proxy.
                            Disabled by default as Prometheus has no auth.
+        ipmi_port: Port that IPMI Monitor is running on (default 5000)
     
     Returns:
         Path to generated config
@@ -134,6 +136,7 @@ def generate_nginx_config(
         prometheus_enabled=prometheus_enabled,
         grafana_subdomain=grafana_subdomain,
         ipmi_subdomain=ipmi_subdomain,
+        ipmi_port=ipmi_port,
     )
     
     output_path = Path(output_path)
@@ -247,6 +250,7 @@ def setup_reverse_proxy(
     prometheus_enabled: bool = False,
     vastai_enabled: bool = False,
     use_letsencrypt: bool = False,
+    ipmi_port: int = 5000,
 ):
     """
     Complete reverse proxy setup.
@@ -259,10 +263,11 @@ def setup_reverse_proxy(
         prometheus_enabled: Whether to expose Prometheus (disabled by default - no auth)
         vastai_enabled: Whether Vast.ai integration is enabled
         use_letsencrypt: Use Let's Encrypt instead of self-signed
+        ipmi_port: Port that IPMI Monitor is running on (default 5000)
     
     SECURITY NOTE:
         - Only port 443 (HTTPS) is exposed externally
-        - IPMI (5000), Grafana (3000), Prometheus (9090) bind to localhost only
+        - IPMI (port configurable), Grafana (3000), Prometheus (9090) bind to localhost only
         - Prometheus is disabled by default as it has no authentication
     """
     print("\n━━━ Setting up Reverse Proxy ━━━\n")
@@ -290,6 +295,7 @@ def setup_reverse_proxy(
         prometheus_enabled=prometheus_enabled,
         grafana_subdomain=bool(domain) and grafana_enabled,
         ipmi_subdomain=bool(domain),
+        ipmi_port=ipmi_port,
     )
     
     # Generate landing page

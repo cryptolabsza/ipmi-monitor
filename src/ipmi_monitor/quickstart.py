@@ -303,7 +303,7 @@ def run_quickstart():
     
     domain = None
     if setup_ssl:
-        domain = setup_https_access(local_ip)
+        domain = setup_https_access(local_ip, int(web_port))
     
     # Show summary (use servers with bmc_ip only - those that were actually saved)
     saved_servers = [s for s in servers if s.get("bmc_ip")]
@@ -1094,7 +1094,7 @@ def create_ssh_key_in_database(name: str, key_content: str, db_path: Path) -> Op
         return None
 
 
-def setup_https_access(local_ip: str) -> Optional[str]:
+def setup_https_access(local_ip: str, web_port: int = 5000) -> Optional[str]:
     """Set up HTTPS reverse proxy with optional domain."""
     from .reverse_proxy import setup_reverse_proxy
     
@@ -1154,6 +1154,7 @@ def setup_https_access(local_ip: str) -> Optional[str]:
             grafana_enabled=grafana_enabled,
             prometheus_enabled=prometheus_enabled,
             use_letsencrypt=use_letsencrypt,
+            ipmi_port=web_port,
         )
         return domain
     except Exception as e:
