@@ -208,9 +208,11 @@ def run_quickstart():
     
     console.print(f"[green]✓[/green] Configuration saved to {config_dir}")
     
-    # Create data directory (same as config_dir since Flask uses config_dir as data_dir)
-    # Note: Flask's create_app() sets DATA_DIR = config_dir when config_dir is provided
-    db_path = config_dir / "ipmi_events.db"
+    # Create data directory - Flask uses /var/lib/ipmi-monitor by default when running as root
+    # Note: DATA_DIR is set at module import time, not affected by config_dir parameter
+    data_dir = Path("/var/lib/ipmi-monitor")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    db_path = data_dir / "ipmi_events.db"
     
     # Import servers into database
     import_servers_to_database(servers, db_path)
