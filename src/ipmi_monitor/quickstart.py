@@ -170,8 +170,22 @@ def run_quickstart():
     # Install and start service
     install_service()
     
+    # ============ Step 5: HTTPS Access (Optional) ============
+    console.print("\n[bold]Step 5: HTTPS Access (Optional)[/bold]\n")
+    console.print("[dim]Set up nginx reverse proxy with SSL for secure remote access.[/dim]\n")
+    
+    setup_ssl = questionary.confirm(
+        "Set up HTTPS reverse proxy?",
+        default=True,
+        style=custom_style
+    ).ask()
+    
+    domain = None
+    if setup_ssl:
+        domain = setup_https_access(local_ip)
+    
     # Show summary
-    show_summary(servers, local_ip, int(web_port), license_key is not None)
+    show_summary(servers, local_ip, int(web_port), license_key is not None, domain)
 
 
 def add_servers_bulk() -> List[Dict]:
@@ -561,6 +575,74 @@ def test_ipmi_connection(ip: str, user: str, password: str) -> bool:
         return False
 
 
+def setup_https_access(local_ip: str) -> Optional[str]:
+    """Set up HTTPS reverse proxy with optional domain."""
+    from .reverse_proxy import setup_reverse_proxy
+    
+    # Ask about domain
+    use_domain = questionary.confirm(
+        "Do you have a domain name pointing to this server?",
+        default=False,
+        style=custom_style
+    ).ask()
+    
+    domain = None
+    email = None
+    use_letsencrypt = False
+    
+    if use_domain:
+        domain = questionary.text(
+            "Domain name (e.g., ipmi.example.com):",
+            validate=lambda x: len(x) > 0 and '.' in x,
+            style=custom_style
+        ).ask()
+        
+        use_letsencrypt = questionary.confirm(
+            "Use Let's Encrypt for a free trusted certificate?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if use_letsencrypt:
+            console.print("[dim]Let's Encrypt requires ports 80 and 443 to be open.[/dim]")
+            email = questionary.text(
+                "Email for Let's Encrypt notifications:",
+                validate=lambda x: '@' in x,
+                style=custom_style
+            ).ask()
+    
+    # Check if dc-overview/grafana is installed
+    grafana_enabled = False
+    prometheus_enabled = False
+    try:
+        import subprocess
+        result = subprocess.run(["docker", "ps", "--format", "{{.Names}}"], capture_output=True, text=True)
+        if "grafana" in result.stdout:
+            grafana_enabled = True
+            prometheus_enabled = True
+            console.print("[dim]Detected DC Overview (Grafana/Prometheus) - will include in reverse proxy[/dim]")
+    except Exception:
+        pass
+    
+    # Set up reverse proxy
+    console.print("\n[dim]Setting up reverse proxy...[/dim]")
+    
+    try:
+        setup_reverse_proxy(
+            domain=domain,
+            email=email,
+            site_name="IPMI Monitor",
+            grafana_enabled=grafana_enabled,
+            prometheus_enabled=prometheus_enabled,
+            use_letsencrypt=use_letsencrypt,
+        )
+        return domain
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Reverse proxy setup failed: {e}")
+        console.print("[dim]You can set it up later with: sudo ipmi-monitor setup-ssl[/dim]")
+        return None
+
+
 def install_service():
     """Install and start systemd service."""
     service = """[Unit]
@@ -598,7 +680,7 @@ WantedBy=multi-user.target
         console.print("[yellow]⚠[/yellow] Service may need manual start: sudo systemctl start ipmi-monitor")
 
 
-def show_summary(servers: List[Dict], local_ip: str, port: int, ai_enabled: bool):
+def show_summary(servers: List[Dict], local_ip: str, port: int, ai_enabled: bool, domain: Optional[str] = None):
     """Show setup summary."""
     console.print()
     console.print(Panel(
@@ -610,23 +692,34 @@ def show_summary(servers: List[Dict], local_ip: str, port: int, ai_enabled: bool
     table.add_column("", style="dim")
     table.add_column("")
     
-    table.add_row("Web Interface", f"http://{local_ip}:{port}")
+    if domain:
+        table.add_row("Web Interface", f"https://{domain}/ipmi/")
+    else:
+        table.add_row("Web Interface", f"https://{local_ip}/ipmi/" if Path("/etc/nginx/sites-enabled/ipmi-monitor").exists() else f"http://{local_ip}:{port}")
     table.add_row("Servers Monitored", str(len(servers)))
     table.add_row("AI Insights", "Enabled ✓" if ai_enabled else "Not configured")
     table.add_row("Config Directory", "/etc/ipmi-monitor")
+    table.add_row("HTTPS", "Enabled ✓" if domain or Path("/etc/nginx/sites-enabled/ipmi-monitor").exists() else "Not configured")
     
     console.print(table)
     
     console.print("\n[bold]Monitored Servers:[/bold]")
     for srv in servers:
         ssh_info = f" + SSH" if srv.get("server_ip") else ""
-        console.print(f"  • {srv['name']} - BMC: {srv['bmc_ip']}{ssh_info}")
+        bmc_ip = srv.get('bmc_ip', srv.get('server_ip', 'unknown'))
+        console.print(f"  • {srv['name']} - BMC: {bmc_ip}{ssh_info}")
     
     console.print("\n[bold]Commands:[/bold]")
     console.print("  [cyan]ipmi-monitor status[/cyan]        - Check service status")
     console.print("  [cyan]ipmi-monitor add-server[/cyan]    - Add another server")
-    console.print("  [cyan]ipmi-monitor logs[/cyan]          - View logs")
-    console.print(f"\n[bold]Open your browser:[/bold] [cyan]http://{local_ip}:{port}[/cyan]")
+    console.print("  [cyan]ipmi-monitor setup-ssl[/cyan]     - Set up/update HTTPS")
+    
+    if domain:
+        console.print(f"\n[bold]Open your browser:[/bold] [cyan]https://{domain}/ipmi/[/cyan]")
+    elif Path("/etc/nginx/sites-enabled/ipmi-monitor").exists():
+        console.print(f"\n[bold]Open your browser:[/bold] [cyan]https://{local_ip}/ipmi/[/cyan]")
+    else:
+        console.print(f"\n[bold]Open your browser:[/bold] [cyan]http://{local_ip}:{port}[/cyan]")
 
 
 if __name__ == "__main__":
