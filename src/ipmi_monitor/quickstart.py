@@ -639,17 +639,24 @@ def add_servers_manual() -> List[Dict]:
             style=custom_style
         ).ask()
         
-        if auth_method == "Password":
+        # Handle cancellation
+        if auth_method is None:
+            add_ssh = False
+        elif auth_method == "Password":
             ssh_pass = questionary.password(
                 "SSH password:",
                 style=custom_style
             ).ask()
+            if not ssh_pass:
+                add_ssh = False  # Can't have SSH without password
         else:
             ssh_key = questionary.text(
                 "SSH key path:",
                 default="/root/.ssh/id_rsa",
                 style=custom_style
             ).ask()
+            if not ssh_key:
+                add_ssh = False  # Can't have SSH without key
     
     # Build server list
     servers = []
@@ -740,11 +747,17 @@ def add_server_interactive() -> Optional[Dict]:
             style=custom_style
         ).ask()
         
+        if not ssh_host:
+            return server  # Skip SSH if cancelled
+        
         ssh_user = questionary.text(
             "SSH username:",
             default="root",
             style=custom_style
         ).ask()
+        
+        if not ssh_user:
+            return server  # Skip SSH if cancelled
         
         ssh_method = questionary.select(
             "SSH authentication:",
@@ -752,19 +765,27 @@ def add_server_interactive() -> Optional[Dict]:
             style=custom_style
         ).ask()
         
-        if ssh_method == "Password":
+        if ssh_method is None:
+            return server  # Skip SSH if cancelled
+        elif ssh_method == "Password":
             ssh_pass = questionary.password(
                 "SSH password:",
                 style=custom_style
             ).ask()
-            server["ssh_password"] = ssh_pass
+            if ssh_pass:
+                server["ssh_password"] = ssh_pass
+            else:
+                return server  # Skip SSH if cancelled
         else:
             ssh_key = questionary.text(
                 "SSH key path:",
                 default="/root/.ssh/id_rsa",
                 style=custom_style
             ).ask()
-            server["ssh_key"] = ssh_key
+            if ssh_key:
+                server["ssh_key"] = ssh_key
+            else:
+                return server  # Skip SSH if cancelled
         
         server["server_ip"] = ssh_host
         server["ssh_user"] = ssh_user
