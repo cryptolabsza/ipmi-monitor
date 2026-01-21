@@ -96,6 +96,9 @@ def setup_letsencrypt(
     
     print(f"✓ Let's Encrypt certificate obtained for {domain}")
     
+    # Restart nginx (certbot stopped it for the challenge)
+    subprocess.run(["systemctl", "start", "nginx"], capture_output=True)
+    
     return cert_path, key_path
 
 
