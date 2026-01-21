@@ -624,7 +624,7 @@ docker exec -i ipmi-monitor python3 << 'EOF'
 from werkzeug.security import generate_password_hash
 import sqlite3
 new_password = "your_new_password"  # CHANGE THIS
-conn = sqlite3.connect('/app/data/ipmi_monitor.db')
+conn = sqlite3.connect('/var/lib/ipmi-monitor/ipmi_events.db')
 conn.execute("UPDATE user SET password_hash = ? WHERE username = 'admin'", 
              (generate_password_hash(new_password),))
 conn.commit()

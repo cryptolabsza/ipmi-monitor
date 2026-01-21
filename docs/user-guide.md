@@ -1340,7 +1340,7 @@ new_password = "$NEW_PASSWORD"
 username = "$USERNAME"
 password_hash = generate_password_hash(new_password)
 
-conn = sqlite3.connect('/app/data/ipmi_monitor.db')
+conn = sqlite3.connect('/var/lib/ipmi-monitor/ipmi_events.db')
 cursor = conn.cursor()
 
 # Check if user exists
@@ -1393,7 +1393,7 @@ new_password = "your_new_password"
 username = "admin"
 
 password_hash = generate_password_hash(new_password)
-conn = sqlite3.connect('/app/data/ipmi_monitor.db')
+conn = sqlite3.connect('/var/lib/ipmi-monitor/ipmi_events.db')
 cursor = conn.cursor()
 cursor.execute("UPDATE user SET password_hash = ? WHERE username = ?", (password_hash, username))
 conn.commit()
