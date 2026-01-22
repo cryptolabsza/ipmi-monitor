@@ -25,23 +25,26 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (v1.1.0)
 
 ### One Command Setup (Recommended)
 
 ```bash
-# Ubuntu 24.04+ / Python 3.12+
+# Install the CLI tool
 sudo apt install pipx -y
 pipx install ipmi-monitor
 pipx ensurepath && source ~/.bashrc
-sudo ipmi-monitor quickstart
 
-# Ubuntu 22.04 / Python 3.10
-pip install ipmi-monitor
+# Run the interactive quickstart wizard
 sudo ipmi-monitor quickstart
 ```
 
-**That's it!** Answer a few questions and Docker containers are deployed automatically.
+**That's it!** The wizard will:
+- ✅ Detect or manually add your servers
+- ✅ Configure IPMI and SSH credentials  
+- ✅ Deploy Docker containers (ipmi-monitor + nginx + watchtower)
+- ✅ Set up SSL with Let's Encrypt (optional)
+- ✅ Enable automatic updates via Watchtower
 
 ### Docker Run (Alternative)
 
@@ -79,8 +82,9 @@ After installation, use the `ipmi-monitor` CLI:
 | `ipmi-monitor add-server` | Add a server interactively |
 | `ipmi-monitor list-servers` | List configured servers |
 | `ipmi-monitor setup-ssl` | Set up HTTPS reverse proxy |
-| `ipmi-monitor uninstall` | Uninstall IPMI Monitor |
+| `ipmi-monitor uninstall` | Uninstall IPMI Monitor (with options) |
 | `ipmi-monitor version` | Show detailed version info |
+| `ipmi-monitor setup-ssl` | Retry Let's Encrypt SSL setup |
 
 ---
 
@@ -122,6 +126,21 @@ After installation, use the `ipmi-monitor` CLI:
 | 📥 **Backup/Restore** | Export everything for disaster recovery |
 | 🔃 **BMC Reset** | Cold/warm reset without affecting host OS |
 | 🐳 **Docker Ready** | Multi-arch images (amd64/arm64) |
+| 🔄 **Auto-Updates** | Watchtower keeps containers updated |
+
+### 🆕 What's New in v1.1.0
+
+| Feature | Description |
+|---------|-------------|
+| 📦 **Quickstart Wizard** | One-command Docker deployment with nginx, SSL, Watchtower |
+| 🔐 **SSH Key Auto-Import** | Keys from quickstart auto-imported to database |
+| 🌐 **Subpath Routing** | Deploy at `/ipmi/` alongside other services |
+| 🔄 **Watchtower Integration** | Automatic container updates every 5 minutes |
+| 👤 **Read-Write Role** | New role with settings access but no user management |
+| 📥 **Fixed Export/Import** | Alert rules now export/import correctly |
+| 🎨 **Fleet Landing Page** | Nginx serves a landing page at `/` linking to services |
+| ⚡ **Refresh Buttons** | Server detail page: refresh sensors/events from BMC |
+| 🛡️ **Uninstall Options** | Choose to remove containers, config, or both |
 
 ### 🤖 AI Features (Optional)
 

@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v1.0.2 | **Last Updated:** 2026-01-10
+**Version:** v1.1.0 | **Last Updated:** 2026-01-22
 
 ---
 
@@ -68,7 +68,28 @@ IPMI Monitor works with any server that has an IPMI-compliant BMC (Baseboard Man
 
 ## Quick Start
 
-### 1. Add Your First Server
+### Option 1: Quickstart Wizard (Recommended)
+
+The easiest way to get started is the interactive quickstart wizard:
+
+```bash
+# Install the CLI tool
+pipx install ipmi-monitor
+
+# Run the wizard (sets up Docker, Nginx, SSL, Watchtower)
+sudo ipmi-monitor quickstart
+```
+
+The wizard will:
+1. Detect your servers via network scan or manual entry
+2. Configure IPMI and SSH credentials
+3. Set up Docker containers with reverse proxy
+4. Configure Let's Encrypt SSL (optional)
+5. Enable Watchtower for automatic updates
+
+### Option 2: Manual Setup
+
+#### 1. Add Your First Server
 
 1. Go to **Settings → Manage Servers**
 2. Click **➕ Add New Server**
@@ -76,7 +97,7 @@ IPMI Monitor works with any server that has an IPMI-compliant BMC (Baseboard Man
 4. Give it a friendly name (e.g., `server-01`)
 5. Click **Add Server**
 
-### 2. Configure IPMI Credentials
+#### 2. Configure IPMI Credentials
 
 If your servers use custom IPMI credentials:
 
@@ -85,7 +106,7 @@ If your servers use custom IPMI credentials:
 3. Click **🔗 Test BMC** to verify
 4. Save changes
 
-### 3. View Server Health
+#### 3. View Server Health
 
 Return to the **Dashboard** to see your servers. Click any server card to view detailed events, sensors, and inventory.
 
@@ -865,11 +886,15 @@ Send alerts to Slack, Discord, or custom endpoints. Webhooks receive JSON payloa
 
 #### User Roles
 
-| Role | Permissions |
-|------|-------------|
-| **Admin** | Full access: manage users, security, AI features, power control |
-| **Read-Write** | Manage servers, run power commands, but not user management |
-| **Read-Only** | View only - no changes allowed |
+| Role | Dashboard | Settings | Server Management | User Management | AI Features |
+|------|-----------|----------|-------------------|-----------------|-------------|
+| **Admin** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Read-Write** | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **Read-Only** | ✅ | ❌ | ❌ | ❌ | View only |
+
+- **Admin**: Full access to all features including user management and security settings
+- **Read-Write**: Can manage servers, run power commands, access settings, but cannot manage users
+- **Read-Only**: View-only access to dashboard and server details
 
 #### Anonymous Access
 
