@@ -444,6 +444,158 @@ def restart():
         console.print(f"[red]Error:[/red] {output}")
 
 
+@main.command()
+def uninstall():
+    """
+    Uninstall IPMI Monitor.
+    
+    Offers options for what to remove:
+    - IPMI Monitor only (keeps nginx for other services)
+    - Everything (including nginx reverse proxy)
+    - Cancel
+    """
+    import questionary
+    from questionary import Style
+    
+    custom_style = Style([
+        ('qmark', 'fg:cyan bold'),
+        ('question', 'bold'),
+        ('answer', 'fg:cyan'),
+        ('pointer', 'fg:cyan bold'),
+    ])
+    
+    if not DOCKER_CONFIG_DIR.exists():
+        console.print("[yellow]IPMI Monitor is not installed (no config directory found).[/yellow]")
+        return
+    
+    console.print(Panel.fit(
+        "[bold red]IPMI Monitor Uninstall[/bold red]\n\n"
+        "This will remove IPMI Monitor from your system.\n"
+        "[dim]Choose what to remove:[/dim]",
+        border_style="red"
+    ))
+    
+    # Check what's running
+    ipmi_running = get_docker_container_status() is not None
+    nginx_running = False
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "-f", "{{.State.Status}}", "ipmi-nginx"],
+            capture_output=True, text=True
+        )
+        nginx_running = result.returncode == 0 and result.stdout.strip() == "running"
+    except Exception:
+        pass
+    
+    choices = [
+        questionary.Choice(
+            "Remove IPMI Monitor only (keep nginx for other services)",
+            value="ipmi-only"
+        ),
+        questionary.Choice(
+            "Remove everything (IPMI Monitor + nginx + watchtower + data)",
+            value="all"
+        ),
+        questionary.Choice(
+            "Remove config files only (keep containers running)",
+            value="config-only"
+        ),
+        questionary.Choice(
+            "Cancel - don't remove anything",
+            value="cancel"
+        ),
+    ]
+    
+    choice = questionary.select(
+        "What would you like to remove?",
+        choices=choices,
+        style=custom_style
+    ).ask()
+    
+    if choice is None or choice == "cancel":
+        console.print("[yellow]Uninstall cancelled.[/yellow]")
+        return
+    
+    # Confirm
+    confirm = questionary.confirm(
+        f"Are you sure? This cannot be undone.",
+        default=False,
+        style=custom_style
+    ).ask()
+    
+    if not confirm:
+        console.print("[yellow]Uninstall cancelled.[/yellow]")
+        return
+    
+    if choice == "ipmi-only":
+        # Remove only ipmi-monitor container, keep nginx
+        console.print("[dim]Removing IPMI Monitor container...[/dim]")
+        subprocess.run(["docker", "stop", "ipmi-monitor"], capture_output=True)
+        subprocess.run(["docker", "rm", "ipmi-monitor"], capture_output=True)
+        subprocess.run(["docker", "stop", "watchtower"], capture_output=True)
+        subprocess.run(["docker", "rm", "watchtower"], capture_output=True)
+        console.print("[green]✓[/green] IPMI Monitor container removed")
+        
+        # Update nginx config to remove /ipmi/ location
+        nginx_conf = DOCKER_CONFIG_DIR / "nginx.conf"
+        if nginx_conf.exists():
+            console.print("[dim]Note: You may want to update nginx.conf to remove the /ipmi/ location[/dim]")
+        
+        console.print("\n[bold]Nginx is still running for other services.[/bold]")
+        console.print("To remove nginx later: [cyan]docker stop ipmi-nginx && docker rm ipmi-nginx[/cyan]")
+        
+    elif choice == "all":
+        # Remove everything
+        console.print("[dim]Stopping all containers...[/dim]")
+        run_docker_compose_cmd("down -v")
+        
+        # Remove any remaining containers
+        for container in ["ipmi-monitor", "ipmi-nginx", "ipmi-certbot", "watchtower"]:
+            subprocess.run(["docker", "stop", container], capture_output=True)
+            subprocess.run(["docker", "rm", container], capture_output=True)
+        
+        # Remove Docker volume
+        subprocess.run(["docker", "volume", "rm", "ipmi-monitor-data"], capture_output=True)
+        
+        console.print("[green]✓[/green] All containers removed")
+        
+        # Remove config directory
+        remove_config = questionary.confirm(
+            "Also remove config directory (/etc/ipmi-monitor)?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if remove_config:
+            import shutil
+            shutil.rmtree(DOCKER_CONFIG_DIR, ignore_errors=True)
+            console.print("[green]✓[/green] Config directory removed")
+        
+        console.print("\n[bold green]IPMI Monitor completely uninstalled.[/bold green]")
+        
+    elif choice == "config-only":
+        # Just remove config files
+        import shutil
+        
+        backup_dir = Path("/tmp/ipmi-monitor-backup")
+        backup_dir.mkdir(exist_ok=True)
+        
+        # Backup before removing
+        if DOCKER_CONFIG_DIR.exists():
+            import datetime
+            backup_name = f"ipmi-monitor-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            shutil.copytree(DOCKER_CONFIG_DIR, backup_dir / backup_name)
+            console.print(f"[dim]Backup saved to: {backup_dir / backup_name}[/dim]")
+            
+            shutil.rmtree(DOCKER_CONFIG_DIR)
+            console.print("[green]✓[/green] Config directory removed")
+        
+        console.print("\n[yellow]Containers are still running.[/yellow]")
+        console.print("Stop them with: [cyan]docker stop ipmi-monitor ipmi-nginx watchtower[/cyan]")
+    
+    console.print("\n[dim]To reinstall: sudo ipmi-monitor quickstart[/dim]")
+
+
 def run_docker_compose_cmd(command: str):
     """Run a docker compose command in the config directory."""
     compose_file = DOCKER_CONFIG_DIR / "docker-compose.yml"
