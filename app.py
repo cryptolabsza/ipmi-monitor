@@ -2064,11 +2064,12 @@ class User(db.Model):
     
     @staticmethod
     def initialize_default():
-        """Create default admin if none exists - uses ADMIN_PASS env var"""
+        """Create or update default admin - uses ADMIN_PASS env var"""
+        admin_pass = os.environ.get('ADMIN_PASS', 'admin')
         admin = User.query.filter_by(role='admin').first()
+        
         if not admin:
-            # Use password from environment variable (set by quickstart)
-            admin_pass = os.environ.get('ADMIN_PASS', 'admin')
+            # Create new admin user
             admin = User(
                 username='admin',
                 password_hash=User.hash_password(admin_pass),
@@ -2078,6 +2079,13 @@ class User(db.Model):
             db.session.add(admin)
             db.session.commit()
             print(f"[IPMI Monitor] Created admin user with configured password", flush=True)
+        elif admin_pass != 'admin' and not admin.password_changed:
+            # Update password if ADMIN_PASS is set and user hasn't manually changed it
+            # This allows quickstart to set a custom password even after first run
+            admin.password_hash = User.hash_password(admin_pass)
+            db.session.commit()
+            print(f"[IPMI Monitor] Updated admin password from ADMIN_PASS env var", flush=True)
+        
         return admin
 
 class SystemSettings(db.Model):
