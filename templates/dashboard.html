@@ -1706,7 +1706,7 @@
                 <button class="btn" style="background: var(--accent-green);" onclick="collectSensors()">📊 Collect Sensors</button>
                 <span id="adminButtons" style="display: none;">
                     <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
-                    <a href="https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
+                    <a href="https://github.com/cryptolabsza/ipmi-monitor/wiki" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
                     <a href="{{ url_for('settings_page') }}" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
                 </span>
                 <span id="authButtons">
@@ -5185,7 +5185,7 @@
                         }).catch(e => console.log('Sync started in background'));
                         
                         // Clean URL and reload page to ensure fresh state
-                        const cleanUrl = window.location.origin + window.location.pathname;
+                        const cleanUrl = window.location.origin + BASE_PATH + '/';
                         setTimeout(() => {
                             window.location.href = cleanUrl;
                         }, 1500);

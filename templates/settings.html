@@ -2259,6 +2259,7 @@
         // Test AI connection
         async function testAiConnection() {
             // Check if connected via config (don't rely on hidden field since key is masked)
+            let licenseKey = null;
             try {
                 const configResponse = await fetch(apiUrl('/api/ai/config'));
                 const config = await configResponse.json();
@@ -2267,6 +2268,7 @@
                     showAlert('Not connected. Click "Sign In" to connect to CryptoLabs AI.', 'error');
                     return;
                 }
+                licenseKey = config.license_key;
             } catch (e) {
                 showAlert('Failed to check connection status', 'error');
                 return;
@@ -5274,7 +5276,7 @@
                         }).catch(e => console.log('Sync started in background'));
                         
                         // Clean URL and reload page to ensure fresh state
-                        const cleanUrl = window.location.origin + window.location.pathname + '#ai';
+                        const cleanUrl = window.location.origin + BASE_PATH + '/settings#ai';
                         setTimeout(() => {
                             window.location.href = cleanUrl;
                         }, 1500);
