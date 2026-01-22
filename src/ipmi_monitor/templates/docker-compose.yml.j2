@@ -83,6 +83,8 @@ services:
       - ./certbot/www:/var/www/certbot:ro
     depends_on:
       - ipmi-monitor
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     networks:
       - ipmi_network
 {% endif %}
