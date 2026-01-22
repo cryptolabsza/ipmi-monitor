@@ -25,7 +25,20 @@ from rich.table import Table
 import yaml
 from jinja2 import Environment, PackageLoader, select_autoescape
 
+from ipmi_monitor import __git_branch__
+
 console = Console()
+
+def get_docker_image_tag() -> str:
+    """Determine Docker image tag based on installed version's git branch."""
+    branch = __git_branch__
+    if branch in ('dev', 'develop'):
+        return 'dev'
+    elif branch in ('main', 'master'):
+        return 'latest'
+    else:
+        # For feature branches or unknown, default to latest
+        return 'latest'
 
 custom_style = Style([
     ('qmark', 'fg:cyan bold'),
@@ -413,8 +426,9 @@ IPMI_PASS={default_ipmi_pass}
     env = get_jinja_env()
     template = env.get_template("docker-compose.yml.j2")
     
+    image_tag = get_docker_image_tag()
     compose_content = template.render(
-        image_tag="latest",
+        image_tag=image_tag,
         web_port=web_port,
         app_name="IPMI Monitor",
         poll_interval=300,
@@ -450,10 +464,10 @@ IPMI_PASS={default_ipmi_pass}
         console.print(f"[green]✓[/green] Nginx configuration saved (self-signed)")
     
     # Pull Docker image
-    with Progress(SpinnerColumn(), TextColumn("Pulling IPMI Monitor image..."), console=console) as progress:
+    with Progress(SpinnerColumn(), TextColumn(f"Pulling IPMI Monitor image ({image_tag})..."), console=console) as progress:
         progress.add_task("", total=None)
         result = subprocess.run(
-            ["docker", "pull", "ghcr.io/cryptolabsza/ipmi-monitor:latest"],
+            ["docker", "pull", f"ghcr.io/cryptolabsza/ipmi-monitor:{image_tag}"],
             capture_output=True, text=True
         )
     
