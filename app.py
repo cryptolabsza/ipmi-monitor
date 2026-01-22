@@ -7598,7 +7598,12 @@ def inject_app_globals():
 @view_required
 def dashboard():
     """Main dashboard - requires login or anonymous access enabled"""
-    return render_template('dashboard.html')
+    response = make_response(render_template('dashboard.html'))
+    # Prevent caching of HTML to ensure fresh JavaScript
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/api/servers')
 @view_required
@@ -7937,7 +7942,12 @@ def check_bmc_reachable(bmc_ip):
 @require_valid_bmc_ip
 def server_detail(bmc_ip):
     """Server detail page - requires login or anonymous access enabled"""
-    return render_template('server_detail.html', bmc_ip=bmc_ip)
+    response = make_response(render_template('server_detail.html', bmc_ip=bmc_ip))
+    # Prevent caching of HTML to ensure fresh JavaScript
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 def enhance_event_display(sensor_type, event_description):
     """Enhance event display for NVIDIA and other OEM events.
@@ -14217,7 +14227,12 @@ def api_grafana_dashboard():
 @write_required
 def settings_page():
     """Server configuration page - Requires write access"""
-    return render_template('settings.html')
+    response = make_response(render_template('settings.html'))
+    # Prevent caching of HTML to ensure fresh JavaScript
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
 @app.route('/docs')
