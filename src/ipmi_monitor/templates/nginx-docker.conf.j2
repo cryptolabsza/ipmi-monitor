@@ -68,12 +68,16 @@ server {
     }
     
     # ==========================================================================
-    # Redirect direct Flask routes to /ipmi/ subpath
-    # Handles users accessing /login, /dashboard, /settings etc directly
+    # DC Overview at /overview/ (when installed)
     # ==========================================================================
-    location ~ ^/(login|logout|dashboard|settings|servers|events|alerts|api)(.*)$ {
-        return 301 /ipmi/$1$2$is_args$args;
-    }
+    # location /overview/ {
+    #     proxy_pass http://dc-overview:5001/;
+    #     proxy_set_header Host $host;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $scheme;
+    #     proxy_set_header X-Script-Name /overview;
+    # }
     
     # ==========================================================================
     # Future services - uncomment when added to docker-compose
