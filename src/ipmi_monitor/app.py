@@ -18229,7 +18229,20 @@ def auto_load_ssh_keys():
                 if not key_dir or not key_dir.exists():
                     continue
                 
-                for key_file in key_dir.glob('*.pem'):
+                # Support all common SSH key formats:
+                # - id_rsa, id_ed25519, id_ecdsa (no extension)
+                # - *.pem (AWS/cloud style)
+                # - *.key (generic)
+                key_patterns = ['id_*', '*.pem', '*.key', 'default-key*', 'key-*']
+                key_files = set()
+                for pattern in key_patterns:
+                    key_files.update(key_dir.glob(pattern))
+                
+                for key_file in key_files:
+                    # Skip public keys
+                    if key_file.suffix == '.pub':
+                        continue
+                    
                     key_name = key_file.stem  # Filename without extension
                     
                     # Skip if key already exists
@@ -18239,9 +18252,9 @@ def auto_load_ssh_keys():
                     try:
                         key_content = key_file.read_text().strip()
                         
-                        # Validate it looks like an SSH key
+                        # Validate it looks like an SSH private key
                         if not ('-----BEGIN' in key_content and 'PRIVATE KEY' in key_content):
-                            app.logger.warning(f"⚠️ Skipping {key_file}: not a valid SSH key")
+                            app.logger.warning(f"⚠️ Skipping {key_file}: not a valid SSH private key")
                             continue
                         
                         # Normalize content
