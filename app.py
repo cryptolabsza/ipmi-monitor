@@ -18195,6 +18195,56 @@ auto_import_ssh_keys()
 # Auto-load servers from config file
 auto_load_servers_config()
 
+
+def link_ssh_keys_to_servers():
+    """
+    Link SSH keys to servers based on servers.yaml config.
+    
+    This handles the case where servers were imported before SSH keys existed,
+    or where ssh_key_name references weren't resolved.
+    """
+    with app.app_context():
+        try:
+            # Load servers config to get ssh_key_name mappings
+            servers_data = load_servers_from_config_file()
+            if not servers_data:
+                return
+            
+            linked = 0
+            for server_data in servers_data:
+                bmc_ip = server_data.get('bmc_ip')
+                ssh_key_name = server_data.get('ssh_key_name')
+                
+                if not bmc_ip or not ssh_key_name:
+                    continue
+                
+                # Get or create server config
+                config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+                if not config:
+                    continue
+                
+                # Skip if already linked
+                if config.ssh_key_id:
+                    continue
+                
+                # Look up SSH key by name
+                ssh_key = SSHKey.query.filter_by(name=ssh_key_name).first()
+                if ssh_key:
+                    config.ssh_key_id = ssh_key.id
+                    linked += 1
+                    app.logger.info(f"🔗 Linked SSH key '{ssh_key_name}' to {bmc_ip}")
+            
+            if linked > 0:
+                db.session.commit()
+                app.logger.info(f"✅ Linked {linked} SSH key(s) to servers")
+                
+        except Exception as e:
+            app.logger.error(f"❌ Error linking SSH keys: {e}")
+
+
+# Link SSH keys to servers (handles retroactive linking)
+link_ssh_keys_to_servers()
+
 # Start background collector thread
 collector_thread = threading.Thread(target=background_collector, daemon=True)
 collector_thread.start()
