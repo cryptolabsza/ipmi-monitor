@@ -3122,13 +3122,13 @@
                     server_name: srv.server_name,
                     bmc_ip: srv.bmc_ip,
                     is_enabled: srv.ai_enabled
-                }));
+                });
                 
                 const response = await fetch(apiUrl('/api/ai/servers/ai-enabled'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ servers: serversToSave })
-                }));
+                });
                 
                 if (response.ok) {
                     showToast('Server selection saved!', 'success');
@@ -3219,7 +3219,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ settings: agentSettings })
-                }));
+                });
             } catch (e) {
                 console.error('Failed to save agent settings:', e);
             }
@@ -3265,7 +3265,7 @@
         async function checkSSHPrerequisites() {
             try {
                 // Count servers with SSH enabled
-                const response = await fetch(apiUrl('/api/servers'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/servers'), { credentials: 'same-origin' });
                 if (!response.ok) return;
                 
                 const servers = await response.json();
@@ -3288,7 +3288,7 @@
         // Recovery permissions management
         async function loadRecoveryPermissions() {
             try {
-                const response = await fetch(apiUrl('/api/recovery/permissions'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/recovery/permissions'), { credentials: 'same-origin' });
                 if (!response.ok) return;
                 
                 const data = await response.json();
@@ -3334,7 +3334,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
                     body: JSON.stringify(permissions)
-                }));
+                });
                 
                 if (response.ok) {
                     statusEl.style.display = 'block';
@@ -3376,7 +3376,7 @@
                     body: JSON.stringify({
                         auto_recovery_enabled: agentSettings.autoRecoveryEnabled
                     })
-                }));
+                });
                 
                 if (!response.ok) throw new Error('Analysis failed');
                 
@@ -3802,7 +3802,7 @@
                 progressPercent.textContent = '30%';
                 progressText.textContent = 'Gathering server data...';
                 
-                const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' });
                 
                 progressBar.style.width = '70%';
                 progressPercent.textContent = '70%';
@@ -4210,7 +4210,7 @@
                         hours: parseInt(timeRange),
                         devices: devices
                     })
-                }));
+                });
                 const data = await response.json();
                 
                 document.getElementById('summaryOutput').style.display = 'block';
@@ -4247,7 +4247,7 @@
                         hours: parseInt(timeRange),
                         devices: devices
                     })
-                }));
+                });
                 const data = await response.json();
                 
                 document.getElementById('tasksOutput').style.display = 'block';
@@ -4272,7 +4272,7 @@
             btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Analyzing...';
             
             try {
-                const response = await fetch(apiUrl('/api/ai/predictions'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/ai/predictions'), { method: 'POST' });
                 const data = await response.json();
                 
                 document.getElementById('predictionsOutput').style.display = 'block';
@@ -4356,7 +4356,7 @@
                         event_id: selectedRcaEvent ? selectedRcaEvent.id : null,
                         description: description || (selectedRcaEvent ? selectedRcaEvent.description : '')
                     })
-                }));
+                });
                 const data = await response.json();
                 
                 document.getElementById('rcaOutput').style.display = 'block';
@@ -4425,7 +4425,7 @@
                         question: question,
                         conversation_id: currentConversationId
                     })
-                }));
+                });
                 
                 if (!response.ok) {
                     // Fall back to regular endpoint
@@ -4479,7 +4479,7 @@
                         question: question,
                         conversation_id: currentConversationId
                     })
-                }));
+                });
                 const data = await response.json();
                 
                 const thinking = document.getElementById('aiThinking');
@@ -4951,7 +4951,7 @@
                 btn.textContent = '⏳ Collecting...';
                 btn.disabled = true;
                 
-                await fetch(apiUrl('/api/collect'), { method: 'POST' }));
+                await fetch(apiUrl('/api/collect'), { method: 'POST' });
                 
                 // Wait a bit for collection to start
                 setTimeout(() => {
@@ -4978,7 +4978,7 @@
                 btn.textContent = '⏳ Clearing...';
                 btn.disabled = true;
                 
-                const response = await fetch(apiUrl('/api/clear_all_sel'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/clear_all_sel'), { method: 'POST' });
                 const data = await response.json();
                 
                 btn.textContent = '⚠️ Clear All SEL';
@@ -4997,7 +4997,7 @@
                 btn.textContent = '⏳ Collecting Sensors...';
                 btn.disabled = true;
                 
-                await fetch(apiUrl('/api/sensors/collect'), { method: 'POST' }));
+                await fetch(apiUrl('/api/sensors/collect'), { method: 'POST' });
                 
                 setTimeout(() => {
                     btn.textContent = '📊 Collect Sensors';
@@ -5169,7 +5169,7 @@
                             license_key: apiKey,
                             sync_enabled: true
                         })
-                    }));
+                    });
                     
                     if (response.ok) {
                         // Clean up the URL (remove the callback parameters)

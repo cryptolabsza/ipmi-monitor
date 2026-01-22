@@ -2245,7 +2245,7 @@
                         license_key: '',
                         sync_enabled: false
                     })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Disconnected from CryptoLabs AI', 'success');
@@ -2277,7 +2277,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ license_key: licenseKey })
-                }));
+                });
                 
                 const data = await response.json();
                 
@@ -2336,7 +2336,7 @@
                         site_name: siteName || undefined,
                         site_location: siteLocation || undefined
                     })
-                }));
+                });
                 
                 const data = await response.json();
                 
@@ -2353,7 +2353,7 @@
         
         async function triggerAiSync() {
             try {
-                const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -2443,7 +2443,7 @@
                         enabled: enabled,
                         alert_types: alertTypes
                     })
-                }));
+                });
                 
                 const data = await response.json();
                 
@@ -2473,7 +2473,7 @@
                 const response = await fetch(apiUrl('/api/ai/email-test'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
-                }));
+                });
                 
                 const data = await response.json();
                 
@@ -2557,7 +2557,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({bmc_ip, server_name, server_ip, protocol, notes})
-                }));
+                });
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -2575,7 +2575,7 @@
                             headers: {'Content-Type': 'application/json'},
                             credentials: 'same-origin',
                             body: JSON.stringify(credData)
-                        }));
+                        });
                     }
                     
                     showAlert(result.message, 'success');
@@ -2657,7 +2657,7 @@
             
             // Load server-specific credentials
             try {
-                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`), { credentials: 'same-origin' });
                 if (response.ok) {
                     const config = await response.json();
                     // IPMI creds
@@ -2694,7 +2694,7 @@
                         ipmi_user: ipmi_user || null,
                         ipmi_pass: ipmi_pass || null
                     })
-                }));
+                });
                 
                 const data = await response.json();
                 
@@ -2754,7 +2754,7 @@
                         ssh_pass: ssh_pass || null,
                         ssh_key_id: ssh_key_id ? parseInt(ssh_key_id) : null
                     })
-                }));
+                });
                 
                 const data = await response.json();
                 
@@ -2799,7 +2799,7 @@
             statusDiv.style.background = 'var(--bg-secondary)';
             
             try {
-                const response = await fetch(apiUrl(`/api/redfish/status/${bmc_ip}`), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl(`/api/redfish/status/${bmc_ip}`), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 // Handle session timeout
@@ -2847,7 +2847,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enable: enable })
-                }));
+                });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -2915,7 +2915,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(serverData)
-                }));
+                });
                 
                 if (!response.ok) {
                     const err = await response.json();
@@ -2944,7 +2944,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(credData)
-                }));
+                });
                 
                 showAlert('Server updated successfully', 'success');
                 closeEditModal();
@@ -2963,7 +2963,7 @@
             }
             
             try {
-                const response = await fetch(apiUrl(`/api/servers/${bmc_ip}`), { method: 'DELETE' }));
+                const response = await fetch(apiUrl(`/api/servers/${bmc_ip}`), { method: 'DELETE' });
                 const result = await response.json();
                 showAlert(result.message, 'success');
                 closeEditModal();
@@ -2976,7 +2976,7 @@
         
         async function initFromDefaults() {
             try {
-                const response = await fetch(apiUrl('/api/servers/init-from-defaults'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/servers/init-from-defaults'), { method: 'POST' });
                 const result = await response.json();
                 showAlert(`Added ${result.added} servers from defaults`, 'success');
                 loadManagedServers();
@@ -3148,7 +3148,7 @@
                     method: 'POST',
                     headers: {'Content-Type': 'text/plain'},
                     body: ini
-                }));
+                });
                 
                 const result = await response.json();
                 showAlert(`Added: ${result.added}, Updated: ${result.updated}${result.errors.length ? ', Errors: ' + result.errors.length : ''}`, 'success');
@@ -3337,7 +3337,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
                         body: JSON.stringify(pendingImportConfig)
-                    }));
+                    });
                 } else {
                     // Use legacy import for old exports
                     const params = new URLSearchParams({
@@ -3352,7 +3352,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
                         body: JSON.stringify(pendingImportConfig)
-                    }));
+                    });
                 }
                 
                 const result = await response.json();
@@ -3406,7 +3406,7 @@
         async function loadAdminCredentials() {
             try {
                 // Load current user credentials
-                const response = await fetch(apiUrl('/api/admin/credentials'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/admin/credentials'), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 document.getElementById('currentUsername').value = data.username || 'admin';
@@ -3421,13 +3421,13 @@
                 }
                 
                 // Load session user
-                const authResponse = await fetch(apiUrl('/api/auth/status'), { credentials: 'same-origin' }));
+                const authResponse = await fetch(apiUrl('/api/auth/status'), { credentials: 'same-origin' });
                 const auth = await authResponse.json();
                 document.getElementById('sessionUser').textContent = auth.username || 'admin';
                 document.getElementById('sessionRole').textContent = (auth.role || 'admin').toUpperCase();
                 
                 // Load anonymous setting
-                const settingsResponse = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' }));
+                const settingsResponse = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });
                 const settings = await settingsResponse.json();
                 document.getElementById('allowAnonymous').checked = settings.allow_anonymous_read === 'true';
                 
@@ -3444,7 +3444,7 @@
         
         async function loadUserList() {
             try {
-                const response = await fetch(apiUrl('/api/users'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/users'), { credentials: 'same-origin' });
                 const data = await response.json();
                 const users = Array.isArray(data) ? data : (data.users || []);
                 
@@ -3495,7 +3495,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ allow_anonymous_read: allow ? 'true' : 'false' })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert(`Anonymous access ${allow ? 'enabled' : 'disabled'}`, 'success');
@@ -3515,7 +3515,7 @@
         async function loadWorkerSettings(settings) {
             try {
                 // Get system info including CPU count
-                const sysResponse = await fetch(apiUrl('/api/system/info'), { credentials: 'same-origin' }));
+                const sysResponse = await fetch(apiUrl('/api/system/info'), { credentials: 'same-origin' });
                 if (sysResponse.ok) {
                     const sysInfo = await sysResponse.json();
                     systemCpuCount = sysInfo.cpu_count || 4;
@@ -3566,11 +3566,11 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ collection_workers: value })
-                }));
+                });
                 
                 if (response.ok) {
                     // Update the info display
-                    const sysResponse = await fetch(apiUrl('/api/system/info'), { credentials: 'same-origin' }));
+                    const sysResponse = await fetch(apiUrl('/api/system/info'), { credentials: 'same-origin' });
                     if (sysResponse.ok) {
                         const sysInfo = await sysResponse.json();
                         document.getElementById('workerInfo').textContent = `(Current: ${sysInfo.current_workers} workers)`;
@@ -3589,7 +3589,7 @@
         async function loadBackupStatus() {
             try {
                 // Check if AI is enabled for cloud backup
-                const response = await fetch(apiUrl('/api/ai/status'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/ai/status'), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     const cloudSection = document.getElementById('cloudBackupStatus');
@@ -3655,7 +3655,7 @@
                         headers: {'Content-Type': 'application/json'},
                         credentials: 'same-origin',
                         body: JSON.stringify(config)
-                    }));
+                    });
                     
                     const result = await response.json();
                     
@@ -3685,7 +3685,7 @@
                 const response = await fetch(apiUrl('/api/config/backup-to-cloud'), {
                     method: 'POST',
                     credentials: 'same-origin'
-                }));
+                });
                 
                 const result = await response.json();
                 
@@ -3701,7 +3701,7 @@
         
         async function showCloudBackups() {
             try {
-                const response = await fetch(apiUrl('/api/config/cloud-backups'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/config/cloud-backups'), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 if (!response.ok || !data.backups?.length) {
@@ -3738,7 +3738,7 @@
                 const response = await fetch(apiUrl(`/api/config/restore-from-cloud?backup_id=${backupId}`), {
                     method: 'POST',
                     credentials: 'same-origin'
-                }));
+                });
                 
                 const result = await response.json();
                 
@@ -3782,7 +3782,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ username, password, role })
-                }));
+                });
                 
                 const result = await response.json();
                 
@@ -3824,7 +3824,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
-                }));
+                });
                 
                 const result = await response.json();
                 
@@ -3843,7 +3843,7 @@
             if (!confirm(`Delete user ${username}? This cannot be undone.`)) return;
             
             try {
-                const response = await fetch(apiUrl(`/api/users/${id}`), { method: 'DELETE', credentials: 'same-origin' }));
+                const response = await fetch(apiUrl(`/api/users/${id}`), { method: 'DELETE', credentials: 'same-origin' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -3893,7 +3893,7 @@
                         username: newUsername || null,
                         new_password: newPassword || null
                     })
-                }));
+                });
                 
                 const result = await response.json();
                 
@@ -4002,7 +4002,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ipmi_user: user, ipmi_pass: pass})
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Default IPMI credentials saved! Use Bulk Apply to update servers.', 'success');
@@ -4019,7 +4019,7 @@
         
         async function loadSshSettings() {
             try {
-                const response = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });
                 const settings = await response.json();
                 const enabled = settings.enable_ssh_inventory === 'true';
                 document.getElementById('enableSshInventory').checked = enabled;
@@ -4039,7 +4039,7 @@
         
         async function loadSshKeys() {
             try {
-                const response = await fetch(apiUrl('/api/ssh-keys'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/ssh-keys'), { credentials: 'same-origin' });
                 const keys = await response.json();
                 SSH_KEYS = keys;
                 
@@ -4114,7 +4114,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ name, key_content: keyContent })
-                }));
+                });
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -4139,7 +4139,7 @@
                 const response = await fetch(apiUrl(`/api/ssh-keys/${keyId}`), {
                     method: 'DELETE',
                     credentials: 'same-origin'
-                }));
+                });
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -4167,7 +4167,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ enable_ssh_inventory: enabled ? 'true' : 'false' })
-                }));
+                });
                 if (response.ok) {
                     showAlert(enabled ? 'SSH inventory enabled' : 'SSH inventory disabled', 'success');
                     updateSshUI(enabled);
@@ -4206,7 +4206,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(settingsData)
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Default SSH configuration saved!', 'success');
@@ -4235,7 +4235,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ enable_ssh_log_collection: enabled ? 'true' : 'false' })
-                }));
+                });
                 if (response.ok) {
                     showAlert(enabled ? 'SSH log collection enabled' : 'SSH log collection disabled', 'success');
                 }
@@ -4261,7 +4261,7 @@
                         collect_vastai_logs: collectVastai ? 'true' : 'false',
                         collect_runpod_logs: collectRunpod ? 'true' : 'false'
                     })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('SSH log collection settings saved! Restart required to apply interval changes.', 'success');
@@ -4419,7 +4419,7 @@
         
         async function loadSshLogStats() {
             try {
-                const response = await fetch(apiUrl('/api/ssh-logs/stats'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/ssh-logs/stats'), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     document.getElementById('sshLogTotalEntries').textContent = data.total_entries || 0;
@@ -4435,7 +4435,7 @@
         
         async function loadSshLogSettings() {
             try {
-                const response = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     
@@ -4500,7 +4500,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
-                }));
+                });
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -4519,7 +4519,7 @@
         
         async function loadBulkServerList() {
             try {
-                const response = await fetch(apiUrl('/api/servers'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/servers'), { credentials: 'same-origin' });
                 const servers = await response.json();
                 BULK_SERVERS = servers;
                 
@@ -4534,7 +4534,7 @@
                 // Get config status for each server
                 let configsResponse;
                 try {
-                    configsResponse = await fetch(apiUrl('/api/config/servers'), { credentials: 'same-origin' }));
+                    configsResponse = await fetch(apiUrl('/api/config/servers'), { credentials: 'same-origin' });
                 } catch (e) {
                     // Fallback: no config info available
                     configsResponse = { ok: false };
@@ -4643,7 +4643,7 @@
                         apply_ipmi: applyIPMI,
                         overwrite: overwrite
                     })
-                }));
+                });
                 
                 const result = await response.json();
                 
@@ -4683,7 +4683,7 @@
                         ipmi_user: user,
                         ipmi_pass: pass
                     })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Default IPMI credentials saved', 'success');
@@ -4698,7 +4698,7 @@
         
         async function loadDefaultCredentials() {
             try {
-                const response = await fetch(apiUrl('/api/settings/credentials/defaults'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/settings/credentials/defaults'), { credentials: 'same-origin' });
                 if (!response.ok) return;
                 
                 const defaults = await response.json();
@@ -4797,7 +4797,7 @@
             if (!confirm(`Reset ${type} ECC counts for all servers?`)) return;
             
             try {
-                const response = await fetch(apiUrl(`/api/ecc/reset?type=${type}`), { method: 'POST' }));
+                const response = await fetch(apiUrl(`/api/ecc/reset?type=${type}`), { method: 'POST' });
                 const result = await response.json();
                 if (response.ok) {
                     showAlert(result.message, 'success');
@@ -4879,7 +4879,7 @@
         
         async function acknowledgeAlert(alertId) {
             try {
-                const response = await fetch(apiUrl(`/api/alerts/history/${alertId}/acknowledge`), { method: 'POST' }));
+                const response = await fetch(apiUrl(`/api/alerts/history/${alertId}/acknowledge`), { method: 'POST' });
                 if (response.ok) {
                     loadAlertHistory();
                     loadAlertStats();
@@ -4987,7 +4987,7 @@
             if (!confirm('Delete this alert rule?')) return;
             
             try {
-                const response = await fetch(apiUrl(`/api/alerts/rules/${ruleId}`), { method: 'DELETE' }));
+                const response = await fetch(apiUrl(`/api/alerts/rules/${ruleId}`), { method: 'DELETE' });
                 if (response.ok) {
                     showAlert('Rule deleted', 'success');
                     closeRuleModal();
@@ -5003,7 +5003,7 @@
             
             // Delete all existing rules
             for (const rule of ALERT_RULES) {
-                await fetch(apiUrl(`/api/alerts/rules/${rule.id}`), { method: 'DELETE' }));
+                await fetch(apiUrl(`/api/alerts/rules/${rule.id}`), { method: 'DELETE' });
             }
             
             // Re-initialize defaults by restarting (or API call)
@@ -5079,7 +5079,7 @@
                             chat_id: document.getElementById('telegramChatId').value
                         }
                     })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Telegram configuration saved', 'success');
@@ -5115,7 +5115,7 @@
                         enabled: document.getElementById('telegramEnabled').checked,
                         config: { bot_token: botToken, chat_id: chatId }
                     })
-                }));
+                });
             } catch (e) {
                 resultDiv.innerHTML = '❌ Failed to save config';
                 return;
@@ -5126,7 +5126,7 @@
                 const response = await fetch(apiUrl('/api/alerts/notifications/telegram/test'), { 
                     method: 'POST',
                     credentials: 'same-origin'
-                }));
+                });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -5158,7 +5158,7 @@
                             use_tls: document.getElementById('smtpTls').checked
                         }
                     })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Email configuration saved', 'success');
@@ -5175,7 +5175,7 @@
             resultDiv.innerHTML = '⏳ Sending test...';
             
             try {
-                const response = await fetch(apiUrl('/api/alerts/notifications/email/test'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/alerts/notifications/email/test'), { method: 'POST' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -5209,7 +5209,7 @@
                             headers: headers
                         }
                     })
-                }));
+                });
                 
                 if (response.ok) {
                     showAlert('Webhook configuration saved', 'success');
@@ -5226,7 +5226,7 @@
             resultDiv.innerHTML = '⏳ Sending test...';
             
             try {
-                const response = await fetch(apiUrl('/api/alerts/notifications/webhook/test'), { method: 'POST' }));
+                const response = await fetch(apiUrl('/api/alerts/notifications/webhook/test'), { method: 'POST' });
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -5260,7 +5260,7 @@
                             license_key: apiKey,
                             sync_enabled: true
                         })
-                    }));
+                    });
                     
                     if (response.ok) {
                         // Clean up the URL (remove the callback parameters)
@@ -5313,7 +5313,7 @@
         // Check auth status and show admin-only tabs
         (async function() {
             try {
-                const response = await fetch(apiUrl('/api/auth/status'), { credentials: 'same-origin' }));
+                const response = await fetch(apiUrl('/api/auth/status'), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 console.log('[Settings] Auth status:', data);
