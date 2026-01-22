@@ -529,7 +529,10 @@
         <!-- Events Tab -->
         <div id="eventsTab" class="tab-content active">
             <div class="card">
-                <h2 class="section-title">Event Log</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 class="section-title" style="margin-bottom: 0;">Event Log</h2>
+                    <button class="btn" onclick="loadEvents(true)">🔄 Refresh Events</button>
+                </div>
                 
                 <div class="filter-row">
                     <div class="filter-group">
@@ -957,7 +960,29 @@ No data collected yet. Click "Refresh" to collect system information.
         const bmcIp = '{{ bmc_ip }}';
         let allEvents = [];
         
-        async function loadEvents() {
+        async function loadEvents(collectFresh = false) {
+            const container = document.getElementById('eventsContainer');
+            
+            if (collectFresh) {
+                container.innerHTML = '<div class="loading"><div class="spinner"></div>Collecting events from BMC...</div>';
+                try {
+                    // Actually collect from BMC
+                    const collectResponse = await fetch(apiUrl(`/api/collect?bmc_ip=${bmcIp}`), {
+                        method: 'POST',
+                        credentials: 'same-origin'
+                    });
+                    if (!collectResponse.ok) {
+                        container.innerHTML = '<div class="loading">Failed to collect events</div>';
+                        return;
+                    }
+                    // Wait a moment for collection to complete
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                } catch (e) {
+                    container.innerHTML = `<div class="loading">Collection error: ${e.message}</div>`;
+                    return;
+                }
+            }
+            
             try {
                 const severity = document.getElementById('severityFilter').value;
                 let url = apiUrl(`/api/server/${bmcIp}/events?limit=1000`);
