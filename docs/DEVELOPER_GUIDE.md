@@ -2,7 +2,7 @@
 
 This guide covers the development workflow, CI/CD pipeline, and release process for IPMI Monitor.
 
-> **Current Version:** v1.0.x  
+> **Current Version:** v1.1.x  
 > **Last Updated:** January 2026
 
 ---
@@ -74,7 +74,7 @@ We use a simplified Git Flow with two main branches:
 │            │        ↑        │        ↑        │                   │
 │            │    (release)    │    (release)    │                   │
 │            │        │        │        │        │                   │
-│   develop ─●────●───●────●───●────●───●────●───●───────► DEVELOPMENT│
+│   dev ─────●────●───●────●───●────●───●────●───●───────► DEVELOPMENT│
 │            │    │        │        │        │                        │
 │            ↓    ↓        ↓        ↓        ↓                        │
 │          feat  feat    feat     feat     feat                       │
@@ -86,8 +86,8 @@ We use a simplified Git Flow with two main branches:
 
 | Branch | Purpose | Protected | Auto-Deploy |
 |--------|---------|-----------|-------------|
-| `main` | Production-ready stable code | ✅ Yes | `:main` tag |
-| `develop` | Integration branch for features | ✅ Yes | `:dev` tag |
+| `main` | Production-ready stable code | ✅ Yes | `:latest` tag |
+| `dev` | Integration branch for features | ✅ Yes | `:dev` tag |
 | `feature/*` | Individual feature work | ❌ No | PR builds only |
 | `hotfix/*` | Emergency production fixes | ❌ No | - |
 
@@ -98,7 +98,7 @@ For `main`:
 - Require status checks to pass
 - No direct pushes
 
-For `develop`:
+For `dev`:
 - Require status checks to pass
 - Allow direct pushes for maintainers
 
@@ -110,8 +110,8 @@ For `develop`:
 
 ```bash
 # Always start from latest develop
-git checkout develop
-git pull origin develop
+git checkout dev
+git pull origin dev
 
 # Create feature branch
 git checkout -b feature/my-awesome-feature
@@ -161,7 +161,7 @@ git push origin feature/my-awesome-feature
 
 Then on GitHub:
 1. Click "Compare & pull request"
-2. Set base branch to `develop`
+2. Set base branch to `dev`
 3. Fill in PR template
 4. Request review if needed
 
@@ -169,14 +169,14 @@ Then on GitHub:
 
 - CI will automatically run on your PR
 - Address any review comments
-- Once approved and CI passes, merge to `develop`
+- Once approved and CI passes, merge to `dev`
 
 ### 5. Delete Feature Branch
 
 After merge:
 ```bash
-git checkout develop
-git pull origin develop
+git checkout dev
+git pull origin dev
 git branch -d feature/my-awesome-feature
 ```
 
@@ -203,7 +203,7 @@ git branch -d feature/my-awesome-feature
 
 | Event | What Happens |
 |-------|--------------|
-| Push to `develop` | Build `:dev`, `:develop` tags |
+| Push to `dev` | Build `:dev`, `:develop` tags |
 | Push to `main` | Build `:main` tag |
 | Push tag `v*` | Build `:v1.x.x`, `:latest`, `:stable` |
 | Pull Request | Build only (no push) |
@@ -261,7 +261,7 @@ docker exec ipmi-monitor env | grep -E "GIT_|BUILD_|APP_"
 | `latest` | Latest release tag | ⭐ Stable | Production (auto-update) |
 | `stable` | Latest release tag | ⭐ Stable | Production alias |
 | `main` | main branch | 🔶 Pre-release | Staging |
-| `dev` | develop branch | ⚠️ Unstable | Development testing |
+| `dev` | dev branch | ⚠️ Unstable | Development testing |
 | `sha-abc123` | Any commit | 🔍 Debug | Troubleshooting |
 
 ### Pulling Images
@@ -286,7 +286,7 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:sha-306b173
 
 ### When to Release
 
-- Feature complete and tested on `develop`
+- Feature complete and tested on `dev`
 - All CI checks passing
 - No known critical bugs
 - Documentation updated
@@ -297,15 +297,15 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:sha-306b173
 
 Create a list of changes since last release:
 ```bash
-git log v1.5.0..develop --oneline
+git log v1.5.0..dev --oneline
 ```
 
 #### 2. Create Release PR
 
 ```bash
 # Ensure develop is up to date
-git checkout develop
-git pull origin develop
+git checkout dev
+git pull origin dev
 
 # Create PR on GitHub: develop → main
 # Title: "Release v1.6.0"
@@ -369,15 +369,15 @@ docker images | grep ipmi-monitor
 
 ```bash
 # Sync develop with main
-git checkout develop
+git checkout dev
 git merge main
 git push origin develop
 ```
 
 ### Release Checklist
 
-- [ ] All features tested on develop
-- [ ] CI passing on develop
+- [ ] All features tested on dev
+- [ ] CI passing on dev
 - [ ] Release notes prepared
 - [ ] PR created: develop → main
 - [ ] PR reviewed and approved
@@ -436,7 +436,7 @@ git push origin v1.6.1
 ### 5. Backport to Develop
 
 ```bash
-git checkout develop
+git checkout dev
 git merge main
 git push origin develop
 ```
@@ -551,8 +551,8 @@ open http://localhost:5002  # dev
 ### Common Commands
 
 ```bash
-# Switch to develop and update
-git checkout develop && git pull
+# Switch to dev and update
+git checkout dev && git pull
 
 # Create feature branch
 git checkout -b feature/name
