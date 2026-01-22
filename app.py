@@ -18115,6 +18115,83 @@ def auto_load_servers_config():
             app.logger.error(f"❌ Error auto-loading servers: {e}")
 
 
+def auto_import_ssh_keys():
+    """
+    Auto-import SSH keys from /app/ssh_keys/ directory on startup.
+    
+    This allows users to mount SSH keys via Docker volume and have them
+    automatically imported into the database.
+    """
+    import glob
+    
+    with app.app_context():
+        try:
+            ssh_keys_dir = '/app/ssh_keys'
+            if not os.path.exists(ssh_keys_dir):
+                app.logger.info("📁 No SSH keys directory found, skipping auto-import")
+                return
+            
+            # Find all key files
+            key_files = glob.glob(f'{ssh_keys_dir}/*.pem') + \
+                        glob.glob(f'{ssh_keys_dir}/id_*') + \
+                        glob.glob(f'{ssh_keys_dir}/*.key')
+            
+            if not key_files:
+                app.logger.info("📁 No SSH key files found in /app/ssh_keys/")
+                return
+            
+            imported = 0
+            skipped = 0
+            
+            for key_file in key_files:
+                try:
+                    key_name = os.path.basename(key_file).replace('.pem', '').replace('.key', '')
+                    
+                    # Skip if already imported
+                    existing = SSHKey.query.filter_by(name=key_name).first()
+                    if existing:
+                        skipped += 1
+                        continue
+                    
+                    # Read key content
+                    with open(key_file, 'r') as f:
+                        key_content = f.read().strip()
+                    
+                    if not key_content:
+                        continue
+                    
+                    # Calculate fingerprint
+                    try:
+                        fingerprint = SSHKey.get_fingerprint(key_content)
+                    except:
+                        fingerprint = 'unknown'
+                    
+                    # Create new key entry
+                    new_key = SSHKey(
+                        name=key_name,
+                        key_content=key_content,
+                        fingerprint=fingerprint
+                    )
+                    db.session.add(new_key)
+                    imported += 1
+                    app.logger.info(f"🔑 Imported SSH key: {key_name}")
+                    
+                except Exception as e:
+                    app.logger.warning(f"⚠️ Failed to import SSH key {key_file}: {e}")
+            
+            if imported > 0:
+                db.session.commit()
+                app.logger.info(f"✅ Auto-imported {imported} SSH key(s), skipped {skipped} existing")
+            else:
+                app.logger.info(f"📋 All {skipped} SSH key(s) already imported")
+                
+        except Exception as e:
+            app.logger.error(f"❌ Error auto-importing SSH keys: {e}")
+
+
+# Auto-import SSH keys from mounted volume
+auto_import_ssh_keys()
+
 # Auto-load servers from config file
 auto_load_servers_config()
 

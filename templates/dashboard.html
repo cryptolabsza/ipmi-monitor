@@ -4882,7 +4882,7 @@
             }
             
             try {
-                let url = '/api/events?limit=50';
+                let url = apiUrl('/api/events?limit=50');
                 if (currentFilter !== 'all') {
                     url += `&severity=${currentFilter}`;
                 }
