@@ -445,7 +445,7 @@
         <header>
             <div>
                 <div class="breadcrumb">
-                    <a href="/">← Dashboard</a>
+                    <a href="{{ url_for('dashboard') }}">← Dashboard</a>
                     <span>/</span>
                     <span>Server Detail</span>
                 </div>
@@ -923,6 +923,12 @@ No data collected yet. Click "Refresh" to collect system information.
     </div>
     
     <script>
+        // Base path for API calls (handles reverse proxy subpath)
+        const BASE_PATH = '{{ base_path | default("") }}';
+        function apiUrl(path) {
+            return BASE_PATH + path;
+        }
+        
         // Theme management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -954,7 +960,7 @@ No data collected yet. Click "Refresh" to collect system information.
         async function loadEvents() {
             try {
                 const severity = document.getElementById('severityFilter').value;
-                let url = `/api/server/${bmcIp}/events?limit=1000`;
+                let url = apiUrl(`/api/server/${bmcIp}/events?limit=1000`);
                 
                 const response = await fetch(url);
                 allEvents = await response.json();
@@ -1062,7 +1068,7 @@ No data collected yet. Click "Refresh" to collect system information.
             }
             
             try {
-                const response = await fetch(`/api/server/${bmcIp}/clear_db_events`, { method: 'POST', credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/clear_db_events`), { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 if (data.status === 'success') {
@@ -1090,7 +1096,7 @@ No data collected yet. Click "Refresh" to collect system information.
                 btn.textContent = '⏳ Clearing...';
                 btn.disabled = true;
                 
-                const response = await fetch(`/api/server/${bmcIp}/clear_sel`, { method: 'POST', credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/clear_sel`), { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 btn.textContent = '⚠️ Clear BMC SEL';
@@ -1125,7 +1131,7 @@ No data collected yet. Click "Refresh" to collect system information.
         
         async function loadPowerStatus() {
             try {
-                const response = await fetch(`/api/server/${bmcIp}/power`, { credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/power`), { credentials: 'same-origin' });
                 const data = await response.json();
                 
                 const badge = document.getElementById('powerStatusBadge');
@@ -1190,7 +1196,7 @@ No data collected yet. Click "Refresh" to collect system information.
                 btn.disabled = true;
                 btn.innerHTML = '⏳ Executing...';
                 
-                const response = await fetch(`/api/server/${bmcIp}/power/${action}`, {
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/power/${action}`), {
                     method: 'POST',
                     credentials: 'same-origin'
                 });
@@ -1243,7 +1249,7 @@ No data collected yet. Click "Refresh" to collect system information.
                 btn.disabled = true;
                 btn.innerHTML = '⏳ Executing...';
                 
-                const response = await fetch(`/api/server/${bmcIp}/bmc/${action}`, {
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/bmc/${action}`), {
                     method: 'POST',
                     credentials: 'same-origin'
                 });
@@ -1317,7 +1323,7 @@ No data collected yet. Click "Refresh" to collect system information.
             
             // Check if refresh was requested (default: use cached if available)
             const refresh = arguments[0] === true;
-            const url = refresh ? `/api/server/${bmcIp}/system-info?refresh=true` : `/api/server/${bmcIp}/system-info`;
+            const url = refresh ? apiUrl(`/api/server/${bmcIp}/system-info?refresh=true`) : apiUrl(`/api/server/${bmcIp}/system-info`);
             
             try {
                 const response = await fetch(url);
@@ -1442,7 +1448,7 @@ No data collected yet. Click "Refresh" to collect system information.
         // Check if SSH is available and show System tab
         async function checkSshAvailability() {
             try {
-                const response = await fetch(`/api/server/${bmcIp}/ssh-available`);
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/ssh-available`));
                 const data = await response.json();
                 
                 console.log('SSH availability check:', data);  // Debug log
@@ -1466,7 +1472,7 @@ No data collected yet. Click "Refresh" to collect system information.
             container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading sensors...</div>';
             
             try {
-                const response = await fetch(`/api/sensors/${bmcIp}`);
+                const response = await fetch(apiUrl(`/api/sensors/${bmcIp}`));
                 const sensors = await response.json();
                 
                 if (sensors.length === 0) {
@@ -1541,7 +1547,7 @@ No data collected yet. Click "Refresh" to collect system information.
         // Check auth status and show/hide admin buttons
         async function checkAuthAndSetup() {
             try {
-                const response = await fetch('/api/auth/status');
+                const response = await fetch(apiUrl('/api/auth/status'));
                 const data = await response.json();
                 
                 // Show write-required buttons for admin and readwrite users
@@ -1571,7 +1577,7 @@ No data collected yet. Click "Refresh" to collect system information.
             container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading inventory...</div>';
             
             try {
-                const response = await fetch(`/api/servers/${bmcIp}/inventory`);
+                const response = await fetch(apiUrl(`/api/servers/${bmcIp}/inventory`));
                 const data = await response.json();
                 
                 if (data.status === 'not_collected') {
@@ -1874,7 +1880,7 @@ No data collected yet. Click "Refresh" to collect system information.
             }
             
             try {
-                const response = await fetch(`/api/servers/${bmcIp}/check-connectivity`, { method: 'POST', credentials: 'same-origin' });
+                const response = await fetch(apiUrl(`/api/servers/${bmcIp}/check-connectivity`), { method: 'POST', credentials: 'same-origin' });
                 const data = await response.json();
                 
                 // Update BMC status
@@ -1923,7 +1929,7 @@ No data collected yet. Click "Refresh" to collect system information.
         
         async function downloadRawSel() {
             try {
-                const response = await fetch(`/api/server/${bmcIp}/diagnostics/sel-raw`);
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/diagnostics/sel-raw`));
                 const data = await response.json();
                 
                 if (data.status === 'success') {
@@ -1945,7 +1951,7 @@ No data collected yet. Click "Refresh" to collect system information.
         
         async function downloadRawSensors() {
             try {
-                const response = await fetch(`/api/server/${bmcIp}/diagnostics/sensors-raw`);
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/diagnostics/sensors-raw`));
                 const data = await response.json();
                 
                 if (data.status === 'success') {
@@ -1966,7 +1972,7 @@ No data collected yet. Click "Refresh" to collect system information.
         
         async function collectSshLogs() {
             try {
-                const response = await fetch(`/api/server/${bmcIp}/diagnostics/ssh-logs`);
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/diagnostics/ssh-logs`));
                 const data = await response.json();
                 
                 if (data.status === 'success') {
@@ -2004,7 +2010,7 @@ No data collected yet. Click "Refresh" to collect system information.
         
         function downloadFullDiagnostics() {
             // Direct download - the endpoint returns a ZIP file
-            window.location.href = `/api/server/${bmcIp}/diagnostics/full`;
+            window.location.href = apiUrl(`/api/server/${bmcIp}/diagnostics/full`);
         }
         
         async function executeCustomCommand() {
@@ -2023,7 +2029,7 @@ No data collected yet. Click "Refresh" to collect system information.
             outputContent.textContent = 'Executing...';
             
             try {
-                const response = await fetch(`/api/server/${bmcIp}/execute`, {
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/execute`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2160,7 +2166,7 @@ No data collected yet. Click "Refresh" to collect system information.
                 if (endDate) params.append('end_date', endDate);
                 if (search) params.append('search', search);
                 
-                const response = await fetch(`/api/server/${bmcIp}/ssh-logs?${params}`);
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/ssh-logs?${params}`));
                 const data = await response.json();
                 
                 loading.style.display = 'none';
@@ -2335,7 +2341,7 @@ No data collected yet. Click "Refresh" to collect system information.
         // Check for SSH logs on page load and show tab if available
         async function checkSyslogsAvailable() {
             try {
-                const response = await fetch(`/api/server/${bmcIp}/ssh-logs?limit=1`);
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/ssh-logs?limit=1`));
                 const data = await response.json();
                 
                 if (data.total > 0 || (data.logs && data.logs.length > 0)) {

@@ -4158,7 +4158,7 @@
                                 🖥️ <strong>Affected Servers</strong> (click to ${showExpanded ? 'collapse' : 'expand'})
                             </div>
                             <div id="task-servers-${idx}" style="display: ${showExpanded ? 'block' : 'none'}; margin-top: 6px; max-height: 150px; overflow-y: auto;">
-                                ${affectedServers.map(s => `<a href="/server/${s}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${s}</a>`).join('')}
+                                ${affectedServers.map(s => `<a href="${BASE_PATH}/server/${s}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${s}</a>`).join('')}
                             </div>
                         </div>
                     ` : ''}
@@ -4824,7 +4824,7 @@
                         '') : '';
                 
                 return `
-                <div class="server-card" onclick="window.location='/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}" data-bmc-ip="${server.bmc_ip}">
+                <div class="server-card" onclick="window.location=BASE_PATH + '/server/${server.bmc_ip}'" style="${!isAiCovered && aiConfig.is_connected && (aiConfig.max_servers > 0 || aiConfig.max_servers === -1) ? 'opacity: 0.7;' : ''}" data-ai-covered="${isAiCovered}" data-bmc-ip="${server.bmc_ip}">
                     <div class="server-header">
                         <div>
                             <div class="server-name">${server.server_name}${aiIcon}</div>
