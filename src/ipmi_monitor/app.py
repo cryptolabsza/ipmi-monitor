@@ -276,39 +276,40 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)  # Session timeout
 # REVERSE PROXY / SUBPATH SUPPORT
 # =============================================================================
 # Support running behind a reverse proxy at a subpath like /ipmi/
-# Set via environment variable or X-Script-Name header from nginx
+# Handles X-Forwarded-Proto (HTTPS), X-Forwarded-For, and X-Script-Name headers
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+# Apply ProxyFix first to handle X-Forwarded-* headers (HTTPS, client IP, etc.)
+# x_for=1, x_proto=1, x_host=1 means trust 1 proxy for these headers
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Environment variable for subpath (optional override)
 APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', os.environ.get('SCRIPT_NAME', ''))
 if APPLICATION_ROOT:
     app.config['APPLICATION_ROOT'] = APPLICATION_ROOT
 
-class ReverseProxyMiddleware:
+class ScriptNameMiddleware:
     """
-    Middleware to handle reverse proxy subpath routing.
-    Respects X-Script-Name header from nginx proxy_set_header.
+    Middleware to handle X-Script-Name header for subpath routing.
+    Sets SCRIPT_NAME so Flask generates correct URLs with the subpath prefix.
     """
     def __init__(self, app):
         self.app = app
     
     def __call__(self, environ, start_response):
-        # Check for X-Script-Name header (set by nginx)
+        # Check for X-Script-Name header (set by nginx proxy_set_header)
         script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
         if script_name:
             environ['SCRIPT_NAME'] = script_name
-            # Strip the prefix from PATH_INFO
-            path_info = environ.get('PATH_INFO', '')
-            if path_info.startswith(script_name):
-                environ['PATH_INFO'] = path_info[len(script_name):] or '/'
-        # Also check environment variable
+            # Don't strip PATH_INFO - nginx proxy_pass already handles that
+        # Fallback to environment variable
         elif APPLICATION_ROOT:
             environ['SCRIPT_NAME'] = APPLICATION_ROOT
-            path_info = environ.get('PATH_INFO', '')
-            if path_info.startswith(APPLICATION_ROOT):
-                environ['PATH_INFO'] = path_info[len(APPLICATION_ROOT):] or '/'
         
         return self.app(environ, start_response)
 
-# Apply middleware
-app.wsgi_app = ReverseProxyMiddleware(app.wsgi_app)
+# Apply script name middleware (after ProxyFix)
+app.wsgi_app = ScriptNameMiddleware(app.wsgi_app)
 
 @app.context_processor
 def inject_base_path():
