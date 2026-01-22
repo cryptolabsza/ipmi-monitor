@@ -2245,7 +2245,7 @@
                         license_key: '',
                         sync_enabled: false
                     })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Disconnected from CryptoLabs AI', 'success');
@@ -2277,7 +2277,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ license_key: licenseKey })
-                });
+                }));
                 
                 const data = await response.json();
                 
@@ -2336,7 +2336,7 @@
                         site_name: siteName || undefined,
                         site_location: siteLocation || undefined
                     })
-                });
+                }));
                 
                 const data = await response.json();
                 
@@ -2443,7 +2443,7 @@
                         enabled: enabled,
                         alert_types: alertTypes
                     })
-                });
+                }));
                 
                 const data = await response.json();
                 
@@ -2473,7 +2473,7 @@
                 const response = await fetch(apiUrl('/api/ai/email-test', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
-                });
+                }));
                 
                 const data = await response.json();
                 
@@ -2557,7 +2557,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({bmc_ip, server_name, server_ip, protocol, notes})
-                });
+                }));
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -2575,7 +2575,7 @@
                             headers: {'Content-Type': 'application/json'},
                             credentials: 'same-origin',
                             body: JSON.stringify(credData)
-                        });
+                        }));
                     }
                     
                     showAlert(result.message, 'success');
@@ -2694,7 +2694,7 @@
                         ipmi_user: ipmi_user || null,
                         ipmi_pass: ipmi_pass || null
                     })
-                });
+                }));
                 
                 const data = await response.json();
                 
@@ -2754,7 +2754,7 @@
                         ssh_pass: ssh_pass || null,
                         ssh_key_id: ssh_key_id ? parseInt(ssh_key_id) : null
                     })
-                });
+                }));
                 
                 const data = await response.json();
                 
@@ -2847,7 +2847,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ enable: enable })
-                });
+                }));
                 const data = await response.json();
                 
                 if (data.success) {
@@ -2915,7 +2915,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(serverData)
-                });
+                }));
                 
                 if (!response.ok) {
                     const err = await response.json();
@@ -2944,7 +2944,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(credData)
-                });
+                }));
                 
                 showAlert('Server updated successfully', 'success');
                 closeEditModal();
@@ -3148,7 +3148,7 @@
                     method: 'POST',
                     headers: {'Content-Type': 'text/plain'},
                     body: ini
-                });
+                }));
                 
                 const result = await response.json();
                 showAlert(`Added: ${result.added}, Updated: ${result.updated}${result.errors.length ? ', Errors: ' + result.errors.length : ''}`, 'success');
@@ -3337,7 +3337,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
                         body: JSON.stringify(pendingImportConfig)
-                    });
+                    }));
                 } else {
                     // Use legacy import for old exports
                     const params = new URLSearchParams({
@@ -3352,7 +3352,7 @@
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
                         body: JSON.stringify(pendingImportConfig)
-                    });
+                    }));
                 }
                 
                 const result = await response.json();
@@ -3495,7 +3495,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ allow_anonymous_read: allow ? 'true' : 'false' })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert(`Anonymous access ${allow ? 'enabled' : 'disabled'}`, 'success');
@@ -3566,7 +3566,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ collection_workers: value })
-                });
+                }));
                 
                 if (response.ok) {
                     // Update the info display
@@ -3655,7 +3655,7 @@
                         headers: {'Content-Type': 'application/json'},
                         credentials: 'same-origin',
                         body: JSON.stringify(config)
-                    });
+                    }));
                     
                     const result = await response.json();
                     
@@ -3685,7 +3685,7 @@
                 const response = await fetch(apiUrl('/api/config/backup-to-cloud', {
                     method: 'POST',
                     credentials: 'same-origin'
-                });
+                }));
                 
                 const result = await response.json();
                 
@@ -3738,7 +3738,7 @@
                 const response = await fetch(apiUrl(`/api/config/restore-from-cloud?backup_id=${backupId}`, {
                     method: 'POST',
                     credentials: 'same-origin'
-                });
+                }));
                 
                 const result = await response.json();
                 
@@ -3782,7 +3782,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ username, password, role })
-                });
+                }));
                 
                 const result = await response.json();
                 
@@ -3824,7 +3824,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
-                });
+                }));
                 
                 const result = await response.json();
                 
@@ -3893,7 +3893,7 @@
                         username: newUsername || null,
                         new_password: newPassword || null
                     })
-                });
+                }));
                 
                 const result = await response.json();
                 
@@ -4002,7 +4002,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ipmi_user: user, ipmi_pass: pass})
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Default IPMI credentials saved! Use Bulk Apply to update servers.', 'success');
@@ -4114,7 +4114,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ name, key_content: keyContent })
-                });
+                }));
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -4139,7 +4139,7 @@
                 const response = await fetch(apiUrl(`/api/ssh-keys/${keyId}`, {
                     method: 'DELETE',
                     credentials: 'same-origin'
-                });
+                }));
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -4167,7 +4167,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ enable_ssh_inventory: enabled ? 'true' : 'false' })
-                });
+                }));
                 if (response.ok) {
                     showAlert(enabled ? 'SSH inventory enabled' : 'SSH inventory disabled', 'success');
                     updateSshUI(enabled);
@@ -4206,7 +4206,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(settingsData)
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Default SSH configuration saved!', 'success');
@@ -4235,7 +4235,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify({ enable_ssh_log_collection: enabled ? 'true' : 'false' })
-                });
+                }));
                 if (response.ok) {
                     showAlert(enabled ? 'SSH log collection enabled' : 'SSH log collection disabled', 'success');
                 }
@@ -4261,7 +4261,7 @@
                         collect_vastai_logs: collectVastai ? 'true' : 'false',
                         collect_runpod_logs: collectRunpod ? 'true' : 'false'
                     })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('SSH log collection settings saved! Restart required to apply interval changes.', 'success');
@@ -4500,7 +4500,7 @@
                     headers: {'Content-Type': 'application/json'},
                     credentials: 'same-origin',
                     body: JSON.stringify(data)
-                });
+                }));
                 
                 const result = await response.json();
                 if (response.ok) {
@@ -4643,7 +4643,7 @@
                         apply_ipmi: applyIPMI,
                         overwrite: overwrite
                     })
-                });
+                }));
                 
                 const result = await response.json();
                 
@@ -4683,7 +4683,7 @@
                         ipmi_user: user,
                         ipmi_pass: pass
                     })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Default IPMI credentials saved', 'success');
@@ -5079,7 +5079,7 @@
                             chat_id: document.getElementById('telegramChatId').value
                         }
                     })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Telegram configuration saved', 'success');
@@ -5115,7 +5115,7 @@
                         enabled: document.getElementById('telegramEnabled').checked,
                         config: { bot_token: botToken, chat_id: chatId }
                     })
-                });
+                }));
             } catch (e) {
                 resultDiv.innerHTML = '❌ Failed to save config';
                 return;
@@ -5126,7 +5126,7 @@
                 const response = await fetch(apiUrl('/api/alerts/notifications/telegram/test', { 
                     method: 'POST',
                     credentials: 'same-origin'
-                });
+                }));
                 const result = await response.json();
                 
                 if (response.ok) {
@@ -5158,7 +5158,7 @@
                             use_tls: document.getElementById('smtpTls').checked
                         }
                     })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Email configuration saved', 'success');
@@ -5209,7 +5209,7 @@
                             headers: headers
                         }
                     })
-                });
+                }));
                 
                 if (response.ok) {
                     showAlert('Webhook configuration saved', 'success');
@@ -5260,7 +5260,7 @@
                             license_key: apiKey,
                             sync_enabled: true
                         })
-                    });
+                    }));
                     
                     if (response.ok) {
                         // Clean up the URL (remove the callback parameters)

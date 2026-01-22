@@ -3128,7 +3128,7 @@
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ servers: serversToSave })
-                });
+                }));
                 
                 if (response.ok) {
                     showToast('Server selection saved!', 'success');
@@ -3219,7 +3219,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ settings: agentSettings })
-                });
+                }));
             } catch (e) {
                 console.error('Failed to save agent settings:', e);
             }
@@ -3334,7 +3334,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin',
                     body: JSON.stringify(permissions)
-                });
+                }));
                 
                 if (response.ok) {
                     statusEl.style.display = 'block';
@@ -3376,7 +3376,7 @@
                     body: JSON.stringify({
                         auto_recovery_enabled: agentSettings.autoRecoveryEnabled
                     })
-                });
+                }));
                 
                 if (!response.ok) throw new Error('Analysis failed');
                 
@@ -4210,7 +4210,7 @@
                         hours: parseInt(timeRange),
                         devices: devices
                     })
-                });
+                }));
                 const data = await response.json();
                 
                 document.getElementById('summaryOutput').style.display = 'block';
@@ -4247,7 +4247,7 @@
                         hours: parseInt(timeRange),
                         devices: devices
                     })
-                });
+                }));
                 const data = await response.json();
                 
                 document.getElementById('tasksOutput').style.display = 'block';
@@ -4356,7 +4356,7 @@
                         event_id: selectedRcaEvent ? selectedRcaEvent.id : null,
                         description: description || (selectedRcaEvent ? selectedRcaEvent.description : '')
                     })
-                });
+                }));
                 const data = await response.json();
                 
                 document.getElementById('rcaOutput').style.display = 'block';
@@ -4425,7 +4425,7 @@
                         question: question,
                         conversation_id: currentConversationId
                     })
-                });
+                }));
                 
                 if (!response.ok) {
                     // Fall back to regular endpoint
@@ -4479,7 +4479,7 @@
                         question: question,
                         conversation_id: currentConversationId
                     })
-                });
+                }));
                 const data = await response.json();
                 
                 const thinking = document.getElementById('aiThinking');
@@ -5169,7 +5169,7 @@
                             license_key: apiKey,
                             sync_enabled: true
                         })
-                    });
+                    }));
                     
                     if (response.ok) {
                         // Clean up the URL (remove the callback parameters)
