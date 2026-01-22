@@ -1764,7 +1764,7 @@
                         <span class="server-ip">Session is active</span>
                     </div>
                     <div class="server-badges">
-                        <a href="/logout" class="btn btn-secondary" style="text-decoration: none;">🚪 Logout</a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none;">🚪 Logout</a>
                     </div>
                 </div>
             </div>
@@ -2004,6 +2004,9 @@
     </div>
     
     <script>
+        // Base path for API calls (supports reverse proxy subpath like /ipmi/)
+        const BASE_PATH = '{{ base_path | default("") }}';
+        
         // Theme management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -2694,7 +2697,7 @@
                     resultsDiv.style.background = 'rgba(255, 170, 0, 0.2)';
                     resultsDiv.innerHTML = `
                         ⚠️ <strong>Session Expired</strong><br>
-                        <small>Please <a href="/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
+                        <small>Please <a href="${BASE_PATH}/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
                     `;
                     return;
                 }
@@ -2754,7 +2757,7 @@
                     resultsDiv.style.background = 'rgba(255, 170, 0, 0.2)';
                     resultsDiv.innerHTML = `
                         ⚠️ <strong>Session Expired</strong><br>
-                        <small>Please <a href="/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
+                        <small>Please <a href="${BASE_PATH}/login" target="_blank" style="color: var(--accent-blue);">log in</a> and refresh this page.</small>
                     `;
                     return;
                 }
@@ -2796,7 +2799,7 @@
                 // Handle session timeout
                 if (response.status === 401 || data.error === 'Authentication required') {
                     statusDiv.style.background = 'rgba(255, 170, 0, 0.2)';
-                    statusDiv.innerHTML = `⚠️ <strong>Session Expired</strong> - <a href="/login" style="color: var(--accent-blue);">Log in</a>`;
+                    statusDiv.innerHTML = `⚠️ <strong>Session Expired</strong> - <a href="${BASE_PATH}/login" style="color: var(--accent-blue);">Log in</a>`;
                     return;
                 }
                 

@@ -1707,11 +1707,11 @@
                 <span id="adminButtons" style="display: none;">
                     <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
                     <a href="https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
-                    <a href="/settings" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
+                    <a href="{{ url_for('settings') }}" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
                 </span>
                 <span id="authButtons">
-                    <a href="/login" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
-                    <a href="/logout" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
+                    <a href="{{ url_for('login') }}" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
                 </span>
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
                     <span class="icon" id="themeIcon">🌙</span>
@@ -2624,6 +2624,15 @@
     </div>
     
     <script>
+        // Base path for API calls (supports reverse proxy subpath like /ipmi/)
+        const BASE_PATH = '{{ base_path | default("") }}';
+        
+        // Helper function to build API URLs
+        function apiUrl(path) {
+            if (!path.startsWith('/')) path = '/' + path;
+            return BASE_PATH + path;
+        }
+        
         // Theme management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
