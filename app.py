@@ -24,11 +24,39 @@ import requests
 import urllib3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # Suppress SSL warnings for self-signed BMC certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 app = Flask(__name__)
+
+# =============================================================================
+# REVERSE PROXY / SUBPATH SUPPORT
+# =============================================================================
+# Support running behind nginx at a subpath like /ipmi/
+# ProxyFix handles X-Forwarded-Proto (HTTPS), X-Forwarded-For (client IP), etc.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+# Environment variable for subpath (optional override)
+APPLICATION_ROOT = os.environ.get('APPLICATION_ROOT', os.environ.get('SCRIPT_NAME', ''))
+if APPLICATION_ROOT:
+    app.config['APPLICATION_ROOT'] = APPLICATION_ROOT
+
+class ScriptNameMiddleware:
+    """Middleware to handle X-Script-Name header for subpath routing."""
+    def __init__(self, wsgi_app):
+        self.app = wsgi_app
+    
+    def __call__(self, environ, start_response):
+        script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
+        if script_name:
+            environ['SCRIPT_NAME'] = script_name
+        elif APPLICATION_ROOT:
+            environ['SCRIPT_NAME'] = APPLICATION_ROOT
+        return self.app(environ, start_response)
+
+app.wsgi_app = ScriptNameMiddleware(app.wsgi_app)
 # Use absolute path for database - data volume is mounted at /app/data
 DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -7529,14 +7557,18 @@ def collect_all_sensors_background():
         
         print(f"[IPMI Monitor] Background sensor collection complete: {collected}/{len(servers)} servers", flush=True)
 
-# Template context processor - inject APP_NAME and version into all templates
+# Template context processor - inject APP_NAME, version, and base_path into all templates
 @app.context_processor
 def inject_app_globals():
+    # Get base path from SCRIPT_NAME (set by middleware) or config
+    base_path = request.environ.get('SCRIPT_NAME', '') or app.config.get('APPLICATION_ROOT', '')
     return {
         'app_name': APP_NAME,
         'app_version': APP_VERSION,
         'version_string': get_version_string(),
-        'build_info': get_build_info()
+        'build_info': get_build_info(),
+        'base_path': base_path,
+        'api_base': base_path  # Alias for clarity in JS
     }
 
 # Routes
