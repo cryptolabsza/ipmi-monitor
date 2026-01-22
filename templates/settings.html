@@ -5263,23 +5263,21 @@
                     });
                     
                     if (response.ok) {
-                        // Clean up the URL (remove the callback parameters)
-                        const cleanUrl = window.location.origin + window.location.pathname;
-                        window.history.replaceState({}, document.title, cleanUrl);
-                        
                         // Show success message
                         const email = userEmail ? decodeURIComponent(userEmail) : 'CryptoLabs';
-                        showAlert(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
+                        showAlert(`✅ Connected to CryptoLabs AI as ${email}! Refreshing...`, 'success');
                         
-                        // Trigger initial sync
+                        // Trigger initial sync in background
                         fetch(apiUrl('/api/ai/sync'), { 
                             method: 'POST',
                             credentials: 'same-origin'
                         }).catch(e => console.log('Sync started in background'));
                         
-                        // Switch to AI tab and reload config
-                        showTab('ai');
-                        await loadAiConfig();
+                        // Clean URL and reload page to ensure fresh state
+                        const cleanUrl = window.location.origin + window.location.pathname + '#ai';
+                        setTimeout(() => {
+                            window.location.href = cleanUrl;
+                        }, 1500);
                         
                         console.log('OAuth callback processed successfully');
                     } else {

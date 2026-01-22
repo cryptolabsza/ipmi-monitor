@@ -3171,6 +3171,8 @@
         async function loadAgentSettings() {
             try {
                 const response = await fetch(apiUrl('/api/ai/agent/settings'));
+                // 403 is expected when AI features aren't enabled - silently ignore
+                if (response.status === 403) return;
                 if (response.ok) {
                     const data = await response.json();
                     agentSettings = data.settings || agentSettings;
@@ -5172,22 +5174,21 @@
                     });
                     
                     if (response.ok) {
-                        // Clean up the URL (remove the callback parameters)
-                        const cleanUrl = window.location.origin + window.location.pathname;
-                        window.history.replaceState({}, document.title, cleanUrl);
-                        
                         // Show success message
                         const email = userEmail ? decodeURIComponent(userEmail) : 'CryptoLabs';
-                        showNotification(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
+                        showNotification(`✅ Connected to CryptoLabs AI as ${email}! Refreshing...`, 'success');
                         
-                        // Trigger initial sync
+                        // Trigger initial sync in background
                         fetch(apiUrl('/api/ai/sync'), { 
                             method: 'POST',
                             credentials: 'same-origin'
                         }).catch(e => console.log('Sync started in background'));
                         
-                        // Reload AI status to reflect new config
-                        await loadAiStatus();
+                        // Clean URL and reload page to ensure fresh state
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        setTimeout(() => {
+                            window.location.href = cleanUrl;
+                        }, 1500);
                         
                         console.log('OAuth callback processed successfully');
                     } else {
