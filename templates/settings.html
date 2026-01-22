@@ -5275,7 +5275,7 @@
                         fetch(apiUrl('/api/ai/sync', { 
                             method: 'POST',
                             credentials: 'same-origin'
-                        }).catch(e => console.log('Sync started in background'));
+                        })).catch(e => console.log('Sync started in background'));
                         
                         // Switch to AI tab and reload config
                         showTab('ai');
