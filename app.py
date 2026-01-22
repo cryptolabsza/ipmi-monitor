@@ -16847,10 +16847,18 @@ def api_export_config():
     config_data['alert_rules'] = [{
         'name': a.name,
         'description': a.description,
-        'event_pattern': a.event_pattern,
+        'alert_type': a.alert_type,
+        'condition': a.condition,
+        'threshold': a.threshold,
+        'threshold_str': a.threshold_str,
         'severity': a.severity,
         'enabled': a.enabled,
-        'notification_channels': a.notification_channels,
+        'cooldown_minutes': a.cooldown_minutes,
+        'confirm_count': a.confirm_count,
+        'notify_telegram': a.notify_telegram,
+        'notify_email': a.notify_email,
+        'notify_webhook': a.notify_webhook,
+        'notify_on_resolve': a.notify_on_resolve,
     } for a in alerts]
     
     # Users (without passwords)
@@ -17011,19 +17019,35 @@ def api_import_config():
                     if existing:
                         if merge:
                             existing.description = rule_data.get('description')
-                            existing.event_pattern = rule_data.get('event_pattern')
-                            existing.severity = rule_data.get('severity')
+                            existing.alert_type = rule_data.get('alert_type', 'server')
+                            existing.condition = rule_data.get('condition', 'eq')
+                            existing.threshold = rule_data.get('threshold')
+                            existing.threshold_str = rule_data.get('threshold_str')
+                            existing.severity = rule_data.get('severity', 'warning')
                             existing.enabled = rule_data.get('enabled', True)
-                            existing.notification_channels = rule_data.get('notification_channels')
+                            existing.cooldown_minutes = rule_data.get('cooldown_minutes', 30)
+                            existing.confirm_count = rule_data.get('confirm_count', 3)
+                            existing.notify_telegram = rule_data.get('notify_telegram', True)
+                            existing.notify_email = rule_data.get('notify_email', False)
+                            existing.notify_webhook = rule_data.get('notify_webhook', False)
+                            existing.notify_on_resolve = rule_data.get('notify_on_resolve', True)
                             results['alert_rules']['updated'] += 1
                     else:
                         new_rule = AlertRule(
                             name=rule_data['name'],
                             description=rule_data.get('description'),
-                            event_pattern=rule_data.get('event_pattern'),
-                            severity=rule_data.get('severity'),
+                            alert_type=rule_data.get('alert_type', 'server'),
+                            condition=rule_data.get('condition', 'eq'),
+                            threshold=rule_data.get('threshold'),
+                            threshold_str=rule_data.get('threshold_str'),
+                            severity=rule_data.get('severity', 'warning'),
                             enabled=rule_data.get('enabled', True),
-                            notification_channels=rule_data.get('notification_channels')
+                            cooldown_minutes=rule_data.get('cooldown_minutes', 30),
+                            confirm_count=rule_data.get('confirm_count', 3),
+                            notify_telegram=rule_data.get('notify_telegram', True),
+                            notify_email=rule_data.get('notify_email', False),
+                            notify_webhook=rule_data.get('notify_webhook', False),
+                            notify_on_resolve=rule_data.get('notify_on_resolve', True)
                         )
                         db.session.add(new_rule)
                         results['alert_rules']['imported'] += 1
@@ -17495,9 +17519,18 @@ def api_backup_to_cloud():
             'alert_rules': [{
                 'name': a.name,
                 'description': a.description,
-                'event_pattern': a.event_pattern,
+                'alert_type': a.alert_type,
+                'condition': a.condition,
+                'threshold': a.threshold,
+                'threshold_str': a.threshold_str,
                 'severity': a.severity,
                 'enabled': a.enabled,
+                'cooldown_minutes': a.cooldown_minutes,
+                'confirm_count': a.confirm_count,
+                'notify_telegram': a.notify_telegram,
+                'notify_email': a.notify_email,
+                'notify_webhook': a.notify_webhook,
+                'notify_on_resolve': a.notify_on_resolve,
             } for a in alerts],
         }
         

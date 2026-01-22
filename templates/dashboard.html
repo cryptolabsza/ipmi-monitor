@@ -5049,10 +5049,13 @@
                 const response = await fetch(apiUrl('/api/auth/status'));
                 const data = await response.json();
                 
-                if (data.is_admin) {
-                    document.getElementById('adminButtons').style.display = 'inline';
+                if (data.logged_in) {
                     document.getElementById('loginBtn').style.display = 'none';
                     document.getElementById('logoutBtn').style.display = 'inline';
+                    // Show settings for admin and readwrite users
+                    if (data.can_write) {
+                        document.getElementById('adminButtons').style.display = 'inline';
+                    }
                 } else {
                     document.getElementById('adminButtons').style.display = 'none';
                     document.getElementById('loginBtn').style.display = 'inline';
