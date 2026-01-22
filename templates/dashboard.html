@@ -2664,7 +2664,7 @@
             badge.textContent = 'Checking...';
             
             try {
-                const response = await fetch(apiUrl('/api/version/check');
+                const response = await fetch(apiUrl('/api/version/check'));
                 const data = await response.json();
                 updateInfo = data;
                 
@@ -2721,7 +2721,7 @@
         // Check for updates on page load (silent)
         setTimeout(async () => {
             try {
-                const response = await fetch(apiUrl('/api/version/check');
+                const response = await fetch(apiUrl('/api/version/check'));
                 const data = await response.json();
                 updateInfo = data;
                 if (data.update_available) {
@@ -2820,7 +2820,7 @@
         
         async function loadAiEmbedConfig() {
             try {
-                const response = await fetch(apiUrl('/api/ai/embed-config');
+                const response = await fetch(apiUrl('/api/ai/embed-config'));
                 if (response.ok) {
                     aiEmbedConfig = await response.json();
                     useAiEmbeds = aiEmbedConfig.enabled;
@@ -2907,9 +2907,9 @@
             try {
                 // Load subscription and usage
                 const [subResponse, usageResponse, serversResponse] = await Promise.all([
-                    fetch(apiUrl('/api/ai/subscription'),
-                    fetch(apiUrl('/api/ai/usage'),
-                    fetch(apiUrl('/api/ai/servers/ai-enabled')
+                    fetch(apiUrl('/api/ai/subscription')),
+                    fetch(apiUrl('/api/ai/usage')),
+                    fetch(apiUrl('/api/ai/servers/ai-enabled'))
                 ]);
                 
                 if (subResponse.ok) {
@@ -3039,7 +3039,7 @@
         
         async function loadUsageHistory() {
             try {
-                const response = await fetch(apiUrl('/api/ai/usage');
+                const response = await fetch(apiUrl('/api/ai/usage'));
                 if (response.ok) {
                     usageData = await response.json();
                     updateUsageHistoryUI(usageData);
@@ -3157,7 +3157,7 @@
         
         async function loadAgentStatus() {
             try {
-                const response = await fetch(apiUrl('/api/ai/agent/status');
+                const response = await fetch(apiUrl('/api/ai/agent/status'));
                 if (response.ok) {
                     const data = await response.json();
                     updateAgentStatusUI(data);
@@ -3170,7 +3170,7 @@
         
         async function loadAgentSettings() {
             try {
-                const response = await fetch(apiUrl('/api/ai/agent/settings');
+                const response = await fetch(apiUrl('/api/ai/agent/settings'));
                 if (response.ok) {
                     const data = await response.json();
                     agentSettings = data.settings || agentSettings;
@@ -3265,7 +3265,7 @@
         async function checkSSHPrerequisites() {
             try {
                 // Count servers with SSH enabled
-                const response = await fetch(apiUrl('/api/servers', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/servers', { credentials: 'same-origin' }));
                 if (!response.ok) return;
                 
                 const servers = await response.json();
@@ -3288,7 +3288,7 @@
         // Recovery permissions management
         async function loadRecoveryPermissions() {
             try {
-                const response = await fetch(apiUrl('/api/recovery/permissions', { credentials: 'same-origin' });
+                const response = await fetch(apiUrl('/api/recovery/permissions', { credentials: 'same-origin' }));
                 if (!response.ok) return;
                 
                 const data = await response.json();
@@ -3433,7 +3433,7 @@
             const content = document.getElementById('recoveryHistoryContent');
             
             try {
-                const response = await fetch(apiUrl('/api/ai/agent/recovery/history');
+                const response = await fetch(apiUrl('/api/ai/agent/recovery/history'));
                 if (!response.ok) throw new Error('Failed to load history');
                 
                 const data = await response.json();
@@ -3670,7 +3670,7 @@
         
         async function loadAiStatus() {
             try {
-                const response = await fetch(apiUrl('/api/ai/status');
+                const response = await fetch(apiUrl('/api/ai/status'));
                 const data = await response.json();
                 
                 aiEnabled = data.subscription_valid && data.enabled;
@@ -3802,7 +3802,7 @@
                 progressPercent.textContent = '30%';
                 progressText.textContent = 'Gathering server data...';
                 
-                const response = await fetch(apiUrl('/api/ai/sync', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/ai/sync', { method: 'POST' }));
                 
                 progressBar.style.width = '70%';
                 progressPercent.textContent = '70%';
@@ -3901,7 +3901,7 @@
             
             try {
                 const range = document.querySelector('input[name="rcaRange"]:checked').value;
-                const response = await fetch(apiUrl(`/api/events?hours=${range}&server=${encodeURIComponent(device)}&limit=20`);
+                const response = await fetch(apiUrl(`/api/events?hours=${range}&server=${encodeURIComponent(device))}&limit=20`);
                 const data = await response.json();
                 
                 if (!data.events || data.events.length === 0) {
@@ -4039,7 +4039,7 @@
             if (useAiEmbeds) return;
             
             try {
-                const response = await fetch(apiUrl('/api/ai/results');
+                const response = await fetch(apiUrl('/api/ai/results'));
                 const data = await response.json();
                 
                 // Show cached summary if available
@@ -4272,7 +4272,7 @@
             btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin-right: 8px;"></div> Analyzing...';
             
             try {
-                const response = await fetch(apiUrl('/api/ai/predictions', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/ai/predictions', { method: 'POST' }));
                 const data = await response.json();
                 
                 document.getElementById('predictionsOutput').style.display = 'block';
@@ -4293,7 +4293,7 @@
         
         async function loadEventsForRca() {
             try {
-                const response = await fetch(apiUrl(`/api/events?hours=72&limit=20`);
+                const response = await fetch(apiUrl(`/api/events?hours=72&limit=20`));
                 const data = await response.json();
                 recentEventsForRca = data.events || [];
                 
@@ -4539,7 +4539,7 @@
         
         async function getAiConfig() {
             try {
-                const response = await fetch(apiUrl('/api/ai/status');
+                const response = await fetch(apiUrl('/api/ai/status'));
                 if (response.ok) {
                     return await response.json();
                 }
@@ -4557,7 +4557,7 @@
         async function loadStats() {
             try {
                 const hours = getTimeRange();
-                const response = await fetch(apiUrl(`/api/stats?hours=${hours}`);
+                const response = await fetch(apiUrl(`/api/stats?hours=${hours}`));
                 const data = await response.json();
                 
                 document.getElementById('totalServers').textContent = data.total_servers;
@@ -4572,7 +4572,7 @@
         async function loadAiConfig() {
             try {
                 // Use public status endpoint that doesn't require auth
-                const response = await fetch(apiUrl('/api/ai/status');
+                const response = await fetch(apiUrl('/api/ai/status'));
                 if (response.ok) {
                     const config = await response.json();
                     aiConfig = {
@@ -4632,7 +4632,7 @@
                 
                 // STEP 2: Fetch fresh data in background
                 const hours = getTimeRange();
-                const response = await fetch(apiUrl(`/api/servers?hours=${hours}`);
+                const response = await fetch(apiUrl(`/api/servers?hours=${hours}`));
                 const freshData = await response.json();
                 
                 // Ensure freshData is an array
@@ -4951,7 +4951,7 @@
                 btn.textContent = '⏳ Collecting...';
                 btn.disabled = true;
                 
-                await fetch(apiUrl('/api/collect', { method: 'POST' });
+                await fetch(apiUrl('/api/collect', { method: 'POST' }));
                 
                 // Wait a bit for collection to start
                 setTimeout(() => {
@@ -4978,7 +4978,7 @@
                 btn.textContent = '⏳ Clearing...';
                 btn.disabled = true;
                 
-                const response = await fetch(apiUrl('/api/clear_all_sel', { method: 'POST' });
+                const response = await fetch(apiUrl('/api/clear_all_sel', { method: 'POST' }));
                 const data = await response.json();
                 
                 btn.textContent = '⚠️ Clear All SEL';
@@ -4997,7 +4997,7 @@
                 btn.textContent = '⏳ Collecting Sensors...';
                 btn.disabled = true;
                 
-                await fetch(apiUrl('/api/sensors/collect', { method: 'POST' });
+                await fetch(apiUrl('/api/sensors/collect', { method: 'POST' }));
                 
                 setTimeout(() => {
                     btn.textContent = '📊 Collect Sensors';
@@ -5041,7 +5041,7 @@
         // Check auth status
         async function checkAuth() {
             try {
-                const response = await fetch(apiUrl('/api/auth/status');
+                const response = await fetch(apiUrl('/api/auth/status'));
                 const data = await response.json();
                 
                 if (data.is_admin) {
@@ -5257,7 +5257,7 @@
         
         async function checkForContainerUpdate() {
             try {
-                const response = await fetch(apiUrl('/api/version');
+                const response = await fetch(apiUrl('/api/version'));
                 if (!response.ok) return;
                 
                 const data = await response.json();
