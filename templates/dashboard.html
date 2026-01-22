@@ -3901,7 +3901,7 @@
             
             try {
                 const range = document.querySelector('input[name="rcaRange"]:checked').value;
-                const response = await fetch(apiUrl(`/api/events?hours=${range}&server=${encodeURIComponent(device))}&limit=20`);
+                const response = await fetch(apiUrl(`/api/events?hours=${range}&server=${encodeURIComponent(device)}&limit=20`));
                 const data = await response.json();
                 
                 if (!data.events || data.events.length === 0) {
