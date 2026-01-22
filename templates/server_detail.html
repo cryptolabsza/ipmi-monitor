@@ -531,7 +531,16 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h2 class="section-title" style="margin-bottom: 0;">Event Log</h2>
-                    <button class="btn" onclick="loadEvents(true)">🔄 Refresh Events</button>
+                    <button class="btn" onclick="loadEvents(true)" id="refreshEventsBtn">🔄 Refresh Events</button>
+                </div>
+                
+                <!-- Events Collection Console -->
+                <div id="eventsConsole" style="display: none; margin-bottom: 15px;">
+                    <div style="background: #1a1a2e; border-radius: 8px; padding: 12px 15px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; display: flex; align-items: center; gap: 10px;">
+                        <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <span id="eventsConsoleText" style="color: #4ade80;">Collecting events from BMC...</span>
+                        <button onclick="document.getElementById('eventsConsole').style.display='none'" style="margin-left: auto; background: none; border: none; color: #888; cursor: pointer;">✕</button>
+                    </div>
                 </div>
                 
                 <div class="filter-row">
@@ -564,7 +573,16 @@
             <div class="card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h2 class="section-title" style="margin-bottom: 0;">Live Sensor Data</h2>
-                    <button class="btn" onclick="loadSensors(true)">🔄 Refresh Sensors</button>
+                    <button class="btn" onclick="loadSensors(true)" id="refreshSensorsBtn">🔄 Refresh Sensors</button>
+                </div>
+                
+                <!-- Sensors Collection Console -->
+                <div id="sensorsConsole" style="display: none; margin-bottom: 15px;">
+                    <div style="background: #1a1a2e; border-radius: 8px; padding: 12px 15px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; display: flex; align-items: center; gap: 10px;">
+                        <div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <span id="sensorsConsoleText" style="color: #4ade80;">Collecting sensors from BMC...</span>
+                        <button onclick="document.getElementById('sensorsConsole').style.display='none'" style="margin-left: auto; background: none; border: none; color: #888; cursor: pointer;">✕</button>
+                    </div>
                 </div>
                 
                 <div id="sensorsContainer">
@@ -962,25 +980,39 @@ No data collected yet. Click "Refresh" to collect system information.
         
         async function loadEvents(collectFresh = false) {
             const container = document.getElementById('eventsContainer');
+            const console = document.getElementById('eventsConsole');
+            const consoleText = document.getElementById('eventsConsoleText');
+            const refreshBtn = document.getElementById('refreshEventsBtn');
             
             if (collectFresh) {
-                container.innerHTML = '<div class="loading"><div class="spinner"></div>Collecting events from BMC...</div>';
+                // Show console, keep old data visible
+                console.style.display = 'block';
+                consoleText.textContent = 'Collecting events from BMC...';
+                consoleText.style.color = '#4ade80';
+                refreshBtn.disabled = true;
+                
                 try {
-                    // Actually collect from BMC
                     const collectResponse = await fetch(apiUrl(`/api/collect?bmc_ip=${bmcIp}`), {
                         method: 'POST',
                         credentials: 'same-origin'
                     });
                     if (!collectResponse.ok) {
-                        container.innerHTML = '<div class="loading">Failed to collect events</div>';
+                        consoleText.textContent = '❌ Failed to collect events';
+                        consoleText.style.color = '#ef4444';
+                        refreshBtn.disabled = false;
                         return;
                     }
-                    // Wait a moment for collection to complete
+                    consoleText.textContent = 'Processing events...';
                     await new Promise(resolve => setTimeout(resolve, 2000));
+                    consoleText.textContent = '✅ Collection complete!';
+                    setTimeout(() => { console.style.display = 'none'; }, 2000);
                 } catch (e) {
-                    container.innerHTML = `<div class="loading">Collection error: ${e.message}</div>`;
+                    consoleText.textContent = `❌ Error: ${e.message}`;
+                    consoleText.style.color = '#ef4444';
+                    refreshBtn.disabled = false;
                     return;
                 }
+                refreshBtn.disabled = false;
             }
             
             try {
@@ -1494,24 +1526,38 @@ No data collected yet. Click "Refresh" to collect system information.
         // Load sensors (cached data) or collect fresh from BMC
         async function loadSensors(collectFresh = false) {
             const container = document.getElementById('sensorsContainer');
+            const consoleDiv = document.getElementById('sensorsConsole');
+            const consoleText = document.getElementById('sensorsConsoleText');
+            const refreshBtn = document.getElementById('refreshSensorsBtn');
             
             if (collectFresh) {
-                container.innerHTML = '<div class="loading"><div class="spinner"></div>Collecting sensors from BMC...</div>';
+                // Show console, keep old data visible
+                consoleDiv.style.display = 'block';
+                consoleText.textContent = 'Collecting sensors from BMC...';
+                consoleText.style.color = '#4ade80';
+                refreshBtn.disabled = true;
+                
                 try {
-                    // Actually collect from BMC
                     const collectResponse = await fetch(apiUrl(`/api/sensors/collect?bmc_ip=${bmcIp}`), {
                         method: 'POST',
                         credentials: 'same-origin'
                     });
                     if (!collectResponse.ok) {
                         const err = await collectResponse.json();
-                        container.innerHTML = `<div class="error">Failed to collect: ${err.message || 'Unknown error'}</div>`;
+                        consoleText.textContent = `❌ Failed: ${err.message || 'Unknown error'}`;
+                        consoleText.style.color = '#ef4444';
+                        refreshBtn.disabled = false;
                         return;
                     }
+                    consoleText.textContent = '✅ Collection complete!';
+                    setTimeout(() => { consoleDiv.style.display = 'none'; }, 2000);
                 } catch (e) {
-                    container.innerHTML = `<div class="error">Collection error: ${e.message}</div>`;
+                    consoleText.textContent = `❌ Error: ${e.message}`;
+                    consoleText.style.color = '#ef4444';
+                    refreshBtn.disabled = false;
                     return;
                 }
+                refreshBtn.disabled = false;
             } else {
                 container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading sensors...</div>';
             }
