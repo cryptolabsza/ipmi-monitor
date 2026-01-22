@@ -1706,7 +1706,7 @@
                 <button class="btn" style="background: var(--accent-green);" onclick="collectSensors()">📊 Collect Sensors</button>
                 <span id="adminButtons" style="display: none;">
                     <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
-                    <a href="https://github.com/cryptolabsza/ipmi-monitor/wiki" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
+                    <a href="https://github.com/cryptolabsza/ipmi-monitor#readme" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
                     <a href="{{ url_for('settings_page') }}" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
                 </span>
                 <span id="authButtons">
@@ -3974,6 +3974,9 @@
         function updateChatHistoryDropdown() {
             const history = JSON.parse(localStorage.getItem('aiChatHistory') || '[]');
             const dropdown = document.getElementById('chatHistory');
+            
+            // Element may not exist if AI features aren't active
+            if (!dropdown) return;
             
             dropdown.innerHTML = '<option value="new">New Conversation</option>' +
                 history.map(h => {
