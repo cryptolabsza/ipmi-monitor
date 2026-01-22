@@ -243,17 +243,7 @@ Connect to CryptoLabs AI service for advanced analytics.
 2. Get API key automatically
 3. Sync enabled automatically
 
-**Pricing:**
-- Free trial: 30 days + 1M tokens
-- Standard: $50/month for 10 servers, 100K tokens
-- Standard+: +$15 per 10 additional servers, +100K tokens
-- Sweet Spot: 50 servers = $100/month + 1M tokens (best value!)
-- Professional: $650/month for 500 servers, 10M tokens
-- Enterprise: Custom pricing for 500+ servers
-
-**Token Top-Ups:**
-- 100K tokens: $2 (one-time)
-- 1M tokens: $15 (one-time, save 25%)
+> Visit [cryptolabs.co.za](https://cryptolabs.co.za) for current pricing and plans.
 
 ---
 

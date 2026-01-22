@@ -2258,8 +2258,7 @@
         
         // Test AI connection
         async function testAiConnection() {
-            // Check if connected via config (don't rely on hidden field since key is masked)
-            let licenseKey = null;
+            // Check if connected via config first
             try {
                 const configResponse = await fetch(apiUrl('/api/ai/config'));
                 const config = await configResponse.json();
@@ -2268,17 +2267,18 @@
                     showAlert('Not connected. Click "Sign In" to connect to CryptoLabs AI.', 'error');
                     return;
                 }
-                licenseKey = config.license_key;
             } catch (e) {
                 showAlert('Failed to check connection status', 'error');
                 return;
             }
             
             try {
+                // Don't send the license_key - it's masked in the config response
+                // The backend will use the stored (unmasked) key
                 const response = await fetch(apiUrl('/api/ai/test'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ license_key: licenseKey })
+                    body: JSON.stringify({})
                 });
                 
                 const data = await response.json();
