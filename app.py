@@ -297,7 +297,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.0.4-dev'  # Development version after v1.0.3 release
+APP_VERSION = '1.1.0'  # Docker quickstart release
 
 def get_build_info():
     """
@@ -2064,17 +2064,20 @@ class User(db.Model):
     
     @staticmethod
     def initialize_default():
-        """Create default admin if none exists"""
+        """Create default admin if none exists - uses ADMIN_PASS env var"""
         admin = User.query.filter_by(role='admin').first()
         if not admin:
+            # Use password from environment variable (set by quickstart)
+            admin_pass = os.environ.get('ADMIN_PASS', 'admin')
             admin = User(
                 username='admin',
-                password_hash=User.hash_password('admin'),
+                password_hash=User.hash_password(admin_pass),
                 role='admin',
                 password_changed=False
             )
             db.session.add(admin)
             db.session.commit()
+            print(f"[IPMI Monitor] Created admin user with configured password", flush=True)
         return admin
 
 class SystemSettings(db.Model):

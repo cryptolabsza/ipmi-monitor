@@ -90,10 +90,79 @@ server {
     # }
     
     # ==========================================================================
-    # Root - redirect to default service
+    # Root - Fleet Management Landing Page
     # ==========================================================================
     location = / {
-        return 302 /ipmi/;
+        default_type text/html;
+        return 200 '<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ domain | default("Fleet Management") }} - CryptoLabs</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #e4e4e4;
+        }
+        .container { text-align: center; padding: 2rem; }
+        h1 { font-size: 2.5rem; margin-bottom: 0.5rem; color: #00d4ff; }
+        .subtitle { color: #888; margin-bottom: 3rem; }
+        .services { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; }
+        .service {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 280px;
+            text-decoration: none;
+            color: inherit;
+            transition: all 0.3s ease;
+        }
+        .service:hover {
+            background: rgba(0,212,255,0.1);
+            border-color: #00d4ff;
+            transform: translateY(-5px);
+        }
+        .service h2 { color: #00d4ff; margin-bottom: 0.5rem; font-size: 1.5rem; }
+        .service p { color: #888; font-size: 0.9rem; }
+        .service .icon { font-size: 3rem; margin-bottom: 1rem; }
+        .service.disabled { opacity: 0.4; pointer-events: none; }
+        .service.disabled::after { content: " (Coming Soon)"; font-size: 0.7rem; }
+        footer { margin-top: 3rem; color: #555; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖥️ Fleet Management</h1>
+        <p class="subtitle">{{ domain | default("Data Center Services") }}</p>
+        <div class="services">
+            <a href="/ipmi/" class="service">
+                <div class="icon">📊</div>
+                <h2>IPMI Monitor</h2>
+                <p>Server health, IPMI events, temperature monitoring, and AI insights</p>
+            </a>
+            <a href="/overview/" class="service disabled">
+                <div class="icon">🗺️</div>
+                <h2>DC Overview</h2>
+                <p>Data center topology, rack layouts, and infrastructure mapping</p>
+            </a>
+            <a href="/grafana/" class="service disabled">
+                <div class="icon">📈</div>
+                <h2>Grafana</h2>
+                <p>Metrics dashboards, alerting, and visualization</p>
+            </a>
+        </div>
+        <footer>Powered by CryptoLabs Infrastructure</footer>
+    </div>
+</body>
+</html>';
     }
     
     # Health check endpoint
