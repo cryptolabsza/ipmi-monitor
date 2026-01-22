@@ -3122,7 +3122,7 @@
                     server_name: srv.server_name,
                     bmc_ip: srv.bmc_ip,
                     is_enabled: srv.ai_enabled
-                });
+                }));
                 
                 const response = await fetch(apiUrl('/api/ai/servers/ai-enabled'), {
                     method: 'PUT',
