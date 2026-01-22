@@ -3622,11 +3622,27 @@
         async function exportConfig() {
             const includeSecrets = document.getElementById('exportIncludeSecrets').checked;
             try {
-                const url = apiUrl(`/api/config/export?download=true&include_secrets=${includeSecrets}`);
-                window.location.href = url;
+                const response = await fetch(apiUrl(`/api/config/export?include_secrets=${includeSecrets}`), {
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    showAlert(err.error || 'Export failed', 'error');
+                    return;
+                }
+                const config = await response.json();
+                
+                // Create downloadable file
+                const blob = new Blob([JSON.stringify(config, null, 2)], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ipmi-monitor-config-${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
                 showAlert('Configuration exported', 'success');
             } catch (e) {
-                showAlert('Failed to export configuration', 'error');
+                showAlert('Failed to export configuration: ' + e.message, 'error');
             }
         }
         
