@@ -2064,25 +2064,36 @@ class User(db.Model):
     
     @staticmethod
     def initialize_default():
-        """Create or update default admin - uses ADMIN_PASS env var"""
+        """Create or update default admin - uses ADMIN_PASS env var
+        
+        Password behavior:
+        - If ADMIN_PASS is 'admin' (default): password_changed=False, user prompted to change
+        - If ADMIN_PASS is custom: password_changed=True, no prompt (user chose their password)
+        """
         admin_pass = os.environ.get('ADMIN_PASS', 'admin')
+        is_custom_password = admin_pass != 'admin'
         admin = User.query.filter_by(role='admin').first()
         
         if not admin:
             # Create new admin user
+            # If custom password provided via quickstart, mark as already changed (no reset prompt)
             admin = User(
                 username='admin',
                 password_hash=User.hash_password(admin_pass),
                 role='admin',
-                password_changed=False
+                password_changed=is_custom_password  # True if custom password, False if default
             )
             db.session.add(admin)
             db.session.commit()
-            print(f"[IPMI Monitor] Created admin user with configured password", flush=True)
-        elif admin_pass != 'admin' and not admin.password_changed:
-            # Update password if ADMIN_PASS is set and user hasn't manually changed it
+            if is_custom_password:
+                print(f"[IPMI Monitor] Created admin user with custom password", flush=True)
+            else:
+                print(f"[IPMI Monitor] Created admin user with default password (change recommended)", flush=True)
+        elif is_custom_password and not admin.password_changed:
+            # Update password if ADMIN_PASS is set to non-default and user hasn't manually changed it
             # This allows quickstart to set a custom password even after first run
             admin.password_hash = User.hash_password(admin_pass)
+            admin.password_changed = True  # Mark as changed since custom password was set
             db.session.commit()
             print(f"[IPMI Monitor] Updated admin password from ADMIN_PASS env var", flush=True)
         

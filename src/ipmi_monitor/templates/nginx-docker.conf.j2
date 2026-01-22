@@ -68,17 +68,16 @@ server {
     }
     
     # ==========================================================================
+    # Redirect direct Flask routes to /ipmi/ subpath
+    # Handles users accessing /login, /dashboard, /settings etc directly
+    # ==========================================================================
+    location ~ ^/(login|logout|dashboard|settings|servers|events|alerts|api)(.*)$ {
+        return 301 /ipmi/$1$2$is_args$args;
+    }
+    
+    # ==========================================================================
     # Future services - uncomment when added to docker-compose
     # ==========================================================================
-    
-    # Grafana at /grafana/
-    # location /grafana/ {
-    #     proxy_pass http://grafana:3000/;
-    #     proxy_set_header Host $host;
-    #     proxy_set_header X-Real-IP $remote_addr;
-    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    #     proxy_set_header X-Forwarded-Proto $scheme;
-    # }
     
     # Prometheus at /prometheus/
     # location /prometheus/ {
@@ -100,6 +99,7 @@ server {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ domain | default("Fleet Management") }} - CryptoLabs</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%2300d4ff%22 rx=%2215%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2265%22 font-size=%2250%22 text-anchor=%22middle%22 fill=%22%23fff%22>🖥</text></svg>">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -111,7 +111,7 @@ server {
             justify-content: center;
             color: #e4e4e4;
         }
-        .container { text-align: center; padding: 2rem; }
+        .container { text-align: center; padding: 2rem; max-width: 900px; }
         h1 { font-size: 2.5rem; margin-bottom: 0.5rem; color: #00d4ff; }
         .subtitle { color: #888; margin-bottom: 3rem; }
         .services { display: flex; gap: 2rem; flex-wrap: wrap; justify-content: center; }
@@ -120,10 +120,11 @@ server {
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 12px;
             padding: 2rem;
-            width: 280px;
+            width: 320px;
             text-decoration: none;
             color: inherit;
             transition: all 0.3s ease;
+            position: relative;
         }
         .service:hover {
             background: rgba(0,212,255,0.1);
@@ -131,11 +132,23 @@ server {
             transform: translateY(-5px);
         }
         .service h2 { color: #00d4ff; margin-bottom: 0.5rem; font-size: 1.5rem; }
-        .service p { color: #888; font-size: 0.9rem; }
+        .service p { color: #888; font-size: 0.9rem; line-height: 1.5; }
         .service .icon { font-size: 3rem; margin-bottom: 1rem; }
-        .service.disabled { opacity: 0.4; pointer-events: none; }
-        .service.disabled::after { content: " (Coming Soon)"; font-size: 0.7rem; }
+        .service .tag {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #00d4ff;
+            color: #1a1a2e;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .service .tag.free { background: #10b981; }
         footer { margin-top: 3rem; color: #555; font-size: 0.8rem; }
+        code { background: rgba(0,212,255,0.2); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -144,19 +157,15 @@ server {
         <p class="subtitle">{{ domain | default("Data Center Services") }}</p>
         <div class="services">
             <a href="/ipmi/" class="service">
-                <div class="icon">📊</div>
+                <div class="icon"><img src="/ipmi/static/favicon.png" alt="IPMI" style="width:48px;height:48px;" onerror="this.outerHTML=&apos;📊&apos;"></div>
                 <h2>IPMI Monitor</h2>
-                <p>Server health, IPMI events, temperature monitoring, and AI insights</p>
+                <p>Server health monitoring, IPMI events, temperature tracking, and AI-powered insights for your data center</p>
             </a>
-            <a href="/overview/" class="service disabled">
+            <a href="https://www.cryptolabs.co.za/dc-overview/" class="service" target="_blank">
+                <span class="tag free">Free</span>
                 <div class="icon">🗺️</div>
                 <h2>DC Overview</h2>
-                <p>Data center topology, rack layouts, and infrastructure mapping</p>
-            </a>
-            <a href="/grafana/" class="service disabled">
-                <div class="icon">📈</div>
-                <h2>Grafana</h2>
-                <p>Metrics dashboards, alerting, and visualization</p>
+                <p>Visual data center mapping with rack layouts and infrastructure topology. Easy to install: <code>pip install dc-overview</code></p>
             </a>
         </div>
         <footer>Powered by CryptoLabs Infrastructure</footer>

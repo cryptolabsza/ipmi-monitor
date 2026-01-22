@@ -30,15 +30,13 @@ from ipmi_monitor import __git_branch__
 console = Console()
 
 def get_default_docker_tag() -> str:
-    """Determine default Docker image tag based on installed version's git branch."""
-    branch = __git_branch__
-    if branch in ('dev', 'develop'):
-        return 'dev'
-    elif branch in ('main', 'master'):
-        return 'latest'
-    else:
-        # For feature branches or unknown, default to latest
-        return 'latest'
+    """Determine default Docker image tag - always defaults to 'latest' (stable).
+    
+    Users who want dev should explicitly select it. The stable/latest channel
+    is the recommended default for production use.
+    """
+    # Always default to stable/latest - users can opt-in to dev if desired
+    return 'latest'
 
 custom_style = Style([
     ('qmark', 'fg:cyan bold'),
@@ -320,16 +318,15 @@ def run_quickstart():
     
     # ============ Step 6: Image Channel ============
     console.print("\n[bold]Step 6: Image Channel[/bold]\n")
-    default_tag = get_default_docker_tag()
-    console.print(f"[dim]Choose which Docker image channel to use. Default based on your install: {default_tag}[/dim]\n")
+    console.print("[dim]Choose which Docker image channel to use.[/dim]\n")
     
     image_tag = questionary.select(
         "Docker image channel:",
         choices=[
-            questionary.Choice("stable (latest) - Production ready", value="latest"),
+            questionary.Choice("stable (latest) - Production ready [recommended]", value="latest"),
             questionary.Choice("dev - Latest development features", value="dev"),
         ],
-        default="latest" if default_tag == "latest" else "dev",
+        default="latest",
         style=custom_style
     ).ask()
     
