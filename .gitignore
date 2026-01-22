@@ -46,3 +46,8 @@ cookies*.txt
 # Collected data
 collected_logs/
 
+# Build artifacts
+dist/
+build/
+*.egg-info/
+src/ipmi_monitor/_build_info.py

@@ -71,6 +71,7 @@ ipmi_monitor = [
     "templates/*.conf",
     "static/*",
     "knowledge/*.md",
+    "_build_info.py",
 ]
 
 [tool.black]

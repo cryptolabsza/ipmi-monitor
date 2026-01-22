@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich import print as rprint
 
-from . import __version__
+from . import __version__, get_version_info
 from .wizard import SetupWizard
 from .service import ServiceManager
 from .quickstart import run_quickstart
@@ -25,7 +25,7 @@ DOCKER_CONFIG_DIR = Path("/etc/ipmi-monitor")
 
 
 @click.group()
-@click.version_option(version=__version__, prog_name="ipmi-monitor")
+@click.version_option(version=__version__, prog_name="ipmi-monitor", message=get_version_info())
 def main():
     """
     IPMI Monitor - Server Monitoring with AI-Powered Insights
@@ -43,8 +43,32 @@ def main():
         quickstart   ⚡ One-command setup (recommended)
         add-server   Add another server to monitor
         status       Check service status
+        version      Show detailed version info
     """
     pass
+
+
+@main.command()
+def version():
+    """Show detailed version information."""
+    from . import __version__, __git_commit__, __git_branch__, __build_time__
+    
+    console.print(Panel.fit(
+        f"[bold cyan]IPMI Monitor[/bold cyan] v{__version__}",
+        border_style="cyan"
+    ))
+    
+    table = Table(show_header=False, box=None)
+    table.add_column("", style="dim")
+    table.add_column("")
+    
+    table.add_row("Version", __version__)
+    table.add_row("Branch", __git_branch__ or "[dim]unknown[/dim]")
+    table.add_row("Commit", __git_commit__[:7] if __git_commit__ else "[dim]unknown[/dim]")
+    table.add_row("Built", __build_time__ or "[dim]unknown[/dim]")
+    table.add_row("Python", sys.version.split()[0])
+    
+    console.print(table)
 
 
 @main.command()
