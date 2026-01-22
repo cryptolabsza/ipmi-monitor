@@ -1074,24 +1074,65 @@ def add_servers_manual() -> List[Dict]:
                 server["ssh_key"] = ssh_key
             server["ssh_port"] = 22
             
-            console.print(f"[dim]Testing SSH to {server_ip}...[/dim]", end=" ")
-            success, hostname, error = test_ssh_connection(
-                server_ip, ssh_user, 
-                password=ssh_pass, 
-                key_path=ssh_key,
-                port=22
-            )
-            
-            if success:
-                if hostname:
-                    server["name"] = hostname
-                    console.print(f"[green]✓[/green] {hostname}")
+            # Test SSH with retry options
+            while True:
+                console.print(f"[dim]Testing SSH to {server_ip}...[/dim]", end=" ")
+                success, hostname, error = test_ssh_connection(
+                    server_ip, ssh_user, 
+                    password=ssh_pass, 
+                    key_path=ssh_key,
+                    port=22
+                )
+                
+                if success:
+                    if hostname:
+                        server["name"] = hostname
+                        console.print(f"[green]✓[/green] {hostname}")
+                    else:
+                        console.print(f"[green]✓[/green] Connected (using {default_name})")
+                    break
                 else:
-                    console.print(f"[green]✓[/green] Connected (using {default_name})")
-            else:
-                console.print(f"[yellow]⚠[/yellow] Failed: {error}")
+                    console.print(f"[yellow]⚠[/yellow] Failed: {error}")
+                    
+                    # Ask what to do about the failure
+                    action = questionary.select(
+                        f"SSH to {server_ip} failed. What would you like to do?",
+                        choices=[
+                            questionary.Choice("Enter a different IP address", value="change_ip"),
+                            questionary.Choice("Retry connection", value="retry"),
+                            questionary.Choice("Skip SSH for this server (BMC only)", value="skip"),
+                            questionary.Choice("Remove this server entirely", value="remove"),
+                        ],
+                        style=custom_style
+                    ).ask()
+                    
+                    if action == "change_ip":
+                        new_ip = questionary.text(
+                            f"New server IP for BMC {bmc_ip}:",
+                            default=server_ip,
+                            style=custom_style
+                        ).ask()
+                        if new_ip:
+                            server_ip = new_ip
+                            server["server_ip"] = new_ip
+                        continue
+                    elif action == "retry":
+                        continue
+                    elif action == "skip":
+                        # Remove SSH config from this server
+                        server.pop("server_ip", None)
+                        server.pop("ssh_user", None)
+                        server.pop("ssh_password", None)
+                        server.pop("ssh_key", None)
+                        server.pop("ssh_port", None)
+                        console.print(f"[dim]SSH skipped for {default_name} - BMC monitoring only[/dim]")
+                        break
+                    elif action == "remove":
+                        server = None  # Mark for removal
+                        break
         
-        servers.append(server)
+        if server:  # Only add if not removed
+            servers.append(server)
     
     return servers
 
