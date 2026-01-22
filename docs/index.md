@@ -27,6 +27,24 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 
 ## 🚀 Quick Start
 
+### One Command Setup (Recommended)
+
+```bash
+# Ubuntu 24.04+ / Python 3.12+
+sudo apt install pipx -y
+pipx install ipmi-monitor
+pipx ensurepath && source ~/.bashrc
+sudo ipmi-monitor quickstart
+
+# Ubuntu 22.04 / Python 3.10
+pip install ipmi-monitor
+sudo ipmi-monitor quickstart
+```
+
+**That's it!** Answer a few questions and Docker containers are deployed automatically.
+
+### Docker Run (Alternative)
+
 ```bash
 docker run -d \
   --name ipmi-monitor \
@@ -42,6 +60,27 @@ docker run -d \
 Then open **http://localhost:5000** and add your servers!
 
 See [User Guide](user-guide.md#quick-start) for Docker Compose setup.
+
+---
+
+## 💻 CLI Commands
+
+After installation, use the `ipmi-monitor` CLI:
+
+| Command | Description |
+|---------|-------------|
+| `sudo ipmi-monitor quickstart` | ⚡ One-command Docker deployment (recommended) |
+| `ipmi-monitor status` | Show container status |
+| `ipmi-monitor logs [-f]` | View container logs |
+| `ipmi-monitor start` | Start containers |
+| `ipmi-monitor stop` | Stop containers |
+| `ipmi-monitor restart` | Restart containers |
+| `ipmi-monitor upgrade` | Pull latest image & restart |
+| `ipmi-monitor add-server` | Add a server interactively |
+| `ipmi-monitor list-servers` | List configured servers |
+| `ipmi-monitor setup-ssl` | Set up HTTPS reverse proxy |
+| `ipmi-monitor uninstall` | Uninstall IPMI Monitor |
+| `ipmi-monitor version` | Show detailed version info |
 
 ---
 
@@ -152,18 +191,6 @@ IPMI Monitor is designed for production datacenter environments:
 | `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset |
 | `GET /api/backup` | Full configuration backup |
 | `POST /api/restore` | Restore from backup |
-
----
-
-## 💰 Pricing
-
-| Tier | Price | Servers | AI Tokens | Trial |
-|------|-------|---------|-----------|-------|
-| Free | $0 | Unlimited | - | Basic monitoring |
-| Standard | $100/mo | 50 | 1M/month | 1 month free |
-| Professional | $500/mo | 500 | 10M/month | 1 month free |
-
-> **Tokens** power AI chat, summaries, and predictions. 1M tokens ≈ 2000+ queries/month.
 
 ---
 
