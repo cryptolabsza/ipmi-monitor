@@ -2,10 +2,10 @@ name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, dev ]
     tags: [ 'v*' ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, dev ]
   workflow_dispatch:
     inputs:
       tag_override:
@@ -52,7 +52,7 @@ jobs:
           elif [[ "${{ github.ref }}" == refs/heads/main ]] || [[ "${{ github.ref }}" == refs/heads/master ]]; then
             VERSION="latest"
             CHANNEL="stable"
-          elif [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+          elif [[ "${{ github.ref }}" == refs/heads/develop ]] || [[ "${{ github.ref }}" == refs/heads/dev ]]; then
             VERSION="dev"
             CHANNEL="development"
           else
@@ -80,9 +80,9 @@ jobs:
             # For main branch: just 'main' tag (latest only from version tags)
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             
-            # For develop branch: 'dev' and 'develop' tags
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            # For develop/dev branch: 'dev' and 'develop' tags
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' }}
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' }}
             
             # For PRs: pr-{number}
             type=ref,event=pr
