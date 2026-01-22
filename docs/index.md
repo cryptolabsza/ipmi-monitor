@@ -168,29 +168,122 @@ IPMI Monitor is designed for production datacenter environments:
 
 ---
 
+## 🏗️ Architecture
+
+IPMI Monitor runs as a Docker container with an optional nginx reverse proxy:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Your Server                              │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ nginx (optional)           Port 443 (HTTPS)           │  │
+│  │  ├── /          → Landing page                        │  │
+│  │  └── /ipmi/     → IPMI Monitor                        │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                          │                                   │
+│  ┌───────────────────────▼───────────────────────────────┐  │
+│  │ ipmi-monitor (Docker)       Port 5000                 │  │
+│  │  • Flask web application                              │  │
+│  │  • SQLite database (/var/lib/ipmi-monitor/)           │  │
+│  │  • Background workers (IPMI polling, SSH collection)  │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                          │                                   │
+│  ┌───────────────────────▼───────────────────────────────┐  │
+│  │ watchtower (optional)       Auto-updates              │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+              │                              │
+              ▼                              ▼
+    ┌─────────────────┐          ┌─────────────────┐
+    │  BMC/IPMI       │          │  Server OS      │
+    │  (port 623)     │          │  (SSH port 22)  │
+    └─────────────────┘          └─────────────────┘
+```
+
+**Live Example:** [dc.cryptolabs.co.za](https://dc.cryptolabs.co.za) - Landing page with IPMI Monitor at `/ipmi/`
+
+---
+
 ## 📋 API Reference
 
-### Public Endpoints
+IPMI Monitor exposes 150+ REST API endpoints. Here are the most commonly used:
+
+### Dashboard & Events
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /` | Dashboard |
-| `GET /api/servers` | List all servers |
-| `GET /api/events` | Get events (filterable) |
-| `GET /api/sensors/{bmc_ip}` | Sensor readings |
+| `GET /` | Web dashboard |
+| `GET /api/servers` | List all servers with status |
+| `GET /api/events` | Get events (supports filters) |
+| `GET /api/stats` | Dashboard statistics |
+| `GET /api/maintenance` | Maintenance tasks |
+| `GET /api/recovery-logs` | Recovery action history |
+| `GET /api/uptime` | Server uptime data |
+
+### Server Management
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/servers/managed` | All configured servers |
+| `POST /api/servers/add` | Add new server |
+| `PUT /api/servers/{bmc_ip}` | Update server config |
+| `DELETE /api/servers/{bmc_ip}` | Remove server |
+| `POST /api/servers/import` | Bulk import servers |
+| `GET /api/servers/export` | Export server list |
+
+### Per-Server Operations
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /server/{bmc_ip}` | Server detail page |
+| `GET /api/server/{bmc_ip}/events` | Server's events |
+| `GET /api/sensors/{bmc_ip}` | Live sensor readings |
 | `GET /api/server/{bmc_ip}/ssh-logs` | SSH system logs |
+| `POST /api/servers/{bmc_ip}/inventory` | Collect inventory |
+| `POST /api/server/{bmc_ip}/power/{action}` | Power control (on/off/reset) |
+| `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset (cold/warm) |
+| `POST /api/server/{bmc_ip}/investigate` | Post-recovery investigation |
+
+### SSH & Credentials
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/ssh-keys` | List stored SSH keys |
+| `POST /api/ssh-keys` | Add SSH key |
+| `POST /api/test/bmc` | Test BMC connection |
+| `POST /api/test/ssh` | Test SSH connection |
+| `POST /api/ssh-logs/collect-now` | Trigger SSH log collection |
+
+### Alerts & Notifications
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/alerts/rules` | Alert rules |
+| `POST /api/alerts/rules` | Create alert rule |
+| `GET /api/alerts/history` | Fired alerts |
+| `GET /api/alerts/notifications` | Notification channels |
+| `POST /api/alerts/notifications/{type}/test` | Test notification |
+
+### System & Monitoring
+
+| Endpoint | Description |
+|----------|-------------|
 | `GET /metrics` | Prometheus metrics |
 | `GET /health` | Health check |
+| `GET /api/version` | Version info |
+| `GET /api/version/check` | Check for updates |
+| `POST /api/collect` | Trigger IPMI collection |
 
-### Admin Endpoints
+### AI Features
 
 | Endpoint | Description |
 |----------|-------------|
-| `POST /api/collect` | Trigger collection |
-| `POST /api/servers/add` | Add server |
-| `POST /api/server/{bmc_ip}/bmc/{action}` | BMC reset |
-| `GET /api/backup` | Full configuration backup |
-| `POST /api/restore` | Restore from backup |
+| `GET /api/ai/status` | AI sync status |
+| `GET /api/ai/config` | AI configuration |
+| `POST /api/ai/sync` | Trigger AI sync |
+| `GET /api/ai/results` | Cached AI results |
+
+See [User Guide](user-guide.md#api-reference) for complete endpoint documentation.
 
 ---
 

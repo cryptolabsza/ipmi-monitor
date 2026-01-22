@@ -13204,7 +13204,23 @@ def api_power(bmc_ip):
 
 @app.route('/api/sensors/collect', methods=['POST'])
 def api_collect_sensors():
-    """Trigger sensor collection for all servers"""
+    """Trigger sensor collection for all servers or a specific server"""
+    bmc_ip = request.args.get('bmc_ip')
+    
+    if bmc_ip:
+        # Single server collection - synchronous for immediate feedback
+        server_name = get_server_name(bmc_ip)
+        try:
+            result = collect_single_server_sensors(bmc_ip, server_name)
+            if result:
+                return jsonify({'status': 'success', 'message': f'Sensors collected for {bmc_ip}'})
+            else:
+                return jsonify({'status': 'error', 'message': 'Failed to collect sensors'}), 500
+        except Exception as e:
+            app.logger.error(f"Sensor collection error for {bmc_ip}: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+    
+    # All servers collection - asynchronous
     def collect_all_sensors():
         with app.app_context():
             # Get servers from database - include NULL status for backward compat (same as get_servers())
