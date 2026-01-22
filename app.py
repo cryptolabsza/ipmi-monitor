@@ -14336,11 +14336,13 @@ def login():
                 session['logged_in'] = True
                 session['username'] = 'admin'
                 session['user_role'] = 'admin'
+                session.permanent = True
                 must_change = True
             else:
                 session['logged_in'] = True
                 session['username'] = user.username
                 session['user_role'] = user.role
+                session.permanent = True
                 user.last_login = datetime.utcnow()
                 db.session.commit()
                 must_change = not user.password_changed

@@ -21,6 +21,9 @@ services:
       - IPMI_USER=${IPMI_USER:-admin}
       - IPMI_PASS=${IPMI_PASS}
       - POLL_INTERVAL={{ poll_interval | default(300) }}
+{% if enable_nginx %}
+      - SESSION_COOKIE_SECURE=true
+{% endif %}
 {% if ai_enabled %}
       - AI_SERVICE_URL=https://ipmi-ai.cryptolabs.co.za
       - AI_LICENSE_KEY=${AI_LICENSE_KEY}
