@@ -29,8 +29,8 @@ from ipmi_monitor import __git_branch__
 
 console = Console()
 
-def get_docker_image_tag() -> str:
-    """Determine Docker image tag based on installed version's git branch."""
+def get_default_docker_tag() -> str:
+    """Determine default Docker image tag based on installed version's git branch."""
     branch = __git_branch__
     if branch in ('dev', 'develop'):
         return 'dev'
@@ -318,8 +318,26 @@ def run_quickstart():
     if enable_watchtower is None:
         enable_watchtower = True
     
-    # ============ Step 6: HTTPS Access (Optional) ============
-    console.print("\n[bold]Step 6: HTTPS Access (Optional)[/bold]\n")
+    # ============ Step 6: Image Channel ============
+    console.print("\n[bold]Step 6: Image Channel[/bold]\n")
+    default_tag = get_default_docker_tag()
+    console.print(f"[dim]Choose which Docker image channel to use. Default based on your install: {default_tag}[/dim]\n")
+    
+    image_tag = questionary.select(
+        "Docker image channel:",
+        choices=[
+            questionary.Choice("stable (latest) - Production ready", value="latest"),
+            questionary.Choice("dev - Latest development features", value="dev"),
+        ],
+        default="latest" if default_tag == "latest" else "dev",
+        style=custom_style
+    ).ask()
+    
+    if image_tag is None:
+        image_tag = default_tag
+    
+    # ============ Step 7: HTTPS Access (Optional) ============
+    console.print("\n[bold]Step 7: HTTPS Access (Optional)[/bold]\n")
     console.print("[dim]Set up nginx reverse proxy with SSL for secure remote access.[/dim]\n")
     
     setup_ssl = questionary.confirm(
@@ -363,8 +381,8 @@ def run_quickstart():
                     style=custom_style
                 ).ask()
     
-    # ============ Step 7: Deploy ============
-    console.print("\n[bold]Step 7: Deploying IPMI Monitor[/bold]\n")
+    # ============ Step 8: Deploy ============
+    console.print("\n[bold]Step 8: Deploying IPMI Monitor[/bold]\n")
     
     # Create config directory
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -426,7 +444,7 @@ IPMI_PASS={default_ipmi_pass}
     env = get_jinja_env()
     template = env.get_template("docker-compose.yml.j2")
     
-    image_tag = get_docker_image_tag()
+    # image_tag is already set by user selection in Step 6
     compose_content = template.render(
         image_tag=image_tag,
         web_port=web_port,
