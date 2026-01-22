@@ -432,18 +432,22 @@ IPMI_PASS={default_ipmi_pass}
     
     # Generate nginx config if HTTPS enabled
     if setup_ssl:
+        # Always generate self-signed cert first (nginx needs certs to start)
+        generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
+        
+        # Create certbot directories (needed even for self-signed, for future LE)
+        (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
+        (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
+        
+        # Start with self-signed config (will switch to LE after obtaining cert)
         nginx_template = env.get_template("nginx-docker.conf.j2")
         nginx_content = nginx_template.render(
             domain=domain or local_ip,
-            letsencrypt_domain=domain if use_letsencrypt else None,
+            letsencrypt_domain=None,  # Start with self-signed
         )
         (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
         
-        if not use_letsencrypt:
-            # Generate self-signed certificate
-            generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
-        
-        console.print(f"[green]✓[/green] Nginx configuration saved")
+        console.print(f"[green]✓[/green] Nginx configuration saved (self-signed)")
     
     # Pull Docker image
     with Progress(SpinnerColumn(), TextColumn("Pulling IPMI Monitor image..."), console=console) as progress:
@@ -563,21 +567,26 @@ def generate_self_signed_cert(ssl_dir: Path, domain: str):
 
 
 def obtain_letsencrypt_cert(config_dir: Path, domain: str, email: str):
-    """Obtain Let's Encrypt certificate using certbot container."""
+    """Obtain Let's Encrypt certificate using webroot method.
+    
+    This uses the already-running nginx to serve ACME challenges,
+    avoiding port conflicts with standalone mode.
+    """
     certbot_dir = config_dir / "certbot"
     certbot_dir.mkdir(parents=True, exist_ok=True)
     (certbot_dir / "conf").mkdir(exist_ok=True)
     (certbot_dir / "www").mkdir(exist_ok=True)
     
     try:
-        # Run certbot in Docker
+        # Use webroot method - nginx serves the challenge files
+        console.print("[dim]Running certbot with webroot method...[/dim]")
         result = subprocess.run([
             "docker", "run", "--rm",
             "-v", f"{certbot_dir}/conf:/etc/letsencrypt",
             "-v", f"{certbot_dir}/www:/var/www/certbot",
-            "-p", "80:80",
             "certbot/certbot", "certonly",
-            "--standalone",
+            "--webroot",
+            "--webroot-path=/var/www/certbot",
             "-d", domain,
             "--email", email,
             "--agree-tos",
@@ -586,16 +595,31 @@ def obtain_letsencrypt_cert(config_dir: Path, domain: str, email: str):
         
         if result.returncode == 0:
             console.print(f"[green]✓[/green] Let's Encrypt certificate obtained")
-            # Restart nginx to pick up cert
-            run_docker_compose(config_dir, "restart nginx")
+            
+            # Update nginx config to use Let's Encrypt certs
+            env = get_jinja_env()
+            nginx_template = env.get_template("nginx-docker.conf.j2")
+            nginx_content = nginx_template.render(
+                domain=domain,
+                letsencrypt_domain=domain,  # Now use LE certs
+            )
+            (config_dir / "nginx.conf").write_text(nginx_content)
+            console.print(f"[green]✓[/green] Nginx config updated for Let's Encrypt")
+            
+            # Restart nginx to use new certs
+            subprocess.run(["docker", "restart", "ipmi-nginx"], capture_output=True)
+            console.print(f"[green]✓[/green] Nginx restarted with Let's Encrypt")
         else:
-            console.print(f"[yellow]⚠[/yellow] Let's Encrypt failed: {result.stderr[:200]}")
+            error_msg = result.stderr[:300] if result.stderr else result.stdout[:300]
+            console.print(f"[yellow]⚠[/yellow] Let's Encrypt failed: {error_msg}")
+            console.print("[dim]Using self-signed certificate instead.[/dim]")
             console.print("[dim]You can retry later with: sudo ipmi-monitor setup-ssl[/dim]")
             
     except subprocess.TimeoutExpired:
-        console.print("[yellow]⚠[/yellow] Let's Encrypt timed out")
+        console.print("[yellow]⚠[/yellow] Let's Encrypt timed out - using self-signed certificate")
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Let's Encrypt error: {e}")
+        console.print("[dim]Using self-signed certificate instead.[/dim]")
 
 
 # ============================================================================
