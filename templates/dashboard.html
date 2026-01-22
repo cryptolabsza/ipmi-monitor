@@ -3487,7 +3487,7 @@
                 sseConnection.close();
             }
             
-            sseConnection = new EventSource('/api/stream');
+            sseConnection = new EventSource(apiUrl('/api/stream'));
             
             sseConnection.onopen = function() {
                 console.log('[SSE] Connected for real-time updates');
@@ -3599,7 +3599,7 @@
         
         function startFreeTrial() {
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
-            const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
+            const redirectUri = encodeURIComponent(window.location.origin + BASE_PATH + '/api/ai/oauth-callback');
             const ipmiHost = encodeURIComponent(window.location.host);
             const signupUrl = `https://cryptolabs.co.za/ipmi-monitor/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
             

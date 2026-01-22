@@ -2141,7 +2141,7 @@
         // Redirect to CryptoLabs signup page with return URL
         function startFreeTrial() {
             // Build the redirect URL back to this IPMI Monitor's OAuth callback
-            const redirectUri = encodeURIComponent(window.location.origin + '/api/ai/oauth-callback');
+            const redirectUri = encodeURIComponent(window.location.origin + BASE_PATH + '/api/ai/oauth-callback');
             const ipmiHost = encodeURIComponent(window.location.host);
             const signupUrl = `https://www.cryptolabs.co.za/ipmi_signup/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
             
@@ -3038,7 +3038,7 @@
             
             try {
                 // Use SSE streaming endpoint for real-time progress
-                const eventSource = new EventSource('/api/inventory/collect-all/stream');
+                const eventSource = new EventSource(apiUrl('/api/inventory/collect-all/stream'));
                 
                 eventSource.onmessage = (event) => {
                     const data = JSON.parse(event.data);
@@ -3195,7 +3195,7 @@
             try {
                 // Use the new /api/backup endpoint for full backups with secrets
                 // or /api/config/export for config-only exports
-                const endpoint = includeSecrets ? '/api/backup' : '/api/config/export?include_secrets=false';
+                const endpoint = apiUrl(includeSecrets ? '/api/backup' : '/api/config/export?include_secrets=false');
                 
                 const response = await fetch(endpoint, { 
                     credentials: 'same-origin' 
@@ -3620,7 +3620,7 @@
         async function exportConfig() {
             const includeSecrets = document.getElementById('exportIncludeSecrets').checked;
             try {
-                const url = `/api/config/export?download=true&include_secrets=${includeSecrets}`;
+                const url = apiUrl(`/api/config/export?download=true&include_secrets=${includeSecrets}`);
                 window.location.href = url;
                 showAlert('Configuration exported', 'success');
             } catch (e) {
@@ -4316,7 +4316,7 @@
             
             try {
                 // Use SSE streaming endpoint for real-time progress
-                const eventSource = new EventSource('/api/ssh-logs/collect-all/stream');
+                const eventSource = new EventSource(apiUrl('/api/ssh-logs/collect-all/stream'));
                 
                 eventSource.onmessage = (event) => {
                     const data = JSON.parse(event.data);
@@ -4958,7 +4958,7 @@
             };
             
             try {
-                const url = ruleId ? `/api/alerts/rules/${ruleId}` : '/api/alerts/rules';
+                const url = apiUrl(ruleId ? `/api/alerts/rules/${ruleId}` : '/api/alerts/rules');
                 const method = ruleId ? 'PUT' : 'POST';
                 
                 const response = await fetch(url, {

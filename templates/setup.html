@@ -572,6 +572,12 @@
     </div>
     
     <script>
+        // Base path for API calls (handles reverse proxy subpath)
+        const BASE_PATH = '{{ base_path | default("") }}';
+        function apiUrl(path) {
+            return BASE_PATH + path;
+        }
+        
         // State
         let currentStep = 1;
         let serversList = [];
@@ -935,7 +941,7 @@ storage-server,192.168.1.102,,,,false`
             const top = (screen.height - height) / 2;
             
             const popup = window.open(
-                'https://cryptolabs.co.za/oauth/ipmi-authorize?redirect_uri=' + encodeURIComponent(window.location.origin + '/api/ai/oauth-callback'),
+                'https://cryptolabs.co.za/oauth/ipmi-authorize?redirect_uri=' + encodeURIComponent(window.location.origin + BASE_PATH + '/api/ai/oauth-callback'),
                 'CryptoLabs Login',
                 `width=${width},height=${height},left=${left},top=${top}`
             );
@@ -970,7 +976,7 @@ storage-server,192.168.1.102,,,,false`
             };
             
             try {
-                const response = await fetch('/api/setup/complete', {
+                const response = await fetch(apiUrl('/api/setup/complete'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(setupData)
@@ -980,7 +986,7 @@ storage-server,192.168.1.102,,,,false`
                 
                 if (response.ok && result.status === 'success') {
                     showAlert('Setup complete! Redirecting to dashboard...', 'success');
-                    setTimeout(() => window.location.href = '/', 2000);
+                    setTimeout(() => window.location.href = BASE_PATH + '/', 2000);
                 } else {
                     showAlert(result.error || 'Setup failed', 'error');
                 }

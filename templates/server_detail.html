@@ -1825,7 +1825,7 @@ No data collected yet. Click "Refresh" to collect system information.
             appendLog('🚀 Starting inventory collection...', 'info');
             
             try {
-                const eventSource = new EventSource(`/api/servers/${bmcIp}/inventory/stream`);
+                const eventSource = new EventSource(apiUrl(`/api/servers/${bmcIp}/inventory/stream`));
                 
                 eventSource.onmessage = function(event) {
                     const data = JSON.parse(event.data);
