@@ -454,7 +454,30 @@
             <div class="btn-group">
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>
                 <button class="btn btn-warning write-required" onclick="clearDbEvents()" style="display: none;">🗑️ Clear DB Events</button>
-                <button class="btn btn-danger write-required" onclick="clearSel()" style="display: none;">⚠️ Clear BMC SEL</button>
+                <!-- SEL Management Dropdown -->
+                <div class="sel-dropdown write-required" style="display: none; position: relative;">
+                    <button class="btn btn-warning" onclick="toggleSelMenu()" id="selMenuBtn">
+                        📋 SEL <span id="selStatusBadge" style="margin-left: 5px; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem;">...</span>
+                    </button>
+                    <div id="selMenu" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 5px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 0; min-width: 200px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+                        <button class="sel-option" onclick="selAction('info')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>ℹ️</span> SEL Info
+                        </button>
+                        <button class="sel-option" onclick="selAction('enable')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-green);">✅</span> Enable Event Logging
+                        </button>
+                        <button class="sel-option" onclick="selAction('disable')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span style="color: var(--accent-yellow);">⏸️</span> Disable Event Logging
+                        </button>
+                        <button class="sel-option" onclick="selAction('time')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>🕐</span> Get SEL Time
+                        </button>
+                        <div style="border-top: 1px solid var(--border-color); margin: 8px 0;"></div>
+                        <button class="sel-option" onclick="selAction('clear')" style="width: 100%; padding: 10px 16px; border: none; background: transparent; color: #ff4757; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 10px;">
+                            <span>⚠️</span> Clear SEL Log
+                        </button>
+                    </div>
+                </div>
                 
                 <!-- Power Management Dropdown - Admin and Readwrite -->
                 <div class="power-dropdown write-required" style="display: none; position: relative;">
@@ -1139,7 +1162,134 @@ No data collected yet. Click "Refresh" to collect system information.
             }
         }
         
+        // ============== SEL Management ==============
+        
+        function toggleSelMenu() {
+            const menu = document.getElementById('selMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Close SEL menu when clicking outside
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('selMenu');
+            const btn = document.getElementById('selMenuBtn');
+            if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+        
+        async function loadSelStatus() {
+            try {
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/sel/status`), { credentials: 'same-origin' });
+                const data = await response.json();
+                
+                const badge = document.getElementById('selStatusBadge');
+                if (!badge) return;
+                
+                if (data.status === 'success') {
+                    const enabled = data.event_logging_enabled;
+                    badge.textContent = enabled ? 'ON' : 'OFF';
+                    badge.style.background = enabled ? 'var(--accent-green)' : 'var(--accent-yellow)';
+                    badge.style.color = '#000';
+                } else {
+                    badge.textContent = '?';
+                    badge.style.background = 'var(--bg-secondary)';
+                }
+            } catch (e) {
+                console.error('Failed to load SEL status:', e);
+            }
+        }
+        
+        async function selAction(action) {
+            document.getElementById('selMenu').style.display = 'none';
+            
+            if (action === 'clear') {
+                if (!confirm('⚠️ WARNING: This will permanently clear the SEL log on the BMC!\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) {
+                    return;
+                }
+                if (!confirm('FINAL CONFIRMATION:\n\nClear SEL on BMC ' + bmcIp + '?')) {
+                    return;
+                }
+            }
+            
+            const btn = document.getElementById('selMenuBtn');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            
+            const actionLabels = {
+                'info': 'Getting SEL Info...',
+                'enable': 'Enabling Event Logging...',
+                'disable': 'Disabling Event Logging...',
+                'time': 'Getting SEL Time...',
+                'clear': 'Clearing SEL...'
+            };
+            btn.innerHTML = `⏳ ${actionLabels[action] || 'Processing...'}`;
+            
+            try {
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/sel/${action}`), { 
+                    method: 'POST', 
+                    credentials: 'same-origin' 
+                });
+                const data = await response.json();
+                
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                
+                if (data.status === 'success') {
+                    if (action === 'info') {
+                        showSelInfoModal(data);
+                    } else if (action === 'time') {
+                        alert(`SEL Time: ${data.sel_time || data.output}`);
+                    } else if (action === 'enable' || action === 'disable') {
+                        alert(data.message || `Event logging ${action}d successfully`);
+                        loadSelStatus();
+                    } else if (action === 'clear') {
+                        alert(`✓ ${data.message}`);
+                        loadEvents();
+                    }
+                } else {
+                    alert(`Error: ${data.message || 'Operation failed'}`);
+                }
+            } catch (e) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert(`Error: ${e.message}`);
+            }
+        }
+        
+        function showSelInfoModal(data) {
+            const info = data.info || {};
+            let content = '<div style="font-family: monospace; background: var(--bg-secondary); padding: 15px; border-radius: 8px; white-space: pre-wrap;">';
+            content += `SEL Version:      ${info.version || 'N/A'}\n`;
+            content += `Entries:          ${info.entries || 'N/A'}\n`;
+            content += `Free Space:       ${info.free_space || 'N/A'}\n`;
+            content += `Percent Used:     ${info.percent_used || 'N/A'}\n`;
+            content += `Event Logging:    ${data.event_logging_enabled ? '✅ Enabled' : '⚠️ Disabled'}\n`;
+            if (info.last_add_time) content += `Last Add Time:    ${info.last_add_time}\n`;
+            if (info.last_erase_time) content += `Last Erase Time:  ${info.last_erase_time}\n`;
+            content += '</div>';
+            
+            // Simple modal
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999;';
+            modal.innerHTML = `
+                <div style="background: var(--bg-card); border-radius: 12px; padding: 25px; max-width: 500px; width: 90%;">
+                    <h3 style="margin: 0 0 15px 0;">📋 SEL Information</h3>
+                    ${content}
+                    <button onclick="this.closest('div').parentElement.remove()" class="btn" style="margin-top: 15px; width: 100%;">Close</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        }
+        
+        // Legacy clearSel function for backwards compatibility
         async function clearSel() {
+            await selAction('clear');
+        }
+        
+        async function legacyClearSel() {
+            // Old implementation kept for reference
             if (!confirm('⚠️ WARNING: This will permanently clear the SEL log on the BMC!\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) {
                 return;
             }
@@ -1647,8 +1797,9 @@ No data collected yet. Click "Refresh" to collect system information.
                     document.querySelectorAll('.write-required').forEach(el => {
                         el.style.display = '';
                     });
-                    // Load power status for users with write access
+                    // Load power and SEL status for users with write access
                     loadPowerStatus();
+                    loadSelStatus();
                 }
                 
                 // Show admin-only buttons (user management, AI config) only for admins

@@ -8053,6 +8053,8 @@ def api_server_events(bmc_ip):
     
     return jsonify(result)
 
+# ============== SEL Management API ==============
+
 @app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
 @write_required
 @require_valid_bmc_ip
@@ -8087,6 +8089,165 @@ def api_clear_sel(bmc_ip):
             }), 500
     except subprocess.TimeoutExpired:
         return jsonify({'status': 'error', 'message': 'Timeout clearing SEL'}), 500
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/server/<bmc_ip>/sel/<action>', methods=['POST'])
+@write_required
+@require_valid_bmc_ip
+def api_sel_action(bmc_ip, action):
+    """
+    SEL management actions:
+    - info: Get SEL info (entries, free space, etc.)
+    - enable: Enable system event logging
+    - disable: Disable system event logging
+    - time: Get SEL time
+    - clear: Clear SEL (same as clear_sel endpoint)
+    """
+    valid_actions = ['info', 'enable', 'disable', 'time', 'clear', 'status']
+    if action not in valid_actions:
+        return jsonify({'status': 'error', 'message': f'Invalid action. Valid: {valid_actions}'}), 400
+    
+    try:
+        user, password = get_ipmi_credentials(bmc_ip)
+        
+        if action == 'clear':
+            # Delegate to existing clear_sel
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', user, '-P', password, 'sel', 'clear'],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
+                db.session.commit()
+                return jsonify({
+                    'status': 'success',
+                    'message': f'SEL cleared for {bmc_ip}',
+                    'output': result.stdout.strip()
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Failed to clear SEL: {result.stderr}'
+                }), 500
+        
+        elif action == 'info' or action == 'status':
+            # Get SEL info
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', user, '-P', password, 'sel', 'info'],
+                capture_output=True, text=True, timeout=30
+            )
+            
+            # Also check if event logging is enabled via mc getenables
+            enables_result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', user, '-P', password, 'mc', 'getenables'],
+                capture_output=True, text=True, timeout=15
+            )
+            
+            # Parse SEL info
+            info = {}
+            event_logging_enabled = True  # Default to true
+            
+            for line in result.stdout.split('\n'):
+                line = line.strip()
+                if ':' in line:
+                    key, val = line.split(':', 1)
+                    key = key.strip().lower().replace(' ', '_')
+                    val = val.strip()
+                    if key == 'version':
+                        info['version'] = val
+                    elif key == 'entries':
+                        info['entries'] = val
+                    elif key == 'free_space':
+                        info['free_space'] = val
+                    elif key == 'percent_used':
+                        info['percent_used'] = val
+                    elif 'last_add' in key:
+                        info['last_add_time'] = val
+                    elif 'last_del' in key or 'last_erase' in key:
+                        info['last_erase_time'] = val
+            
+            # Check enables output for system_event_log
+            if enables_result.returncode == 0:
+                enables_lower = enables_result.stdout.lower()
+                # Look for "system event logging" status
+                if 'system event log' in enables_lower:
+                    # Look for disabled/enabled
+                    for line in enables_result.stdout.split('\n'):
+                        if 'system event log' in line.lower():
+                            event_logging_enabled = 'disabled' not in line.lower()
+                            break
+            
+            return jsonify({
+                'status': 'success',
+                'info': info,
+                'event_logging_enabled': event_logging_enabled,
+                'raw_output': result.stdout
+            })
+        
+        elif action == 'enable':
+            # Enable system event logging
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', user, '-P', password, 'mc', 'setenables', 'system_event_log=on'],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Event logging enabled',
+                    'output': result.stdout.strip()
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Failed to enable event logging: {result.stderr}'
+                }), 500
+        
+        elif action == 'disable':
+            # Disable system event logging (use with caution!)
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', user, '-P', password, 'mc', 'setenables', 'system_event_log=off'],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Event logging disabled',
+                    'output': result.stdout.strip()
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Failed to disable event logging: {result.stderr}'
+                }), 500
+        
+        elif action == 'time':
+            # Get SEL time
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', user, '-P', password, 'sel', 'time', 'get'],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                return jsonify({
+                    'status': 'success',
+                    'sel_time': result.stdout.strip(),
+                    'output': result.stdout.strip()
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Failed to get SEL time: {result.stderr}'
+                }), 500
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({'status': 'error', 'message': f'Timeout executing {action}'}), 500
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
