@@ -85,10 +85,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
-{% if use_letsencrypt %}
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-{% endif %}
     depends_on:
       - ipmi-monitor
     healthcheck:
@@ -100,6 +98,43 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
     networks:
       - cryptolabs
+
+{% if domain and certbot_email %}
+  # ===========================================================================
+  # Certbot - Auto Certificate Management
+  # - Attempts to obtain certificates if not present (every 12 hours)
+  # - Renews existing certificates automatically
+  # - Reloads nginx after successful cert operations
+  # ===========================================================================
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - DOMAIN={{ domain }}
+      - EMAIL={{ certbot_email }}
+    entrypoint: "/bin/sh -c 'trap exit TERM; \
+      while :; do \
+        if [ ! -f /etc/letsencrypt/live/{{ domain }}/fullchain.pem ]; then \
+          echo \"[Certbot] No cert found, attempting to obtain...\"; \
+          certbot certonly --webroot --webroot-path=/var/www/certbot \
+            -d {{ domain }} --email {{ certbot_email }} \
+            --agree-tos --non-interactive --keep && \
+            echo \"[Certbot] Certificate obtained! Run: ipmi-monitor setup-ssl to activate\"; \
+        else \
+          certbot renew --webroot --webroot-path=/var/www/certbot --quiet; \
+        fi; \
+        sleep 12h & wait $${!}; \
+      done'"
+    depends_on:
+      - cryptolabs-proxy
+    networks:
+      - cryptolabs
+{% endif %}
 {% endif %}
 
 # =============================================================================

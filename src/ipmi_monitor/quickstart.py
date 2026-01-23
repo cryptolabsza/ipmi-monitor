@@ -638,6 +638,9 @@ IPMI_PASS={default_ipmi_pass}
     proxy_tag = 'dev' if image_tag == 'dev' else 'latest'
     
     # image_tag is already set by user selection in Step 6
+    # Get certbot email (might be set even if LE initially failed due to rate limiting)
+    certbot_email = letsencrypt_email if 'letsencrypt_email' in dir() and letsencrypt_email else None
+    
     compose_content = template.render(
         image_tag=image_tag,
         proxy_tag=proxy_tag,
@@ -650,6 +653,7 @@ IPMI_PASS={default_ipmi_pass}
         use_letsencrypt=use_letsencrypt,
         letsencrypt_domain=domain if use_letsencrypt else None,
         domain=domain,
+        certbot_email=certbot_email,  # For auto-renewal/retry
         ssh_keys_dir=bool(ssh_key_map),
         network_mode=None,  # Use bridge network
     )
