@@ -11,8 +11,10 @@ services:
     image: ghcr.io/cryptolabsza/ipmi-monitor:{{ image_tag | default('latest') }}
     container_name: ipmi-monitor
     restart: unless-stopped
+{% if not enable_proxy %}
     ports:
       - "{{ web_port | default(5000) }}:5000"
+{% endif %}
     environment:
       - APP_NAME={{ app_name | default('IPMI Monitor') }}
       - ADMIN_USER=admin
@@ -21,7 +23,8 @@ services:
       - IPMI_USER=${IPMI_USER:-admin}
       - IPMI_PASS=${IPMI_PASS}
       - POLL_INTERVAL={{ poll_interval | default(300) }}
-{% if enable_nginx %}
+{% if enable_proxy %}
+      - APPLICATION_ROOT=/ipmi
       - SESSION_COOKIE_SECURE=true
 {% endif %}
 {% if ai_enabled %}
@@ -43,7 +46,7 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     networks:
-      - ipmi_network
+      - cryptolabs
 
 {% if enable_watchtower %}
   # ===========================================================================
@@ -62,31 +65,41 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - ipmi_network
+      - cryptolabs
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 {% endif %}
 
-{% if enable_nginx %}
+{% if enable_proxy %}
   # ===========================================================================
-  # Nginx - Reverse Proxy with SSL
+  # CryptoLabs Proxy - Unified Reverse Proxy with SSL
   # ===========================================================================
-  nginx:
-    image: nginx:alpine
-    container_name: ipmi-nginx
+  cryptolabs-proxy:
+    image: ghcr.io/cryptolabsza/cryptolabs-proxy:{{ proxy_tag | default('latest') }}
+    container_name: cryptolabs-proxy
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
+{% if use_letsencrypt %}
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+{% endif %}
     depends_on:
       - ipmi-monitor
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
     networks:
-      - ipmi_network
+      - cryptolabs
 {% endif %}
 
 # =============================================================================
@@ -100,5 +113,6 @@ volumes:
 # Networks
 # =============================================================================
 networks:
-  ipmi_network:
+  cryptolabs:
+    name: cryptolabs
     driver: bridge

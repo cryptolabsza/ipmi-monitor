@@ -335,22 +335,23 @@ def run_quickstart():
     
     # ============ Step 7: HTTPS Access (Optional) ============
     console.print("\n[bold]Step 7: HTTPS Access (Optional)[/bold]\n")
-    console.print("[dim]Set up nginx reverse proxy with SSL for secure remote access.[/dim]\n")
+    console.print("[dim]Set up reverse proxy with SSL for secure remote access.[/dim]")
+    console.print("[dim]Uses CryptoLabs Proxy with Fleet Management landing page.[/dim]\n")
     
-    setup_ssl = questionary.confirm(
+    setup_proxy = questionary.confirm(
         "Set up HTTPS reverse proxy?",
         default=True,
         style=custom_style
     ).ask()
     
-    if setup_ssl is None:
-        setup_ssl = False
+    if setup_proxy is None:
+        setup_proxy = False
     
     domain = None
     letsencrypt_email = None
     use_letsencrypt = False
     
-    if setup_ssl:
+    if setup_proxy:
         use_domain = questionary.confirm(
             "Do you have a domain name pointing to this server?",
             default=False,
@@ -441,15 +442,20 @@ IPMI_PASS={default_ipmi_pass}
     env = get_jinja_env()
     template = env.get_template("docker-compose.yml.j2")
     
+    # Determine proxy image tag (use dev if ipmi-monitor is using dev)
+    proxy_tag = 'dev' if image_tag == 'dev' else 'latest'
+    
     # image_tag is already set by user selection in Step 6
     compose_content = template.render(
         image_tag=image_tag,
+        proxy_tag=proxy_tag,
         web_port=web_port,
         app_name="IPMI Monitor",
         poll_interval=300,
         ai_enabled=enable_ai,
         enable_watchtower=enable_watchtower,
-        enable_nginx=setup_ssl,
+        enable_proxy=setup_proxy,
+        use_letsencrypt=use_letsencrypt,
         letsencrypt_domain=domain if use_letsencrypt else None,
         domain=domain,
         ssh_keys_dir=bool(ssh_key_map),
@@ -459,8 +465,8 @@ IPMI_PASS={default_ipmi_pass}
     (CONFIG_DIR / "docker-compose.yml").write_text(compose_content)
     console.print(f"[green]✓[/green] Docker Compose configuration saved")
     
-    # Generate nginx config if HTTPS enabled
-    if setup_ssl:
+    # Generate nginx config if proxy enabled
+    if setup_proxy:
         # Always generate self-signed cert first (nginx needs certs to start)
         generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
         
@@ -468,17 +474,16 @@ IPMI_PASS={default_ipmi_pass}
         (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
         (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
         
-        # Start with self-signed config (will switch to LE after obtaining cert)
-        nginx_template = env.get_template("nginx-docker.conf.j2")
-        nginx_content = nginx_template.render(
+        # Generate nginx config for cryptolabs-proxy
+        nginx_content = generate_proxy_nginx_config(
             domain=domain or local_ip,
-            letsencrypt_domain=None,  # Start with self-signed
+            use_letsencrypt=use_letsencrypt,
         )
         (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
         
-        console.print(f"[green]✓[/green] Nginx configuration saved (self-signed)")
+        console.print(f"[green]✓[/green] Proxy configuration saved (self-signed)")
     
-    # Pull Docker image
+    # Pull Docker images
     with Progress(SpinnerColumn(), TextColumn(f"Pulling IPMI Monitor image ({image_tag})..."), console=console) as progress:
         progress.add_task("", total=None)
         result = subprocess.run(
@@ -487,9 +492,23 @@ IPMI_PASS={default_ipmi_pass}
         )
     
     if result.returncode == 0:
-        console.print(f"[green]✓[/green] Docker image pulled")
+        console.print(f"[green]✓[/green] IPMI Monitor image pulled")
     else:
         console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
+    
+    # Pull proxy image if proxy is enabled
+    if setup_proxy:
+        with Progress(SpinnerColumn(), TextColumn(f"Pulling CryptoLabs Proxy image ({proxy_tag})..."), console=console) as progress:
+            progress.add_task("", total=None)
+            result = subprocess.run(
+                ["docker", "pull", f"ghcr.io/cryptolabsza/cryptolabs-proxy:{proxy_tag}"],
+                capture_output=True, text=True
+            )
+        
+        if result.returncode == 0:
+            console.print(f"[green]✓[/green] CryptoLabs Proxy image pulled")
+        else:
+            console.print(f"[yellow]⚠[/yellow] Proxy image pull warning: {result.stderr[:100]}")
     
     # Start containers
     with Progress(SpinnerColumn(), TextColumn("Starting containers..."), console=console) as progress:
@@ -503,13 +522,13 @@ IPMI_PASS={default_ipmi_pass}
         return
     
     # Handle Let's Encrypt certificate
-    if setup_ssl and use_letsencrypt and domain and letsencrypt_email:
+    if setup_proxy and use_letsencrypt and domain and letsencrypt_email:
         console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
         obtain_letsencrypt_cert(CONFIG_DIR, domain, letsencrypt_email)
     
     # Show summary
     saved_servers = [s for s in servers if s.get("bmc_ip")]
-    show_summary(saved_servers, local_ip, int(web_port), license_key is not None, domain, setup_ssl)
+    show_summary(saved_servers, local_ip, int(web_port), license_key is not None, domain, setup_proxy)
 
 
 def generate_servers_yaml(servers: List[Dict], config_dir: Path, ssh_key_map: Dict[str, str]):
@@ -584,7 +603,7 @@ def generate_self_signed_cert(ssl_dir: Path, domain: str):
         "-newkey", "rsa:2048",
         "-keyout", str(key_path),
         "-out", str(cert_path),
-        "-subj", f"/CN={domain}/O=IPMI Monitor/C=US",
+        "-subj", f"/CN={domain}/O=CryptoLabs/C=ZA",
     ]
     
     try:
@@ -595,10 +614,173 @@ def generate_self_signed_cert(ssl_dir: Path, domain: str):
         console.print(f"[yellow]⚠[/yellow] Could not generate certificate: {e}")
 
 
+def generate_proxy_nginx_config(domain: str, use_letsencrypt: bool = False) -> str:
+    """Generate nginx config for cryptolabs-proxy.
+    
+    This config routes /ipmi/ to the ipmi-monitor container and serves
+    the Fleet Management landing page at /.
+    """
+    
+    ssl_cert = f"/etc/letsencrypt/live/{domain}/fullchain.pem" if use_letsencrypt else "/etc/nginx/ssl/server.crt"
+    ssl_key = f"/etc/letsencrypt/live/{domain}/privkey.pem" if use_letsencrypt else "/etc/nginx/ssl/server.key"
+    
+    return f'''# CryptoLabs Proxy - Nginx Configuration
+# Generated by: ipmi-monitor quickstart
+
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+events {{
+    worker_connections 1024;
+}}
+
+http {{
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent"';
+
+    access_log /var/log/nginx/access.log main;
+    sendfile on;
+    keepalive_timeout 65;
+    client_max_body_size 100M;
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/json application/xml;
+
+    # HTTP server - redirect to HTTPS
+    server {{
+        listen 80;
+        server_name {domain};
+        
+        # Let's Encrypt ACME challenge
+        location /.well-known/acme-challenge/ {{
+            root /var/www/certbot;
+        }}
+        
+        location / {{
+            return 301 https://$host$request_uri;
+        }}
+    }}
+
+    # HTTPS server
+    server {{
+        listen 443 ssl http2;
+        server_name {domain};
+
+        ssl_certificate {ssl_cert};
+        ssl_certificate_key {ssl_key};
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+        ssl_prefer_server_ciphers off;
+        ssl_session_cache shared:SSL:10m;
+
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+
+        # Health check endpoint
+        location /api/health {{
+            default_type application/json;
+            return 200 '{{"status":"ok","proxy":"running"}}';
+        }}
+
+        # Services health (for landing page)
+        location /api/services {{
+            default_type application/json;
+            # Simple check - will be enhanced when more services are added
+            return 200 '{{"ipmi-monitor":{{"running":true}},"dc-overview":{{"running":false}},"grafana":{{"running":false}},"prometheus":{{"running":false}}}}';
+        }}
+
+        # IPMI Monitor at /ipmi/
+        location /ipmi/ {{
+            proxy_pass http://ipmi-monitor:5000/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Script-Name /ipmi;
+            proxy_read_timeout 300s;
+            proxy_connect_timeout 10s;
+            proxy_send_timeout 300s;
+        }}
+
+        # DC Overview at /dc/ (when installed)
+        location /dc/ {{
+            proxy_pass http://dc-overview:5001/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Script-Name /dc;
+            proxy_read_timeout 300s;
+            proxy_connect_timeout 10s;
+            
+            # Handle service not running
+            proxy_intercept_errors on;
+            error_page 502 503 504 = @service_unavailable;
+        }}
+
+        # Grafana at /grafana/ (when installed)
+        location /grafana/ {{
+            proxy_pass http://grafana:3000/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            proxy_intercept_errors on;
+            error_page 502 503 504 = @service_unavailable;
+        }}
+
+        # Prometheus at /prometheus/ (when installed)
+        location /prometheus/ {{
+            proxy_pass http://prometheus:9090/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            proxy_intercept_errors on;
+            error_page 502 503 504 = @service_unavailable;
+        }}
+
+        # Service unavailable fallback
+        location @service_unavailable {{
+            default_type application/json;
+            return 503 '{{"error":"Service unavailable","message":"The requested service is not running"}}';
+        }}
+
+        # Fleet Management Landing Page at /
+        location / {{
+            root /usr/share/nginx/html;
+            try_files $uri $uri/ /index.html;
+        }}
+    }}
+}}
+'''
+
+
 def obtain_letsencrypt_cert(config_dir: Path, domain: str, email: str):
     """Obtain Let's Encrypt certificate using webroot method.
     
-    This uses the already-running nginx to serve ACME challenges,
+    This uses the already-running cryptolabs-proxy to serve ACME challenges,
     avoiding port conflicts with standalone mode.
     """
     certbot_dir = config_dir / "certbot"
@@ -626,18 +808,16 @@ def obtain_letsencrypt_cert(config_dir: Path, domain: str, email: str):
             console.print(f"[green]✓[/green] Let's Encrypt certificate obtained")
             
             # Update nginx config to use Let's Encrypt certs
-            env = get_jinja_env()
-            nginx_template = env.get_template("nginx-docker.conf.j2")
-            nginx_content = nginx_template.render(
+            nginx_content = generate_proxy_nginx_config(
                 domain=domain,
-                letsencrypt_domain=domain,  # Now use LE certs
+                use_letsencrypt=True,
             )
             (config_dir / "nginx.conf").write_text(nginx_content)
-            console.print(f"[green]✓[/green] Nginx config updated for Let's Encrypt")
+            console.print(f"[green]✓[/green] Proxy config updated for Let's Encrypt")
             
-            # Restart nginx to use new certs
-            subprocess.run(["docker", "restart", "ipmi-nginx"], capture_output=True)
-            console.print(f"[green]✓[/green] Nginx restarted with Let's Encrypt")
+            # Restart proxy to use new certs
+            subprocess.run(["docker", "restart", "cryptolabs-proxy"], capture_output=True)
+            console.print(f"[green]✓[/green] Proxy restarted with Let's Encrypt")
         else:
             error_msg = result.stderr[:300] if result.stderr else result.stdout[:300]
             console.print(f"[yellow]⚠[/yellow] Let's Encrypt failed: {error_msg}")
