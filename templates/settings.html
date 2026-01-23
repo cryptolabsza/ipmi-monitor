@@ -1404,25 +1404,42 @@
             <div class="card">
                 <div class="card-title">📡 Grafana Integration</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
-                    For Grafana alerting, configure a contact point in Grafana using the same Telegram bot or SMTP settings.
-                    The IPMI Monitor exports Prometheus metrics that Grafana can use for alerts.
+                    IPMI Monitor exports Prometheus metrics at <code>/metrics</code> on the same port as the web interface.
                 </p>
+                
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <strong>Metrics Endpoint:</strong>
+                    <code style="display: block; margin-top: 8px; padding: 8px; background: var(--bg-primary); border-radius: 4px;">
+                        http://ipmi-monitor:5000/metrics
+                    </code>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px;">
+                        If using Docker network, use container name. Otherwise use IP:port.
+                    </p>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                    <strong>prometheus.yml example:</strong>
+                    <pre style="margin-top: 8px; padding: 10px; background: var(--bg-primary); border-radius: 4px; overflow-x: auto; font-size: 0.8rem;">scrape_configs:
+  - job_name: 'ipmi-monitor'
+    static_configs:
+      - targets: ['ipmi-monitor:5000']
+    scrape_interval: 60s
+    metrics_path: /metrics</pre>
+                </div>
                 
                 <div style="margin-bottom: 15px;">
                     <a href="{{ url_for('api_grafana_dashboard') }}" download="ipmi-monitor-dashboard.json" class="btn" style="display: inline-flex; align-items: center; gap: 8px;">
                         📊 Download Grafana Dashboard JSON
                     </a>
                     <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 8px;">
-                        Import this into Grafana via <strong>Dashboards → Import → Upload JSON file</strong>
+                        Import via <strong>Dashboards → Import → Upload JSON file</strong>
                     </p>
                 </div>
                 
                 <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
-                    <strong>Prometheus Metrics for Alerting:</strong><br><br>
+                    <strong>Available Metrics:</strong><br><br>
                     <code>ipmi_alerts_total</code> - Total fired alerts<br>
                     <code>ipmi_alerts_unacknowledged</code> - Unacked alerts<br>
-                    <code>ipmi_alerts_critical_24h</code> - Critical alerts (24h)<br>
-                    <code>ipmi_alerts_warning_24h</code> - Warning alerts (24h)<br><br>
                     <code>ipmi_temperature_celsius{sensor_name="CPU..."}</code><br>
                     <code>ipmi_fan_speed_rpm{sensor_name="..."}</code><br>
                     <code>ipmi_power_watts{server_name="..."}</code>

@@ -660,7 +660,7 @@
                         <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
                             Collect unparsed IPMI SEL events
                         </div>
-                        <button class="btn btn-secondary" onclick="downloadRawSel()" style="width: 100%;">
+                        <button id="btnRawSel" class="btn btn-secondary" onclick="downloadWithLoading('btnRawSel', 'Collecting SEL...', downloadRawSel)" style="width: 100%;">
                             Download Raw SEL
                         </button>
                     </div>
@@ -671,7 +671,7 @@
                         <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
                             All sensors with thresholds
                         </div>
-                        <button class="btn btn-secondary" onclick="downloadRawSensors()" style="width: 100%;">
+                        <button id="btnRawSensors" class="btn btn-secondary" onclick="downloadWithLoading('btnRawSensors', 'Collecting Sensors...', downloadRawSensors)" style="width: 100%;">
                             Download Sensors
                         </button>
                     </div>
@@ -682,7 +682,7 @@
                         <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
                             dmesg, journalctl, GPU logs
                         </div>
-                        <button class="btn btn-secondary" onclick="collectSshLogs()" style="width: 100%;">
+                        <button id="btnSshLogs" class="btn btn-secondary" onclick="downloadWithLoading('btnSshLogs', 'Collecting Logs...', collectSshLogs)" style="width: 100%;">
                             Collect SSH Logs
                         </button>
                     </div>
@@ -693,7 +693,7 @@
                         <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 10px;">
                             Everything in a ZIP bundle
                         </div>
-                        <button class="btn" onclick="downloadFullDiagnostics()" style="width: 100%;">
+                        <button id="btnFullDiag" class="btn" onclick="downloadWithLoading('btnFullDiag', 'Creating ZIP...', downloadFullDiagnostics)" style="width: 100%;">
                             Download ZIP
                         </button>
                     </div>
@@ -2018,6 +2018,22 @@ No data collected yet. Click "Refresh" to collect system information.
         
         // ============== Diagnostics Functions ==============
         
+        // Helper to show loading state on buttons
+        async function downloadWithLoading(btnId, loadingText, asyncFn) {
+            const btn = document.getElementById(btnId);
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.textContent = loadingText;
+            try {
+                await asyncFn();
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.textContent = originalText;
+            }
+        }
+        
         async function downloadRawSel() {
             try {
                 const response = await fetch(apiUrl(`/api/server/${bmcIp}/diagnostics/sel-raw`));
@@ -2099,9 +2115,23 @@ No data collected yet. Click "Refresh" to collect system information.
             }
         }
         
-        function downloadFullDiagnostics() {
-            // Direct download - the endpoint returns a ZIP file
-            window.location.href = apiUrl(`/api/server/${bmcIp}/diagnostics/full`);
+        async function downloadFullDiagnostics() {
+            // Fetch ZIP file and trigger download
+            try {
+                const response = await fetch(apiUrl(`/api/server/${bmcIp}/diagnostics/full`), {
+                    credentials: 'same-origin'
+                });
+                if (!response.ok) throw new Error('Failed to create diagnostics package');
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `diagnostics_${bmcIp}_${new Date().toISOString().split('T')[0]}.zip`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
         }
         
         async function executeCustomCommand() {
