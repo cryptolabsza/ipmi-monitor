@@ -33,10 +33,9 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 # Install the CLI tool
 sudo apt install pipx -y
 pipx install ipmi-monitor
-pipx ensurepath && source ~/.bashrc
 
-# Run the interactive quickstart wizard
-sudo ipmi-monitor quickstart
+# Run the quickstart wizard (use full path since pipx bin isn't in sudo PATH)
+sudo ~/.local/bin/ipmi-monitor quickstart
 ```
 
 **That's it!** The wizard will:

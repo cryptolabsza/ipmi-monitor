@@ -74,10 +74,11 @@ The easiest way to get started is the interactive quickstart wizard:
 
 ```bash
 # Install the CLI tool
+sudo apt install pipx -y
 pipx install ipmi-monitor
 
-# Run the wizard (sets up Docker, Nginx, SSL, Watchtower)
-sudo ipmi-monitor quickstart
+# Run the wizard (use full path since pipx bin isn't in sudo PATH)
+sudo ~/.local/bin/ipmi-monitor quickstart
 ```
 
 The wizard will:
