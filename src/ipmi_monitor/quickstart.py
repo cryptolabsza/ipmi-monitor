@@ -968,11 +968,24 @@ def obtain_letsencrypt_cert(config_dir: Path, domain: str, email: str):
             console.print("[dim]Using self-signed certificate instead.[/dim]")
             console.print("[dim]You can retry later with: sudo ipmi-monitor setup-ssl[/dim]")
             
+            # Fallback: Update nginx config to use self-signed certs
+            nginx_content = generate_proxy_nginx_config(domain=domain, use_letsencrypt=False)
+            (config_dir / "nginx.conf").write_text(nginx_content)
+            subprocess.run(["docker", "restart", "cryptolabs-proxy"], capture_output=True)
+            
     except subprocess.TimeoutExpired:
         console.print("[yellow]⚠[/yellow] Let's Encrypt timed out - using self-signed certificate")
+        # Fallback: Update nginx config to use self-signed certs
+        nginx_content = generate_proxy_nginx_config(domain=domain, use_letsencrypt=False)
+        (config_dir / "nginx.conf").write_text(nginx_content)
+        subprocess.run(["docker", "restart", "cryptolabs-proxy"], capture_output=True)
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Let's Encrypt error: {e}")
         console.print("[dim]Using self-signed certificate instead.[/dim]")
+        # Fallback: Update nginx config to use self-signed certs
+        nginx_content = generate_proxy_nginx_config(domain=domain, use_letsencrypt=False)
+        (config_dir / "nginx.conf").write_text(nginx_content)
+        subprocess.run(["docker", "restart", "cryptolabs-proxy"], capture_output=True)
 
 
 # ============================================================================
