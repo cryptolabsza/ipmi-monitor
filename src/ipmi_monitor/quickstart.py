@@ -165,6 +165,137 @@ def generate_secret_key() -> str:
     return secrets.token_hex(32)
 
 
+def looks_like_ip(s: str) -> bool:
+    """Check if string looks like an IP address."""
+    if not s:
+        return False
+    parts = s.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p) <= 255 for p in parts)
+    except ValueError:
+        return False
+
+
+def detect_dc_overview() -> Optional[Dict]:
+    """Detect if DC Overview is installed."""
+    dc_config_dir = Path("/etc/dc-overview")
+    
+    if not dc_config_dir.exists():
+        return None
+    
+    # Check for config file or running container
+    config_file = dc_config_dir / "config.json"
+    prometheus_file = dc_config_dir / "prometheus.yml"
+    
+    # Check for running container
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "dc-overview"],
+            capture_output=True
+        )
+        container_running = result.returncode == 0
+    except:
+        container_running = False
+    
+    if not (config_file.exists() or prometheus_file.exists() or container_running):
+        return None
+    
+    return {
+        "config_dir": dc_config_dir,
+        "config_file": config_file if config_file.exists() else None,
+        "prometheus_file": prometheus_file if prometheus_file.exists() else None,
+        "ssh_keys_dir": dc_config_dir / "ssh_keys" if (dc_config_dir / "ssh_keys").exists() else None,
+        "container_running": container_running
+    }
+
+
+def import_dc_overview_config(dc_config: Dict) -> tuple:
+    """Import SSH credentials and server IPs from DC Overview.
+    
+    Returns:
+        Tuple of (ssh_keys, servers)
+        - servers have server_ip but need BMC IP to be added by user
+    """
+    import yaml
+    
+    ssh_keys = []
+    servers = []
+    
+    # Try to read from prometheus.yml for server targets
+    prometheus_file = dc_config.get("prometheus_file")
+    if prometheus_file and prometheus_file.exists():
+        try:
+            with open(prometheus_file) as f:
+                prom_config = yaml.safe_load(f)
+            
+            # Extract targets from scrape configs
+            for job in prom_config.get("scrape_configs", []):
+                job_name = job.get("job_name", "")
+                if job_name in ["prometheus", "local"]:
+                    continue  # Skip internal targets
+                
+                for static_config in job.get("static_configs", []):
+                    labels = static_config.get("labels", {})
+                    instance_name = labels.get("instance", job_name)
+                    
+                    for target in static_config.get("targets", []):
+                        # Extract IP from target (format: ip:port)
+                        ip = target.split(":")[0]
+                        if looks_like_ip(ip):
+                            # Check if we already have this server
+                            if not any(s.get("server_ip") == ip for s in servers):
+                                servers.append({
+                                    "name": instance_name,
+                                    "server_ip": ip,
+                                    "ssh_user": "root",
+                                    "ssh_port": 22
+                                })
+            
+            if servers:
+                console.print(f"[green]✓[/green] Found {len(servers)} servers from DC Overview")
+        except Exception as e:
+            console.print(f"[yellow]⚠[/yellow] Could not parse prometheus.yml: {e}")
+    
+    # Try to read from config.json
+    config_file = dc_config.get("config_file")
+    if config_file and config_file.exists():
+        try:
+            import json
+            with open(config_file) as f:
+                config = json.load(f)
+            console.print(f"[dim]DC Overview config loaded[/dim]")
+        except Exception as e:
+            pass
+    
+    # Copy SSH keys if available
+    ssh_keys_dir = dc_config.get("ssh_keys_dir")
+    if ssh_keys_dir and ssh_keys_dir.exists():
+        ipmi_ssh_dir = CONFIG_DIR / "ssh_keys"
+        ipmi_ssh_dir.mkdir(parents=True, exist_ok=True)
+        
+        key_count = 0
+        for key_file in ssh_keys_dir.iterdir():
+            if key_file.is_file() and not key_file.name.endswith('.pub'):
+                try:
+                    dest = ipmi_ssh_dir / key_file.name
+                    shutil.copy2(key_file, dest)
+                    os.chmod(dest, 0o600)
+                    ssh_keys.append({
+                        "name": key_file.stem,
+                        "path": str(dest)
+                    })
+                    key_count += 1
+                except Exception as e:
+                    pass
+        
+        if key_count > 0:
+            console.print(f"[green]✓[/green] Copied {key_count} SSH keys from DC Overview")
+    
+    return ssh_keys, servers
+
+
 def run_quickstart():
     """Main quickstart wizard - deploys via Docker."""
     check_root()
@@ -206,15 +337,68 @@ def run_quickstart():
     
     console.print(f"[dim]Detected: {hostname} ({local_ip})[/dim]\n")
     
+    # ============ Check for DC Overview ============
+    dc_config = detect_dc_overview()
+    imported_servers = []
+    imported_ssh_keys = []
+    
+    if dc_config:
+        console.print("[green]✓[/green] DC Overview detected!\n")
+        
+        import_from_dc = questionary.confirm(
+            "Import server IPs and SSH keys from DC Overview?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if import_from_dc:
+            imported_ssh_keys, imported_servers = import_dc_overview_config(dc_config)
+            
+            if imported_servers:
+                console.print(f"\n[bold]Link BMC IPs to Imported Servers[/bold]")
+                console.print("[dim]For each server, provide the BMC/IPMI IP address.[/dim]\n")
+                
+                # Ask for BMC IP for each imported server
+                for srv in imported_servers:
+                    bmc_ip = questionary.text(
+                        f"BMC IP for {srv['name']} (Server: {srv.get('server_ip', 'N/A')}):",
+                        validate=lambda x: looks_like_ip(x) or x == "" or "Invalid IP format",
+                        style=custom_style
+                    ).ask()
+                    
+                    if bmc_ip and looks_like_ip(bmc_ip):
+                        srv["bmc_ip"] = bmc_ip
+                        console.print(f"  [green]✓[/green] {srv['name']}: {bmc_ip}")
+                    else:
+                        console.print(f"  [yellow]⚠[/yellow] {srv['name']}: Skipped (no BMC IP)")
+                
+                # Filter servers that have BMC IPs
+                imported_servers = [s for s in imported_servers if s.get("bmc_ip")]
+                console.print(f"\n[green]✓[/green] {len(imported_servers)} servers linked with BMC IPs")
+    
     # ============ Step 1: Add servers ============
-    console.print("[bold]Step 1: Add Servers to Monitor[/bold]\n")
+    console.print("\n[bold]Step 1: Add Servers to Monitor[/bold]\n")
+    
+    # Build choices based on whether we have imported servers
+    add_choices = []
+    if imported_servers:
+        add_choices.append(questionary.Choice(
+            f"Use imported servers only ({len(imported_servers)} servers)", 
+            value="imported"
+        ))
+        add_choices.append(questionary.Choice(
+            "Add more servers (in addition to imported)", 
+            value="add_more"
+        ))
+    
+    add_choices.extend([
+        questionary.Choice("Just one server", value="single"),
+        questionary.Choice("Multiple servers (same credentials)", value="bulk"),
+    ])
     
     server_count = questionary.select(
-        "How many servers do you want to monitor?",
-        choices=[
-            questionary.Choice("Just one server", value="single"),
-            questionary.Choice("Multiple servers (same credentials)", value="bulk"),
-        ],
+        "How do you want to add servers?",
+        choices=add_choices,
         style=custom_style
     ).ask()
     
@@ -224,7 +408,15 @@ def run_quickstart():
     
     servers = []
     
-    if server_count == "single":
+    if server_count == "imported":
+        # Use only imported servers
+        servers = imported_servers
+    elif server_count == "add_more":
+        # Start with imported, then add more
+        servers = imported_servers.copy()
+        more_servers = add_servers_bulk()
+        servers.extend(more_servers)
+    elif server_count == "single":
         server = add_server_interactive()
         if server:
             servers.append(server)
