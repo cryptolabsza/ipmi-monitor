@@ -1039,11 +1039,8 @@ def add_servers_manual() -> List[Dict]:
             if not ssh_pass:
                 add_ssh = False
         else:
-            ssh_key = questionary.text(
-                "SSH key path:",
-                default="/root/.ssh/id_rsa",
-                style=custom_style
-            ).ask()
+            # Use improved SSH key prompt with auto-detection
+            ssh_key = prompt_ssh_key(custom_style)
             if not ssh_key:
                 add_ssh = False
     
@@ -1223,11 +1220,8 @@ def add_server_interactive() -> Optional[Dict]:
             else:
                 return server
         else:
-            ssh_key = questionary.text(
-                "SSH key path:",
-                default="/root/.ssh/id_rsa",
-                style=custom_style
-            ).ask()
+            # Use improved SSH key prompt with auto-detection
+            ssh_key = prompt_ssh_key(custom_style)
             if ssh_key:
                 server["ssh_key"] = ssh_key
             else:
@@ -1339,6 +1333,290 @@ def read_ssh_key_file(key_path: str) -> Optional[str]:
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Could not read SSH key: {e}")
         return None
+
+
+def get_ssh_key_fingerprint(key_path: str) -> Optional[str]:
+    """Get SSH key fingerprint for display."""
+    try:
+        key_path = os.path.expanduser(key_path)
+        # Try to get fingerprint from public key first
+        pub_key_path = key_path + '.pub'
+        target_path = pub_key_path if os.path.exists(pub_key_path) else key_path
+        
+        result = subprocess.run(
+            ['ssh-keygen', '-lf', target_path],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            # Format: "256 SHA256:xxx... comment (ED25519)"
+            parts = result.stdout.strip().split()
+            if len(parts) >= 2:
+                return f"{parts[1]} ({parts[-1].strip('()')})" if len(parts) >= 4 else parts[1]
+        return None
+    except Exception:
+        return None
+
+
+def detect_ssh_keys() -> List[Dict]:
+    """Detect available SSH keys in common locations."""
+    keys = []
+    home = os.path.expanduser("~")
+    ssh_dir = os.path.join(home, ".ssh")
+    
+    # Common key names
+    key_names = [
+        "id_ed25519",
+        "id_rsa", 
+        "id_ecdsa",
+        "id_dsa",
+        "ubuntu_key",
+        "server_key",
+        "deploy_key"
+    ]
+    
+    for key_name in key_names:
+        key_path = os.path.join(ssh_dir, key_name)
+        if os.path.exists(key_path):
+            # Verify it's a private key
+            try:
+                with open(key_path, 'r') as f:
+                    first_line = f.readline()
+                if 'PRIVATE KEY' in first_line or '-----BEGIN' in first_line:
+                    fingerprint = get_ssh_key_fingerprint(key_path)
+                    keys.append({
+                        'path': key_path,
+                        'name': key_name,
+                        'fingerprint': fingerprint
+                    })
+            except:
+                pass
+    
+    # Also check for any .pem files
+    if os.path.exists(ssh_dir):
+        for f in os.listdir(ssh_dir):
+            if f.endswith('.pem'):
+                key_path = os.path.join(ssh_dir, f)
+                if key_path not in [k['path'] for k in keys]:
+                    fingerprint = get_ssh_key_fingerprint(key_path)
+                    keys.append({
+                        'path': key_path,
+                        'name': f,
+                        'fingerprint': fingerprint
+                    })
+    
+    return keys
+
+
+def generate_ssh_key() -> Optional[Dict]:
+    """Generate a new SSH key pair and return path and public key."""
+    home = os.path.expanduser("~")
+    ssh_dir = os.path.join(home, ".ssh")
+    os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
+    
+    # Find unused key name
+    base_name = "ipmi_monitor_key"
+    key_path = os.path.join(ssh_dir, base_name)
+    counter = 1
+    while os.path.exists(key_path):
+        key_path = os.path.join(ssh_dir, f"{base_name}_{counter}")
+        counter += 1
+    
+    try:
+        console.print(f"\n[dim]Generating ED25519 key pair...[/dim]")
+        result = subprocess.run(
+            ['ssh-keygen', '-t', 'ed25519', '-f', key_path, '-N', '', '-C', 'ipmi-monitor'],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if result.returncode == 0:
+            # Read public key
+            pub_key_path = key_path + '.pub'
+            with open(pub_key_path, 'r') as f:
+                pub_key = f.read().strip()
+            
+            fingerprint = get_ssh_key_fingerprint(key_path)
+            
+            return {
+                'path': key_path,
+                'pub_key': pub_key,
+                'fingerprint': fingerprint
+            }
+        else:
+            console.print(f"[red]✗[/red] Key generation failed: {result.stderr}")
+            return None
+    except Exception as e:
+        console.print(f"[red]✗[/red] Key generation error: {e}")
+        return None
+
+
+def prompt_ssh_key(custom_style) -> Optional[str]:
+    """
+    Interactive SSH key selection with multiple options:
+    - Select from detected keys
+    - Enter path manually  
+    - Paste key content
+    - Generate new key
+    
+    Returns the key path to use (or None if cancelled).
+    """
+    console.print()
+    
+    # Detect existing keys
+    detected_keys = detect_ssh_keys()
+    
+    # Build choices
+    choices = []
+    
+    if detected_keys:
+        console.print("[dim]Detected SSH keys:[/dim]")
+        for key in detected_keys:
+            fp_str = f" ({key['fingerprint']})" if key['fingerprint'] else ""
+            console.print(f"  • {key['name']}: {key['path']}{fp_str}")
+        console.print()
+        
+        for key in detected_keys:
+            fp_str = f" - {key['fingerprint'][:20]}..." if key['fingerprint'] else ""
+            choices.append(questionary.Choice(f"Use {key['name']}{fp_str}", value=('select', key['path'])))
+    
+    choices.extend([
+        questionary.Choice("📁 Enter key path manually", value=('manual', None)),
+        questionary.Choice("📋 Paste private key content", value=('paste', None)),
+        questionary.Choice("🔑 Generate new SSH key", value=('generate', None)),
+    ])
+    
+    action = questionary.select(
+        "SSH Key Authentication:",
+        choices=choices,
+        style=custom_style
+    ).ask()
+    
+    if action is None:
+        return None
+    
+    action_type, value = action
+    
+    if action_type == 'select':
+        key_path = value
+        # Show key details
+        content = read_ssh_key_file(key_path)
+        if content:
+            fingerprint = get_ssh_key_fingerprint(key_path)
+            console.print(f"[green]✓[/green] Key loaded: {key_path}")
+            if fingerprint:
+                console.print(f"  Fingerprint: {fingerprint}")
+            return key_path
+        return None
+    
+    elif action_type == 'manual':
+        key_path = questionary.text(
+            "SSH key path:",
+            default="/root/.ssh/id_rsa",
+            style=custom_style
+        ).ask()
+        
+        if not key_path:
+            return None
+        
+        # Verify and show details
+        content = read_ssh_key_file(key_path)
+        if content:
+            fingerprint = get_ssh_key_fingerprint(key_path)
+            console.print(f"[green]✓[/green] Key loaded: {key_path}")
+            if fingerprint:
+                console.print(f"  Fingerprint: {fingerprint}")
+            return key_path
+        
+        # Key not found or invalid - offer to retry or cancel
+        retry = questionary.confirm(
+            "Key not found or invalid. Try another path?",
+            default=True,
+            style=custom_style
+        ).ask()
+        
+        if retry:
+            return prompt_ssh_key(custom_style)
+        return None
+    
+    elif action_type == 'paste':
+        console.print("\n[dim]Paste your private key below (press Enter twice when done):[/dim]")
+        console.print("[dim]The key should start with '-----BEGIN' and end with 'PRIVATE KEY-----'[/dim]\n")
+        
+        lines = []
+        empty_count = 0
+        while True:
+            try:
+                line = input()
+                if line == '':
+                    empty_count += 1
+                    if empty_count >= 2:
+                        break
+                    lines.append(line)
+                else:
+                    empty_count = 0
+                    lines.append(line)
+            except EOFError:
+                break
+        
+        key_content = '\n'.join(lines).strip()
+        
+        if not key_content.startswith('-----BEGIN') or 'PRIVATE KEY' not in key_content:
+            console.print("[red]✗[/red] Invalid key format. Must be a PEM-encoded private key.")
+            return None
+        
+        # Save to temp file for validation and use
+        home = os.path.expanduser("~")
+        ssh_dir = os.path.join(home, ".ssh")
+        os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
+        
+        key_path = os.path.join(ssh_dir, "ipmi_monitor_pasted_key")
+        counter = 1
+        while os.path.exists(key_path):
+            key_path = os.path.join(ssh_dir, f"ipmi_monitor_pasted_key_{counter}")
+            counter += 1
+        
+        with open(key_path, 'w') as f:
+            f.write(key_content)
+        os.chmod(key_path, 0o600)
+        
+        fingerprint = get_ssh_key_fingerprint(key_path)
+        console.print(f"[green]✓[/green] Key saved to: {key_path}")
+        if fingerprint:
+            console.print(f"  Fingerprint: {fingerprint}")
+        
+        return key_path
+    
+    elif action_type == 'generate':
+        result = generate_ssh_key()
+        if not result:
+            return None
+        
+        console.print(f"\n[green]✓[/green] New SSH key generated!")
+        console.print(f"  Private key: {result['path']}")
+        console.print(f"  Fingerprint: {result['fingerprint']}")
+        
+        console.print("\n[bold yellow]━━━ PUBLIC KEY ━━━[/bold yellow]")
+        console.print(f"\n[cyan]{result['pub_key']}[/cyan]\n")
+        console.print("[bold yellow]━━━━━━━━━━━━━━━━━━[/bold yellow]")
+        
+        console.print("\n[bold]To allow SSH access, add this public key to your servers:[/bold]")
+        console.print("  1. Copy the public key above")
+        console.print("  2. On each server, add it to: [cyan]~/.ssh/authorized_keys[/cyan]")
+        console.print("  3. Ensure permissions: [cyan]chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys[/cyan]")
+        console.print("\n[dim]Or use: ssh-copy-id -i {}.pub root@<server-ip>[/dim]".format(result['path']))
+        
+        # Confirm they've added the key
+        proceed = questionary.confirm(
+            "\nHave you added the public key to your servers?",
+            default=False,
+            style=custom_style
+        ).ask()
+        
+        if not proceed:
+            console.print("[dim]You can add the key later and re-run quickstart.[/dim]")
+        
+        return result['path']
+    
+    return None
 
 
 # ============================================================================
