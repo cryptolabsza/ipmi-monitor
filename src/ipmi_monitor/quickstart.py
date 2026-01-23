@@ -889,10 +889,10 @@ http {{
             return 200 '{{"status":"ok","proxy":"running"}}';
         }}
 
-        # Services health (for landing page)
+        # Services health (for landing page) - only show installed services
         location /api/services {{
             default_type application/json;
-            return 200 '{{"ipmi-monitor":{{"running":true,"url":"/ipmi/"}},"dc-overview":{{"running":false}},"grafana":{{"running":false}},"prometheus":{{"running":false}}}}';
+            return 200 '{{"ipmi-monitor":{{"running":true,"url":"/ipmi/"}}}}';
         }}
 
         # IPMI Monitor at /ipmi/
