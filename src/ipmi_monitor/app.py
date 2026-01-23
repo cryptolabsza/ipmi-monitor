@@ -6322,6 +6322,29 @@ from queue import Queue, Empty
 _collection_queue = Queue()
 _sensor_queue = Queue()
 
+# Initial setup tracking - for first-run data collection
+_initial_setup = {
+    'in_progress': False,
+    'complete': False,
+    'started_at': None,
+    'phase': 'idle',  # idle, sensors, events, inventory, ssh_logs, complete
+    'current_server': 0,
+    'total_servers': 0,
+    'current_server_name': '',
+    'errors': []
+}
+_initial_setup_lock = _threading.Lock()
+
+def get_initial_setup_status():
+    """Get current initial setup progress (thread-safe)"""
+    with _initial_setup_lock:
+        return _initial_setup.copy()
+
+def update_initial_setup(updates):
+    """Update initial setup progress (thread-safe)"""
+    with _initial_setup_lock:
+        _initial_setup.update(updates)
+
 # Configuration
 # Default workers to CPU count, can be overridden by env var or settings
 CPU_COUNT = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
@@ -7670,6 +7693,142 @@ def background_collector():
     # Keep main collector thread alive (for compatibility with existing startup code)
     while not _shutdown_event.is_set():
         _shutdown_event.wait(60)
+
+
+def run_initial_collection():
+    """Run initial data collection for fresh install.
+    
+    This collects sensors, events, inventory, and SSH logs for all servers
+    to populate the database with initial data.
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    with app.app_context():
+        # Check if we already have data (not a fresh install)
+        sensor_count = SensorReading.query.count()
+        event_count = IpmiEvent.query.count()
+        
+        if sensor_count > 0 or event_count > 0:
+            # Already have data, mark as complete
+            update_initial_setup({
+                'complete': True,
+                'in_progress': False,
+                'phase': 'complete'
+            })
+            print("[Initial Setup] Data already exists, skipping initial collection", flush=True)
+            return
+        
+        servers = Server.query.filter_by(enabled=True).all()
+        if not servers:
+            update_initial_setup({
+                'complete': True,
+                'in_progress': False,
+                'phase': 'complete'
+            })
+            print("[Initial Setup] No servers configured, skipping initial collection", flush=True)
+            return
+        
+        update_initial_setup({
+            'in_progress': True,
+            'complete': False,
+            'started_at': datetime.utcnow().isoformat(),
+            'phase': 'sensors',
+            'total_servers': len(servers),
+            'current_server': 0,
+            'errors': []
+        })
+        
+        print(f"[Initial Setup] Starting initial collection for {len(servers)} servers...", flush=True)
+        
+        errors = []
+        
+        # Phase 1: Collect sensors and events for all servers
+        print("[Initial Setup] Phase 1: Collecting sensors and events...", flush=True)
+        update_initial_setup({'phase': 'sensors'})
+        
+        for idx, server in enumerate(servers, 1):
+            update_initial_setup({
+                'current_server': idx,
+                'current_server_name': server.server_name or server.bmc_ip
+            })
+            
+            try:
+                # Collect sensors
+                print(f"[Initial Setup] [{idx}/{len(servers)}] Collecting sensors for {server.server_name}...", flush=True)
+                collect_single_server_sensors(server.bmc_ip, server.server_name)
+                
+                # Collect events (SEL)
+                print(f"[Initial Setup] [{idx}/{len(servers)}] Collecting events for {server.server_name}...", flush=True)
+                collect_single_server_events(server.bmc_ip, server.server_name)
+                
+            except Exception as e:
+                error_msg = f"{server.server_name}: {str(e)}"
+                errors.append(error_msg)
+                print(f"[Initial Setup] Error: {error_msg}", flush=True)
+        
+        # Phase 2: Collect inventory
+        print("[Initial Setup] Phase 2: Collecting inventory...", flush=True)
+        update_initial_setup({'phase': 'inventory', 'current_server': 0})
+        
+        for idx, server in enumerate(servers, 1):
+            update_initial_setup({
+                'current_server': idx,
+                'current_server_name': server.server_name or server.bmc_ip
+            })
+            
+            try:
+                if server.server_ip and server.ssh_key_id:
+                    print(f"[Initial Setup] [{idx}/{len(servers)}] Collecting inventory for {server.server_name}...", flush=True)
+                    ssh_key = SSHKey.query.get(server.ssh_key_id)
+                    if ssh_key:
+                        collect_server_inventory(
+                            server.server_ip,
+                            server.ssh_user or 'root',
+                            server.ssh_port or 22,
+                            ssh_key.key_path,
+                            server.server_name
+                        )
+            except Exception as e:
+                error_msg = f"Inventory {server.server_name}: {str(e)}"
+                errors.append(error_msg)
+        
+        # Phase 3: Collect SSH logs (if enabled)
+        ssh_log_enabled = SystemSettings.get('enable_ssh_log_collection', 'false') == 'true'
+        if ssh_log_enabled:
+            print("[Initial Setup] Phase 3: Collecting SSH logs...", flush=True)
+            update_initial_setup({'phase': 'ssh_logs', 'current_server': 0})
+            
+            for idx, server in enumerate(servers, 1):
+                update_initial_setup({
+                    'current_server': idx,
+                    'current_server_name': server.server_name or server.bmc_ip
+                })
+                
+                try:
+                    if server.server_ip and server.ssh_key_id:
+                        ssh_key = SSHKey.query.get(server.ssh_key_id)
+                        if ssh_key:
+                            collect_ssh_logs_for_server(
+                                server.server_ip,
+                                server.ssh_user or 'root',
+                                server.ssh_port or 22,
+                                ssh_key.key_path,
+                                server.server_name
+                            )
+                except Exception as e:
+                    error_msg = f"SSH logs {server.server_name}: {str(e)}"
+                    errors.append(error_msg)
+        
+        # Mark complete
+        update_initial_setup({
+            'in_progress': False,
+            'complete': True,
+            'phase': 'complete',
+            'errors': errors
+        })
+        
+        print(f"[Initial Setup] Complete! Errors: {len(errors)}", flush=True)
+
 
 def collect_all_sensors_background():
     """Collect sensors from all servers in background (parallel)"""
@@ -14403,6 +14562,44 @@ def health_check():
     return jsonify(health_status), status_code
 
 
+@app.route('/api/initial-setup/status')
+def api_initial_setup_status():
+    """Get status of initial data collection after fresh install"""
+    status = get_initial_setup_status()
+    
+    # Calculate progress percentage
+    if status['total_servers'] > 0:
+        progress = int((status['current_server'] / status['total_servers']) * 100)
+    else:
+        progress = 0 if not status['complete'] else 100
+    
+    return jsonify({
+        'in_progress': status['in_progress'],
+        'complete': status['complete'],
+        'phase': status['phase'],
+        'progress': progress,
+        'current': status['current_server'],
+        'total': status['total_servers'],
+        'current_server': status['current_server_name'],
+        'errors': status['errors'][-5:] if status['errors'] else []  # Last 5 errors
+    })
+
+
+@app.route('/api/initial-setup/trigger', methods=['POST'])
+@admin_required
+def api_trigger_initial_setup():
+    """Manually trigger initial data collection"""
+    status = get_initial_setup_status()
+    
+    if status['in_progress']:
+        return jsonify({'error': 'Initial setup already in progress'}), 400
+    
+    # Trigger initial collection in background
+    threading.Thread(target=run_initial_collection, daemon=True).start()
+    
+    return jsonify({'message': 'Initial collection started'})
+
+
 @app.route('/api/version')
 def api_version():
     """Get current version and build information"""
@@ -18359,6 +18556,16 @@ def create_app(config_dir=None):
         # Start background collector thread
         collector_thread = threading.Thread(target=background_collector, daemon=True)
         collector_thread.start()
+        
+        # Check if initial collection is needed (fresh install)
+        # Run after a short delay to allow DB init to complete
+        def delayed_initial_check():
+            import time
+            time.sleep(5)  # Wait for startup to complete
+            run_initial_collection()
+        
+        initial_thread = threading.Thread(target=delayed_initial_check, daemon=True)
+        initial_thread.start()
     
     return app
 

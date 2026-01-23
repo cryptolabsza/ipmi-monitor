@@ -2631,6 +2631,186 @@
             return BASE_PATH + path;
         }
         
+        // ============== Initial Setup Progress ==============
+        let initialSetupInterval = null;
+        let initialSetupDismissed = false;
+        
+        async function checkInitialSetup() {
+            if (initialSetupDismissed) return;
+            
+            try {
+                const response = await fetch(apiUrl('/api/initial-setup/status'));
+                const data = await response.json();
+                
+                if (data.complete) {
+                    // Initial setup done, hide modal if shown
+                    hideInitialSetupModal();
+                    if (initialSetupInterval) {
+                        clearInterval(initialSetupInterval);
+                        initialSetupInterval = null;
+                    }
+                    return;
+                }
+                
+                if (data.in_progress) {
+                    showInitialSetupModal(data);
+                    // Poll every 2 seconds while in progress
+                    if (!initialSetupInterval) {
+                        initialSetupInterval = setInterval(checkInitialSetup, 2000);
+                    }
+                }
+            } catch (e) {
+                console.error('Error checking initial setup:', e);
+            }
+        }
+        
+        function showInitialSetupModal(data) {
+            let modal = document.getElementById('initialSetupModal');
+            if (!modal) {
+                // Create modal
+                modal = document.createElement('div');
+                modal.id = 'initialSetupModal';
+                modal.className = 'initial-setup-modal';
+                modal.innerHTML = `
+                    <div class="initial-setup-content">
+                        <div class="initial-setup-header">
+                            <h3>🚀 Initial Data Collection</h3>
+                            <button class="initial-setup-close" onclick="dismissInitialSetup()">&times;</button>
+                        </div>
+                        <div class="initial-setup-body">
+                            <p>IPMI Monitor is collecting initial data from your servers. This happens once after a fresh install.</p>
+                            <div class="initial-setup-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="initialSetupProgress" style="width: 0%"></div>
+                                </div>
+                                <div class="progress-text">
+                                    <span id="initialSetupPhase">Starting...</span>
+                                    <span id="initialSetupCount">0/0</span>
+                                </div>
+                                <div class="progress-server" id="initialSetupServer"></div>
+                            </div>
+                        </div>
+                        <div class="initial-setup-footer">
+                            <button class="btn btn-secondary" onclick="dismissInitialSetup()">Continue in Background</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+                
+                // Add styles
+                const style = document.createElement('style');
+                style.textContent = `
+                    .initial-setup-modal {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0,0,0,0.7);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 10000;
+                    }
+                    .initial-setup-content {
+                        background: var(--bg-card, #1e1e2d);
+                        border-radius: 12px;
+                        padding: 24px;
+                        max-width: 480px;
+                        width: 90%;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+                    }
+                    .initial-setup-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 16px;
+                    }
+                    .initial-setup-header h3 {
+                        margin: 0;
+                        color: var(--accent-primary, #00d4ff);
+                    }
+                    .initial-setup-close {
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        cursor: pointer;
+                        color: var(--text-secondary, #888);
+                    }
+                    .initial-setup-body p {
+                        color: var(--text-secondary, #aaa);
+                        margin-bottom: 20px;
+                    }
+                    .initial-setup-progress {
+                        margin-bottom: 16px;
+                    }
+                    .progress-bar {
+                        height: 8px;
+                        background: var(--bg-secondary, #2a2a3d);
+                        border-radius: 4px;
+                        overflow: hidden;
+                        margin-bottom: 8px;
+                    }
+                    .progress-fill {
+                        height: 100%;
+                        background: linear-gradient(90deg, #00d4ff, #00ff88);
+                        transition: width 0.3s ease;
+                    }
+                    .progress-text {
+                        display: flex;
+                        justify-content: space-between;
+                        font-size: 14px;
+                        color: var(--text-primary, #fff);
+                    }
+                    .progress-server {
+                        font-size: 12px;
+                        color: var(--text-secondary, #888);
+                        margin-top: 4px;
+                    }
+                    .initial-setup-footer {
+                        text-align: right;
+                        margin-top: 16px;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // Update progress
+            const phaseNames = {
+                'sensors': 'Collecting Sensors & Events',
+                'inventory': 'Collecting Inventory',
+                'ssh_logs': 'Collecting SSH Logs',
+                'complete': 'Complete'
+            };
+            
+            document.getElementById('initialSetupProgress').style.width = data.progress + '%';
+            document.getElementById('initialSetupPhase').textContent = phaseNames[data.phase] || data.phase;
+            document.getElementById('initialSetupCount').textContent = `${data.current}/${data.total}`;
+            document.getElementById('initialSetupServer').textContent = data.current_server ? `Current: ${data.current_server}` : '';
+            
+            modal.style.display = 'flex';
+        }
+        
+        function hideInitialSetupModal() {
+            const modal = document.getElementById('initialSetupModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function dismissInitialSetup() {
+            initialSetupDismissed = true;
+            hideInitialSetupModal();
+            // Keep polling in background but don't show modal
+        }
+        
+        // Check initial setup on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Delay check slightly to allow page to render first
+            setTimeout(checkInitialSetup, 1000);
+        });
+        // ============== End Initial Setup Progress ==============
+        
         // Theme management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
