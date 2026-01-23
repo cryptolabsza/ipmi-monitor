@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v1.1.0 | **Last Updated:** 2026-01-22
+**Version:** v1.1.0 | **Last Updated:** 2026-01-23
 
 ---
 
@@ -335,7 +335,12 @@ Shows System Event Log (SEL) entries with:
 #### Event Actions
 
 - **Clear DB Events** - Remove from IPMI Monitor only (BMC unaffected)
-- **Clear BMC SEL** - Clear actual BMC log (⚠️ Admin only, use carefully)
+- **SEL Management** dropdown (Admin/Read-Write only):
+  - **SEL Info** - View SEL version, entries, free space, last add/erase time
+  - **Enable Event Logging** - Turn on SEL event collection on BMC
+  - **Disable Event Logging** - Turn off SEL event collection (use carefully!)
+  - **Get SEL Time** - Check BMC's internal clock
+  - **Clear SEL Log** - Clear actual BMC log (⚠️ Cannot be undone)
 
 ### Sensors Tab
 
@@ -344,6 +349,13 @@ Real-time sensor readings including:
 - Voltage sensors (3.3V, 5V, 12V, battery)
 - Fan speeds (RPM)
 - Power consumption (Watts)
+
+#### Refresh Sensors
+
+Click **🔄 Refresh Sensors** to collect fresh data from the BMC. After refresh:
+- Values that **changed** are highlighted with a **green pulse** animation
+- The highlight fades after 2 seconds
+- A console at the top shows collection progress
 
 #### Temperature Guidelines
 
@@ -383,6 +395,21 @@ Hardware information collected via IPMI FRU, Redfish, and SSH:
 | SSH to OS | Exact CPU model, memory config, drives | SSH enabled + credentials |
 
 > 💡 **Tip**: Enable SSH in Settings → SSH tab for the most detailed inventory data.
+
+### Diagnostics Tab
+
+Admin and Read-Write users have access to the Diagnostics section for troubleshooting:
+
+| Download | Description |
+|----------|-------------|
+| **Raw SEL Log** | Unparsed IPMI SEL events directly from BMC |
+| **Raw Sensor Data** | All sensors with thresholds in raw format |
+| **SSH Logs** | dmesg, journalctl, GPU logs collected via SSH |
+| **Full Diagnostic Package** | Everything bundled in a ZIP file |
+
+**Loading States:** All download buttons show progress (e.g., "Collecting SEL...") and are disabled during collection to prevent duplicate downloads.
+
+**Custom Commands:** Admins can execute custom IPMI or SSH commands directly from the Diagnostics section.
 
 ---
 
@@ -795,6 +822,33 @@ Store SSH keys centrally and assign them to servers:
 
 > 💡 Keys should be in OpenSSH format, starting with `-----BEGIN OPENSSH PRIVATE KEY-----`
 
+#### Quickstart SSH Key Options
+
+When running `ipmi-monitor quickstart`, you have multiple options for SSH authentication:
+
+| Option | Description |
+|--------|-------------|
+| **Select Detected Key** | Auto-detects keys in `~/.ssh/` (id_rsa, id_ed25519, etc.) with fingerprint |
+| **Enter Path Manually** | Specify a custom path to your private key |
+| **Paste Key Content** | Paste the private key directly (saved to `~/.ssh/ipmi_monitor_pasted_key`) |
+| **Generate New Key** | Creates ED25519 key pair and prints public key with instructions |
+
+When generating a new key, you'll see:
+```
+✓ New SSH key generated!
+  Private key: /root/.ssh/ipmi_monitor_key
+  Fingerprint: SHA256:xxxxx... (ED25519)
+
+━━━ PUBLIC KEY ━━━
+ssh-ed25519 AAAAC3NzaC1... ipmi-monitor
+━━━━━━━━━━━━━━━━━━
+
+To allow SSH access, add this public key to your servers:
+  1. Copy the public key above
+  2. On each server, add it to: ~/.ssh/authorized_keys
+  3. Ensure permissions: chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys
+```
+
 #### Per-Server Overrides
 
 Each server can have custom SSH settings:
@@ -911,11 +965,16 @@ IPMI Monitor provides a built-in Prometheus exporter for integration with your e
 
 ### Metrics Endpoint
 
-Metrics are exposed at `/metrics` in Prometheus text format:
+Metrics are exposed at `/metrics` on the same port as the web interface (default: 5000):
 
 ```
-http://your-ipmi-monitor:5000/metrics
+http://ipmi-monitor:5000/metrics
 ```
+
+**Common target configurations:**
+- `ipmi-monitor:5000` - Docker network (using container name)
+- `localhost:5000` - Same host as Prometheus
+- `192.168.1.50:5000` - Remote IP address
 
 ### Available Metrics
 

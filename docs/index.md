@@ -132,13 +132,16 @@ After installation, use the `ipmi-monitor` CLI:
 | Feature | Description |
 |---------|-------------|
 | 📦 **Quickstart Wizard** | One-command Docker deployment with nginx, SSL, Watchtower |
-| 🔐 **SSH Key Auto-Import** | Keys from quickstart auto-imported to database |
+| 🔐 **SSH Key Management** | Auto-detect keys, paste content, or generate new ED25519 keys |
 | 🌐 **Subpath Routing** | Deploy at `/ipmi/` alongside other services |
 | 🔄 **Watchtower Integration** | Automatic container updates every 5 minutes |
 | 👤 **Read-Write Role** | New role with settings access but no user management |
 | 📥 **Fixed Export/Import** | Alert rules now export/import correctly |
 | 🎨 **Fleet Landing Page** | Nginx serves a landing page at `/` linking to services |
-| ⚡ **Refresh Buttons** | Server detail page: refresh sensors/events from BMC |
+| 📋 **SEL Management** | Enable/disable event logging, view SEL info, get SEL time |
+| 💚 **Sensor Highlighting** | Changed sensor values pulse green after refresh |
+| ⏳ **Diagnostics Loading States** | Download buttons show progress to prevent double-clicks |
+| 📊 **Grafana Config** | prometheus.yml example and endpoint documentation |
 | 🛡️ **Uninstall Options** | Choose to remove containers, config, or both |
 
 ### 🤖 AI Features (Optional)
