@@ -397,6 +397,20 @@
         .sensor-card.critical { border-left: 4px solid var(--accent-red); }
         .sensor-card.nr { border-left: 4px solid var(--accent-purple); }
         
+        /* Highlight animation for changed sensor values */
+        .sensor-card.sensor-changed {
+            animation: sensorPulse 2s ease-out;
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.6);
+        }
+        .sensor-card.sensor-changed .sensor-value {
+            color: #4ade80;
+        }
+        @keyframes sensorPulse {
+            0% { box-shadow: 0 0 20px rgba(74, 222, 128, 0.8); background: rgba(74, 222, 128, 0.15); }
+            50% { box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); background: rgba(74, 222, 128, 0.1); }
+            100% { box-shadow: none; background: var(--bg-secondary); }
+        }
+        
         .sensor-name {
             font-size: 0.85rem;
             color: var(--text-secondary);
@@ -1673,6 +1687,9 @@ No data collected yet. Click "Refresh" to collect system information.
             }
         }
         
+        // Store previous sensor values for change detection
+        let previousSensorValues = {};
+        
         // Load sensors (cached data) or collect fresh from BMC
         async function loadSensors(collectFresh = false) {
             const container = document.getElementById('sensorsContainer');
@@ -1726,6 +1743,17 @@ No data collected yet. Click "Refresh" to collect system information.
                     return;
                 }
                 
+                // Build map of changed sensors
+                const changedSensors = new Set();
+                sensors.forEach(s => {
+                    const key = s.sensor_name;
+                    const prevVal = previousSensorValues[key];
+                    if (collectFresh && prevVal !== undefined && prevVal !== s.value) {
+                        changedSensors.add(key);
+                    }
+                    previousSensorValues[key] = s.value;
+                });
+                
                 // Group sensors by type
                 const grouped = {};
                 sensors.forEach(s => {
@@ -1746,12 +1774,15 @@ No data collected yet. Click "Refresh" to collect system information.
                         <div class="sensor-type-section">
                             <div class="sensor-type-title ${type}">${typeTitle}</div>
                             <div class="sensors-grid">
-                                ${grouped[type].map(s => `
-                                    <div class="sensor-card ${s.status || 'ok'}">
+                                ${grouped[type].map(s => {
+                                    const changed = changedSensors.has(s.sensor_name);
+                                    return `
+                                    <div class="sensor-card ${s.status || 'ok'}${changed ? ' sensor-changed' : ''}" data-sensor="${s.sensor_name}">
                                         <div class="sensor-name">${s.sensor_name}</div>
                                         <div class="sensor-value">${s.value !== null ? s.value + ' ' + (s.unit || '') : 'N/A'}</div>
                                     </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                     `;
@@ -1765,12 +1796,15 @@ No data collected yet. Click "Refresh" to collect system information.
                             <div class="sensor-type-section">
                                 <div class="sensor-type-title other">${typeTitle}</div>
                                 <div class="sensors-grid">
-                                    ${grouped[type].map(s => `
-                                        <div class="sensor-card ${s.status || 'ok'}">
+                                    ${grouped[type].map(s => {
+                                        const changed = changedSensors.has(s.sensor_name);
+                                        return `
+                                        <div class="sensor-card ${s.status || 'ok'}${changed ? ' sensor-changed' : ''}" data-sensor="${s.sensor_name}">
                                             <div class="sensor-name">${s.sensor_name}</div>
                                             <div class="sensor-value">${s.value !== null ? s.value + ' ' + (s.unit || '') : 'N/A'}</div>
                                         </div>
-                                    `).join('')}
+                                        `;
+                                    }).join('')}
                                 </div>
                             </div>
                         `;
@@ -1778,6 +1812,15 @@ No data collected yet. Click "Refresh" to collect system information.
                 });
                 
                 container.innerHTML = html || '<div class="no-sensors">No sensor data available</div>';
+                
+                // Remove highlight after animation
+                if (changedSensors.size > 0) {
+                    setTimeout(() => {
+                        document.querySelectorAll('.sensor-changed').forEach(el => {
+                            el.classList.remove('sensor-changed');
+                        });
+                    }, 2000);
+                }
                 
             } catch (e) {
                 console.error('Failed to load sensors:', e);
