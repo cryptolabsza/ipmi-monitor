@@ -508,6 +508,25 @@ def run_quickstart():
     if enable_watchtower is None:
         enable_watchtower = True
     
+    # ============ Step 5b: SSH Log Collection ============
+    # Only ask if servers have SSH configured
+    has_ssh_servers = any(s.get('server_ip') for s in servers)
+    enable_ssh_logs = False
+    
+    if has_ssh_servers:
+        console.print("\n[bold]Step 5b: SSH Log Collection (Optional)[/bold]\n")
+        console.print("[dim]Collect system logs from servers via SSH (dmesg, syslog, GPU errors).[/dim]")
+        console.print("[dim]Useful for troubleshooting hardware issues.[/dim]\n")
+        
+        enable_ssh_logs = questionary.confirm(
+            "Enable SSH log collection?",
+            default=False,
+            style=custom_style
+        ).ask()
+        
+        if enable_ssh_logs is None:
+            enable_ssh_logs = False
+    
     # ============ Step 6: Image Channel ============
     console.print("\n[bold]Step 6: Image Channel[/bold]\n")
     console.print("[dim]Choose which Docker image channel to use.[/dim]\n")
@@ -622,6 +641,9 @@ SECRET_KEY={generate_secret_key()}
 # Default IPMI credentials
 IPMI_USER={default_ipmi_user}
 IPMI_PASS={default_ipmi_pass}
+
+# SSH Log Collection
+ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
 """
     if license_key:
         env_content += f"\n# AI Features\nAI_LICENSE_KEY={license_key}\n"

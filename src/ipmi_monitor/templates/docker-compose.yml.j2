@@ -23,6 +23,7 @@ services:
       - IPMI_USER=${IPMI_USER:-admin}
       - IPMI_PASS=${IPMI_PASS}
       - POLL_INTERVAL={{ poll_interval | default(300) }}
+      - ENABLE_SSH_LOGS=${ENABLE_SSH_LOGS:-false}
 {% if enable_proxy %}
       - APPLICATION_ROOT=/ipmi
       - SESSION_COOKIE_SECURE=true

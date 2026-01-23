@@ -2229,6 +2229,9 @@ class SystemSettings(db.Model):
     @staticmethod
     def initialize_defaults():
         """Initialize default settings"""
+        # Check environment variables for overrides
+        enable_ssh_logs = os.environ.get('ENABLE_SSH_LOGS', 'false').lower()
+        
         defaults = {
             'allow_anonymous_read': 'false',  # SECURITY: Require login by default (safer)
             'session_timeout_hours': '24',
@@ -2236,10 +2239,16 @@ class SystemSettings(db.Model):
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
             'collect_vastai_logs': 'false',  # Optional: Collect Vast.ai daemon logs
             'collect_runpod_logs': 'false',  # Optional: Collect RunPod agent logs
+            'enable_ssh_log_collection': enable_ssh_logs,  # SSH log collection (set by quickstart)
+            'ssh_log_interval': '15',  # SSH log collection interval in minutes
         }
         for key, value in defaults.items():
-            if not SystemSettings.query.filter_by(key=key).first():
+            existing = SystemSettings.query.filter_by(key=key).first()
+            if not existing:
                 db.session.add(SystemSettings(key=key, value=value))
+            elif key == 'enable_ssh_log_collection' and enable_ssh_logs == 'true':
+                # Override from env var if explicitly enabled
+                existing.value = enable_ssh_logs
         db.session.commit()
 
 # Backwards compatibility alias
