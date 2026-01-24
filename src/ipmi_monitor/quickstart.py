@@ -211,6 +211,45 @@ def detect_dc_overview() -> Optional[Dict]:
     }
 
 
+def detect_existing_proxy() -> Optional[Dict]:
+    """Detect if cryptolabs-proxy is already running and get its config."""
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", "cryptolabs-proxy", "--format", "{{.State.Status}}"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0 and result.stdout.strip() == "running":
+            config = {"running": True}
+            
+            # Try to get domain from nginx config
+            nginx_conf = CONFIG_DIR / "nginx.conf"
+            if nginx_conf.exists():
+                import re
+                content = nginx_conf.read_text()
+                match = re.search(r'server_name\s+([^;]+);', content)
+                if match:
+                    domain = match.group(1).strip()
+                    # Filter out placeholder values
+                    if domain and domain not in ('_', 'localhost', ''):
+                        config["domain"] = domain
+                
+                # Check SSL mode
+                if '/etc/letsencrypt/' in content:
+                    config["ssl_mode"] = "letsencrypt"
+                elif '/etc/nginx/ssl/' in content or 'ssl_certificate' in content:
+                    config["ssl_mode"] = "self_signed"
+            
+            # Check if SSL certs exist
+            ssl_dir = CONFIG_DIR / "ssl"
+            if ssl_dir.exists():
+                config["ssl_dir"] = str(ssl_dir)
+            
+            return config
+    except Exception:
+        pass
+    return None
+
+
 def import_dc_overview_config(dc_config: Dict) -> tuple:
     """Import SSH credentials and server IPs from DC Overview.
     
@@ -549,46 +588,70 @@ def run_quickstart():
     console.print("[dim]Set up reverse proxy with SSL for secure remote access.[/dim]")
     console.print("[dim]Uses CryptoLabs Proxy with Fleet Management landing page.[/dim]\n")
     
-    setup_proxy = questionary.confirm(
-        "Set up HTTPS reverse proxy?",
-        default=True,
-        style=custom_style
-    ).ask()
-    
-    if setup_proxy is None:
-        setup_proxy = False
+    # Check for existing proxy
+    existing_proxy = detect_existing_proxy()
+    proxy_already_running = existing_proxy and existing_proxy.get("running")
     
     domain = None
     letsencrypt_email = None
     use_letsencrypt = False
+    setup_proxy = False
     
-    if setup_proxy:
-        use_domain = questionary.confirm(
-            "Do you have a domain name pointing to this server?",
-            default=False,
+    if proxy_already_running:
+        console.print("[bold green]✓ CryptoLabs Proxy Already Running![/bold green]")
+        console.print("[dim]Using existing proxy configuration.[/dim]\n")
+        
+        # Show detected config
+        if existing_proxy.get("domain"):
+            console.print(f"  Domain: [cyan]{existing_proxy['domain']}[/cyan]")
+            domain = existing_proxy["domain"]
+        
+        ssl_mode = existing_proxy.get("ssl_mode", "self_signed")
+        if ssl_mode == "letsencrypt":
+            console.print("  SSL: [cyan]Let's Encrypt[/cyan]")
+            use_letsencrypt = True
+        else:
+            console.print("  SSL: [cyan]Self-signed certificate[/cyan]")
+        
+        console.print("\n[dim]No additional proxy configuration needed.[/dim]")
+        setup_proxy = True  # Mark as using proxy, but won't create new one
+    else:
+        setup_proxy = questionary.confirm(
+            "Set up HTTPS reverse proxy?",
+            default=True,
             style=custom_style
         ).ask()
         
-        if use_domain:
-            domain = questionary.text(
-                "Domain name (e.g., ipmi.example.com):",
-                validate=lambda x: True if (len(x) > 0 and '.' in x) else "Please enter a valid domain",
+        if setup_proxy is None:
+            setup_proxy = False
+        
+        if setup_proxy:
+            use_domain = questionary.confirm(
+                "Do you have a domain name pointing to this server?",
+                default=False,
                 style=custom_style
             ).ask()
             
-            use_letsencrypt = questionary.confirm(
-                "Use Let's Encrypt for a free trusted certificate?",
-                default=True,
-                style=custom_style
-            ).ask()
-            
-            if use_letsencrypt:
-                console.print("[dim]Let's Encrypt requires ports 80 and 443 to be open.[/dim]")
-                letsencrypt_email = questionary.text(
-                    "Email for Let's Encrypt notifications:",
-                    validate=lambda x: '@' in x,
+            if use_domain:
+                domain = questionary.text(
+                    "Domain name (e.g., ipmi.example.com):",
+                    validate=lambda x: True if (len(x) > 0 and '.' in x) else "Please enter a valid domain",
                     style=custom_style
                 ).ask()
+                
+                use_letsencrypt = questionary.confirm(
+                    "Use Let's Encrypt for a free trusted certificate?",
+                    default=True,
+                    style=custom_style
+                ).ask()
+                
+                if use_letsencrypt:
+                    console.print("[dim]Let's Encrypt requires ports 80 and 443 to be open.[/dim]")
+                    letsencrypt_email = questionary.text(
+                        "Email for Let's Encrypt notifications:",
+                        validate=lambda x: '@' in x,
+                        style=custom_style
+                    ).ask()
     
     # ============ Step 8: Deploy ============
     console.print("\n[bold]Step 8: Deploying IPMI Monitor[/bold]\n")
@@ -683,8 +746,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
     (CONFIG_DIR / "docker-compose.yml").write_text(compose_content)
     console.print(f"[green]✓[/green] Docker Compose configuration saved")
     
-    # Generate nginx config if proxy enabled
-    if setup_proxy:
+    # Generate nginx config if proxy enabled (and not already running)
+    if setup_proxy and not proxy_already_running:
         # Always generate self-signed cert first (nginx needs certs to start)
         generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
         
@@ -700,6 +763,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
         
         console.print(f"[green]✓[/green] Proxy configuration saved (self-signed)")
+    elif proxy_already_running:
+        console.print(f"[green]✓[/green] Using existing proxy configuration")
     
     # Pull Docker images
     with Progress(SpinnerColumn(), TextColumn(f"Pulling IPMI Monitor image ({image_tag})..."), console=console) as progress:
@@ -714,8 +779,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
     else:
         console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
     
-    # Pull proxy image if proxy is enabled
-    if setup_proxy:
+    # Pull proxy image if proxy is enabled and not already running
+    if setup_proxy and not proxy_already_running:
         with Progress(SpinnerColumn(), TextColumn(f"Pulling CryptoLabs Proxy image ({proxy_tag})..."), console=console) as progress:
             progress.add_task("", total=None)
             result = subprocess.run(
@@ -739,8 +804,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         console.print(f"[red]✗[/red] Failed to start: {output}")
         return
     
-    # Handle Let's Encrypt certificate
-    if setup_proxy and use_letsencrypt and domain and letsencrypt_email:
+    # Handle Let's Encrypt certificate (only for new proxy setup)
+    if setup_proxy and not proxy_already_running and use_letsencrypt and domain and letsencrypt_email:
         console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
         obtain_letsencrypt_cert(CONFIG_DIR, domain, letsencrypt_email)
     
