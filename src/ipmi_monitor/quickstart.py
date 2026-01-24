@@ -325,6 +325,9 @@ def add_ipmi_route_to_proxy():
     nginx_path.write_text(new_content)
     console.print(f"[green]✓[/green] Added /ipmi/ route to proxy")
     
+    # Update /api/services endpoint to include all running services
+    update_api_services_in_nginx(nginx_path)
+    
     # Reload nginx in the proxy container
     try:
         result = subprocess.run(
@@ -341,6 +344,50 @@ def add_ipmi_route_to_proxy():
             console.print(f"[yellow]⚠[/yellow] Nginx config test failed")
     except Exception as e:
         console.print(f"[yellow]⚠[/yellow] Could not reload proxy: {e}")
+
+
+def update_api_services_in_nginx(nginx_path: Path):
+    """Update /api/services endpoint to include all running services."""
+    import re
+    import json
+    
+    content = nginx_path.read_text()
+    
+    # Check which containers are running
+    services = {}
+    containers_to_check = [
+        ('ipmi-monitor', 'ipmi-monitor'),
+        ('dc-overview', 'dc-overview'),
+        ('grafana', 'grafana'),
+        ('prometheus', 'prometheus'),
+    ]
+    
+    for service_name, container_name in containers_to_check:
+        try:
+            result = subprocess.run(
+                ["docker", "inspect", container_name, "--format", "{{.State.Running}}"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip() == "true":
+                services[service_name] = {"running": True}
+        except Exception:
+            pass
+    
+    # Build JSON string
+    services_json = json.dumps(services)
+    
+    # Find and replace the /api/services location block
+    api_services_pattern = r'location /api/services \{[^}]+\}'
+    
+    new_api_services = f'''location /api/services {{
+            default_type application/json;
+            return 200 '{services_json}';
+        }}'''
+    
+    if re.search(api_services_pattern, content):
+        new_content = re.sub(api_services_pattern, new_api_services, content)
+        nginx_path.write_text(new_content)
+        console.print(f"[green]✓[/green] Updated /api/services with {len(services)} services")
 
 
 def import_dc_overview_config(dc_config: Dict) -> tuple:
@@ -1079,10 +1126,11 @@ http {{
             return 200 '{{"status":"ok","proxy":"running"}}';
         }}
 
-        # Services health (for landing page) - only show installed services
+        # Services health (for landing page)
+        # Updated by dc-overview when installed to include grafana/prometheus
         location /api/services {{
             default_type application/json;
-            return 200 '{{"ipmi-monitor":{{"running":true,"url":"/ipmi/"}}}}';
+            return 200 '{{"ipmi-monitor":{{"running":true}}}}';
         }}
 
         # IPMI Monitor at /ipmi/
