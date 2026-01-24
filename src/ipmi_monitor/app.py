@@ -662,10 +662,64 @@ def is_api_request():
             request.headers.get('Accept', '').startswith('application/json') or
             request.headers.get('X-Requested-With') == 'XMLHttpRequest')
 
+# =============================================================================
+# PROXY AUTHENTICATION (Unified Fleet Auth)
+# =============================================================================
+# When running behind cryptolabs-proxy with unified authentication,
+# the proxy forwards authentication headers that we can trust.
+
+PROXY_AUTH_HEADER_USER = 'X-Fleet-Auth-User'
+PROXY_AUTH_HEADER_ROLE = 'X-Fleet-Auth-Role'
+PROXY_AUTH_HEADER_TOKEN = 'X-Fleet-Auth-Token'
+PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
+
+def is_proxy_authenticated():
+    """
+    Check if request came through an authenticated proxy.
+    
+    When running behind cryptolabs-proxy with unified auth,
+    the proxy forwards authentication headers that we can trust.
+    Returns True and sets up session if authenticated via proxy.
+    """
+    # Check if the proxy auth flag is set
+    if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
+        username = request.headers.get(PROXY_AUTH_HEADER_USER)
+        if username:
+            # Map proxy roles to IPMI Monitor roles
+            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'admin')
+            ipmi_role = 'admin' if proxy_role == 'admin' else 'readwrite'
+            
+            # Auto-authenticate the session if not already logged in
+            if not session.get('logged_in'):
+                session['logged_in'] = True
+                session['username'] = username
+                session['user_role'] = ipmi_role
+                session['auth_via'] = 'fleet_proxy'
+                app.logger.info(f"Auto-authenticated via Fleet proxy: {username} ({ipmi_role})")
+            return True
+    return False
+
+def check_auth_with_proxy():
+    """Check if user is authenticated (via session or proxy)."""
+    # First check for proxy authentication
+    if is_proxy_authenticated():
+        return True
+    # Then check session
+    return session.get('logged_in', False)
+
+def is_running_behind_proxy():
+    """Check if we're running behind the fleet proxy."""
+    return request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true'
+
 def admin_required(f):
     """Decorator to require admin login for a route"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            if session.get('user_role') == 'admin':
+                return f(*args, **kwargs)
+        
         if not session.get('logged_in') or session.get('user_role') != 'admin':
             if is_api_request():
                 return jsonify({'error': 'Admin authentication required'}), 401
@@ -677,6 +731,10 @@ def view_required(f):
     """Decorator for read-only endpoints - allows anonymous if enabled, otherwise requires login"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            return f(*args, **kwargs)
+        
         if session.get('logged_in'):
             return f(*args, **kwargs)
         # Check if anonymous access is allowed
@@ -691,6 +749,10 @@ def login_required(f):
     """Decorator to require any logged-in user (admin, readwrite, or readonly) - no anonymous"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            return f(*args, **kwargs)
+        
         if not session.get('logged_in'):
             if is_api_request():
                 return jsonify({'error': 'Authentication required'}), 401
@@ -702,6 +764,12 @@ def write_required(f):
     """Decorator for write operations - requires admin or readwrite role"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            role = session.get('user_role', 'readonly')
+            if role in ['admin', 'readwrite']:
+                return f(*args, **kwargs)
+        
         if not session.get('logged_in'):
             if is_api_request():
                 return jsonify({'error': 'Authentication required'}), 401
