@@ -39,11 +39,13 @@ sudo ~/.local/bin/ipmi-monitor quickstart
 ```
 
 **That's it!** The wizard will:
-- ✅ Detect or manually add your servers
+- ✅ Detect DC Overview and import existing servers/SSH keys
+- ✅ Detect or manually add your servers with BMC IPs
 - ✅ Configure IPMI and SSH credentials  
-- ✅ Deploy Docker containers (ipmi-monitor + nginx + watchtower)
-- ✅ Set up SSL with Let's Encrypt (optional)
+- ✅ Deploy Docker containers (ipmi-monitor + cryptolabs-proxy + watchtower)
+- ✅ Set up SSL with Let's Encrypt (with auto-renewal)
 - ✅ Enable automatic updates via Watchtower
+- ✅ Trigger initial data collection on first start
 
 ### Docker Run (Alternative)
 
@@ -131,13 +133,17 @@ After installation, use the `ipmi-monitor` CLI:
 
 | Feature | Description |
 |---------|-------------|
-| 📦 **Quickstart Wizard** | One-command Docker deployment with nginx, SSL, Watchtower |
+| 📦 **Quickstart Wizard** | One-command Docker deployment with CryptoLabs Proxy, SSL, Watchtower |
+| 🌐 **CryptoLabs Proxy** | Unified reverse proxy with Fleet Management landing page at `/` |
+| 🔗 **DC Overview Import** | Auto-detect DC Overview installation and import servers/SSH keys |
 | 🔐 **SSH Key Management** | Auto-detect keys, paste content, or generate new ED25519 keys |
-| 🌐 **Subpath Routing** | Deploy at `/ipmi/` alongside other services |
+| 📜 **SSH Log Collection** | Optional SSH log collection (dmesg, syslog, GPU errors) during setup |
+| 🚀 **Initial Data Collection** | Fresh installs auto-collect sensors/events with progress modal |
+| 🔒 **Auto SSL Renewal** | Certbot container automatically obtains/renews Let's Encrypt certs |
+| 🌐 **Subpath Routing** | Deploy at `/ipmi/` alongside other CryptoLabs services |
 | 🔄 **Watchtower Integration** | Automatic container updates every 5 minutes |
 | 👤 **Read-Write Role** | New role with settings access but no user management |
 | 📥 **Fixed Export/Import** | Alert rules now export/import correctly |
-| 🎨 **Fleet Landing Page** | Nginx serves a landing page at `/` linking to services |
 | 📋 **SEL Management** | Enable/disable event logging, view SEL info, get SEL time |
 | 💚 **Sensor Highlighting** | Changed sensor values pulse green after refresh |
 | ⏳ **Diagnostics Loading States** | Download buttons show progress to prevent double-clicks |
@@ -191,28 +197,30 @@ IPMI Monitor is designed for production datacenter environments:
 
 ## 🏗️ Architecture
 
-IPMI Monitor runs as a Docker container with an optional nginx reverse proxy:
+IPMI Monitor runs as Docker containers with CryptoLabs Proxy for unified reverse proxy:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Your Server                              │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ nginx (optional)           Port 443 (HTTPS)           │  │
-│  │  ├── /          → Landing page                        │  │
-│  │  └── /ipmi/     → IPMI Monitor                        │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                          │                                   │
-│  ┌───────────────────────▼───────────────────────────────┐  │
-│  │ ipmi-monitor (Docker)       Port 5000                 │  │
-│  │  • Flask web application                              │  │
-│  │  • SQLite database (/var/lib/ipmi-monitor/)           │  │
-│  │  • Background workers (IPMI polling, SSH collection)  │  │
-│  └───────────────────────────────────────────────────────┘  │
-│                          │                                   │
-│  ┌───────────────────────▼───────────────────────────────┐  │
-│  │ watchtower (optional)       Auto-updates              │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                         Your Server                                 │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │ cryptolabs-proxy           Port 80/443 (HTTP/HTTPS)          │  │
+│  │  ├── /          → Fleet Management Landing Page              │  │
+│  │  ├── /ipmi/     → IPMI Monitor                               │  │
+│  │  └── /dc/       → DC Overview (if installed)                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                           │                                         │
+│  ┌────────────────────────▼──────────────────────────────────────┐ │
+│  │ ipmi-monitor              Port 5000 (internal)                │ │
+│  │  • Flask web application with SQLite                          │ │
+│  │  • Background workers (IPMI polling, SSH log collection)      │ │
+│  │  • Initial data collection on first start                     │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                           │                                         │
+│  ┌────────────────────────▼──────────────────────────────────────┐ │
+│  │ certbot                  Auto SSL renewal (every 12h)         │ │
+│  │ watchtower               Auto container updates (every 5m)    │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────┘
               │                              │
               ▼                              ▼
     ┌─────────────────┐          ┌─────────────────┐
@@ -221,7 +229,7 @@ IPMI Monitor runs as a Docker container with an optional nginx reverse proxy:
     └─────────────────┘          └─────────────────┘
 ```
 
-**Live Example:** [dc.cryptolabs.co.za](https://dc.cryptolabs.co.za) - Landing page with IPMI Monitor at `/ipmi/`
+**Live Example:** [dc.cryptolabs.co.za](https://dc.cryptolabs.co.za) - Fleet Management at `/`, IPMI Monitor at `/ipmi/`
 
 ---
 

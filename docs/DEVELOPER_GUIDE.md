@@ -257,7 +257,7 @@ docker exec ipmi-monitor env | grep -E "GIT_|BUILD_|APP_"
 
 | Tag | Source | Stability | Use Case |
 |-----|--------|-----------|----------|
-| `v1.6.0` | Git tag | ⭐ Stable | Production (pinned) |
+| `v1.1.0` | Git tag | ⭐ Stable | Production (pinned) |
 | `latest` | Latest release tag | ⭐ Stable | Production (auto-update) |
 | `stable` | Latest release tag | ⭐ Stable | Production alias |
 | `main` | main branch | 🔶 Pre-release | Staging |
@@ -268,7 +268,7 @@ docker exec ipmi-monitor env | grep -E "GIT_|BUILD_|APP_"
 
 ```bash
 # Production (recommended)
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.6.0
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.0
 
 # Latest stable
 docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
@@ -276,8 +276,8 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
 # Development build
 docker pull ghcr.io/cryptolabsza/ipmi-monitor:dev
 
-# Specific commit
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:sha-306b173
+# CryptoLabs Proxy (required for quickstart with HTTPS)
+docker pull ghcr.io/cryptolabsza/cryptolabs-proxy:latest
 ```
 
 ---
@@ -290,6 +290,7 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:sha-306b173
 - All CI checks passing
 - No known critical bugs
 - Documentation updated
+- **CryptoLabs Proxy** - Ensure `ghcr.io/cryptolabsza/cryptolabs-proxy` is also released with matching tag if changes were made
 
 ### Step-by-Step Release
 
@@ -297,18 +298,18 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:sha-306b173
 
 Create a list of changes since last release:
 ```bash
-git log v1.5.0..dev --oneline
+git log v1.0.0..dev --oneline
 ```
 
 #### 2. Create Release PR
 
 ```bash
-# Ensure develop is up to date
+# Ensure dev is up to date
 git checkout dev
 git pull origin dev
 
-# Create PR on GitHub: develop → main
-# Title: "Release v1.6.0"
+# Create PR on GitHub: dev → main
+# Title: "Release v1.1.0"
 # Description: Include release notes
 ```
 
@@ -325,32 +326,39 @@ git checkout main
 git pull origin main
 
 # Create annotated tag
-git tag -a v1.6.0 -m "Release v1.6.0
+git tag -a v1.1.0 -m "Release v1.1.0
 
 ## New Features
-- Alert resolution notifications
-- GPU recovery agent
-- Bulk credential management
+- Quickstart wizard with CryptoLabs Proxy integration
+- DC Overview detection and import
+- SSH log collection option during setup
+- Initial data collection on fresh installs
+- Certbot auto-renewal for Let's Encrypt
+- Enhanced SSH key management (detect, paste, generate)
 
 ## Improvements
-- Dashboard performance
-- Modal scrolling fix
+- Unified cryptolabs-proxy for reverse proxy
+- SEL management dropdown (enable/disable/info/time)
+- Sensor value change highlighting
+- Diagnostics loading states
+- Grafana integration instructions
 
 ## Bug Fixes
-- Database migration issues
-- Server display problems
+- Export/import alert rules
+- Let's Encrypt fallback to self-signed
+- Nginx config for single-service installations
 "
 
 # Push tag to trigger CI
-git push origin v1.6.0
+git push origin v1.1.0
 ```
 
 #### 5. Create GitHub Release
 
 1. Go to: https://github.com/cryptolabsza/ipmi-monitor/releases
 2. Click "Draft a new release"
-3. Select tag: `v1.6.0`
-4. Title: `v1.6.0`
+3. Select tag: `v1.1.0`
+4. Title: `v1.1.0`
 5. Copy release notes from tag
 6. Check "Set as the latest release"
 7. Click "Publish release"
@@ -359,10 +367,13 @@ git push origin v1.6.0
 
 ```bash
 # Check new image is available
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.6.0
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.0
 
 # Verify tags
 docker images | grep ipmi-monitor
+
+# Also verify cryptolabs-proxy is available
+docker pull ghcr.io/cryptolabsza/cryptolabs-proxy:latest
 ```
 
 #### 7. Update Develop Branch

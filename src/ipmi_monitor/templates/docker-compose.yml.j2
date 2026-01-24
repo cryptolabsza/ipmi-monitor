@@ -150,5 +150,9 @@ volumes:
 # =============================================================================
 networks:
   cryptolabs:
+{% if use_existing_proxy %}
+    external: true
+{% else %}
     name: cryptolabs
     driver: bridge
+{% endif %}

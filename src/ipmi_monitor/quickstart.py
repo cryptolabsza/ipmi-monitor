@@ -250,6 +250,99 @@ def detect_existing_proxy() -> Optional[Dict]:
     return None
 
 
+def add_ipmi_route_to_proxy():
+    """Add /ipmi/ route to existing cryptolabs-proxy nginx config."""
+    import re
+    
+    # Find the nginx config
+    nginx_paths = [
+        CONFIG_DIR / "nginx.conf",
+        Path("/etc/dc-overview/nginx.conf"),
+        Path("/etc/cryptolabs-proxy/nginx.conf"),
+    ]
+    
+    nginx_path = None
+    for path in nginx_paths:
+        if path.exists():
+            nginx_path = path
+            break
+    
+    if not nginx_path:
+        console.print("[yellow]⚠[/yellow] Could not find proxy nginx config")
+        return
+    
+    content = nginx_path.read_text()
+    
+    # Check if /ipmi/ route already exists
+    if '/ipmi/' in content:
+        console.print("[green]✓[/green] IPMI route already configured in proxy")
+        return
+    
+    # Add /ipmi/ location block
+    ipmi_location = '''
+        # IPMI Monitor
+        location /ipmi/ {
+            proxy_pass http://ipmi-monitor:5000/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Script-Name /ipmi;
+            proxy_read_timeout 300s;
+            proxy_connect_timeout 10s;
+        }
+'''
+    
+    # Find insertion point - before the root location / block
+    root_location_pattern = r'(\s+# Fleet Management Landing Page.*?\n\s+location / \{)'
+    match = re.search(root_location_pattern, content, re.DOTALL)
+    
+    if match:
+        insert_pos = match.start()
+        new_content = content[:insert_pos] + ipmi_location + content[insert_pos:]
+    else:
+        # Try simpler pattern
+        alt_pattern = r'(\s+location / \{[^}]+\})\s*\n\s*\}\s*\n\}'
+        match = re.search(alt_pattern, content, re.DOTALL)
+        if match:
+            insert_pos = match.start()
+            new_content = content[:insert_pos] + ipmi_location + content[insert_pos:]
+        else:
+            # Try to insert before "# Default" or last location block
+            default_pattern = r'(\s+# Default.*?\n\s+location / \{)'
+            match = re.search(default_pattern, content, re.DOTALL)
+            if match:
+                insert_pos = match.start()
+                new_content = content[:insert_pos] + ipmi_location + content[insert_pos:]
+            else:
+                console.print("[yellow]⚠[/yellow] Could not find insertion point in nginx.conf")
+                return
+    
+    # Write updated config
+    nginx_path.write_text(new_content)
+    console.print(f"[green]✓[/green] Added /ipmi/ route to proxy")
+    
+    # Reload nginx in the proxy container
+    try:
+        result = subprocess.run(
+            ["docker", "exec", "cryptolabs-proxy", "nginx", "-t"],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            subprocess.run(
+                ["docker", "exec", "cryptolabs-proxy", "nginx", "-s", "reload"],
+                capture_output=True, text=True, timeout=10
+            )
+            console.print("[green]✓[/green] Proxy configuration reloaded")
+        else:
+            console.print(f"[yellow]⚠[/yellow] Nginx config test failed")
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] Could not reload proxy: {e}")
+
+
 def import_dc_overview_config(dc_config: Dict) -> tuple:
     """Import SSH credentials and server IPs from DC Overview.
     
@@ -726,6 +819,9 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
     # Get certbot email (might be set even if LE initially failed due to rate limiting)
     certbot_email = letsencrypt_email if 'letsencrypt_email' in dir() and letsencrypt_email else None
     
+    # Only include proxy in docker-compose if we're setting up a new one
+    start_new_proxy = setup_proxy and not proxy_already_running
+    
     compose_content = template.render(
         image_tag=image_tag,
         proxy_tag=proxy_tag,
@@ -734,7 +830,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         poll_interval=300,
         ai_enabled=enable_ai,
         enable_watchtower=enable_watchtower,
-        enable_proxy=setup_proxy,
+        enable_proxy=start_new_proxy,
+        use_existing_proxy=proxy_already_running,  # Use external network if proxy exists
         use_letsencrypt=use_letsencrypt,
         letsencrypt_domain=domain if use_letsencrypt else None,
         domain=domain,
@@ -765,6 +862,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         console.print(f"[green]✓[/green] Proxy configuration saved (self-signed)")
     elif proxy_already_running:
         console.print(f"[green]✓[/green] Using existing proxy configuration")
+        # Add /ipmi/ route to existing proxy
+        add_ipmi_route_to_proxy()
     
     # Pull Docker images
     with Progress(SpinnerColumn(), TextColumn(f"Pulling IPMI Monitor image ({image_tag})..."), console=console) as progress:

@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v1.1.0 | **Last Updated:** 2026-01-23
+**Version:** v1.1.0 | **Last Updated:** 2026-01-24
 
 ---
 
@@ -82,11 +82,37 @@ sudo ~/.local/bin/ipmi-monitor quickstart
 ```
 
 The wizard will:
-1. Detect your servers via network scan or manual entry
-2. Configure IPMI and SSH credentials
-3. Set up Docker containers with reverse proxy
-4. Configure Let's Encrypt SSL (optional)
-5. Enable Watchtower for automatic updates
+1. **Detect DC Overview** - If DC Overview is installed, import servers and SSH keys
+2. **Add servers** - Link imported servers with BMC IPs, or add new ones
+3. **Configure credentials** - Set up IPMI and SSH authentication
+4. **SSH log collection** - Optionally enable SSH log collection (dmesg, syslog, GPU errors)
+5. **Deploy containers** - Set up ipmi-monitor + cryptolabs-proxy + watchtower
+6. **Configure SSL** - Let's Encrypt with auto-renewal, or self-signed
+7. **Initial collection** - Fresh installs automatically collect data on first start
+
+#### DC Overview Import
+
+If DC Overview is already installed, the quickstart wizard automatically:
+- Detects `/etc/dc-overview/` configuration
+- Offers to import server IPs and SSH keys from `prometheus.yml`
+- Copies SSH keys to `/etc/ipmi-monitor/ssh_keys/`
+- Prompts you to link each server with its BMC IP
+
+This makes it easy to add IPMI monitoring to an existing GPU monitoring setup.
+
+#### Initial Data Collection
+
+On a fresh installation, IPMI Monitor automatically performs an initial data collection:
+- Collects sensors and events from all configured BMCs
+- Gathers hardware inventory
+- Collects SSH logs (if enabled)
+
+A progress modal appears in the dashboard showing:
+- Current phase (sensors, events, inventory, SSH logs)
+- Progress (X/Y servers)
+- Option to "Continue in Background" to dismiss
+
+This ensures your dashboard has data immediately after setup.
 
 ### Option 2: Manual Setup
 
@@ -517,10 +543,24 @@ IPMI Monitor parses SSH authentication logs to detect:
 
 ### Enabling Collection
 
+**During Quickstart:**
+If you have servers with SSH configured, the wizard asks:
+```
+Step 5b: SSH Log Collection (Optional)
+
+Collect system logs from servers via SSH (dmesg, syslog, GPU errors).
+Useful for troubleshooting hardware issues.
+
+? Enable SSH log collection? (y/N)
+```
+
+**After Installation:**
 1. Go to **Settings → SSH**
 2. Enable **SSH Log Collection**
 3. Set collection interval (5-60 minutes)
 4. Set retention period (3-30 days)
+
+The setting is stored in the `ENABLE_SSH_LOGS` environment variable and persists across container restarts.
 
 ### Viewing Logs
 

@@ -23,26 +23,30 @@
 
 ## ✨ Features
 
+### Core Features
 - 🔍 **Event Collection** - Automatically collect IPMI SEL logs (parallel, 32 workers)
 - 📊 **Real-time Dashboard** - Auto-refreshing every second with server status cards
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
 - 💾 **ECC Memory Tracking** - Identify which DIMM has errors
 - 🎮 **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH (Xid errors)
 - 📜 **SSH System Logs** - Collect dmesg, journalctl, syslog, mcelog, **Docker daemon logs** via SSH
-- 🐳 **Docker Log Collection** - Monitor Docker daemon errors (storage-opt, overlay, pquota issues)
 - 🔧 **Hardware Error Detection** - AER, PCIe, ECC errors parsed automatically
 - 🔄 **Uptime & Reboot Detection** - Track unexpected server reboots
 - 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
-- ✅ **Alert Resolution** - Notifications when issues are resolved
-- ⏱️ **Alert Confirmation** - Threshold checks to avoid false positives
 - 📈 **Prometheus Metrics** - Native `/metrics` endpoint for Grafana
-- 🔐 **User Management** - Admin and read-only access levels
+- 🔐 **User Management** - Admin, read-write, and read-only access levels
 - 📥 **Full Backup/Restore** - Export everything: servers, credentials, SSH keys, alerts
-- 🐳 **Docker Ready** - Multi-arch images (amd64/arm64)
-- 🔄 **Version Display** - Shows version, git commit, and build time in header
-- ⬆️ **Update Notifications** - Checks GitHub for newer releases
-- 🔧 **Bulk Credentials** - Apply SSH/IPMI credentials to multiple servers at once
-- 🔃 **BMC Reset** - Cold/warm reset BMC without affecting host OS
+
+### New in v1.1.0
+- 📦 **Quickstart Wizard** - One-command Docker deployment with CryptoLabs Proxy
+- 🌐 **CryptoLabs Proxy** - Unified reverse proxy with Fleet Management landing page
+- 🔗 **DC Overview Import** - Auto-detect and import servers from DC Overview
+- 🔐 **SSH Key Management** - Auto-detect keys, paste content, or generate ED25519 keys
+- 📜 **SSH Log Collection** - Optional during setup (dmesg, syslog, GPU errors)
+- 🚀 **Initial Data Collection** - Fresh installs auto-collect with progress modal
+- 🔒 **Auto SSL Renewal** - Certbot container for automatic Let's Encrypt cert renewal
+- 📋 **SEL Management** - Enable/disable event logging, view SEL info, get SEL time
+- 💚 **Sensor Highlighting** - Changed values pulse green after refresh
 - 🤖 **Optional AI Features** - Enable AI-powered insights via Settings → AI Features
 
 ---
@@ -81,48 +85,53 @@ sudo ipmi-monitor quickstart
 ╰──────────────────────────────────────────────────╯
 
 ✓ Docker is installed
+✓ DC Overview detected!
 
-Detected: my-server (192.168.1.100)
+? Import server IPs and SSH keys from DC Overview? [Y/n]: y
+✓ Found 3 servers from DC Overview
+✓ Copied 1 SSH keys from DC Overview
 
-Step 1: Add Server to Monitor
-  Server name: gpu-server-01
-  BMC IP address: 192.168.1.80
-  BMC username: ADMIN
-  BMC password: ******
-  ✓ IPMI connection successful
-  
-  Add SSH access for detailed monitoring? [Y/n]: y
-  Server IP (for SSH): 192.168.1.81
-  SSH username: root
-  SSH password: ******
+Link BMC IPs to Imported Servers:
+  BMC IP for master (Server: 192.168.1.100): 192.168.1.83
+  ✓ master: 192.168.1.83
+  BMC IP for wk01 (Server: 192.168.1.101): 192.168.1.85
+  ✓ wk01: 192.168.1.85
 
-Step 2: Web Interface Settings
-  Web interface port: [5000]
+Step 1: Add Servers to Monitor
+? How do you want to add servers? Use imported servers only (3 servers)
 
-Step 3: Web Admin Password
-  Set a custom admin password? [Y/n]: y
-  Admin password: ******
-
-Step 4: AI Features (Optional)
-  Enable AI Insights? [y/N]: n
+Step 2-4: Web Settings, Password, AI Features...
 
 Step 5: Auto-Updates
-  Enable automatic updates? [Y/n]: y
+? Enable automatic updates? (recommended) [Y/n]: y
 
-Step 6: HTTPS Access (Optional)
-  Set up HTTPS reverse proxy? [y/N]: n
+Step 5b: SSH Log Collection (Optional)
+? Enable SSH log collection? [y/N]: y
 
-Step 7: Deploying IPMI Monitor
+Step 6: Image Channel
+? Docker image channel: stable (latest)
+
+Step 7: HTTPS Access (Optional)
+? Set up HTTPS reverse proxy? [Y/n]: y
+? Domain name: ipmi.example.com
+? Use Let's Encrypt? [Y/n]: y
+
+Step 8: Deploying IPMI Monitor
+  ✓ SSH key copied: default-key
   ✓ Server configuration saved
-  ✓ Environment configuration saved
   ✓ Docker Compose configuration saved
-  ✓ Docker image pulled
+  ✓ Self-signed certificate generated
+  ✓ IPMI Monitor image pulled
+  ✓ CryptoLabs Proxy image pulled
   ✓ IPMI Monitor started
+  ✓ Let's Encrypt certificate obtained
 
 ╭──────────────────────────────────────────────────╮
 │              ✓ Setup Complete!                   │
 ╰──────────────────────────────────────────────────╯
-Web Interface: http://192.168.1.100:5000
+Web Interface: https://ipmi.example.com/
+Servers Monitored: 3
+HTTPS: Enabled ✓
 Auto-Updates: Enabled ✓ (Watchtower)
 ```
 
