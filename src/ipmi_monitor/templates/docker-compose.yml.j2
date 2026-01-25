@@ -73,7 +73,7 @@ services:
 
 {% if enable_proxy %}
   # ===========================================================================
-  # CryptoLabs Proxy - Unified Reverse Proxy with SSL
+  # CryptoLabs Proxy - Unified Reverse Proxy with SSL & Auth
   # ===========================================================================
   cryptolabs-proxy:
     image: ghcr.io/cryptolabsza/cryptolabs-proxy:{{ proxy_tag | default('latest') }}
@@ -82,12 +82,18 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # Fleet authentication (unified login)
+      - FLEET_ADMIN_USER=${FLEET_ADMIN_USER:-admin}
+      - FLEET_ADMIN_PASS=${FLEET_ADMIN_PASS}
+      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./ssl:/etc/nginx/ssl:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+      - fleet_auth_data:/data
     depends_on:
       - ipmi-monitor
     healthcheck:
@@ -144,6 +150,10 @@ services:
 volumes:
   ipmi_data:
     name: ipmi-monitor-data
+{% if enable_proxy %}
+  fleet_auth_data:
+    name: fleet-auth-data
+{% endif %}
 
 # =============================================================================
 # Networks
