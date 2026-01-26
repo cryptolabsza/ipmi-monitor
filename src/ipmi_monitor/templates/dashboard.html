@@ -1707,11 +1707,12 @@
                 <span id="adminButtons" style="display: none;">
                     <button class="btn" style="background: var(--accent-red);" onclick="clearAllSel()">⚠️ Clear All SEL</button>
                     <a href="https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs" target="_blank" class="btn" style="text-decoration: none; background: var(--accent-purple);">📖 Docs</a>
-                    <a href="{{ url_for('settings_page') }}" class="btn btn-secondary" style="text-decoration: none;">⚙️ Settings</a>
+                    <a href="{{ url_for('settings_page') }}" class="btn btn-secondary" style="text-decoration: none;" id="settingsBtn">⚙️ Settings</a>
                 </span>
                 <span id="authButtons">
                     <a href="{{ url_for('login') }}" class="btn btn-secondary" style="text-decoration: none;" id="loginBtn">🔐 Admin Login</a>
                     <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none; display: none;" id="logoutBtn">👤 Logout</a>
+                    <a href="/logout" class="btn btn-secondary" style="text-decoration: none; display: none;" id="fleetLogoutBtn">🚪 Fleet Logout</a>
                 </span>
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme">
                     <span class="icon" id="themeIcon">🌙</span>
@@ -5226,14 +5227,28 @@
                 const response = await fetch(apiUrl('/api/auth/status'));
                 const data = await response.json();
                 
+                const isProxyAuth = data.is_proxy_auth || data.auth_via === 'fleet_proxy';
+                
                 if (data.is_admin) {
                     document.getElementById('adminButtons').style.display = 'inline';
                     document.getElementById('loginBtn').style.display = 'none';
-                    document.getElementById('logoutBtn').style.display = 'inline';
+                    
+                    if (isProxyAuth) {
+                        // When authenticated via Fleet proxy, use fleet logout and hide local settings
+                        document.getElementById('logoutBtn').style.display = 'none';
+                        document.getElementById('fleetLogoutBtn').style.display = 'inline';
+                        // Hide local settings when using fleet auth - use Fleet Management settings instead
+                        const settingsBtn = document.getElementById('settingsBtn');
+                        if (settingsBtn) settingsBtn.style.display = 'none';
+                    } else {
+                        document.getElementById('logoutBtn').style.display = 'inline';
+                        document.getElementById('fleetLogoutBtn').style.display = 'none';
+                    }
                 } else {
                     document.getElementById('adminButtons').style.display = 'none';
-                    document.getElementById('loginBtn').style.display = 'inline';
+                    document.getElementById('loginBtn').style.display = isProxyAuth ? 'none' : 'inline';
                     document.getElementById('logoutBtn').style.display = 'none';
+                    document.getElementById('fleetLogoutBtn').style.display = isProxyAuth ? 'inline' : 'none';
                 }
             } catch (e) {
                 console.error('Failed to check auth:', e);

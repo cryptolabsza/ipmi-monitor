@@ -1761,10 +1761,17 @@
                 <div class="server-item">
                     <div class="server-info">
                         <span class="server-name">Logged in as: <span id="sessionUser">-</span> (<span id="sessionRole">-</span>)</span>
-                        <span class="server-ip">Session is active</span>
+                        <span class="server-ip" id="authViaInfo">Session is active</span>
                     </div>
                     <div class="server-badges">
-                        <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none;">🚪 Logout</a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-secondary" style="text-decoration: none;" id="localLogoutBtn">🚪 Logout</a>
+                        <a href="/logout" class="btn btn-secondary" style="text-decoration: none; display: none;" id="fleetLogoutBtnSettings">🚪 Fleet Logout</a>
+                    </div>
+                </div>
+                <div id="proxyAuthNotice" class="server-item" style="display: none; background: var(--accent-blue-bg); border-left: 3px solid var(--accent-blue);">
+                    <div class="server-info">
+                        <span class="server-name" style="color: var(--accent-blue);">ℹ️ Authenticated via Fleet Management</span>
+                        <span class="server-ip">Some settings are managed through the Fleet Management dashboard. <a href="/" style="color: var(--accent-blue);">Go to Fleet Management</a></span>
                     </div>
                 </div>
             </div>
@@ -3437,6 +3444,15 @@
                 const auth = await authResponse.json();
                 document.getElementById('sessionUser').textContent = auth.username || 'admin';
                 document.getElementById('sessionRole').textContent = (auth.role || 'admin').toUpperCase();
+                
+                // Handle proxy authentication UI
+                const isProxyAuth = auth.is_proxy_auth || auth.auth_via === 'fleet_proxy';
+                if (isProxyAuth) {
+                    document.getElementById('authViaInfo').textContent = 'Authenticated via Fleet Management';
+                    document.getElementById('localLogoutBtn').style.display = 'none';
+                    document.getElementById('fleetLogoutBtnSettings').style.display = 'inline';
+                    document.getElementById('proxyAuthNotice').style.display = 'block';
+                }
                 
                 // Load anonymous setting
                 const settingsResponse = await fetch(apiUrl('/api/settings'), { credentials: 'same-origin' });

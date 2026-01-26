@@ -14832,14 +14832,26 @@ def change_password():
 @app.route('/logout')
 def logout():
     """Logout user"""
+    # Check if user was authenticated via fleet proxy
+    auth_via = session.get('auth_via')
+    
     session.pop('logged_in', None)
     session.pop('username', None)
     session.pop('user_role', None)
+    session.pop('auth_via', None)
+    
+    # If authenticated via fleet proxy, redirect to fleet logout
+    if auth_via == 'fleet_proxy' or is_running_behind_proxy():
+        # Redirect to fleet management logout
+        return redirect('/logout')  # This goes to cryptolabs-proxy's logout
+    
     return redirect(url_for('dashboard'))
 
 @app.route('/api/auth/status')
 def auth_status():
     """Check authentication status and permissions"""
+    # Check for proxy auth first (this auto-logs in the session)
+    is_proxy_authed = is_proxy_authenticated()
     role = get_user_role()
     return jsonify({
         'logged_in': is_logged_in(),
@@ -14849,7 +14861,9 @@ def auth_status():
         'role': role,
         'can_view': can_view(),
         'anonymous_allowed': allow_anonymous_read(),
-        'password_change_required': needs_password_change() if is_logged_in() else False
+        'password_change_required': needs_password_change() if is_logged_in() else False,
+        'auth_via': session.get('auth_via'),  # 'fleet_proxy' if via proxy
+        'is_proxy_auth': is_proxy_authed
     })
 
 @app.route('/api/admin/credentials', methods=['GET'])
