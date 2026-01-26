@@ -549,10 +549,56 @@ def is_api_request():
             request.headers.get('Accept', '').startswith('application/json') or
             request.headers.get('X-Requested-With') == 'XMLHttpRequest')
 
+# =============================================================================
+# PROXY AUTHENTICATION SUPPORT
+# =============================================================================
+# When running behind cryptolabs-proxy, auth is handled by the proxy.
+# The proxy passes X-Fleet-* headers to indicate authenticated user.
+
+PROXY_AUTH_HEADER_USER = 'X-Fleet-Auth-User'
+PROXY_AUTH_HEADER_ROLE = 'X-Fleet-Auth-Role'
+PROXY_AUTH_HEADER_TOKEN = 'X-Fleet-Auth-Token'
+PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
+
+def is_proxy_authenticated():
+    """Check if request is authenticated via proxy headers.
+    
+    When cryptolabs-proxy handles authentication, it sets:
+    - X-Fleet-Authenticated: true
+    - X-Fleet-Auth-User: <username>
+    - X-Fleet-Auth-Role: <admin|readwrite|readonly>
+    """
+    if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
+        username = request.headers.get(PROXY_AUTH_HEADER_USER)
+        if username:
+            # Set session-like data for role checks within this request
+            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'admin')
+            # Store in Flask's g object for this request
+            from flask import g
+            g.proxy_user = username
+            g.proxy_role = proxy_role
+            return True
+    return False
+
+def get_current_user_role():
+    """Get the current user's role from session or proxy headers."""
+    from flask import g
+    if hasattr(g, 'proxy_role'):
+        return g.proxy_role
+    return session.get('user_role', 'readonly')
+
 def admin_required(f):
     """Decorator to require admin login for a route"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            if get_current_user_role() == 'admin':
+                return f(*args, **kwargs)
+            if is_api_request():
+                return jsonify({'error': 'Admin access required'}), 403
+            return redirect(url_for('login', next=request.url))
+        
         if not session.get('logged_in') or session.get('user_role') != 'admin':
             if is_api_request():
                 return jsonify({'error': 'Admin authentication required'}), 401
@@ -564,6 +610,10 @@ def view_required(f):
     """Decorator for read-only endpoints - allows anonymous if enabled, otherwise requires login"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            return f(*args, **kwargs)
+        
         if session.get('logged_in'):
             return f(*args, **kwargs)
         # Check if anonymous access is allowed
@@ -578,6 +628,10 @@ def login_required(f):
     """Decorator to require any logged-in user (admin, readwrite, or readonly) - no anonymous"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            return f(*args, **kwargs)
+        
         if not session.get('logged_in'):
             if is_api_request():
                 return jsonify({'error': 'Authentication required'}), 401
@@ -589,6 +643,15 @@ def write_required(f):
     """Decorator for write operations - requires admin or readwrite role"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # Check proxy auth first
+        if is_proxy_authenticated():
+            role = get_current_user_role()
+            if role in ['admin', 'readwrite']:
+                return f(*args, **kwargs)
+            if is_api_request():
+                return jsonify({'error': 'Write access required. Your role: ' + role}), 403
+            return render_template('login.html', error='Write access required'), 403
+        
         if not session.get('logged_in'):
             if is_api_request():
                 return jsonify({'error': 'Authentication required'}), 401
