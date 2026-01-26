@@ -674,17 +674,23 @@ def is_readwrite():
     return session.get('logged_in') and session.get('user_role') in ['admin', 'readwrite']
 
 def is_logged_in():
-    """Check if user is logged in (any role)"""
+    """Check if user is logged in (any role) - includes proxy auth"""
+    if is_proxy_authenticated():
+        return True
     return session.get('logged_in', False)
 
 def can_view():
     """Check if current user/visitor can view data (logged in OR anonymous allowed)"""
+    if is_proxy_authenticated():
+        return True
     if session.get('logged_in'):
         return True
     return allow_anonymous_read()
 
 def get_user_role():
     """Get current user's role or 'anonymous' if not logged in"""
+    if is_proxy_authenticated():
+        return get_current_user_role()
     if session.get('logged_in'):
         return session.get('user_role', 'readonly')
     return 'anonymous'
