@@ -5234,12 +5234,10 @@
                     document.getElementById('loginBtn').style.display = 'none';
                     
                     if (isProxyAuth) {
-                        // When authenticated via Fleet proxy, use fleet logout and hide local settings
+                        // When authenticated via Fleet proxy, use fleet logout
                         document.getElementById('logoutBtn').style.display = 'none';
                         document.getElementById('fleetLogoutBtn').style.display = 'inline';
-                        // Hide local settings when using fleet auth - use Fleet Management settings instead
-                        const settingsBtn = document.getElementById('settingsBtn');
-                        if (settingsBtn) settingsBtn.style.display = 'none';
+                        // Keep settings visible - IPMI has its own SSH keys and server configs
                     } else {
                         document.getElementById('logoutBtn').style.display = 'inline';
                         document.getElementById('fleetLogoutBtn').style.display = 'none';
