@@ -560,6 +560,36 @@ PROXY_AUTH_HEADER_ROLE = 'X-Fleet-Auth-Role'
 PROXY_AUTH_HEADER_TOKEN = 'X-Fleet-Auth-Token'
 PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
 
+# SECURITY: Trusted proxy IPs - only accept X-Fleet-* headers from these sources
+# Docker internal network IPs, localhost, and configurable via environment
+TRUSTED_PROXY_IPS = set(
+    os.environ.get('TRUSTED_PROXY_IPS', '127.0.0.1,172.17.0.1,172.18.0.1,172.19.0.1,172.20.0.1').split(',')
+)
+
+# Security headers middleware
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    # Prevent clickjacking
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    # Prevent MIME type sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # XSS protection (legacy but still useful)
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    # Referrer policy
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Content Security Policy (basic)
+    if 'text/html' in response.content_type:
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https://ipmi-ai.cryptolabs.co.za"
+        )
+    return response
+
 def is_proxy_authenticated():
     """Check if request is authenticated via proxy headers.
     
@@ -570,7 +600,21 @@ def is_proxy_authenticated():
     
     This function sets session values so that role checks and auth_status
     work correctly with proxy authentication.
+    
+    SECURITY: Only trust headers from known proxy IPs to prevent
+    header spoofing attacks from untrusted sources.
     """
+    # SECURITY: First verify the request comes from a trusted proxy IP
+    client_ip = request.remote_addr
+    if client_ip not in TRUSTED_PROXY_IPS:
+        # Log attempted header spoofing from untrusted source
+        if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
+            app.logger.warning(
+                f"SECURITY: Rejecting proxy auth headers from untrusted IP: {client_ip}. "
+                f"User attempted: {request.headers.get(PROXY_AUTH_HEADER_USER, 'unknown')}"
+            )
+        return False
+    
     if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
         username = request.headers.get(PROXY_AUTH_HEADER_USER)
         if username:
