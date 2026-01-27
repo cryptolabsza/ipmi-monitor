@@ -18506,6 +18506,49 @@ auto_import_ssh_keys()
 auto_load_servers_config()
 
 
+def auto_activate_ai_license():
+    """
+    Auto-activate AI license from AI_LICENSE_KEY environment variable on startup.
+    
+    This allows users to pass the license key via Docker environment variable
+    and have it automatically activated without manual configuration.
+    """
+    with app.app_context():
+        try:
+            license_key = os.environ.get('AI_LICENSE_KEY')
+            if not license_key:
+                app.logger.info("📋 No AI_LICENSE_KEY environment variable set")
+                return
+            
+            # Check if already configured
+            config = CloudSync.get_config()
+            if config.license_key and config.subscription_valid:
+                app.logger.info("📋 AI license already configured and valid")
+                return
+            
+            # Validate and activate the license key
+            app.logger.info(f"🔑 Activating AI license from environment variable...")
+            validation = validate_license_key(license_key)
+            
+            if validation.get('valid'):
+                config.license_key = license_key
+                config.subscription_tier = validation.get('tier', 'standard')
+                config.subscription_valid = True
+                config.max_servers = validation.get('max_servers', 50)
+                config.save()
+                app.logger.info(f"✅ AI license activated: tier={config.subscription_tier}, max_servers={config.max_servers}")
+            else:
+                error = validation.get('error', 'Unknown validation error')
+                app.logger.warning(f"⚠️ AI license validation failed: {error}")
+                
+        except Exception as e:
+            app.logger.error(f"❌ Error auto-activating AI license: {e}")
+
+
+# Auto-activate AI license from environment variable
+auto_activate_ai_license()
+
+
 def link_ssh_keys_to_servers():
     """
     Link SSH keys to servers based on servers.yaml config.
