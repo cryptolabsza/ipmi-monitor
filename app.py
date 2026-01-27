@@ -561,10 +561,29 @@ PROXY_AUTH_HEADER_TOKEN = 'X-Fleet-Auth-Token'
 PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
 
 # SECURITY: Trusted proxy IPs - only accept X-Fleet-* headers from these sources
-# Docker internal network IPs, localhost, and configurable via environment
+# Uses network ranges for Docker bridge networks (ipaddress module imported at top)
+
+# Trusted networks: localhost, Docker bridge ranges (172.16.0.0/12, 10.0.0.0/8)
+TRUSTED_PROXY_NETWORKS = [
+    ipaddress.ip_network('127.0.0.0/8'),      # Localhost
+    ipaddress.ip_network('172.16.0.0/12'),    # Docker default bridge range
+    ipaddress.ip_network('10.0.0.0/8'),       # Alternative Docker networks
+]
+
+# Additional specific IPs from environment (comma-separated)
 TRUSTED_PROXY_IPS = set(
-    os.environ.get('TRUSTED_PROXY_IPS', '127.0.0.1,172.17.0.1,172.18.0.1,172.19.0.1,172.20.0.1').split(',')
+    ip.strip() for ip in os.environ.get('TRUSTED_PROXY_IPS', '').split(',') if ip.strip()
 )
+
+def _is_trusted_proxy_ip(ip_str):
+    """Check if an IP is from a trusted proxy source."""
+    if ip_str in TRUSTED_PROXY_IPS:
+        return True
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        return any(ip in network for network in TRUSTED_PROXY_NETWORKS)
+    except ValueError:
+        return False
 
 # Security headers middleware
 @app.after_request
@@ -605,8 +624,11 @@ def is_proxy_authenticated():
     header spoofing attacks from untrusted sources.
     """
     # SECURITY: First verify the request comes from a trusted proxy IP
-    client_ip = request.remote_addr
-    if client_ip not in TRUSTED_PROXY_IPS:
+    # ProxyFix replaces remote_addr with X-Forwarded-For, so we need the original
+    # connection IP to verify the request actually came from our proxy container
+    orig_environ = request.environ.get('werkzeug.proxy_fix.orig', {})
+    client_ip = orig_environ.get('REMOTE_ADDR') or request.remote_addr
+    if not _is_trusted_proxy_ip(client_ip):
         # Log attempted header spoofing from untrusted source
         if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
             app.logger.warning(
