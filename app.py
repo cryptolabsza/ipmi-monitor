@@ -18440,10 +18440,11 @@ def auto_import_ssh_keys():
                 app.logger.info("📁 No SSH keys directory found, skipping auto-import")
                 return
             
-            # Find all key files
+            # Find all key files (various naming conventions)
             key_files = glob.glob(f'{ssh_keys_dir}/*.pem') + \
                         glob.glob(f'{ssh_keys_dir}/id_*') + \
-                        glob.glob(f'{ssh_keys_dir}/*.key')
+                        glob.glob(f'{ssh_keys_dir}/*.key') + \
+                        glob.glob(f'{ssh_keys_dir}/*_key')  # For fleet_key, deploy_key, etc.
             
             if not key_files:
                 app.logger.info("📁 No SSH key files found in /app/ssh_keys/")
