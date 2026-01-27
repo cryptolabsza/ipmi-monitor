@@ -6304,6 +6304,145 @@ from queue import Queue, Empty
 _collection_queue = Queue()
 _sensor_queue = Queue()
 
+# Initial collection tracking - for first-run data collection
+_initial_collection = {
+    'in_progress': False,
+    'complete': False,
+    'triggered_at': None,
+    'phase': 'idle',  # idle, sensors, events, inventory, ssh_logs, complete
+    'current_server': 0,
+    'total_servers': 0,
+    'current_server_name': '',
+    'errors': [],
+    'collected': {
+        'sensors': 0,
+        'events': 0,
+        'inventory': 0,
+        'ssh_logs': 0
+    }
+}
+_initial_collection_lock = _threading.Lock()
+
+def get_initial_collection_status():
+    """Get current status of initial data collection."""
+    with _initial_collection_lock:
+        return dict(_initial_collection)
+
+def run_initial_collection():
+    """Run initial data collection for fresh install.
+    
+    This collects sensors, events, and inventory for all servers
+    to populate the database with initial data.
+    """
+    global _initial_collection
+    
+    with _initial_collection_lock:
+        if _initial_collection['in_progress']:
+            return  # Already running
+        _initial_collection['in_progress'] = True
+        _initial_collection['triggered_at'] = datetime.utcnow().isoformat()
+        _initial_collection['phase'] = 'starting'
+        _initial_collection['errors'] = []
+        _initial_collection['collected'] = {'sensors': 0, 'events': 0, 'inventory': 0, 'ssh_logs': 0}
+    
+    try:
+        with app.app_context():
+            servers = Server.query.all()
+            if not servers:
+                with _initial_collection_lock:
+                    _initial_collection['phase'] = 'complete'
+                    _initial_collection['complete'] = True
+                    _initial_collection['in_progress'] = False
+                print("[Initial Collection] No servers configured", flush=True)
+                return
+            
+            with _initial_collection_lock:
+                _initial_collection['total_servers'] = len(servers)
+            
+            print(f"[Initial Collection] Starting for {len(servers)} servers...", flush=True)
+            
+            # Phase 1: Collect sensors and events
+            with _initial_collection_lock:
+                _initial_collection['phase'] = 'sensors_events'
+            
+            for i, server in enumerate(servers):
+                with _initial_collection_lock:
+                    _initial_collection['current_server'] = i + 1
+                    _initial_collection['current_server_name'] = server.name
+                
+                try:
+                    # Collect sensors
+                    print(f"[Initial Collection] Sensors for {server.name}...", flush=True)
+                    result = collect_single_server_sensors(server.bmc_ip, server.name)
+                    if result:
+                        with _initial_collection_lock:
+                            _initial_collection['collected']['sensors'] += 1
+                    
+                    # Collect SEL events
+                    print(f"[Initial Collection] Events for {server.name}...", flush=True)
+                    events = collect_ipmi_sel(server.bmc_ip, server.name)
+                    if events:
+                        save_events_to_db(server.bmc_ip, server.name, events)
+                        with _initial_collection_lock:
+                            _initial_collection['collected']['events'] += len(events)
+                            
+                except Exception as e:
+                    with _initial_collection_lock:
+                        _initial_collection['errors'].append(f"{server.name}: {str(e)[:50]}")
+                    print(f"[Initial Collection] Error for {server.name}: {e}", flush=True)
+            
+            # Phase 2: Collect inventory
+            with _initial_collection_lock:
+                _initial_collection['phase'] = 'inventory'
+            
+            for i, server in enumerate(servers):
+                with _initial_collection_lock:
+                    _initial_collection['current_server'] = i + 1
+                    _initial_collection['current_server_name'] = server.name
+                
+                try:
+                    print(f"[Initial Collection] Inventory for {server.name}...", flush=True)
+                    collect_server_inventory(server)
+                    with _initial_collection_lock:
+                        _initial_collection['collected']['inventory'] += 1
+                except Exception as e:
+                    print(f"[Initial Collection] Inventory error for {server.name}: {e}", flush=True)
+            
+            # Phase 3: Collect SSH logs (if enabled)
+            ssh_enabled = SystemSettings.get('enable_ssh_logs', 'false').lower() == 'true'
+            if ssh_enabled:
+                with _initial_collection_lock:
+                    _initial_collection['phase'] = 'ssh_logs'
+                
+                for i, server in enumerate(servers):
+                    with _initial_collection_lock:
+                        _initial_collection['current_server'] = i + 1
+                        _initial_collection['current_server_name'] = server.name
+                    
+                    try:
+                        if server.server_ip:
+                            print(f"[Initial Collection] SSH logs for {server.name}...", flush=True)
+                            collect_ssh_logs_for_server(server)
+                            with _initial_collection_lock:
+                                _initial_collection['collected']['ssh_logs'] += 1
+                    except Exception as e:
+                        print(f"[Initial Collection] SSH logs error for {server.name}: {e}", flush=True)
+            
+            with _initial_collection_lock:
+                _initial_collection['phase'] = 'complete'
+                _initial_collection['complete'] = True
+            
+            print(f"[Initial Collection] Complete! Sensors: {_initial_collection['collected']['sensors']}, Events: {_initial_collection['collected']['events']}, Inventory: {_initial_collection['collected']['inventory']}", flush=True)
+            
+    except Exception as e:
+        print(f"[Initial Collection] Fatal error: {e}", flush=True)
+        with _initial_collection_lock:
+            _initial_collection['errors'].append(f"Fatal: {str(e)[:100]}")
+            _initial_collection['phase'] = 'error'
+    finally:
+        with _initial_collection_lock:
+            _initial_collection['in_progress'] = False
+
 # Configuration
 # Default workers to CPU count, can be overridden by env var or settings
 CPU_COUNT = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
@@ -14730,6 +14869,40 @@ def auth_status():
         'auth_via': session.get('auth_via'),  # 'fleet_proxy' if via proxy
         'is_proxy_auth': is_proxy_authed
     })
+
+@app.route('/api/initial-collection/status')
+def api_initial_collection_status():
+    """Get status of initial data collection."""
+    status = get_initial_collection_status()
+    
+    # Also check if we need initial collection (no data exists)
+    needs_collection = False
+    if not status['complete'] and not status['in_progress']:
+        # Check if we have any sensor data
+        sensor_count = SensorReading.query.count()
+        event_count = IPMIEvent.query.count()
+        if sensor_count == 0 and event_count == 0:
+            server_count = Server.query.count()
+            if server_count > 0:
+                needs_collection = True
+    
+    status['needs_collection'] = needs_collection
+    return jsonify(status)
+
+@app.route('/api/initial-collection/trigger', methods=['POST'])
+@login_required
+def api_trigger_initial_collection():
+    """Manually trigger initial data collection."""
+    status = get_initial_collection_status()
+    
+    if status['in_progress']:
+        return jsonify({'error': 'Collection already in progress', 'status': status}), 400
+    
+    # Start collection in background thread
+    thread = threading.Thread(target=run_initial_collection, daemon=True)
+    thread.start()
+    
+    return jsonify({'message': 'Initial collection started', 'status': get_initial_collection_status()})
 
 @app.route('/api/admin/credentials', methods=['GET'])
 @admin_required
