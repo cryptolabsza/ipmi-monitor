@@ -690,14 +690,12 @@ def is_proxy_authenticated():
             # Valid roles: admin, readwrite, readonly
             ipmi_role = proxy_role if proxy_role in ['admin', 'readwrite', 'readonly'] else 'readonly'
             
-            # Auto-authenticate the session if not already logged in
-            # Also update if role has changed (e.g., user permission updated)
-            if not session.get('logged_in') or session.get('user_role') != ipmi_role:
-                session['logged_in'] = True
-                session['username'] = username
-                session['user_role'] = ipmi_role
-                session['auth_via'] = 'fleet_proxy'
-                app.logger.info(f"Authenticated via Fleet proxy: {username} (role: {ipmi_role})")
+            # Always update session with current proxy auth info
+            # This ensures username, role, and auth_via are always current
+            session['logged_in'] = True
+            session['username'] = username
+            session['user_role'] = ipmi_role
+            session['auth_via'] = 'fleet_proxy'
             return True
     return False
 
