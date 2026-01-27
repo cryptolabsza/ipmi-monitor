@@ -682,11 +682,15 @@ def is_proxy_authenticated():
     Returns True and sets up session if authenticated via proxy.
     """
     # Check if the proxy auth flag is set
-    if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
+    auth_flag = request.headers.get(PROXY_AUTH_HEADER_FLAG)
+    if auth_flag == 'true':
         username = request.headers.get(PROXY_AUTH_HEADER_USER)
+        proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'readonly')
+        
+        # Debug logging for proxy auth
+        app.logger.debug(f"[PROXY_AUTH] Flag: {auth_flag}, User: {username}, Role: {proxy_role}")
+        
         if username:
-            # Map proxy roles directly - preserve all role levels
-            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'readonly')
             # Valid roles: admin, readwrite, readonly
             ipmi_role = proxy_role if proxy_role in ['admin', 'readwrite', 'readonly'] else 'readonly'
             
@@ -696,7 +700,10 @@ def is_proxy_authenticated():
             session['username'] = username
             session['user_role'] = ipmi_role
             session['auth_via'] = 'fleet_proxy'
+            app.logger.info(f"[PROXY_AUTH] Authenticated: {username} (role: {ipmi_role})")
             return True
+        else:
+            app.logger.warning(f"[PROXY_AUTH] Flag set but username is empty/None")
     return False
 
 def check_auth_with_proxy():

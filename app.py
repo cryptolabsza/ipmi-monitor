@@ -567,25 +567,32 @@ def is_proxy_authenticated():
     - X-Fleet-Authenticated: true
     - X-Fleet-Auth-User: <username>
     - X-Fleet-Auth-Role: <admin|readwrite|readonly>
+    
+    This function sets session values so that role checks and auth_status
+    work correctly with proxy authentication.
     """
     if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
         username = request.headers.get(PROXY_AUTH_HEADER_USER)
         if username:
-            # Set session-like data for role checks within this request
-            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'admin')
-            # Store in Flask's g object for this request
-            from flask import g
-            g.proxy_user = username
-            g.proxy_role = proxy_role
+            # Map proxy roles directly - preserve all role levels
+            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'readonly')
+            # Valid roles: admin, readwrite, readonly
+            ipmi_role = proxy_role if proxy_role in ['admin', 'readwrite', 'readonly'] else 'readonly'
+            
+            # Always update session with current proxy auth info
+            # This ensures username, role, and auth_via are always current
+            session['logged_in'] = True
+            session['username'] = username
+            session['user_role'] = ipmi_role
+            session['auth_via'] = 'fleet_proxy'
             return True
     return False
 
 def get_current_user_role():
     """Get the current user's role from session or proxy headers."""
-    from flask import g
-    if hasattr(g, 'proxy_role'):
-        return g.proxy_role
-    return session.get('user_role', 'readonly')
+    if session.get('logged_in'):
+        return session.get('user_role', 'readonly')
+    return 'anonymous'
 
 def admin_required(f):
     """Decorator to require admin login for a route"""
@@ -666,17 +673,21 @@ def write_required(f):
     return decorated_function
 
 def is_admin():
-    """Check if current user is admin"""
+    """Check if current user is admin (includes proxy auth)"""
+    # Check proxy auth first to ensure session is populated
+    is_proxy_authenticated()
     return session.get('logged_in') and session.get('user_role') == 'admin'
 
 def is_readwrite():
-    """Check if current user has write access (admin or readwrite)"""
+    """Check if current user has write access (admin or readwrite, includes proxy auth)"""
+    # Check proxy auth first to ensure session is populated
+    is_proxy_authenticated()
     return session.get('logged_in') and session.get('user_role') in ['admin', 'readwrite']
 
 def is_logged_in():
     """Check if user is logged in (any role) - includes proxy auth"""
-    if is_proxy_authenticated():
-        return True
+    # Check proxy auth first to ensure session is populated
+    is_proxy_authenticated()
     return session.get('logged_in', False)
 
 def can_view():
@@ -689,8 +700,8 @@ def can_view():
 
 def get_user_role():
     """Get current user's role or 'anonymous' if not logged in"""
-    if is_proxy_authenticated():
-        return get_current_user_role()
+    # Check proxy auth first to ensure session is populated
+    is_proxy_authenticated()
     if session.get('logged_in'):
         return session.get('user_role', 'readonly')
     return 'anonymous'
@@ -14704,6 +14715,8 @@ def logout():
 @app.route('/api/auth/status')
 def auth_status():
     """Check authentication status and permissions"""
+    # Check for proxy auth first (this auto-logs in the session)
+    is_proxy_authed = is_proxy_authenticated()
     role = get_user_role()
     return jsonify({
         'logged_in': is_logged_in(),
@@ -14713,7 +14726,9 @@ def auth_status():
         'role': role,
         'can_view': can_view(),
         'anonymous_allowed': allow_anonymous_read(),
-        'password_change_required': needs_password_change() if is_logged_in() else False
+        'password_change_required': needs_password_change() if is_logged_in() else False,
+        'auth_via': session.get('auth_via'),  # 'fleet_proxy' if via proxy
+        'is_proxy_auth': is_proxy_authed
     })
 
 @app.route('/api/admin/credentials', methods=['GET'])
