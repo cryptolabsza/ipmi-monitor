@@ -561,24 +561,38 @@ PROXY_AUTH_HEADER_TOKEN = 'X-Fleet-Auth-Token'
 PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
 
 # SECURITY: Trusted proxy IPs - only accept X-Fleet-* headers from these sources
-# Uses network ranges for Docker bridge networks (ipaddress module imported at top)
+# 
+# Priority:
+# 1. If TRUSTED_PROXY_IPS env var is set, ONLY trust those specific IPs (most secure)
+# 2. Otherwise, fall back to Docker network ranges (less secure, for dev/legacy)
+#
+# The dc-overview quickstart sets TRUSTED_PROXY_IPS to the proxy's static IP.
 
-# Trusted networks: localhost, Docker bridge ranges (172.16.0.0/12, 10.0.0.0/8)
-TRUSTED_PROXY_NETWORKS = [
-    ipaddress.ip_network('127.0.0.0/8'),      # Localhost
-    ipaddress.ip_network('172.16.0.0/12'),    # Docker default bridge range
-    ipaddress.ip_network('10.0.0.0/8'),       # Alternative Docker networks
-]
+_env_trusted_ips = os.environ.get('TRUSTED_PROXY_IPS', '').strip()
 
-# Additional specific IPs from environment (comma-separated)
-TRUSTED_PROXY_IPS = set(
-    ip.strip() for ip in os.environ.get('TRUSTED_PROXY_IPS', '').split(',') if ip.strip()
-)
+if _env_trusted_ips:
+    # Secure mode: Only trust specific IPs from environment
+    TRUSTED_PROXY_IPS = set(
+        ip.strip() for ip in _env_trusted_ips.split(',') if ip.strip()
+    )
+    TRUSTED_PROXY_NETWORKS = []  # Don't use network ranges
+    app.logger.info(f"SECURITY: Trusting only specific proxy IPs: {TRUSTED_PROXY_IPS}")
+else:
+    # Fallback mode: Trust Docker network ranges (for dev/legacy deployments)
+    TRUSTED_PROXY_IPS = set()
+    TRUSTED_PROXY_NETWORKS = [
+        ipaddress.ip_network('127.0.0.0/8'),      # Localhost
+        ipaddress.ip_network('172.16.0.0/12'),    # Docker default bridge range
+        ipaddress.ip_network('10.0.0.0/8'),       # Alternative Docker networks
+    ]
+    app.logger.warning("SECURITY: TRUSTED_PROXY_IPS not set, trusting all Docker network ranges")
 
 def _is_trusted_proxy_ip(ip_str):
     """Check if an IP is from a trusted proxy source."""
     if ip_str in TRUSTED_PROXY_IPS:
         return True
+    if not TRUSTED_PROXY_NETWORKS:
+        return False  # Strict mode - only explicit IPs
     try:
         ip = ipaddress.ip_address(ip_str)
         return any(ip in network for network in TRUSTED_PROXY_NETWORKS)
