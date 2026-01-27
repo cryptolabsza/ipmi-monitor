@@ -18535,7 +18535,7 @@ def auto_activate_ai_license():
                 config.subscription_tier = validation.get('tier', 'standard')
                 config.subscription_valid = True
                 config.max_servers = validation.get('max_servers', 50)
-                config.save()
+                db.session.commit()
                 app.logger.info(f"✅ AI license activated: tier={config.subscription_tier}, max_servers={config.max_servers}")
             else:
                 error = validation.get('error', 'Unknown validation error')
