@@ -685,17 +685,19 @@ def is_proxy_authenticated():
     if request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true':
         username = request.headers.get(PROXY_AUTH_HEADER_USER)
         if username:
-            # Map proxy roles to IPMI Monitor roles
-            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'admin')
-            ipmi_role = 'admin' if proxy_role == 'admin' else 'readwrite'
+            # Map proxy roles directly - preserve all role levels
+            proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'readonly')
+            # Valid roles: admin, readwrite, readonly
+            ipmi_role = proxy_role if proxy_role in ['admin', 'readwrite', 'readonly'] else 'readonly'
             
             # Auto-authenticate the session if not already logged in
-            if not session.get('logged_in'):
+            # Also update if role has changed (e.g., user permission updated)
+            if not session.get('logged_in') or session.get('user_role') != ipmi_role:
                 session['logged_in'] = True
                 session['username'] = username
                 session['user_role'] = ipmi_role
                 session['auth_via'] = 'fleet_proxy'
-                app.logger.info(f"Auto-authenticated via Fleet proxy: {username} ({ipmi_role})")
+                app.logger.info(f"Authenticated via Fleet proxy: {username} (role: {ipmi_role})")
             return True
     return False
 
