@@ -5228,25 +5228,53 @@
                 const data = await response.json();
                 
                 const isProxyAuth = data.is_proxy_auth || data.auth_via === 'fleet_proxy';
+                const role = data.role || 'readonly';
+                const canWrite = data.can_write || data.is_admin;
                 
-                if (data.is_admin) {
-                    document.getElementById('adminButtons').style.display = 'inline';
+                // Show/hide elements based on role
+                if (data.logged_in || isProxyAuth) {
                     document.getElementById('loginBtn').style.display = 'none';
                     
+                    // Show admin buttons container for admin and readwrite users
+                    if (canWrite) {
+                        document.getElementById('adminButtons').style.display = 'inline';
+                    } else {
+                        document.getElementById('adminButtons').style.display = 'none';
+                    }
+                    
+                    // Hide admin-only buttons for non-admin users
+                    const settingsBtn = document.getElementById('settingsBtn');
+                    const clearSelBtns = document.querySelectorAll('[onclick*="clearAllSel"]');
+                    
+                    if (!data.is_admin) {
+                        if (settingsBtn) settingsBtn.style.display = 'none';
+                        clearSelBtns.forEach(btn => btn.style.display = 'none');
+                    }
+                    
+                    // Logout button handling
                     if (isProxyAuth) {
-                        // When authenticated via Fleet proxy, use fleet logout
                         document.getElementById('logoutBtn').style.display = 'none';
                         document.getElementById('fleetLogoutBtn').style.display = 'inline';
-                        // Keep settings visible - IPMI has its own SSH keys and server configs
                     } else {
                         document.getElementById('logoutBtn').style.display = 'inline';
                         document.getElementById('fleetLogoutBtn').style.display = 'none';
                     }
+                    
+                    // Show role indicator in header
+                    let roleIndicator = document.getElementById('roleIndicator');
+                    if (!roleIndicator) {
+                        roleIndicator = document.createElement('span');
+                        roleIndicator.id = 'roleIndicator';
+                        roleIndicator.style.cssText = 'background: var(--bg-card); padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px;';
+                        const headerBtns = document.querySelector('.dashboard-header');
+                        if (headerBtns) headerBtns.appendChild(roleIndicator);
+                    }
+                    roleIndicator.textContent = role;
                 } else {
                     document.getElementById('adminButtons').style.display = 'none';
-                    document.getElementById('loginBtn').style.display = isProxyAuth ? 'none' : 'inline';
+                    document.getElementById('loginBtn').style.display = 'inline';
                     document.getElementById('logoutBtn').style.display = 'none';
-                    document.getElementById('fleetLogoutBtn').style.display = isProxyAuth ? 'inline' : 'none';
+                    document.getElementById('fleetLogoutBtn').style.display = 'none';
                 }
             } catch (e) {
                 console.error('Failed to check auth:', e);
