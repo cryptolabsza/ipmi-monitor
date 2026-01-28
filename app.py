@@ -619,6 +619,7 @@ def add_security_headers(response):
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
             "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
             "img-src 'self' data: https:; "
+            "frame-src 'self' https://ipmi-ai.cryptolabs.co.za; "
             "connect-src 'self' https://ipmi-ai.cryptolabs.co.za"
         )
     return response
