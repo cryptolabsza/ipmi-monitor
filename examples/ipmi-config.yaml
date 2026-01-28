@@ -39,7 +39,22 @@ enable_ssh_inventory: true
 enable_ssh_logs: false
 
 # Reverse proxy settings (optional)
+# If enable_proxy is false: IPMI Monitor runs directly on web_port (HTTP only)
+# If enable_proxy is true: CryptoLabs Proxy runs on 80/443 with SSL
 enable_proxy: false
+# domain: "ipmi.example.com"     # Set domain for Let's Encrypt
+# use_letsencrypt: false         # Use Let's Encrypt for trusted cert
+# email: "admin@example.com"     # Required for Let's Encrypt
+
+# Example: Standalone HTTP on port 5000 (no proxy)
+# enable_proxy: false
+# web_port: 5000
+
+# Example: HTTPS with self-signed cert (no domain)
+# enable_proxy: true
+
+# Example: HTTPS with Let's Encrypt (requires domain)
+# enable_proxy: true
 # domain: "ipmi.example.com"
-# use_letsencrypt: false
+# use_letsencrypt: true
 # email: "admin@example.com"

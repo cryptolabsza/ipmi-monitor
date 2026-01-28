@@ -823,19 +823,31 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     
     # ============ Step 7: HTTPS Access (Optional) ============
     console.print("\n[bold]Step 7: HTTPS Access (Optional)[/bold]\n")
-    console.print("[dim]Set up reverse proxy with SSL for secure remote access.[/dim]")
-    console.print("[dim]Uses CryptoLabs Proxy with Fleet Management landing page.[/dim]\n")
     
     # Check for existing proxy
     existing_proxy = detect_existing_proxy()
     proxy_already_running = existing_proxy and existing_proxy.get("running")
     
-    domain = None
-    letsencrypt_email = None
-    use_letsencrypt = False
-    setup_proxy = False
+    domain = cfg_domain
+    letsencrypt_email = cfg_email
+    use_letsencrypt = cfg_use_letsencrypt if cfg_use_letsencrypt else False
+    setup_proxy = cfg_enable_proxy if cfg_enable_proxy is not None else False
     
-    if proxy_already_running:
+    # Use config file settings if provided
+    if cfg_enable_proxy is not None:
+        setup_proxy = cfg_enable_proxy
+        if setup_proxy:
+            console.print(f"[green]✓[/green] HTTPS proxy: Enabled (from config)")
+            if cfg_domain:
+                console.print(f"[green]✓[/green] Domain: {cfg_domain}")
+            if cfg_use_letsencrypt:
+                console.print(f"[green]✓[/green] SSL: Let's Encrypt")
+            else:
+                console.print(f"[green]✓[/green] SSL: Self-signed")
+        else:
+            console.print(f"[green]✓[/green] HTTPS proxy: Disabled (from config)")
+            console.print(f"[dim]IPMI Monitor will be accessible on HTTP port {web_port}[/dim]")
+    elif proxy_already_running:
         console.print("[bold green]✓ CryptoLabs Proxy Already Running![/bold green]")
         console.print("[dim]Using existing proxy configuration.[/dim]\n")
         
