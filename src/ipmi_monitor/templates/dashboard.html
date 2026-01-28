@@ -1770,9 +1770,9 @@
                 
                 <!-- Upgrade Prompt for Free Users - ONLY shown when not subscribed, hidden by default until status loads -->
                 <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 0; flex: 1; display: none; flex-direction: column;">
-                    <!-- Dynamic promotional iframe (loads from AI service, admin-editable) -->
+                    <!-- Dynamic promotional iframe (loads from AI service, admin-editable) - src set by JS only when shown -->
                     <iframe id="aiOfferFrame" 
-                            src="https://ipmi-ai.cryptolabs.co.za/embed/promo" 
+                            data-src="https://ipmi-ai.cryptolabs.co.za/embed/promo" 
                             style="width: 100%; flex: 1; min-height: 500px; border: none; display: none;"
                             onload="this.style.display='block'; document.getElementById('aiOfferFallback').style.display='none';"
                             onerror="this.style.display='none'; document.getElementById('aiOfferFallback').style.display='block';"></iframe>
@@ -3908,6 +3908,11 @@
                     upgradePrompt.style.flex = '1';
                     results.classList.add('hidden');
                     results.style.display = 'none';
+                    // Lazy load the promo iframe only when shown
+                    const offerFrame = document.getElementById('aiOfferFrame');
+                    if (offerFrame && offerFrame.dataset.src && !offerFrame.src) {
+                        offerFrame.src = offerFrame.dataset.src;
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load AI status:', e);
@@ -3919,6 +3924,11 @@
                     upgradePrompt.style.display = 'flex';
                     upgradePrompt.style.flexDirection = 'column';
                     upgradePrompt.style.flex = '1';
+                    // Lazy load the promo iframe only when shown
+                    const offerFrame = document.getElementById('aiOfferFrame');
+                    if (offerFrame && offerFrame.dataset.src && !offerFrame.src) {
+                        offerFrame.src = offerFrame.dataset.src;
+                    }
                 }
             }
         }
