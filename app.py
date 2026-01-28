@@ -2041,20 +2041,31 @@ class SSHKey(db.Model):
     
     @staticmethod
     def get_fingerprint(key_content):
-        """Get SHA256 fingerprint from SSH key content (matches ssh-keygen -lf output)"""
-        import hashlib
-        import base64
+        """Get SHA256 fingerprint from SSH key content using ssh-keygen (matches ssh-keygen -lf output)"""
+        import subprocess
+        import tempfile
+        import os
         try:
-            # For private keys, extract public key part or use the key data
-            lines = [l for l in key_content.strip().split('\n') if not l.startswith('-----')]
-            key_data = ''.join(lines)
-            decoded = base64.b64decode(key_data)
-            # Use SHA256 and return in OpenSSH format (SHA256:base64)
-            fp_hash = hashlib.sha256(decoded).digest()
-            fp_b64 = base64.b64encode(fp_hash).decode('ascii').rstrip('=')
-            return f'SHA256:{fp_b64}'
-        except:
-            return None
+            # Write key to temp file and use ssh-keygen to get fingerprint
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.key', delete=False) as f:
+                f.write(key_content)
+                temp_path = f.name
+            try:
+                os.chmod(temp_path, 0o600)
+                result = subprocess.run(
+                    ['ssh-keygen', '-lf', temp_path],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    # Output format: "4096 SHA256:xxxx comment (RSA)"
+                    parts = result.stdout.strip().split()
+                    if len(parts) >= 2:
+                        return parts[1]  # SHA256:xxxx
+            finally:
+                os.unlink(temp_path)
+        except Exception:
+            pass
+        return None
 
 
 class SensorReading(db.Model):
