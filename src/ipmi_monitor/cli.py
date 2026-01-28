@@ -72,7 +72,11 @@ def version():
 
 
 @main.command()
-def quickstart():
+@click.option("-c", "--config", "config_path", type=click.Path(exists=True), 
+              help="Path to YAML config file for non-interactive setup")
+@click.option("-y", "--yes", "yes_mode", is_flag=True, 
+              help="Skip confirmation prompts (requires --config)")
+def quickstart(config_path: str, yes_mode: bool):
     """
     ⚡ One-command setup - does everything!
     
@@ -86,10 +90,11 @@ def quickstart():
         - Installs and starts the service
     
     \b
-    EXAMPLE:
-        sudo ipmi-monitor quickstart
+    EXAMPLES:
+        sudo ipmi-monitor quickstart                           # Interactive mode
+        sudo ipmi-monitor quickstart -c config.yaml -y         # Non-interactive with config
     """
-    run_quickstart()
+    run_quickstart(config_path=config_path, yes_mode=yes_mode)
 
 
 @main.command()

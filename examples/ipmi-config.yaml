@@ -1,0 +1,45 @@
+# IPMI Monitor Quickstart Configuration
+# Use with: sudo ipmi-monitor quickstart -c ipmi-config.yaml -y
+
+# Servers to monitor - each server needs BMC/IPMI credentials
+servers:
+  - name: "master"
+    bmc_ip: "192.168.1.10"
+    server_ip: "192.168.1.100"  # Optional: OS IP for SSH inventory/logs
+    ipmi_user: "admin"
+    ipmi_pass: "password"
+    ssh_user: "root"           # Optional: SSH user for server_ip
+  
+  - name: "worker-01"
+    bmc_ip: "192.168.1.11"
+    server_ip: "192.168.1.101"
+    ipmi_user: "admin"
+    ipmi_pass: "password"
+    ssh_user: "root"
+
+# Web interface settings
+web_port: 5000
+
+# Admin credentials for Fleet Management
+admin_user: "admin"
+admin_password: "YourSecurePassword123"
+
+# AI Features (optional)
+enable_ai: false
+# ai_license_key: "your-license-key-here"
+
+# Docker image channel: "latest" (stable) or "dev" (development)
+image_tag: "dev"
+
+# Enable Watchtower for automatic updates
+enable_watchtower: true
+
+# SSH features for detailed inventory and log collection
+enable_ssh_inventory: true
+enable_ssh_logs: false
+
+# Reverse proxy settings (optional)
+enable_proxy: false
+# domain: "ipmi.example.com"
+# use_letsencrypt: false
+# email: "admin@example.com"

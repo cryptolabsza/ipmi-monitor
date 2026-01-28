@@ -475,38 +475,86 @@ def import_dc_overview_config(dc_config: Dict) -> tuple:
     return ssh_keys, servers
 
 
-def run_quickstart():
-    """Main quickstart wizard - deploys via Docker."""
+def load_config_from_file(config_path: str) -> Optional[Dict]:
+    """Load configuration from YAML file."""
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        console.print(f"[green]✓[/green] Loaded config from {config_path}")
+        return config
+    except Exception as e:
+        console.print(f"[red]✗[/red] Failed to load config: {e}")
+        return None
+
+
+def run_quickstart(config_path: str = None, yes_mode: bool = False):
+    """Main quickstart wizard - deploys via Docker.
+    
+    Args:
+        config_path: Path to YAML config file for non-interactive mode
+        yes_mode: Skip confirmation prompts
+    """
     check_root()
+    
+    # Load config file if provided
+    file_config = None
+    if config_path:
+        file_config = load_config_from_file(config_path)
+        if not file_config:
+            console.print("[red]Cannot continue without valid config file.[/red]")
+            return
     
     console.print()
     console.print(Panel(
         "[bold cyan]IPMI Monitor - Quick Setup[/bold cyan]\n\n"
-        "Monitor your servers' IPMI/BMC health, temperatures, and sensors.\n"
-        "Just answer a few questions and everything will be configured.\n\n"
+        "Monitor your servers' IPMI/BMC health, temperatures, and sensors.\n" +
+        ("Using config from: " + config_path + "\n\n" if config_path else 
+         "Just answer a few questions and everything will be configured.\n\n") +
         "[dim]Deploys via Docker with automatic updates via Watchtower.[/dim]\n"
         "[dim]Press Ctrl+C to cancel at any time.[/dim]",
         border_style="cyan"
     ))
     console.print()
     
+    # Extract values from config file if provided
+    cfg_servers = file_config.get('servers', []) if file_config else []
+    cfg_admin_user = file_config.get('admin_user', 'admin') if file_config else None
+    cfg_admin_pass = file_config.get('admin_password') if file_config else None
+    cfg_web_port = str(file_config.get('web_port', 5000)) if file_config else None
+    cfg_enable_ai = file_config.get('enable_ai', False) if file_config else None
+    cfg_license_key = file_config.get('ai_license_key') if file_config else None
+    cfg_enable_watchtower = file_config.get('enable_watchtower', True) if file_config else None
+    cfg_enable_ssh_logs = file_config.get('enable_ssh_logs', False) if file_config else None
+    cfg_enable_ssh_inventory = file_config.get('enable_ssh_inventory', True) if file_config else None
+    cfg_image_tag = file_config.get('image_tag', 'latest') if file_config else None
+    cfg_enable_proxy = file_config.get('enable_proxy', False) if file_config else None
+    cfg_domain = file_config.get('domain') if file_config else None
+    cfg_use_letsencrypt = file_config.get('use_letsencrypt', False) if file_config else None
+    cfg_email = file_config.get('email') if file_config else None
+    
     # Check Docker
     if not check_docker_installed():
         console.print("[yellow]Docker is not installed.[/yellow]")
-        install = questionary.confirm(
-            "Install Docker now?",
-            default=True,
-            style=custom_style
-        ).ask()
-        
-        if install:
+        if yes_mode:
+            console.print("Installing Docker automatically...")
             if not install_docker():
                 console.print("[red]Cannot continue without Docker.[/red]")
                 return
         else:
-            console.print("[red]Cannot continue without Docker.[/red]")
-            console.print("[dim]Install Docker manually: https://docs.docker.com/engine/install/[/dim]")
-            return
+            install = questionary.confirm(
+                "Install Docker now?",
+                default=True,
+                style=custom_style
+            ).ask()
+            
+            if install:
+                if not install_docker():
+                    console.print("[red]Cannot continue without Docker.[/red]")
+                    return
+            else:
+                console.print("[red]Cannot continue without Docker.[/red]")
+                console.print("[dim]Install Docker manually: https://docs.docker.com/engine/install/[/dim]")
+                return
     else:
         console.print("[green]✓[/green] Docker is installed")
     
@@ -521,19 +569,23 @@ def run_quickstart():
     imported_servers = []
     imported_ssh_keys = []
     
-    if dc_config:
+    # Skip DC Overview import if we have servers from config file
+    if dc_config and not cfg_servers:
         console.print("[green]✓[/green] DC Overview detected!\n")
         
-        import_from_dc = questionary.confirm(
-            "Import server IPs and SSH keys from DC Overview?",
-            default=True,
-            style=custom_style
-        ).ask()
+        if yes_mode:
+            import_from_dc = True
+        else:
+            import_from_dc = questionary.confirm(
+                "Import server IPs and SSH keys from DC Overview?",
+                default=True,
+                style=custom_style
+            ).ask()
         
         if import_from_dc:
             imported_ssh_keys, imported_servers = import_dc_overview_config(dc_config)
             
-            if imported_servers:
+            if imported_servers and not yes_mode:
                 console.print(f"\n[bold]Link BMC IPs to Imported Servers[/bold]")
                 console.print("[dim]For each server, provide the BMC/IPMI IP address.[/dim]\n")
                 
@@ -558,50 +610,60 @@ def run_quickstart():
     # ============ Step 1: Add servers ============
     console.print("\n[bold]Step 1: Add Servers to Monitor[/bold]\n")
     
-    # Build choices based on whether we have imported servers
-    add_choices = []
-    if imported_servers:
-        add_choices.append(questionary.Choice(
-            f"Use imported servers only ({len(imported_servers)} servers)", 
-            value="imported"
-        ))
-        add_choices.append(questionary.Choice(
-            "Add more servers (in addition to imported)", 
-            value="add_more"
-        ))
-    
-    add_choices.extend([
-        questionary.Choice("Just one server", value="single"),
-        questionary.Choice("Multiple servers (same credentials)", value="bulk"),
-    ])
-    
-    server_count = questionary.select(
-        "How do you want to add servers?",
-        choices=add_choices,
-        style=custom_style
-    ).ask()
-    
-    if server_count is None:
-        console.print("[yellow]Cancelled.[/yellow]")
-        return
-    
     servers = []
     
-    if server_count == "imported":
-        # Use only imported servers
+    # Use servers from config file if provided
+    if cfg_servers:
+        console.print(f"[green]✓[/green] Using {len(cfg_servers)} servers from config file")
+        servers = cfg_servers
+    elif yes_mode and imported_servers:
+        # In yes mode with DC Overview, use imported servers
         servers = imported_servers
-    elif server_count == "add_more":
-        # Start with imported, then add more
-        servers = imported_servers.copy()
-        more_servers = add_servers_bulk()
-        servers.extend(more_servers)
-    elif server_count == "single":
-        server = add_server_interactive()
-        if server:
-            servers.append(server)
-            console.print(f"[green]✓[/green] Added {server['name']}")
+        console.print(f"[green]✓[/green] Using {len(servers)} imported servers")
     else:
-        servers = add_servers_bulk()
+        # Interactive mode
+        # Build choices based on whether we have imported servers
+        add_choices = []
+        if imported_servers:
+            add_choices.append(questionary.Choice(
+                f"Use imported servers only ({len(imported_servers)} servers)", 
+                value="imported"
+            ))
+            add_choices.append(questionary.Choice(
+                "Add more servers (in addition to imported)", 
+                value="add_more"
+            ))
+        
+        add_choices.extend([
+            questionary.Choice("Just one server", value="single"),
+            questionary.Choice("Multiple servers (same credentials)", value="bulk"),
+        ])
+        
+        server_count = questionary.select(
+            "How do you want to add servers?",
+            choices=add_choices,
+            style=custom_style
+        ).ask()
+        
+        if server_count is None:
+            console.print("[yellow]Cancelled.[/yellow]")
+            return
+        
+        if server_count == "imported":
+            # Use only imported servers
+            servers = imported_servers
+        elif server_count == "add_more":
+            # Start with imported, then add more
+            servers = imported_servers.copy()
+            more_servers = add_servers_bulk()
+            servers.extend(more_servers)
+        elif server_count == "single":
+            server = add_server_interactive()
+            if server:
+                servers.append(server)
+                console.print(f"[green]✓[/green] Added {server['name']}")
+        else:
+            servers = add_servers_bulk()
     
     if not servers:
         console.print("[yellow]No servers added. Run again to add servers.[/yellow]")
@@ -609,97 +671,119 @@ def run_quickstart():
     
     # ============ Step 2: Web Interface Settings ============
     console.print("\n[bold]Step 2: Web Interface Settings[/bold]\n")
-    console.print("[dim]Port 5000 is the default. Only change if you have a conflict.[/dim]\n")
     
-    web_port = questionary.text(
-        "Web interface port:",
-        default="5000",
-        validate=lambda x: x.isdigit() and 1 <= int(x) <= 65535,
-        style=custom_style
-    ).ask()
-    
-    if web_port is None:
-        web_port = "5000"
+    if cfg_web_port:
+        web_port = cfg_web_port
+        console.print(f"[green]✓[/green] Web port: {web_port} (from config)")
+    else:
+        console.print("[dim]Port 5000 is the default. Only change if you have a conflict.[/dim]\n")
+        web_port = questionary.text(
+            "Web interface port:",
+            default="5000",
+            validate=lambda x: x.isdigit() and 1 <= int(x) <= 65535,
+            style=custom_style
+        ).ask()
+        if web_port is None:
+            web_port = "5000"
     
     # ============ Step 3: Fleet Management Credentials ============
     console.print("\n[bold]Step 3: Fleet Management Credentials[/bold]\n")
-    console.print("[dim]Set credentials for the Fleet Management dashboard.[/dim]")
-    console.print("[dim]This provides unified login for all CryptoLabs services.[/dim]\n")
-    console.print("[dim]User Roles:[/dim]")
-    console.print("[dim]  • admin - Full access to all features and user management[/dim]")
-    console.print("[dim]  • readwrite - Can view and modify data[/dim]")
-    console.print("[dim]  • readonly - Can only view data[/dim]\n")
     
-    fleet_admin_user = questionary.text(
-        "Fleet admin username:",
-        default="admin",
-        style=custom_style
-    ).ask()
-    
-    if fleet_admin_user is None:
-        fleet_admin_user = "admin"
-    
-    fleet_admin_pass = questionary.password(
-        "Fleet admin password:",
-        validate=lambda x: len(x) >= 4 or "Password must be at least 4 characters",
-        style=custom_style
-    ).ask()
-    
-    if fleet_admin_pass:
-        confirm_fleet_pass = questionary.password(
-            "Confirm password:",
+    if cfg_admin_user and cfg_admin_pass:
+        fleet_admin_user = cfg_admin_user
+        fleet_admin_pass = cfg_admin_pass
+        admin_password = cfg_admin_pass
+        console.print(f"[green]✓[/green] Admin user: {fleet_admin_user} (from config)")
+    else:
+        console.print("[dim]Set credentials for the Fleet Management dashboard.[/dim]")
+        console.print("[dim]This provides unified login for all CryptoLabs services.[/dim]\n")
+        console.print("[dim]User Roles:[/dim]")
+        console.print("[dim]  • admin - Full access to all features and user management[/dim]")
+        console.print("[dim]  • readwrite - Can view and modify data[/dim]")
+        console.print("[dim]  • readonly - Can only view data[/dim]\n")
+        
+        fleet_admin_user = questionary.text(
+            "Fleet admin username:",
+            default="admin",
             style=custom_style
         ).ask()
         
-        if fleet_admin_pass != confirm_fleet_pass:
-            console.print("[yellow]⚠[/yellow] Passwords don't match. You'll need to set it on first login.")
-            fleet_admin_pass = None
-    
-    # Use fleet credentials for IPMI Monitor admin as well (unified login)
-    admin_password = fleet_admin_pass if fleet_admin_pass else "admin"
+        if fleet_admin_user is None:
+            fleet_admin_user = "admin"
+        
+        fleet_admin_pass = questionary.password(
+            "Fleet admin password:",
+            validate=lambda x: len(x) >= 4 or "Password must be at least 4 characters",
+            style=custom_style
+        ).ask()
+        
+        if fleet_admin_pass:
+            confirm_fleet_pass = questionary.password(
+                "Confirm password:",
+                style=custom_style
+            ).ask()
+            
+            if fleet_admin_pass != confirm_fleet_pass:
+                console.print("[yellow]⚠[/yellow] Passwords don't match. You'll need to set it on first login.")
+                fleet_admin_pass = None
+        
+        # Use fleet credentials for IPMI Monitor admin as well (unified login)
+        admin_password = fleet_admin_pass if fleet_admin_pass else "admin"
     
     # ============ Step 4: AI Features (Optional) ============
     console.print("\n[bold]Step 4: AI Features (Optional)[/bold]\n")
-    console.print("[dim]AI Insights analyzes server issues and suggests fixes.[/dim]")
-    console.print("[dim]Requires a CryptoLabs AI account (free tier available).[/dim]\n")
     
-    enable_ai = questionary.confirm(
-        "Enable AI Insights?",
-        default=False,
-        style=custom_style
-    ).ask()
-    
-    if enable_ai is None:
-        enable_ai = False
-    
-    license_key = None
-    if enable_ai:
-        console.print("\n[dim]Get your license key at: https://www.cryptolabs.co.za/my-account/[/dim]")
-        license_key = questionary.text(
-            "CryptoLabs License Key:",
-            validate=lambda x: len(x) > 0 or "Key required",
+    if cfg_enable_ai is not None:
+        enable_ai = cfg_enable_ai
+        license_key = cfg_license_key
+        console.print(f"[green]✓[/green] AI Features: {'Enabled' if enable_ai else 'Disabled'} (from config)")
+    else:
+        console.print("[dim]AI Insights analyzes server issues and suggests fixes.[/dim]")
+        console.print("[dim]Requires a CryptoLabs AI account (free tier available).[/dim]\n")
+        
+        enable_ai = questionary.confirm(
+            "Enable AI Insights?",
+            default=False,
             style=custom_style
         ).ask()
+        
+        if enable_ai is None:
+            enable_ai = False
+        
+        license_key = None
+        if enable_ai:
+            console.print("\n[dim]Get your license key at: https://www.cryptolabs.co.za/my-account/[/dim]")
+            license_key = questionary.text(
+                "CryptoLabs License Key:",
+                validate=lambda x: len(x) > 0 or "Key required",
+                style=custom_style
+            ).ask()
     
     # ============ Step 5: Auto-Updates ============
     console.print("\n[bold]Step 5: Auto-Updates[/bold]\n")
-    console.print("[dim]Watchtower automatically updates IPMI Monitor when new versions are released.[/dim]\n")
     
-    enable_watchtower = questionary.confirm(
-        "Enable automatic updates? (recommended)",
-        default=True,
-        style=custom_style
-    ).ask()
-    
-    if enable_watchtower is None:
-        enable_watchtower = True
+    if cfg_enable_watchtower is not None:
+        enable_watchtower = cfg_enable_watchtower
+        console.print(f"[green]✓[/green] Auto-updates: {'Enabled' if enable_watchtower else 'Disabled'} (from config)")
+    else:
+        console.print("[dim]Watchtower automatically updates IPMI Monitor when new versions are released.[/dim]\n")
+        enable_watchtower = questionary.confirm(
+            "Enable automatic updates? (recommended)",
+            default=True,
+            style=custom_style
+        ).ask()
+        if enable_watchtower is None:
+            enable_watchtower = True
     
     # ============ Step 5b: SSH Log Collection ============
     # Only ask if servers have SSH configured
     has_ssh_servers = any(s.get('server_ip') for s in servers)
-    enable_ssh_logs = False
     
-    if has_ssh_servers:
+    if cfg_enable_ssh_logs is not None:
+        enable_ssh_logs = cfg_enable_ssh_logs
+        if has_ssh_servers:
+            console.print(f"[green]✓[/green] SSH log collection: {'Enabled' if enable_ssh_logs else 'Disabled'} (from config)")
+    elif has_ssh_servers:
         console.print("\n[bold]Step 5b: SSH Log Collection (Optional)[/bold]\n")
         console.print("[dim]Collect system logs from servers via SSH (dmesg, syslog, GPU errors).[/dim]")
         console.print("[dim]Useful for troubleshooting hardware issues.[/dim]\n")
@@ -712,23 +796,30 @@ def run_quickstart():
         
         if enable_ssh_logs is None:
             enable_ssh_logs = False
+    else:
+        enable_ssh_logs = False
     
     # ============ Step 6: Image Channel ============
     console.print("\n[bold]Step 6: Image Channel[/bold]\n")
-    console.print("[dim]Choose which Docker image channel to use.[/dim]\n")
     
-    image_tag = questionary.select(
-        "Docker image channel:",
-        choices=[
-            questionary.Choice("stable (latest) - Production ready [recommended]", value="latest"),
-            questionary.Choice("dev - Latest development features", value="dev"),
-        ],
-        default="latest",
-        style=custom_style
-    ).ask()
-    
-    if image_tag is None:
-        image_tag = default_tag
+    if cfg_image_tag:
+        image_tag = cfg_image_tag
+        console.print(f"[green]✓[/green] Image channel: {image_tag} (from config)")
+    else:
+        console.print("[dim]Choose which Docker image channel to use.[/dim]\n")
+        default_tag = get_default_docker_tag()
+        image_tag = questionary.select(
+            "Docker image channel:",
+            choices=[
+                questionary.Choice("stable (latest) - Production ready [recommended]", value="latest"),
+                questionary.Choice("dev - Latest development features", value="dev"),
+            ],
+            default="latest",
+            style=custom_style
+        ).ask()
+        
+        if image_tag is None:
+            image_tag = default_tag
     
     # ============ Step 7: HTTPS Access (Optional) ============
     console.print("\n[bold]Step 7: HTTPS Access (Optional)[/bold]\n")
