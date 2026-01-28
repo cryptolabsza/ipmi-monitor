@@ -2041,16 +2041,18 @@ class SSHKey(db.Model):
     
     @staticmethod
     def get_fingerprint(key_content):
-        """Get fingerprint from SSH key content"""
+        """Get SHA256 fingerprint from SSH key content (matches ssh-keygen -lf output)"""
         import hashlib
         import base64
         try:
-            # Simple fingerprint from key content
+            # For private keys, extract public key part or use the key data
             lines = [l for l in key_content.strip().split('\n') if not l.startswith('-----')]
             key_data = ''.join(lines)
             decoded = base64.b64decode(key_data)
-            fp = hashlib.md5(decoded).hexdigest()
-            return ':'.join(fp[i:i+2] for i in range(0, len(fp), 2))
+            # Use SHA256 and return in OpenSSH format (SHA256:base64)
+            fp_hash = hashlib.sha256(decoded).digest()
+            fp_b64 = base64.b64encode(fp_hash).decode('ascii').rstrip('=')
+            return f'SHA256:{fp_b64}'
         except:
             return None
 
