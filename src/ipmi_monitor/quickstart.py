@@ -1127,6 +1127,10 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         console.print(f"[red]✗[/red] Failed to start: {output}")
         return
     
+    # Activate AI license in database if configured
+    if license_key:
+        activate_ai_license(license_key)
+    
     # Handle Let's Encrypt certificate (only for new proxy setup)
     if setup_proxy and not proxy_already_running and use_letsencrypt and domain and letsencrypt_email:
         console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
@@ -1197,6 +1201,107 @@ def generate_servers_yaml(servers: List[Dict], config_dir: Path, ssh_key_map: Di
                 f.write(f"    ssh_key_name: {srv['ssh_key_name']}\n")
             if srv.get('ssh_port'):
                 f.write(f"    ssh_port: {srv['ssh_port']}\n")
+
+
+def activate_ai_license(license_key: str):
+    """Activate AI license in IPMI Monitor database.
+    
+    This validates the license with CryptoLabs AI service and stores it in the database,
+    similar to how dc-overview does it in _activate_ai_license_in_ipmi_monitor().
+    """
+    console.print("[dim]Activating AI license...[/dim]")
+    
+    # Wait for container to be ready
+    max_wait = 30
+    for i in range(max_wait):
+        result = subprocess.run(
+            ["docker", "exec", "ipmi-monitor", "echo", "ready"],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            break
+        time.sleep(1)
+    else:
+        console.print("[yellow]⚠[/yellow] Container not ready for AI activation")
+        return
+    
+    try:
+        # Activate AI license via docker exec
+        # This validates the key with CryptoLabs AI service and stores it in the database
+        activate_script = f'''
+import sqlite3
+import requests
+import sys
+
+license_key = "{license_key}"
+ai_service_url = "https://ipmi-ai.cryptolabs.co.za"
+db_path = "/app/data/ipmi_events.db"
+
+try:
+    # Validate with AI service
+    response = requests.post(
+        f"{{ai_service_url}}/api/v1/validate",
+        json={{"license_key": license_key}},
+        timeout=10
+    )
+    validation = response.json()
+    
+    if validation.get("valid"):
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        
+        # Check if cloud_sync record exists
+        c.execute("SELECT id FROM cloud_sync LIMIT 1")
+        existing = c.fetchone()
+        
+        if existing:
+            c.execute("""
+                UPDATE cloud_sync SET 
+                    license_key = ?,
+                    subscription_valid = 1,
+                    subscription_tier = ?,
+                    max_servers = ?,
+                    sync_enabled = 1
+                WHERE id = ?
+            """, (license_key, validation.get("tier", "standard"), validation.get("max_servers", 50), existing[0]))
+        else:
+            c.execute("""
+                INSERT INTO cloud_sync (license_key, subscription_valid, subscription_tier, max_servers, sync_enabled)
+                VALUES (?, 1, ?, ?, 1)
+            """, (license_key, validation.get("tier", "standard"), validation.get("max_servers", 50)))
+        
+        conn.commit()
+        conn.close()
+        print(f"ACTIVATED:tier={{validation.get('tier')}},max_servers={{validation.get('max_servers')}}", file=sys.stderr)
+    else:
+        print(f"INVALID:{{validation.get('error', 'Unknown error')}}", file=sys.stderr)
+except Exception as e:
+    print(f"ERROR:{{e}}", file=sys.stderr)
+'''
+        
+        result = subprocess.run(
+            ['docker', 'exec', 'ipmi-monitor', 'python3', '-c', activate_script],
+            capture_output=True, text=True, timeout=30
+        )
+        
+        if "ACTIVATED" in result.stderr:
+            # Parse tier info from output
+            parts = result.stderr.strip().split(":")
+            if len(parts) >= 2:
+                info = parts[1]
+                console.print(f"[green]✓[/green] AI license activated ({info})")
+            else:
+                console.print("[green]✓[/green] AI license activated")
+        elif "INVALID" in result.stderr:
+            error_msg = result.stderr.split(':')[1] if ':' in result.stderr else 'unknown'
+            console.print(f"[yellow]⚠[/yellow] AI license invalid: {error_msg}")
+        else:
+            console.print(f"[yellow]⚠[/yellow] AI license activation: {result.stderr[:100] if result.stderr else 'no response'}")
+            
+    except subprocess.TimeoutExpired:
+        console.print("[yellow]⚠[/yellow] AI license activation timed out")
+    except Exception as e:
+        console.print(f"[yellow]⚠[/yellow] AI license activation error: {e}")
 
 
 def generate_self_signed_cert(ssl_dir: Path, domain: str):
