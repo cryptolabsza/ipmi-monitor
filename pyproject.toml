@@ -53,7 +53,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/cryptolabsza/ipmi-monitor"
-Documentation = "https://cryptolabsza.github.io/ipmi-monitor/"
+Documentation = "https://www.cryptolabs.co.za/ipmi-monitor-support-documentation/"
 Repository = "https://github.com/cryptolabsza/ipmi-monitor"
 Issues = "https://github.com/cryptolabsza/ipmi-monitor/issues"
 Discord = "https://discord.gg/7yeHdf5BuC"

@@ -12408,9 +12408,9 @@ def parse_yaml_servers(yaml_content):
     # Global defaults - applied to all servers unless overridden
     defaults:
       ipmi_user: admin
-      ipmi_pass: BBccc321
+      ipmi_pass: YOUR_BMC_PASSWORD
       ssh_user: root
-      ssh_key_name: bbmait          # Reference to stored SSH key by name
+      ssh_key_name: default-key     # Reference to stored SSH key by name
       ssh_port: 22
     
     # Server list

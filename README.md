@@ -53,7 +53,21 @@
 
 ## 🚀 Quick Start
 
-### One Command Setup ⚡
+### Automated Deployment (Recommended)
+
+Deploy everything with a single command using a config file:
+
+```bash
+# Install from dev branch (latest features)
+pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
+
+# Deploy with config file (no prompts)
+sudo ipmi-monitor quickstart -c /path/to/config.yaml -y
+```
+
+See [examples/ipmi-config.yaml](examples/ipmi-config.yaml) for a complete config template.
+
+### Interactive Setup
 
 **Ubuntu 24.04+ / Python 3.12+** (uses pipx):
 ```bash
@@ -74,6 +88,8 @@ sudo ipmi-monitor quickstart
 pip install ipmi-monitor --break-system-packages
 sudo ipmi-monitor quickstart
 ```
+
+> **Note:** This automatically deploys [cryptolabs-proxy](https://github.com/cryptolabsza/cryptolabs-proxy) as the unified entry point and authentication layer.
 
 **That's it!** Answer a few questions and Docker containers are deployed automatically:
 
@@ -205,20 +221,21 @@ global:root,sshpassword
 For complete GPU datacenter monitoring, combine with [DC Overview](https://github.com/cryptolabsza/dc-overview):
 
 ```bash
-# On master server - install both tools
-pip install dc-overview ipmi-monitor
+# On master server - install both tools from dev branch
+pip install git+https://github.com/cryptolabsza/dc-overview.git@dev --break-system-packages
+pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
 
-# dc-overview: Grafana + Prometheus + GPU metrics
-sudo dc-overview quickstart
-
-# ipmi-monitor: BMC/IPMI health + SEL logs + AI insights
-sudo ipmi-monitor quickstart
+# Deploy dc-overview (includes Grafana + Prometheus + GPU metrics + IPMI Monitor)
+sudo dc-overview quickstart -c /path/to/config.yaml -y
 ```
 
 | Tool | What it monitors |
 |------|------------------|
 | **dc-overview** | GPU utilization, temperature, power, CPU, RAM, disk |
 | **ipmi-monitor** | BMC health, SEL events, ECC errors, sensors, system logs |
+| **cryptolabs-proxy** | Unified authentication, reverse proxy, landing page |
+
+All services are accessed through [cryptolabs-proxy](https://github.com/cryptolabsza/cryptolabs-proxy) which provides unified authentication.
 
 ### CLI Commands
 
@@ -270,9 +287,9 @@ services:
     environment:
       - APP_NAME=My Server Fleet        # Customize this
       - IPMI_USER=admin
-      - IPMI_PASS=YourIPMIPassword      # Your BMC password
-      - ADMIN_PASS=changeme             # CHANGE THIS!
-      - SECRET_KEY=change-this-to-random-string
+      - IPMI_PASS=YOUR_BMC_PASSWORD     # Your BMC password
+      - ADMIN_PASS=YOUR_ADMIN_PASSWORD  # CHANGE THIS!
+      - SECRET_KEY=YOUR_RANDOM_SECRET_KEY
     volumes:
       - ipmi_data:/app/data             # ⚠️ IMPORTANT: Persists your data!
     labels:
@@ -303,9 +320,9 @@ docker run -d \
   --label com.centurylinklabs.watchtower.enable=true \
   -p 5000:5000 \
   -e IPMI_USER=admin \
-  -e IPMI_PASS=YourIPMIPassword \
-  -e ADMIN_PASS=YourAdminPassword \
-  -e SECRET_KEY=your-random-secret-key \
+  -e IPMI_PASS=YOUR_BMC_PASSWORD \
+  -e ADMIN_PASS=YOUR_ADMIN_PASSWORD \
+  -e SECRET_KEY=YOUR_RANDOM_SECRET_KEY \
   -v ipmi_data:/app/data \
   --restart unless-stopped \
   ghcr.io/cryptolabsza/ipmi-monitor:latest
@@ -337,15 +354,15 @@ servers:
   - name: GPU-Server-01           # Display name
     bmc_ip: 192.168.1.80          # BMC/IPMI IP (required)
     username: admin               # BMC username
-    password: ipmi-password       # BMC password
+    password: YOUR_BMC_PASSWORD   # BMC password
     protocol: auto                # auto, ipmi, or redfish
     
     # Optional: SSH for system logs
     server_ip: 192.168.1.81       # Server OS IP
     ssh_user: root
     ssh_port: 22
-    ssh_password: ssh-password    # Or use ssh_key
-    ssh_key: ~/.ssh/id_rsa        # Path to SSH private key
+    ssh_password: YOUR_SSH_PASSWORD  # Or use ssh_key
+    ssh_key: ~/.ssh/id_rsa           # Path to SSH private key
 ```
 
 ### config.yaml
@@ -740,7 +757,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **PyPI**: [pypi.org/project/ipmi-monitor](https://pypi.org/project/ipmi-monitor/)
 - **GitHub**: [github.com/cryptolabsza/ipmi-monitor](https://github.com/cryptolabsza/ipmi-monitor)
 - **Docker Image**: [ghcr.io/cryptolabsza/ipmi-monitor](https://ghcr.io/cryptolabsza/ipmi-monitor)
-- **Documentation**: [github.com/cryptolabsza/ipmi-monitor/docs](https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs)
+- **Documentation**: [CryptoLabs Support](https://www.cryptolabs.co.za/ipmi-monitor-support-documentation/)
 - **Discord Community**: [Join our Discord](https://discord.gg/7yeHdf5BuC) - Get help, report issues, request features
 
 ---

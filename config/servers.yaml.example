@@ -22,7 +22,7 @@
 defaults:
   # IPMI/BMC Credentials
   ipmi_user: admin
-  ipmi_pass: BBccc321
+  ipmi_pass: YOUR_BMC_PASSWORD
   
   # SSH Credentials for OS-level inventory (GPU detection, Xid errors, etc.)
   ssh_user: root

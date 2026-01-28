@@ -1668,7 +1668,7 @@ For complete API documentation, see the [GitHub repository](https://github.com/c
 
 - 💬 **Discord**: [Join our Discord](https://discord.gg/7yeHdf5BuC) - Get help, chat with the community
 - **GitHub Issues**: [github.com/cryptolabsza/ipmi-monitor/issues](https://github.com/cryptolabsza/ipmi-monitor/issues)
-- **Documentation**: [github.com/cryptolabsza/ipmi-monitor/docs](https://github.com/cryptolabsza/ipmi-monitor/tree/main/docs)
+- **Documentation**: [CryptoLabs Support](https://www.cryptolabs.co.za/ipmi-monitor-support-documentation/)
 - **AI Support**: Use the AI Chat feature for instant help
 
 ---

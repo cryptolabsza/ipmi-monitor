@@ -1,11 +1,14 @@
 # IPMI Monitor Quickstart Configuration
-# Use with: sudo ipmi-monitor quickstart -c config.yaml -y
+# ======================================
+# Copy this file and replace placeholder values with your actual credentials
+#
+# Usage: sudo ipmi-monitor quickstart -c /path/to/your-config.yaml -y
 
 site_name: IPMI Monitor
 
-# Fleet Management Login
+# Fleet Management Login (for cryptolabs-proxy landing page)
 fleet_admin_user: admin
-fleet_admin_pass: Test1234
+fleet_admin_pass: YOUR_ADMIN_PASSWORD
 
 # SSH Access (default for all servers)
 ssh:
@@ -36,7 +39,7 @@ servers:
 
 # IPMI Monitor configuration
 ipmi_monitor:
-  admin_password: Test1234
+  admin_password: YOUR_IPMI_MONITOR_PASSWORD
   ai_license_key: ""  # Optional: CryptoLabs AI license key
   enable_ssh_inventory: true
   enable_ssh_logs: false

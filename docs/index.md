@@ -27,7 +27,21 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 
 ## 🚀 Quick Start (v1.1.0)
 
-### One Command Setup (Recommended)
+### Automated Deployment (Recommended)
+
+Deploy everything with a single command using a config file:
+
+```bash
+# Install from dev branch (latest features)
+pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
+
+# Deploy with config file (no prompts)
+sudo ipmi-monitor quickstart -c /path/to/config.yaml -y
+```
+
+See [examples/ipmi-config.yaml](https://github.com/cryptolabsza/ipmi-monitor/blob/main/examples/ipmi-config.yaml) for a complete config template.
+
+### Interactive Setup
 
 ```bash
 # Install the CLI tool
@@ -55,9 +69,9 @@ docker run -d \
   -p 5000:5000 \
   -v ipmi_data:/app/data \
   -e IPMI_USER=admin \
-  -e IPMI_PASS=YourBMCPassword \
-  -e ADMIN_PASS=YourAdminPassword \
-  -e SECRET_KEY=your-random-secret-key \
+  -e IPMI_PASS=YOUR_BMC_PASSWORD \
+  -e ADMIN_PASS=YOUR_ADMIN_PASSWORD \
+  -e SECRET_KEY=YOUR_RANDOM_SECRET_KEY \
   ghcr.io/cryptolabsza/ipmi-monitor:latest
 ```
 

@@ -165,4 +165,9 @@ networks:
 {% else %}
     name: cryptolabs
     driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/16
+          gateway: 172.30.0.1
 {% endif %}
