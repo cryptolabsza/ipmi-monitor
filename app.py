@@ -6496,7 +6496,8 @@ def run_initial_collection():
                 
                 try:
                     print(f"[Initial Collection] Inventory for {server.server_name}...", flush=True)
-                    collect_server_inventory(server)
+                    ipmi_user, ipmi_pass = get_ipmi_credentials(server.bmc_ip)
+                    collect_server_inventory(server.bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
                     with _initial_collection_lock:
                         _initial_collection['collected']['inventory'] += 1
                 except Exception as e:
@@ -18724,13 +18725,7 @@ def auto_import_ssh_keys():
                 try:
                     key_name = os.path.basename(key_file).replace('.pem', '').replace('.key', '')
                     
-                    # Skip if already imported
-                    existing = SSHKey.query.filter_by(name=key_name).first()
-                    if existing:
-                        skipped += 1
-                        continue
-                    
-                    # Read key content
+                    # Read key content first to calculate fingerprint
                     with open(key_file, 'r') as f:
                         key_content = f.read().strip()
                     
@@ -18741,7 +18736,21 @@ def auto_import_ssh_keys():
                     try:
                         fingerprint = SSHKey.get_fingerprint(key_content)
                     except:
-                        fingerprint = 'unknown'
+                        fingerprint = None
+                    
+                    # Skip if key with same name already exists
+                    existing_by_name = SSHKey.query.filter_by(name=key_name).first()
+                    if existing_by_name:
+                        skipped += 1
+                        continue
+                    
+                    # Skip if key with same fingerprint already exists (avoid duplicates)
+                    if fingerprint:
+                        existing_by_fp = SSHKey.query.filter_by(fingerprint=fingerprint).first()
+                        if existing_by_fp:
+                            skipped += 1
+                            app.logger.info(f"📋 SSH key {key_name} already exists as '{existing_by_fp.name}' (same fingerprint)")
+                            continue
                     
                     # Create new key entry
                     new_key = SSHKey(
