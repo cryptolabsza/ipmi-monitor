@@ -536,10 +536,22 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
             if not srv.get('ssh_port'):
                 srv['ssh_port'] = ssh_cfg.get('port', 22)
             # Add default BMC credentials if not specified per-server
-            if not srv.get('ipmi_user'):
+            # Use both field names for compatibility (ipmi_user/ipmi_pass and bmc_user/bmc_password)
+            if not srv.get('ipmi_user') and not srv.get('bmc_user'):
                 srv['ipmi_user'] = bmc_cfg.get('username', 'admin')
-            if not srv.get('ipmi_pass'):
+                srv['bmc_user'] = bmc_cfg.get('username', 'admin')
+            elif srv.get('ipmi_user') and not srv.get('bmc_user'):
+                srv['bmc_user'] = srv['ipmi_user']
+            elif srv.get('bmc_user') and not srv.get('ipmi_user'):
+                srv['ipmi_user'] = srv['bmc_user']
+                
+            if not srv.get('ipmi_pass') and not srv.get('bmc_password'):
                 srv['ipmi_pass'] = bmc_cfg.get('password', '')
+                srv['bmc_password'] = bmc_cfg.get('password', '')
+            elif srv.get('ipmi_pass') and not srv.get('bmc_password'):
+                srv['bmc_password'] = srv['ipmi_pass']
+            elif srv.get('bmc_password') and not srv.get('ipmi_pass'):
+                srv['ipmi_pass'] = srv['bmc_password']
         
         # Admin credentials (support both formats)
         cfg_admin_user = file_config.get('fleet_admin_user') or file_config.get('admin_user', 'admin')
@@ -959,10 +971,13 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     default_ipmi_user = "admin"
     default_ipmi_pass = ""
     for srv in servers:
-        if srv.get("bmc_user"):
-            default_ipmi_user = srv["bmc_user"]
-        if srv.get("bmc_password"):
-            default_ipmi_pass = srv["bmc_password"]
+        # Support both field naming conventions
+        user = srv.get("bmc_user") or srv.get("ipmi_user")
+        passwd = srv.get("bmc_password") or srv.get("ipmi_pass")
+        if user:
+            default_ipmi_user = user
+        if passwd:
+            default_ipmi_pass = passwd
             break
     
     # Handle SSH keys - copy to config directory
@@ -1134,10 +1149,13 @@ def generate_servers_yaml(servers: List[Dict], config_dir: Path, ssh_key_map: Di
         
         if srv.get("bmc_ip"):
             flask_srv["bmc_ip"] = srv["bmc_ip"]
-        if srv.get("bmc_user"):
-            flask_srv["ipmi_user"] = srv["bmc_user"]
-        if srv.get("bmc_password"):
-            flask_srv["ipmi_pass"] = srv["bmc_password"]
+        # Support both field naming conventions
+        ipmi_user = srv.get("bmc_user") or srv.get("ipmi_user")
+        ipmi_pass = srv.get("bmc_password") or srv.get("ipmi_pass")
+        if ipmi_user:
+            flask_srv["ipmi_user"] = ipmi_user
+        if ipmi_pass:
+            flask_srv["ipmi_pass"] = ipmi_pass
         if srv.get("server_ip"):
             flask_srv["server_ip"] = srv["server_ip"]
         if srv.get("ssh_user"):
