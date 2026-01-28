@@ -6449,28 +6449,28 @@ def run_initial_collection():
             for i, server in enumerate(servers):
                 with _initial_collection_lock:
                     _initial_collection['current_server'] = i + 1
-                    _initial_collection['current_server_name'] = server.name
+                    _initial_collection['current_server_name'] = server.server_name
                 
                 try:
                     # Collect sensors
-                    print(f"[Initial Collection] Sensors for {server.name}...", flush=True)
-                    result = collect_single_server_sensors(server.bmc_ip, server.name)
+                    print(f"[Initial Collection] Sensors for {server.server_name}...", flush=True)
+                    result = collect_single_server_sensors(server.bmc_ip, server.server_name)
                     if result:
                         with _initial_collection_lock:
                             _initial_collection['collected']['sensors'] += 1
                     
                     # Collect SEL events
-                    print(f"[Initial Collection] Events for {server.name}...", flush=True)
-                    events = collect_ipmi_sel(server.bmc_ip, server.name)
+                    print(f"[Initial Collection] Events for {server.server_name}...", flush=True)
+                    events = collect_ipmi_sel(server.bmc_ip, server.server_name)
                     if events:
-                        save_events_to_db(server.bmc_ip, server.name, events)
+                        save_events_to_db(server.bmc_ip, server.server_name, events)
                         with _initial_collection_lock:
                             _initial_collection['collected']['events'] += len(events)
                             
                 except Exception as e:
                     with _initial_collection_lock:
-                        _initial_collection['errors'].append(f"{server.name}: {str(e)[:50]}")
-                    print(f"[Initial Collection] Error for {server.name}: {e}", flush=True)
+                        _initial_collection['errors'].append(f"{server.server_name}: {str(e)[:50]}")
+                    print(f"[Initial Collection] Error for {server.server_name}: {e}", flush=True)
             
             # Phase 2: Collect inventory
             with _initial_collection_lock:
@@ -6479,15 +6479,15 @@ def run_initial_collection():
             for i, server in enumerate(servers):
                 with _initial_collection_lock:
                     _initial_collection['current_server'] = i + 1
-                    _initial_collection['current_server_name'] = server.name
+                    _initial_collection['current_server_name'] = server.server_name
                 
                 try:
-                    print(f"[Initial Collection] Inventory for {server.name}...", flush=True)
+                    print(f"[Initial Collection] Inventory for {server.server_name}...", flush=True)
                     collect_server_inventory(server)
                     with _initial_collection_lock:
                         _initial_collection['collected']['inventory'] += 1
                 except Exception as e:
-                    print(f"[Initial Collection] Inventory error for {server.name}: {e}", flush=True)
+                    print(f"[Initial Collection] Inventory error for {server.server_name}: {e}", flush=True)
             
             # Phase 3: Collect SSH logs (if enabled)
             ssh_enabled = SystemSettings.get('enable_ssh_logs', 'false').lower() == 'true'
@@ -6498,16 +6498,16 @@ def run_initial_collection():
                 for i, server in enumerate(servers):
                     with _initial_collection_lock:
                         _initial_collection['current_server'] = i + 1
-                        _initial_collection['current_server_name'] = server.name
+                        _initial_collection['current_server_name'] = server.server_name
                     
                     try:
                         if server.server_ip:
-                            print(f"[Initial Collection] SSH logs for {server.name}...", flush=True)
+                            print(f"[Initial Collection] SSH logs for {server.server_name}...", flush=True)
                             collect_ssh_logs_for_server(server)
                             with _initial_collection_lock:
                                 _initial_collection['collected']['ssh_logs'] += 1
                     except Exception as e:
-                        print(f"[Initial Collection] SSH logs error for {server.name}: {e}", flush=True)
+                        print(f"[Initial Collection] SSH logs error for {server.server_name}: {e}", flush=True)
             
             with _initial_collection_lock:
                 _initial_collection['phase'] = 'complete'
@@ -16131,7 +16131,7 @@ def api_ai_agent_analyze():
         
         event_list = [{
             'event_id': e.id,
-            'server_name': e.server.name if e.server else 'Unknown',
+            'server_name': e.server.server_name if e.server else 'Unknown',
             'description': e.description,
             'message': e.message,
             'severity': e.severity,

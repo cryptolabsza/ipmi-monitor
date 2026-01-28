@@ -16019,7 +16019,7 @@ def api_ai_agent_analyze():
         
         event_list = [{
             'event_id': e.id,
-            'server_name': e.server.name if e.server else 'Unknown',
+            'server_name': e.server.server_name if e.server else 'Unknown',
             'description': e.description,
             'message': e.message,
             'severity': e.severity,
