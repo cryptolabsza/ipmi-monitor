@@ -1,60 +1,47 @@
 # IPMI Monitor Quickstart Configuration
-# Use with: sudo ipmi-monitor quickstart -c ipmi-config.yaml -y
+# Use with: sudo ipmi-monitor quickstart -c config.yaml -y
 
-# Servers to monitor - each server needs BMC/IPMI credentials
+site_name: IPMI Monitor
+
+# Fleet Management Login
+fleet_admin_user: admin
+fleet_admin_pass: Test1234
+
+# SSH Access (default for all servers)
+ssh:
+  username: root
+  key_path: /root/.ssh/id_rsa
+  port: 22
+
+# BMC/IPMI Access (default for all servers)
+bmc:
+  username: admin
+  password: YourBMCPassword
+
+# SSL Configuration
+ssl:
+  mode: none  # Options: none, self_signed, letsencrypt
+  # domain: ipmi.example.com  # Required for letsencrypt
+  # email: admin@example.com  # Required for letsencrypt
+
+# Servers to monitor
 servers:
-  - name: "master"
-    bmc_ip: "192.168.1.10"
-    server_ip: "192.168.1.100"  # Optional: OS IP for SSH inventory/logs
-    ipmi_user: "admin"
-    ipmi_pass: "password"
-    ssh_user: "root"           # Optional: SSH user for server_ip
-  
-  - name: "worker-01"
-    bmc_ip: "192.168.1.11"
-    server_ip: "192.168.1.101"
-    ipmi_user: "admin"
-    ipmi_pass: "password"
-    ssh_user: "root"
+  - name: master
+    server_ip: 192.168.1.100
+    bmc_ip: 192.168.1.10
 
-# Web interface settings
-web_port: 5000
+  - name: worker-01
+    server_ip: 192.168.1.101
+    bmc_ip: 192.168.1.11
 
-# Admin credentials for Fleet Management
-admin_user: "admin"
-admin_password: "YourSecurePassword123"
+# IPMI Monitor configuration
+ipmi_monitor:
+  admin_password: Test1234
+  ai_license_key: ""  # Optional: CryptoLabs AI license key
+  enable_ssh_inventory: true
+  enable_ssh_logs: false
+  web_port: 5000
+  image_tag: dev  # Options: latest, dev
 
-# AI Features (optional)
-enable_ai: false
-# ai_license_key: "your-license-key-here"
-
-# Docker image channel: "latest" (stable) or "dev" (development)
-image_tag: "dev"
-
-# Enable Watchtower for automatic updates
+# Auto-updates
 enable_watchtower: true
-
-# SSH features for detailed inventory and log collection
-enable_ssh_inventory: true
-enable_ssh_logs: false
-
-# Reverse proxy settings (optional)
-# If enable_proxy is false: IPMI Monitor runs directly on web_port (HTTP only)
-# If enable_proxy is true: CryptoLabs Proxy runs on 80/443 with SSL
-enable_proxy: false
-# domain: "ipmi.example.com"     # Set domain for Let's Encrypt
-# use_letsencrypt: false         # Use Let's Encrypt for trusted cert
-# email: "admin@example.com"     # Required for Let's Encrypt
-
-# Example: Standalone HTTP on port 5000 (no proxy)
-# enable_proxy: false
-# web_port: 5000
-
-# Example: HTTPS with self-signed cert (no domain)
-# enable_proxy: true
-
-# Example: HTTPS with Let's Encrypt (requires domain)
-# enable_proxy: true
-# domain: "ipmi.example.com"
-# use_letsencrypt: true
-# email: "admin@example.com"

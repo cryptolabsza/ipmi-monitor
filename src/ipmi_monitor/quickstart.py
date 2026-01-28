@@ -517,20 +517,66 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     console.print()
     
     # Extract values from config file if provided
-    cfg_servers = file_config.get('servers', []) if file_config else []
-    cfg_admin_user = file_config.get('admin_user', 'admin') if file_config else None
-    cfg_admin_pass = file_config.get('admin_password') if file_config else None
-    cfg_web_port = str(file_config.get('web_port', 5000)) if file_config else None
-    cfg_enable_ai = file_config.get('enable_ai', False) if file_config else None
-    cfg_license_key = file_config.get('ai_license_key') if file_config else None
-    cfg_enable_watchtower = file_config.get('enable_watchtower', True) if file_config else None
-    cfg_enable_ssh_logs = file_config.get('enable_ssh_logs', False) if file_config else None
-    cfg_enable_ssh_inventory = file_config.get('enable_ssh_inventory', True) if file_config else None
-    cfg_image_tag = file_config.get('image_tag', 'latest') if file_config else None
-    cfg_enable_proxy = file_config.get('enable_proxy', False) if file_config else None
-    cfg_domain = file_config.get('domain') if file_config else None
-    cfg_use_letsencrypt = file_config.get('use_letsencrypt', False) if file_config else None
-    cfg_email = file_config.get('email') if file_config else None
+    # Support both flat format and nested format (like dc-overview's test-config.yaml)
+    if file_config:
+        # Get nested configs
+        ipmi_cfg = file_config.get('ipmi_monitor', {})
+        ssh_cfg = file_config.get('ssh', {})
+        bmc_cfg = file_config.get('bmc', {})
+        ssl_cfg = file_config.get('ssl', {})
+        
+        # Servers - enrich with default SSH/BMC credentials
+        cfg_servers = file_config.get('servers', [])
+        for srv in cfg_servers:
+            # Add default SSH settings if not specified per-server
+            if not srv.get('ssh_user'):
+                srv['ssh_user'] = ssh_cfg.get('username', 'root')
+            if not srv.get('ssh_key') and ssh_cfg.get('key_path'):
+                srv['ssh_key'] = ssh_cfg.get('key_path')
+            if not srv.get('ssh_port'):
+                srv['ssh_port'] = ssh_cfg.get('port', 22)
+            # Add default BMC credentials if not specified per-server
+            if not srv.get('ipmi_user'):
+                srv['ipmi_user'] = bmc_cfg.get('username', 'admin')
+            if not srv.get('ipmi_pass'):
+                srv['ipmi_pass'] = bmc_cfg.get('password', '')
+        
+        # Admin credentials (support both formats)
+        cfg_admin_user = file_config.get('fleet_admin_user') or file_config.get('admin_user', 'admin')
+        cfg_admin_pass = file_config.get('fleet_admin_pass') or ipmi_cfg.get('admin_password') or file_config.get('admin_password')
+        
+        # IPMI Monitor settings
+        cfg_web_port = str(ipmi_cfg.get('web_port', file_config.get('web_port', 5000)))
+        cfg_enable_ai = bool(ipmi_cfg.get('ai_license_key'))
+        cfg_license_key = ipmi_cfg.get('ai_license_key')
+        cfg_enable_ssh_logs = ipmi_cfg.get('enable_ssh_logs', False)
+        cfg_enable_ssh_inventory = ipmi_cfg.get('enable_ssh_inventory', True)
+        cfg_image_tag = ipmi_cfg.get('image_tag', file_config.get('image_tag', 'latest'))
+        
+        # Watchtower
+        cfg_enable_watchtower = file_config.get('enable_watchtower', True)
+        
+        # SSL/Proxy settings
+        ssl_mode = ssl_cfg.get('mode', 'none')
+        cfg_enable_proxy = ssl_mode != 'none'
+        cfg_domain = ssl_cfg.get('domain')
+        cfg_use_letsencrypt = ssl_mode == 'letsencrypt'
+        cfg_email = ssl_cfg.get('email')
+    else:
+        cfg_servers = []
+        cfg_admin_user = None
+        cfg_admin_pass = None
+        cfg_web_port = None
+        cfg_enable_ai = None
+        cfg_license_key = None
+        cfg_enable_watchtower = None
+        cfg_enable_ssh_logs = None
+        cfg_enable_ssh_inventory = None
+        cfg_image_tag = None
+        cfg_enable_proxy = None
+        cfg_domain = None
+        cfg_use_letsencrypt = None
+        cfg_email = None
     
     # Check Docker
     if not check_docker_installed():
