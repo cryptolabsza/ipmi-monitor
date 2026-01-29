@@ -18529,7 +18529,8 @@ def auto_load_ssh_keys():
                 # - id_rsa, id_ed25519, id_ecdsa (no extension)
                 # - *.pem (AWS/cloud style)
                 # - *.key (generic)
-                key_patterns = ['id_*', '*.pem', '*.key', 'default-key*', 'key-*']
+                # - *_key (dc-overview fleet_key pattern)
+                key_patterns = ['id_*', '*.pem', '*.key', 'default-key*', 'key-*', '*_key']
                 key_files = set()
                 for pattern in key_patterns:
                     key_files.update(key_dir.glob(pattern))
@@ -18539,7 +18540,11 @@ def auto_load_ssh_keys():
                     if key_file.suffix == '.pub':
                         continue
                     
-                    key_name = key_file.stem  # Filename without extension
+                    # Use "Fleet SSH Key" for fleet_key files (dc-overview integration)
+                    if key_file.stem == 'fleet_key':
+                        key_name = "Fleet SSH Key"
+                    else:
+                        key_name = key_file.stem  # Filename without extension
                     
                     # Skip if key already exists
                     if SSHKey.query.filter_by(name=key_name).first():
