@@ -18723,7 +18723,9 @@ def auto_import_ssh_keys():
             
             for key_file in key_files:
                 try:
-                    key_name = os.path.basename(key_file).replace('.pem', '').replace('.key', '')
+                    base_name = os.path.basename(key_file).replace('.pem', '').replace('.key', '')
+                    # Use "Fleet SSH Key" for fleet_key files (dc-overview integration)
+                    key_name = "Fleet SSH Key" if base_name == 'fleet_key' else base_name
                     
                     # Read key content first to calculate fingerprint
                     with open(key_file, 'r') as f:
