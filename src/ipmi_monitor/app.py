@@ -7288,6 +7288,41 @@ def ssh_log_timer():
     print(f"[SSH Log Timer] Stopped", flush=True)
 
 
+def collect_ssh_logs_for_server(server):
+    """Collect SSH logs for a single Server object.
+    
+    This is a convenience wrapper around _collect_and_store_ssh_logs
+    that handles credential resolution.
+    """
+    # Get default SSH settings as fallback
+    default_ssh_user = SystemSettings.get('ssh_user') or 'root'
+    default_ssh_key_id = SystemSettings.get('default_ssh_key_id')
+    default_ssh_key_id = int(default_ssh_key_id) if default_ssh_key_id else None
+    
+    config = ServerConfig.query.filter_by(bmc_ip=server.bmc_ip).first()
+    
+    # Get SSH credentials - per-server config takes priority, then defaults
+    ssh_user = (config.ssh_user if config else None) or default_ssh_user
+    ssh_key_id = (config.ssh_key_id if config else None) or default_ssh_key_id
+    ssh_pass = getattr(config, 'ssh_pass', None) if config else None
+    
+    # Must have SSH key or password (from config or defaults)
+    if not ssh_key_id and not ssh_pass:
+        app.logger.warning(f"No SSH credentials for {server.server_name} - skipping log collection")
+        return
+    
+    server_info = {
+        'bmc_ip': server.bmc_ip,
+        'server_name': server.server_name,
+        'server_ip': server.server_ip,
+        'ssh_user': ssh_user,
+        'ssh_key_id': ssh_key_id,
+        'ssh_pass': ssh_pass
+    }
+    
+    _collect_and_store_ssh_logs(server_info)
+
+
 def _collect_and_store_ssh_logs(server_info):
     """Collect logs from a single server via SSH and store parsed events"""
     import re
