@@ -5396,6 +5396,7 @@
                                     <div class="icm-stat"><span class="icm-stat-value" id="icmSensors">0</span><span class="icm-stat-label">Sensors</span></div>
                                     <div class="icm-stat"><span class="icm-stat-value" id="icmEvents">0</span><span class="icm-stat-label">Events</span></div>
                                     <div class="icm-stat"><span class="icm-stat-value" id="icmInventory">0</span><span class="icm-stat-label">Inventory</span></div>
+                                    <div class="icm-stat"><span class="icm-stat-value" id="icmSshLogs">0</span><span class="icm-stat-label">SSH Logs</span></div>
                                 </div>
                             </div>
                             <div class="icm-footer">
@@ -5444,7 +5445,11 @@
             let progress = 0;
             let text = 'Starting...';
             
-            if (status.phase === 'sensors_events') {
+            if (status.phase === 'collecting') {
+                // New parallel collection - all data types at once
+                progress = (status.current_server / status.total_servers) * 95;
+                text = `Collecting: ${status.current_server}/${status.total_servers} servers (${status.current_server_name || ''})`;
+            } else if (status.phase === 'sensors_events') {
                 progress = (status.current_server / status.total_servers) * 50;
                 text = `Collecting sensors & events: ${status.current_server_name || 'Server ' + status.current_server}`;
             } else if (status.phase === 'inventory') {
@@ -5469,6 +5474,7 @@
                 document.getElementById('icmSensors').textContent = status.collected.sensors || 0;
                 document.getElementById('icmEvents').textContent = status.collected.events || 0;
                 document.getElementById('icmInventory').textContent = status.collected.inventory || 0;
+                document.getElementById('icmSshLogs').textContent = status.collected.ssh_logs || 0;
             }
         }
         
