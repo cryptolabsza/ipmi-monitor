@@ -7850,9 +7850,19 @@ def run_initial_collection():
                 errors.append(error_msg)
                 print(f"[Initial Setup] Error: {error_msg}", flush=True)
         
-        # Phase 2: Collect inventory
-        print("[Initial Setup] Phase 2: Collecting inventory...", flush=True)
+        # Phase 2: Collect inventory (SSH-based)
+        print("[Initial Setup] Phase 2: Collecting inventory via SSH...", flush=True)
         update_initial_setup({'phase': 'inventory', 'current_server': 0})
+        
+        # Get default SSH key if configured
+        default_ssh_key_id = SystemSettings.get('default_ssh_key_id', '')
+        default_ssh_key = None
+        if default_ssh_key_id:
+            default_ssh_key = SSHKey.query.get(int(default_ssh_key_id))
+        
+        # Get default SSH settings
+        default_ssh_user = SystemSettings.get('ssh_user', 'root')
+        default_ssh_port = int(SystemSettings.get('ssh_port', '22'))
         
         for idx, server in enumerate(servers, 1):
             update_initial_setup({
@@ -7861,20 +7871,37 @@ def run_initial_collection():
             })
             
             try:
-                if server.server_ip and server.ssh_key_id:
+                # Get per-server config (has ssh_key_id, ssh_user, etc.)
+                server_config = ServerConfig.query.filter_by(bmc_ip=server.bmc_ip).first()
+                
+                # Determine SSH key: per-server config > default
+                ssh_key = None
+                if server_config and server_config.ssh_key_id:
+                    ssh_key = SSHKey.query.get(server_config.ssh_key_id)
+                elif default_ssh_key:
+                    ssh_key = default_ssh_key
+                
+                # Get server IP (from Server or ServerConfig)
+                server_ip = server.server_ip
+                if not server_ip and server_config:
+                    server_ip = server_config.server_ip
+                
+                if server_ip and ssh_key:
+                    ssh_user = (server_config.ssh_user if server_config and server_config.ssh_user else default_ssh_user)
+                    ssh_port = (server_config.ssh_port if server_config and server_config.ssh_port else default_ssh_port)
+                    
                     print(f"[Initial Setup] [{idx}/{len(servers)}] Collecting inventory for {server.server_name}...", flush=True)
-                    ssh_key = SSHKey.query.get(server.ssh_key_id)
-                    if ssh_key:
-                        collect_server_inventory(
-                            server.server_ip,
-                            server.ssh_user or 'root',
-                            server.ssh_port or 22,
-                            ssh_key.key_path,
-                            server.server_name
-                        )
+                    collect_server_inventory(
+                        server_ip,
+                        ssh_user,
+                        ssh_port,
+                        ssh_key.key_path,
+                        server.server_name
+                    )
             except Exception as e:
                 error_msg = f"Inventory {server.server_name}: {str(e)}"
                 errors.append(error_msg)
+                print(f"[Initial Setup] Error: {error_msg}", flush=True)
         
         # Phase 3: Collect SSH logs (if enabled)
         ssh_log_enabled = SystemSettings.get('enable_ssh_log_collection', 'false') == 'true'
@@ -7889,19 +7916,37 @@ def run_initial_collection():
                 })
                 
                 try:
-                    if server.server_ip and server.ssh_key_id:
-                        ssh_key = SSHKey.query.get(server.ssh_key_id)
-                        if ssh_key:
-                            collect_ssh_logs_for_server(
-                                server.server_ip,
-                                server.ssh_user or 'root',
-                                server.ssh_port or 22,
-                                ssh_key.key_path,
-                                server.server_name
-                            )
+                    # Get per-server config
+                    server_config = ServerConfig.query.filter_by(bmc_ip=server.bmc_ip).first()
+                    
+                    # Determine SSH key: per-server config > default
+                    ssh_key = None
+                    if server_config and server_config.ssh_key_id:
+                        ssh_key = SSHKey.query.get(server_config.ssh_key_id)
+                    elif default_ssh_key:
+                        ssh_key = default_ssh_key
+                    
+                    # Get server IP
+                    server_ip = server.server_ip
+                    if not server_ip and server_config:
+                        server_ip = server_config.server_ip
+                    
+                    if server_ip and ssh_key:
+                        ssh_user = (server_config.ssh_user if server_config and server_config.ssh_user else default_ssh_user)
+                        ssh_port = (server_config.ssh_port if server_config and server_config.ssh_port else default_ssh_port)
+                        
+                        print(f"[Initial Setup] [{idx}/{len(servers)}] Collecting SSH logs for {server.server_name}...", flush=True)
+                        collect_ssh_logs_for_server(
+                            server_ip,
+                            ssh_user,
+                            ssh_port,
+                            ssh_key.key_path,
+                            server.server_name
+                        )
                 except Exception as e:
                     error_msg = f"SSH logs {server.server_name}: {str(e)}"
                     errors.append(error_msg)
+                    print(f"[Initial Setup] Error: {error_msg}", flush=True)
         
         # Mark complete
         update_initial_setup({
