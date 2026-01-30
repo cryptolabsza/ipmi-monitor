@@ -22,6 +22,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+from rich.markup import escape as rich_escape
 import yaml
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -496,7 +497,7 @@ def load_config_from_file(config_path: str) -> Optional[Dict]:
         )
         sys.exit(1)
     except Exception as e:
-        console.print(f"[red]Failed to load config:[/red] {e}")
+        console.print(f"[red]Failed to load config:[/red] {rich_escape(str(e))}")
         sys.exit(1)
     
     if config is None:
