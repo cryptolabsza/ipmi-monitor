@@ -6425,9 +6425,10 @@ def get_initial_collection_status():
 def run_initial_collection():
     """Run initial data collection for fresh install.
     
-    This collects sensors, events, and inventory for all servers
-    to populate the database with initial data.
+    This collects sensors, events, inventory, and SSH logs for all servers
+    using parallel workers for fast collection.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
     global _initial_collection
     
     with _initial_collection_lock:
@@ -6438,6 +6439,55 @@ def run_initial_collection():
         _initial_collection['phase'] = 'starting'
         _initial_collection['errors'] = []
         _initial_collection['collected'] = {'sensors': 0, 'events': 0, 'inventory': 0, 'ssh_logs': 0}
+    
+    # Use up to 20 parallel workers (or CPU count * 4, whichever is smaller)
+    max_workers = min(20, max(os.cpu_count() or 4, 4) * 4)
+    
+    def collect_server_data(server_info):
+        """Collect all data for a single server (runs in thread pool)"""
+        bmc_ip = server_info['bmc_ip']
+        server_name = server_info['server_name']
+        server_ip = server_info['server_ip']
+        result = {'sensors': 0, 'events': 0, 'inventory': 0, 'ssh_logs': 0, 'errors': []}
+        
+        with app.app_context():
+            # Collect sensors
+            try:
+                sensor_result = collect_single_server_sensors(bmc_ip, server_name)
+                if sensor_result:
+                    result['sensors'] = 1
+            except Exception as e:
+                result['errors'].append(f"{server_name} sensors: {str(e)[:30]}")
+            
+            # Collect SEL events
+            try:
+                events = collect_ipmi_sel(bmc_ip, server_name)
+                if events:
+                    save_events_to_db(bmc_ip, server_name, events)
+                    result['events'] = len(events)
+            except Exception as e:
+                result['errors'].append(f"{server_name} events: {str(e)[:30]}")
+            
+            # Collect inventory
+            try:
+                ipmi_user, ipmi_pass = get_ipmi_credentials(bmc_ip)
+                collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_ip)
+                result['inventory'] = 1
+            except Exception as e:
+                result['errors'].append(f"{server_name} inventory: {str(e)[:30]}")
+            
+            # Collect SSH logs (if enabled and server has IP)
+            ssh_enabled = SystemSettings.get('enable_ssh_log_collection', 'false').lower() == 'true'
+            if ssh_enabled and server_ip:
+                try:
+                    server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+                    if server:
+                        collect_ssh_logs_for_server(server)
+                        result['ssh_logs'] = 1
+                except Exception as e:
+                    result['errors'].append(f"{server_name} ssh_logs: {str(e)[:30]}")
+        
+        return server_name, result
     
     try:
         with app.app_context():
@@ -6450,84 +6500,48 @@ def run_initial_collection():
                 print("[Initial Collection] No servers configured", flush=True)
                 return
             
+            # Prepare server info list
+            server_list = [
+                {'bmc_ip': s.bmc_ip, 'server_name': s.server_name, 'server_ip': s.server_ip}
+                for s in servers
+            ]
+            
             with _initial_collection_lock:
-                _initial_collection['total_servers'] = len(servers)
+                _initial_collection['total_servers'] = len(server_list)
+                _initial_collection['phase'] = 'collecting'
             
-            print(f"[Initial Collection] Starting for {len(servers)} servers...", flush=True)
+            print(f"[Initial Collection] Starting parallel collection for {len(server_list)} servers with {max_workers} workers...", flush=True)
             
-            # Phase 1: Collect sensors and events
-            with _initial_collection_lock:
-                _initial_collection['phase'] = 'sensors_events'
-            
-            for i, server in enumerate(servers):
-                with _initial_collection_lock:
-                    _initial_collection['current_server'] = i + 1
-                    _initial_collection['current_server_name'] = server.server_name
+            completed = 0
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(collect_server_data, s): s for s in server_list}
                 
-                try:
-                    # Collect sensors
-                    print(f"[Initial Collection] Sensors for {server.server_name}...", flush=True)
-                    result = collect_single_server_sensors(server.bmc_ip, server.server_name)
-                    if result:
-                        with _initial_collection_lock:
-                            _initial_collection['collected']['sensors'] += 1
-                    
-                    # Collect SEL events
-                    print(f"[Initial Collection] Events for {server.server_name}...", flush=True)
-                    events = collect_ipmi_sel(server.bmc_ip, server.server_name)
-                    if events:
-                        save_events_to_db(server.bmc_ip, server.server_name, events)
-                        with _initial_collection_lock:
-                            _initial_collection['collected']['events'] += len(events)
-                            
-                except Exception as e:
-                    with _initial_collection_lock:
-                        _initial_collection['errors'].append(f"{server.server_name}: {str(e)[:50]}")
-                    print(f"[Initial Collection] Error for {server.server_name}: {e}", flush=True)
-            
-            # Phase 2: Collect inventory
-            with _initial_collection_lock:
-                _initial_collection['phase'] = 'inventory'
-            
-            for i, server in enumerate(servers):
-                with _initial_collection_lock:
-                    _initial_collection['current_server'] = i + 1
-                    _initial_collection['current_server_name'] = server.server_name
-                
-                try:
-                    print(f"[Initial Collection] Inventory for {server.server_name}...", flush=True)
-                    ipmi_user, ipmi_pass = get_ipmi_credentials(server.bmc_ip)
-                    collect_server_inventory(server.bmc_ip, server.server_name, ipmi_user, ipmi_pass, server.server_ip)
-                    with _initial_collection_lock:
-                        _initial_collection['collected']['inventory'] += 1
-                except Exception as e:
-                    print(f"[Initial Collection] Inventory error for {server.server_name}: {e}", flush=True)
-            
-            # Phase 3: Collect SSH logs (if enabled)
-            ssh_enabled = SystemSettings.get('enable_ssh_log_collection', 'false').lower() == 'true'
-            if ssh_enabled:
-                with _initial_collection_lock:
-                    _initial_collection['phase'] = 'ssh_logs'
-                
-                for i, server in enumerate(servers):
-                    with _initial_collection_lock:
-                        _initial_collection['current_server'] = i + 1
-                        _initial_collection['current_server_name'] = server.server_name
-                    
+                for future in as_completed(futures):
                     try:
-                        if server.server_ip:
-                            print(f"[Initial Collection] SSH logs for {server.server_name}...", flush=True)
-                            collect_ssh_logs_for_server(server)
-                            with _initial_collection_lock:
-                                _initial_collection['collected']['ssh_logs'] += 1
+                        server_name, result = future.result()
+                        completed += 1
+                        
+                        with _initial_collection_lock:
+                            _initial_collection['current_server'] = completed
+                            _initial_collection['current_server_name'] = server_name
+                            _initial_collection['collected']['sensors'] += result['sensors']
+                            _initial_collection['collected']['events'] += result['events']
+                            _initial_collection['collected']['inventory'] += result['inventory']
+                            _initial_collection['collected']['ssh_logs'] += result['ssh_logs']
+                            _initial_collection['errors'].extend(result['errors'])
+                        
+                        print(f"[Initial Collection] {completed}/{len(server_list)} - {server_name}: sensors={result['sensors']}, events={result['events']}, inventory={result['inventory']}, ssh_logs={result['ssh_logs']}", flush=True)
+                        
                     except Exception as e:
-                        print(f"[Initial Collection] SSH logs error for {server.server_name}: {e}", flush=True)
+                        completed += 1
+                        print(f"[Initial Collection] Error processing server: {e}", flush=True)
             
             with _initial_collection_lock:
                 _initial_collection['phase'] = 'complete'
                 _initial_collection['complete'] = True
+                collected = _initial_collection['collected']
             
-            print(f"[Initial Collection] Complete! Sensors: {_initial_collection['collected']['sensors']}, Events: {_initial_collection['collected']['events']}, Inventory: {_initial_collection['collected']['inventory']}", flush=True)
+            print(f"[Initial Collection] Complete! Sensors: {collected['sensors']}, Events: {collected['events']}, Inventory: {collected['inventory']}, SSH Logs: {collected['ssh_logs']}", flush=True)
             
     except Exception as e:
         print(f"[Initial Collection] Fatal error: {e}", flush=True)
