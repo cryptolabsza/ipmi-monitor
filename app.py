@@ -6504,7 +6504,7 @@ def run_initial_collection():
                     print(f"[Initial Collection] Inventory error for {server.server_name}: {e}", flush=True)
             
             # Phase 3: Collect SSH logs (if enabled)
-            ssh_enabled = SystemSettings.get('enable_ssh_logs', 'false').lower() == 'true'
+            ssh_enabled = SystemSettings.get('enable_ssh_log_collection', 'false').lower() == 'true'
             if ssh_enabled:
                 with _initial_collection_lock:
                     _initial_collection['phase'] = 'ssh_logs'
