@@ -28,6 +28,23 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from ipmi_monitor import __git_branch__
 
+# Import cryptolabs-proxy setup API (handles SSL, proxy deployment)
+try:
+    from cryptolabs_proxy import (
+        ProxyConfig,
+        setup_proxy as cryptolabs_setup_proxy,
+        is_proxy_running as cryptolabs_is_proxy_running,
+        check_existing_letsencrypt_cert,
+        ensure_docker_network,
+        DOCKER_NETWORK_NAME as PROXY_NETWORK_NAME,
+        PROXY_STATIC_IP,
+    )
+    HAS_PROXY_MODULE = True
+except ImportError:
+    HAS_PROXY_MODULE = False
+    PROXY_NETWORK_NAME = "cryptolabs"
+    PROXY_STATIC_IP = "172.30.0.2"
+
 console = Console()
 
 def get_default_docker_tag() -> str:
@@ -1088,23 +1105,51 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
     (CONFIG_DIR / "docker-compose.yml").write_text(compose_content)
     console.print(f"[green]✓[/green] Docker Compose configuration saved")
     
-    # Generate nginx config if proxy enabled (and not already running)
+    # Handle proxy setup - use cryptolabs-proxy API if available
     if setup_proxy and not proxy_already_running:
-        # Always generate self-signed cert first (nginx needs certs to start)
-        generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
-        
-        # Create certbot directories (needed even for self-signed, for future LE)
-        (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
-        (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
-        
-        # Generate nginx config for cryptolabs-proxy
-        nginx_content = generate_proxy_nginx_config(
-            domain=domain or local_ip,
-            use_letsencrypt=use_letsencrypt,
-        )
-        (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
-        
-        console.print(f"[green]✓[/green] Proxy configuration saved (self-signed)")
+        if HAS_PROXY_MODULE:
+            # Use cryptolabs-proxy's SSL management (handles existing LE certs, etc.)
+            console.print("[dim]Setting up proxy via cryptolabs-proxy module...[/dim]")
+            proxy_config = ProxyConfig(
+                domain=domain or local_ip,
+                email=letsencrypt_email or f"admin@{domain or local_ip}",
+                use_letsencrypt=use_letsencrypt,
+                fleet_admin_user=admin_user,
+                fleet_admin_pass=admin_password,
+            )
+            
+            # The module will handle SSL certs, but we still need to start via docker-compose
+            # So just ensure SSL certs are ready
+            from cryptolabs_proxy.setup import ensure_ssl_certs
+            success, ssl_message = ensure_ssl_certs(proxy_config)
+            console.print(f"[dim]{ssl_message}[/dim]")
+            
+            # Create certbot directories
+            (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
+            (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
+            
+            # Still need nginx config for docker-compose volume mount
+            nginx_content = generate_proxy_nginx_config(
+                domain=domain or local_ip,
+                use_letsencrypt=use_letsencrypt and success,
+            )
+            (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
+            console.print(f"[green]✓[/green] Proxy configuration saved")
+        else:
+            # Legacy: generate self-signed cert (nginx needs certs to start)
+            generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
+            
+            # Create certbot directories
+            (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
+            (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
+            
+            # Generate nginx config
+            nginx_content = generate_proxy_nginx_config(
+                domain=domain or local_ip,
+                use_letsencrypt=use_letsencrypt,
+            )
+            (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
+            console.print(f"[green]✓[/green] Proxy configuration saved (self-signed)")
     elif proxy_already_running:
         console.print(f"[green]✓[/green] Using existing proxy configuration")
         # Add /ipmi/ route to existing proxy
@@ -1152,10 +1197,19 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
     if license_key:
         activate_ai_license(license_key)
     
-    # Handle Let's Encrypt certificate (only for new proxy setup)
+    # Handle Let's Encrypt certificate (only for new proxy setup, and only if not already handled)
     if setup_proxy and not proxy_already_running and use_letsencrypt and domain and letsencrypt_email:
-        console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
-        obtain_letsencrypt_cert(CONFIG_DIR, domain, letsencrypt_email)
+        # Check if cryptolabs-proxy already set up valid LE certs
+        le_already_valid = False
+        if HAS_PROXY_MODULE:
+            is_valid, _, _ = check_existing_letsencrypt_cert(domain)
+            le_already_valid = is_valid
+        
+        if not le_already_valid:
+            console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
+            obtain_letsencrypt_cert(CONFIG_DIR, domain, letsencrypt_email)
+        else:
+            console.print("[green]✓[/green] Let's Encrypt certificate already valid")
     
     # Show summary
     saved_servers = [s for s in servers if s.get("bmc_ip")]
