@@ -480,11 +480,31 @@ def load_config_from_file(config_path: str) -> Optional[Dict]:
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
-        console.print(f"[green]✓[/green] Loaded config from {config_path}")
-        return config
+    except FileNotFoundError:
+        console.print(f"[red]Config file not found:[/red] {config_path}")
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        console.print(f"[red]Invalid YAML in config file:[/red] {config_path}")
+        if hasattr(e, 'problem_mark'):
+            mark = e.problem_mark
+            console.print(f"  Line {mark.line + 1}, column {mark.column + 1}: {e.problem}")
+        else:
+            console.print(f"  {e}")
+        console.print(
+            "\n[dim]Common causes: inconsistent indentation (use 2 spaces), "
+            "list items aligned (e.g. '  - name:' not '   - name:').[/dim]"
+        )
+        sys.exit(1)
     except Exception as e:
-        console.print(f"[red]✗[/red] Failed to load config: {e}")
-        return None
+        console.print(f"[red]Failed to load config:[/red] {e}")
+        sys.exit(1)
+    
+    if config is None:
+        console.print(f"[red]Config file is empty:[/red] {config_path}")
+        sys.exit(1)
+    
+    console.print(f"[green]✓[/green] Loaded config from {config_path}")
+    return config
 
 
 def run_quickstart(config_path: str = None, yes_mode: bool = False):
