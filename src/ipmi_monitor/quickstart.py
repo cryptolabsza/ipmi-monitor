@@ -1114,8 +1114,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
                 domain=domain or local_ip,
                 email=letsencrypt_email or f"admin@{domain or local_ip}",
                 use_letsencrypt=use_letsencrypt,
-                fleet_admin_user=admin_user,
-                fleet_admin_pass=admin_password,
+                fleet_admin_user=fleet_admin_user,
+                fleet_admin_pass=fleet_admin_pass,
             )
             
             # The module will handle SSL certs, but we still need to start via docker-compose
