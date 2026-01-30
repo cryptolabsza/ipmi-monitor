@@ -59,6 +59,7 @@ Deploy everything with a single command using a config file:
 
 ```bash
 # Install from dev branch (latest features)
+pip install git+https://github.com/cryptolabsza/cryptolabs-proxy.git@dev --break-system-packages
 pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
 
 # Deploy with config file (no prompts)
@@ -221,7 +222,8 @@ global:root,sshpassword
 For complete GPU datacenter monitoring, combine with [DC Overview](https://github.com/cryptolabsza/dc-overview):
 
 ```bash
-# On master server - install both tools from dev branch
+# On master server - install from dev branch
+pip install git+https://github.com/cryptolabsza/cryptolabs-proxy.git@dev --break-system-packages
 pip install git+https://github.com/cryptolabsza/dc-overview.git@dev --break-system-packages
 pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
 
