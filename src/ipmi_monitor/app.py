@@ -11387,8 +11387,16 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                     elif server_config.ssh_key:
                         ssh_key_content = server_config.ssh_key
                         app.logger.info(f"Using inline SSH key for {bmc_ip}")
-                    else:
+                    elif ssh_pass:
                         app.logger.info(f"Using per-server SSH credentials (password) for {bmc_ip}")
+                    else:
+                        # No per-server SSH creds, fall back to default SSH key
+                        default_key_id = SystemSettings.get('default_ssh_key_id')
+                        if default_key_id:
+                            stored_key = SSHKey.query.get(int(default_key_id))
+                            if stored_key:
+                                ssh_key_content = stored_key.key_content
+                                app.logger.info(f"Using default SSH key '{stored_key.name}' for {bmc_ip}")
                 else:
                     ssh_user = SystemSettings.get('ssh_user') or os.environ.get('SSH_USER', 'root')
                     ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
