@@ -39,6 +39,7 @@
 - [Troubleshooting](#troubleshooting)
 - [Glossary](#glossary)
 - [API Reference](#api-reference)
+- [FAQ - Frequently Asked Questions](#faq---frequently-asked-questions)
 
 ---
 
@@ -1661,6 +1662,146 @@ POST /api/recovery/permissions/apply         - Apply to multiple servers
 ```
 
 For complete API documentation, see the [GitHub repository](https://github.com/cryptolabsza/ipmi-monitor).
+
+---
+
+## FAQ - Frequently Asked Questions
+
+### Why do only some servers show power consumption?
+
+**Short Answer:** Power readings require **DCMI (Data Center Manageability Interface)** support, which is an optional IPMI extension not all BMCs support.
+
+**Details:**
+IPMI Monitor collects power consumption using the command:
+```
+ipmitool dcmi power reading
+```
+
+DCMI is primarily found on enterprise/server-grade BMCs. Many motherboards, especially consumer-grade or older server boards, don't support it. Even servers of the same model can have different BMC firmware versions with varying DCMI support.
+
+**What you can do:**
+- Update BMC firmware - newer versions sometimes add DCMI support
+- Check if your BMC supports Redfish power monitoring (IPMI Monitor will try Redfish first)
+- Accept that power metrics are only available on supported hardware
+
+**For comprehensive GPU and system metrics**, consider using **[DC Overview](https://github.com/cryptolabsza/dc-overview)** which installs exporters directly on servers:
+- `node_exporter` - CPU, memory, disk, network metrics
+- `dc-exporter-rs` - GPU temperatures, power, utilization, memory, errors
+- Works regardless of BMC capabilities
+
+### Why are temperature sensors missing for some servers?
+
+BMC sensor support varies widely:
+
+| BMC Type | Typical Sensors Available |
+|----------|---------------------------|
+| **Enterprise (Dell iDRAC, HP iLO)** | CPU, inlet, outlet, DIMM, PSU, drive temps |
+| **NVIDIA DGX** | Limited via IPMI - use Redfish or dc-exporter-rs |
+| **Supermicro IPMI** | CPU, system temps, some have VRM temps |
+| **Consumer boards** | Often only CPU package temp |
+
+**Solution:** Enable Redfish in Settings if your BMC supports it - Redfish often exposes more sensors than IPMI.
+
+### Why does "No metrics collected yet" appear for dc-exporter?
+
+This happens when `dc-exporter-rs` cannot communicate with NVIDIA's NVML (NVIDIA Management Library):
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "NVML failed to initialize" | Driver not loaded | Run `nvidia-smi`, reboot if needed |
+| "Driver/library mismatch" | Kernel module ≠ userspace lib | Reinstall NVIDIA driver, reboot |
+| "No NVIDIA GPU found" | No GPU or disabled | Check `lspci \| grep NVIDIA` |
+| "Insufficient permissions" | Need root or nvidia group | Run exporter as root or add to nvidia group |
+
+**Quick fix attempt:**
+```bash
+# Check driver status
+nvidia-smi
+
+# If mismatch, reinstall driver
+sudo apt install --reinstall nvidia-driver-XXX
+
+# Reboot to reload kernel module
+sudo reboot
+```
+
+### What's the difference between IPMI Monitor and DC Overview?
+
+| Feature | IPMI Monitor | DC Overview |
+|---------|--------------|-------------|
+| **Data Source** | BMC (out-of-band) | OS-level exporters (in-band) |
+| **Works when OS down?** | ✅ Yes | ❌ No |
+| **GPU metrics depth** | Basic (if BMC supports) | Comprehensive (NVML-based) |
+| **CPU/Memory/Disk** | Limited to BMC sensors | Full via node_exporter |
+| **Setup complexity** | Just need BMC IPs | Install exporters on each server |
+| **Power consumption** | DCMI (if supported) | Per-GPU power via NVML |
+| **Hardware events (SEL)** | ✅ Full SEL history | ❌ No |
+| **Remote power control** | ✅ Yes | ❌ No |
+
+**Recommendation:** Use both together for complete coverage:
+- **IPMI Monitor** for hardware health, SEL events, and remote power control
+- **DC Overview** for detailed GPU metrics, OS-level stats, and Grafana dashboards
+
+### Why do some servers show as "unreachable" intermittently?
+
+Common causes:
+
+1. **Network congestion** - BMC management networks often share bandwidth
+2. **BMC overload** - Too many concurrent IPMI commands
+3. **Firmware bugs** - Some BMCs become unresponsive under load
+4. **IPMI session limits** - Most BMCs limit concurrent sessions (typically 4-8)
+
+**IPMI Monitor mitigations:**
+- Uses parallel workers with controlled concurrency
+- Implements connection pooling
+- Retries on transient failures
+- Prefers Redfish (faster, more reliable) when available
+
+### How do I get GPU-specific metrics like temperature and power?
+
+**Option 1: Via BMC (limited)**
+- Some BMCs (NVIDIA DGX, Dell with GPU support) expose GPU sensors
+- Enable Redfish for better GPU sensor coverage
+
+**Option 2: DC Overview with dc-exporter-rs (recommended)**
+```bash
+# On each GPU server
+pip install dc-overview
+dc-overview quickstart
+```
+
+This installs `dc-exporter-rs` which provides 50+ GPU metrics:
+- GPU temperature, hotspot, VRAM temp
+- Power usage per GPU
+- Utilization (SM, memory, encoder)
+- Clock speeds, throttle reasons
+- ECC errors, PCIe AER errors
+- Fan speeds
+
+### Why is the IPMI Monitor Grafana dashboard missing some panels?
+
+The dashboard uses metrics that require:
+- `ipmi_power_watts` - Requires DCMI support (see FAQ above)
+- `ipmi_temperature_celsius{sensor_name=~"CPU.*"}` - Requires CPU temp sensors
+
+**If panels are empty:**
+1. Check if your BMC exposes those sensors (use Server Details page)
+2. Wait for a collection cycle (default 5 minutes)
+3. Check Prometheus is scraping IPMI Monitor correctly
+
+### How do I monitor servers that only have Redfish (no IPMI)?
+
+IPMI Monitor supports pure-Redfish monitoring:
+
+1. Enable Redfish in **Settings → Server Config**
+2. Set protocol to "redfish" for the server
+3. Ensure BMC credentials have Redfish access
+
+Redfish advantages:
+- Faster response times
+- More detailed sensor data
+- Better standardization across vendors
+- Works over HTTPS (more secure)
 
 ---
 

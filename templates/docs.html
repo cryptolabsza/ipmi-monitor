@@ -304,6 +304,7 @@
                 <a href="#troubleshooting" class="nav-link">Troubleshooting</a>
                 <a href="#glossary" class="nav-link">Glossary</a>
                 <a href="#api" class="nav-link">API Reference</a>
+                <a href="#faq" class="nav-link">FAQ</a>
             </div>
         </nav>
         
@@ -1023,6 +1024,62 @@ POST /api/test/ssh          - Test SSH connection</code></pre>
                 <div class="tip-box">
                     <strong>📖 Full API Documentation</strong>
                     For complete API docs, see the <a href="https://www.cryptolabs.co.za/ipmi-monitor-support-documentation/" style="color: var(--accent-blue);">CryptoLabs Documentation</a>.
+                </div>
+            </section>
+            
+            <!-- FAQ Section -->
+            <section id="faq" class="doc-section">
+                <h2>❓ FAQ - Frequently Asked Questions</h2>
+                
+                <h3>Why do only some servers show power consumption?</h3>
+                <p>Power readings require <strong>DCMI (Data Center Manageability Interface)</strong> support, which is an optional IPMI extension. DCMI is primarily found on enterprise/server-grade BMCs - many motherboards don't support it.</p>
+                <p>IPMI Monitor uses: <code>ipmitool dcmi power reading</code></p>
+                <p><strong>Solutions:</strong></p>
+                <ul>
+                    <li>Update BMC firmware - newer versions sometimes add DCMI support</li>
+                    <li>Enable Redfish - some BMCs support power via Redfish but not DCMI</li>
+                    <li>Use <strong>DC Overview</strong> for comprehensive GPU/system metrics (see below)</li>
+                </ul>
+                
+                <h3>Why are temperature sensors missing?</h3>
+                <p>BMC sensor support varies by manufacturer:</p>
+                <table>
+                    <tr><th>BMC Type</th><th>Typical Sensors</th></tr>
+                    <tr><td><strong>Enterprise (iDRAC, iLO)</strong></td><td>CPU, inlet, outlet, DIMM, PSU temps</td></tr>
+                    <tr><td><strong>NVIDIA DGX</strong></td><td>Limited via IPMI - use Redfish or dc-exporter</td></tr>
+                    <tr><td><strong>Supermicro</strong></td><td>CPU, system temps, sometimes VRM</td></tr>
+                    <tr><td><strong>Consumer boards</strong></td><td>Often only CPU package temp</td></tr>
+                </table>
+                <p><strong>Tip:</strong> Enable Redfish in Settings - it often exposes more sensors than IPMI.</p>
+                
+                <h3>What's the difference between IPMI Monitor and DC Overview?</h3>
+                <table>
+                    <tr><th>Feature</th><th>IPMI Monitor</th><th>DC Overview</th></tr>
+                    <tr><td>Data Source</td><td>BMC (out-of-band)</td><td>OS-level exporters</td></tr>
+                    <tr><td>Works when OS down?</td><td>✅ Yes</td><td>❌ No</td></tr>
+                    <tr><td>GPU metrics depth</td><td>Basic (if BMC supports)</td><td>Comprehensive (50+ metrics)</td></tr>
+                    <tr><td>Hardware events (SEL)</td><td>✅ Full history</td><td>❌ No</td></tr>
+                    <tr><td>Remote power control</td><td>✅ Yes</td><td>❌ No</td></tr>
+                </table>
+                <p><strong>Recommendation:</strong> Use both together - IPMI Monitor for hardware health and remote control, DC Overview for detailed GPU and OS-level metrics.</p>
+                
+                <h3>Why is the Grafana dashboard missing panels?</h3>
+                <p>Some dashboard panels require specific metrics:</p>
+                <ul>
+                    <li><strong>Power (W)</strong> - Requires DCMI support</li>
+                    <li><strong>CPU Temp</strong> - Requires CPU temperature sensors in BMC</li>
+                </ul>
+                <p>If panels are empty: check Server Details to see what sensors your BMC exposes.</p>
+                
+                <h3>How do I get comprehensive GPU metrics?</h3>
+                <p>For detailed GPU monitoring (temperature, power, utilization, errors), install <strong>DC Overview</strong>:</p>
+                <pre><code>pip install dc-overview
+dc-overview quickstart</code></pre>
+                <p>This installs <code>dc-exporter-rs</code> which provides GPU metrics via NVML (NVIDIA Management Library).</p>
+                
+                <div class="tip-box">
+                    <strong>💡 For complete fleet monitoring</strong><br>
+                    Use <a href="https://github.com/cryptolabsza/dc-overview" style="color: var(--accent-blue);">DC Overview</a> alongside IPMI Monitor for the best coverage.
                 </div>
             </section>
         </main>
