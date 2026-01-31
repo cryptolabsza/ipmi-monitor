@@ -7287,7 +7287,7 @@ def inventory_timer():
 
 def ssh_log_timer():
     """
-    Optional SSH log collection timer - collects system logs via SSH on a schedule.
+    SSH log collection timer - collects system logs via SSH on a schedule.
     
     Can be enabled via:
     1. SSH_LOG_INTERVAL environment variable (minutes, default 0 = disabled)
@@ -7301,32 +7301,31 @@ def ssh_log_timer():
     - nvidia-smi output (GPU status)
     - /var/log/messages or syslog
     - mcelog (machine check errors)
+    
+    Note: This timer runs continuously and checks the enable_ssh_log_collection
+    setting on each cycle, so enabling/disabling via Settings UI works immediately.
     """
-    # Check environment variable first
-    SSH_LOG_INTERVAL_MINUTES = int(os.environ.get('SSH_LOG_INTERVAL', 0))
+    print(f"[SSH Log Timer] Started - will check settings each cycle", flush=True)
     
-    # If not set via env, check database settings
-    if SSH_LOG_INTERVAL_MINUTES <= 0:
-        try:
-            with app.app_context():
-                enabled = SystemSettings.get('enable_ssh_log_collection', 'false')
-                if enabled == 'true':
-                    SSH_LOG_INTERVAL_MINUTES = int(SystemSettings.get('ssh_log_interval', '15'))
-        except:
-            pass
-    
-    if SSH_LOG_INTERVAL_MINUTES <= 0:
-        print(f"[SSH Log Timer] Disabled (enable in Settings > SSH or set SSH_LOG_INTERVAL env var)", flush=True)
-        return
-    
-    print(f"[SSH Log Timer] Started (interval: {SSH_LOG_INTERVAL_MINUTES}min)", flush=True)
-    
-    # Initial delay - let system stabilize
-    _shutdown_event.wait(180)  # 3 minutes
+    # Initial delay - let system stabilize and settings to be loaded
+    _shutdown_event.wait(120)  # 2 minutes initial wait
     
     while not _shutdown_event.is_set():
         try:
+            # Check environment variable first
+            SSH_LOG_INTERVAL_MINUTES = int(os.environ.get('SSH_LOG_INTERVAL', 0))
+            
+            # Check database settings each cycle (so changes take effect immediately)
             with app.app_context():
+                enabled = SystemSettings.get('enable_ssh_log_collection', 'false')
+                if enabled.lower() == 'true' and SSH_LOG_INTERVAL_MINUTES <= 0:
+                    SSH_LOG_INTERVAL_MINUTES = int(SystemSettings.get('ssh_log_interval', '15'))
+                
+                if SSH_LOG_INTERVAL_MINUTES <= 0 or enabled.lower() != 'true':
+                    # SSH log collection is disabled - check again in 60 seconds
+                    _shutdown_event.wait(60)
+                    continue
+                
                 # Get default SSH settings as fallback
                 default_ssh_user = SystemSettings.get('ssh_user') or 'root'
                 default_ssh_key_id = SystemSettings.get('default_ssh_key_id')
@@ -7376,12 +7375,15 @@ def ssh_log_timer():
                     # Cleanup old logs based on retention setting
                     retention_days = int(SystemSettings.get('ssh_log_retention', '7'))
                     _cleanup_old_ssh_logs(days=retention_days)
+                else:
+                    print(f"[SSH Log Timer] No servers with SSH credentials configured", flush=True)
                     
         except Exception as e:
             print(f"[SSH Log Timer] Error: {e}", flush=True)
         
-        # Wait for next collection cycle
-        _shutdown_event.wait(SSH_LOG_INTERVAL_MINUTES * 60)
+        # Wait for next collection cycle (default 15 min if enabled, or 60s to check again)
+        wait_time = SSH_LOG_INTERVAL_MINUTES * 60 if SSH_LOG_INTERVAL_MINUTES > 0 else 60
+        _shutdown_event.wait(wait_time)
     
     print(f"[SSH Log Timer] Stopped", flush=True)
 
