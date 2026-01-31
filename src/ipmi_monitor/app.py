@@ -2852,6 +2852,7 @@ RECOVERY_ACTION_DESCRIPTIONS = {
 # ============== Instance Fingerprinting ==============
 _instance_fingerprint = None
 _instance_fingerprint_data = None
+_hardware_fingerprint = None
 
 def get_public_ip():
     """Get public IP address for fingerprinting"""
@@ -2861,8 +2862,155 @@ def get_public_ip():
     except:
         return None
 
+
+def collect_hardware_identifiers():
+    """
+    Collect stable hardware identifiers from all monitored servers.
+    These are used to identify reinstalled sites and detect duplicates.
+    
+    Priority identifiers (most stable/reliable):
+    1. BMC MAC addresses - unique to each BMC, rarely changes
+    2. System serial numbers - unique to each server
+    3. Board serial numbers - unique to each motherboard
+    4. Storage serial numbers - helps identify same storage arrays
+    5. GPU UUIDs - stable identifiers for GPUs
+    6. CPU model + count - helps with confidence scoring
+    """
+    hardware_ids = {
+        'bmc_macs': [],          # List of BMC MAC addresses
+        'system_serials': [],    # System serial numbers
+        'board_serials': [],     # Motherboard serials
+        'storage_serials': [],   # Storage device serials
+        'gpu_uuids': [],         # GPU UUIDs
+        'network_macs': [],      # All network interface MACs
+        'cpu_signatures': [],    # CPU model signatures
+    }
+    
+    try:
+        inventories = ServerInventory.query.all()
+        
+        for inv in inventories:
+            # BMC MAC (most stable - unique to BMC)
+            if inv.bmc_mac_address:
+                mac = inv.bmc_mac_address.upper().replace('-', ':')
+                if mac and mac not in hardware_ids['bmc_macs'] and mac != '00:00:00:00:00:00':
+                    hardware_ids['bmc_macs'].append(mac)
+            
+            # System serial number
+            if inv.serial_number:
+                serial = inv.serial_number.strip()
+                if serial and serial.lower() not in ('', 'none', 'to be filled', 'default string', 'not specified'):
+                    if serial not in hardware_ids['system_serials']:
+                        hardware_ids['system_serials'].append(serial)
+            
+            # Board serial
+            if inv.board_serial:
+                serial = inv.board_serial.strip()
+                if serial and serial.lower() not in ('', 'none', 'to be filled', 'default string', 'not specified'):
+                    if serial not in hardware_ids['board_serials']:
+                        hardware_ids['board_serials'].append(serial)
+            
+            # Storage serials from storage_info JSON
+            if inv.storage_info:
+                try:
+                    storage = json.loads(inv.storage_info) if isinstance(inv.storage_info, str) else inv.storage_info
+                    for device in storage if isinstance(storage, list) else []:
+                        serial = device.get('serial') or device.get('SerialNumber', '')
+                        if serial and serial.strip() and serial not in hardware_ids['storage_serials']:
+                            hardware_ids['storage_serials'].append(serial.strip())
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            # GPU UUIDs from gpu_info JSON
+            if inv.gpu_info:
+                try:
+                    gpus = json.loads(inv.gpu_info) if isinstance(inv.gpu_info, str) else inv.gpu_info
+                    for gpu in gpus if isinstance(gpus, list) else []:
+                        uuid = gpu.get('uuid') or gpu.get('serial', '')
+                        if uuid and uuid.strip() and uuid not in hardware_ids['gpu_uuids']:
+                            hardware_ids['gpu_uuids'].append(uuid.strip())
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            # Network MACs
+            if inv.network_macs:
+                try:
+                    macs = json.loads(inv.network_macs) if isinstance(inv.network_macs, str) else inv.network_macs
+                    for entry in macs if isinstance(macs, list) else []:
+                        mac = entry.get('mac', '').upper().replace('-', ':')
+                        if mac and mac not in hardware_ids['network_macs'] and mac != '00:00:00:00:00:00':
+                            hardware_ids['network_macs'].append(mac)
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            # CPU signature (model + count for matching)
+            if inv.cpu_model:
+                sig = f"{inv.cpu_model}:{inv.cpu_count or 1}"
+                if sig not in hardware_ids['cpu_signatures']:
+                    hardware_ids['cpu_signatures'].append(sig)
+    
+    except Exception as e:
+        app.logger.warning(f"Error collecting hardware identifiers: {e}")
+    
+    # Sort all lists for consistency
+    for key in hardware_ids:
+        hardware_ids[key] = sorted(hardware_ids[key])
+    
+    return hardware_ids
+
+
+def generate_hardware_id(hardware_ids):
+    """
+    Generate a stable hardware ID that persists across reinstalls.
+    Uses the most stable identifiers available in priority order.
+    
+    The hardware_id is a hash of immutable hardware characteristics
+    that uniquely identifies this physical site/fleet of servers.
+    """
+    import hashlib
+    
+    # Priority order for generating hardware ID:
+    # 1. BMC MACs (most stable - unique to each BMC)
+    # 2. System serials (unique to each server)
+    # 3. Board serials (unique to each motherboard)
+    
+    stable_ids = []
+    
+    # Use BMC MACs as primary identifier
+    if hardware_ids.get('bmc_macs'):
+        stable_ids.extend(hardware_ids['bmc_macs'])
+    
+    # Add system serials
+    if hardware_ids.get('system_serials'):
+        stable_ids.extend(hardware_ids['system_serials'])
+    
+    # Add board serials
+    if hardware_ids.get('board_serials'):
+        stable_ids.extend(hardware_ids['board_serials'])
+    
+    if not stable_ids:
+        # Fallback: use GPU UUIDs if no BMC/serial data
+        if hardware_ids.get('gpu_uuids'):
+            stable_ids.extend(hardware_ids['gpu_uuids'])
+    
+    if not stable_ids:
+        # No stable identifiers available
+        return None
+    
+    # Generate deterministic hash from sorted identifiers
+    id_string = '|'.join(sorted(set(stable_ids)))
+    hardware_id = hashlib.sha256(id_string.encode()).hexdigest()[:32]
+    
+    return f"hw_{hardware_id}"
+
+
 def get_or_create_site_id():
-    """Get or create a unique site ID for this IPMI Monitor instance"""
+    """
+    Get or create a unique site ID for this IPMI Monitor instance.
+    
+    NEW: Uses hardware-based identification when available for stability
+    across reinstalls. Falls back to IP-based ID for new sites.
+    """
     import hashlib
     
     config = CloudSync.get_config()
@@ -2878,16 +3026,27 @@ def get_or_create_site_id():
             db.session.commit()
         return config.site_id, config.site_name
     
-    # Generate new site ID based on instance characteristics
-    import socket
-    hostname = socket.gethostname()
-    public_ip = get_public_ip() or 'unknown'
+    # Try to generate hardware-based site ID first (stable across reinstalls)
+    hardware_ids = collect_hardware_identifiers()
+    hardware_id = generate_hardware_id(hardware_ids)
     
-    # Create a deterministic site ID
-    site_hash = hashlib.sha256(f"{public_ip}:{hostname}".encode()).hexdigest()[:16]
-    site_id = f"site_{site_hash}"
+    if hardware_id:
+        # Use hardware-based site ID
+        site_id = hardware_id
+        app.logger.info(f"Generated hardware-based site ID: {site_id[:16]}...")
+    else:
+        # Fallback: Generate site ID based on instance characteristics
+        import socket
+        hostname = socket.gethostname()
+        public_ip = get_public_ip() or 'unknown'
+        
+        # Create a deterministic site ID
+        site_hash = hashlib.sha256(f"{public_ip}:{hostname}".encode()).hexdigest()[:16]
+        site_id = f"site_{site_hash}"
+        app.logger.info(f"Generated IP-based site ID: {site_id} (no hardware data available)")
     
     # Set site name from env var, config, or default
+    public_ip = get_public_ip() or 'unknown'
     site_name = env_site_name or config.site_name or f"Site at {public_ip}"
     
     # Save to database
@@ -2902,8 +3061,11 @@ def generate_instance_fingerprint():
     """
     Generate a unique fingerprint for this IPMI Monitor instance.
     Used to track instances and prevent trial abuse.
+    
+    NEW: Includes hardware identifiers for better duplicate detection
+    and site identification across reinstalls.
     """
-    global _instance_fingerprint, _instance_fingerprint_data
+    global _instance_fingerprint, _instance_fingerprint_data, _hardware_fingerprint
     
     if _instance_fingerprint:
         return _instance_fingerprint, _instance_fingerprint_data
@@ -2932,7 +3094,12 @@ def generate_instance_fingerprint():
         # Get admin username
         admin_user = next((u.username for u in users if u.role == 'admin'), 'admin')
         
-        # Build fingerprint data with site info
+        # NEW: Collect hardware identifiers for duplicate detection
+        hardware_ids = collect_hardware_identifiers()
+        hardware_id = generate_hardware_id(hardware_ids)
+        _hardware_fingerprint = hardware_id
+        
+        # Build fingerprint data with site info and hardware identifiers
         fingerprint_data = {
             'public_ip': get_public_ip(),
             'hostname': socket.gethostname(),
@@ -2947,22 +3114,41 @@ def generate_instance_fingerprint():
             'uses_ssh': ssh_configured_count > 0,
             'ssh_key_count': len(ssh_keys),
             'ssh_coverage': f"{ssh_configured_count}/{len(servers)}" if servers else "0/0",
+            # NEW: Hardware identifiers for duplicate detection
+            'hardware_id': hardware_id,  # Stable ID based on hardware
+            'hardware': {
+                'bmc_macs': hardware_ids.get('bmc_macs', []),
+                'system_serials': hardware_ids.get('system_serials', []),
+                'board_serials': hardware_ids.get('board_serials', []),
+                'storage_serials': hardware_ids.get('storage_serials', [])[:10],  # Limit for size
+                'gpu_uuids': hardware_ids.get('gpu_uuids', [])[:20],  # Limit for size
+                'cpu_signatures': hardware_ids.get('cpu_signatures', []),
+            }
         }
         
         # Generate stable fingerprint hash
-        # Uses: site_id, public IP, BMC IPs, server names (main identifiers)
-        fingerprint_str = json.dumps({
-            'site_id': site_id,
-            'public_ip': fingerprint_data['public_ip'],
-            'bmc_ips': bmc_ips,
-            'server_names': server_names,
-            'admin_user': admin_user,
-        }, sort_keys=True)
+        # NEW: Uses hardware_id if available, falls back to old method
+        if hardware_id:
+            # Hardware-based fingerprint (stable across reinstalls)
+            fingerprint_str = json.dumps({
+                'hardware_id': hardware_id,
+                'bmc_ips': bmc_ips,
+                'server_names': server_names,
+            }, sort_keys=True)
+        else:
+            # Fallback: Uses site_id, public IP, BMC IPs, server names (main identifiers)
+            fingerprint_str = json.dumps({
+                'site_id': site_id,
+                'public_ip': fingerprint_data['public_ip'],
+                'bmc_ips': bmc_ips,
+                'server_names': server_names,
+                'admin_user': admin_user,
+            }, sort_keys=True)
         
         _instance_fingerprint = hashlib.sha256(fingerprint_str.encode()).hexdigest()[:32]
         _instance_fingerprint_data = fingerprint_data
         
-        app.logger.info(f"Instance fingerprint generated: {_instance_fingerprint[:8]}... (site: {site_name})")
+        app.logger.info(f"Instance fingerprint generated: {_instance_fingerprint[:8]}... (site: {site_name}, hardware_id: {hardware_id[:8] if hardware_id else 'none'})")
         
         return _instance_fingerprint, _instance_fingerprint_data
 
