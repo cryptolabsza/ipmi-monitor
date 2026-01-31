@@ -2871,8 +2871,15 @@ def get_or_create_site_id():
     
     config = CloudSync.get_config()
     
-    # If site_id exists, use it
+    # Check for SITE_NAME environment variable (from dc-overview quickstart)
+    env_site_name = os.environ.get('SITE_NAME', '')
+    
+    # If site_id exists, use it (but update site_name from env if changed)
     if config.site_id:
+        # Update site_name from env var if set and different
+        if env_site_name and config.site_name != env_site_name:
+            config.site_name = env_site_name
+            db.session.commit()
         return config.site_id, config.site_name
     
     # Generate new site ID based on instance characteristics
@@ -2884,13 +2891,12 @@ def get_or_create_site_id():
     site_hash = hashlib.sha256(f"{public_ip}:{hostname}".encode()).hexdigest()[:16]
     site_id = f"site_{site_hash}"
     
-    # Set default site name if not configured
-    site_name = config.site_name or f"Site at {public_ip}"
+    # Set site name from env var, config, or default
+    site_name = env_site_name or config.site_name or f"Site at {public_ip}"
     
     # Save to database
     config.site_id = site_id
-    if not config.site_name:
-        config.site_name = site_name
+    config.site_name = site_name
     db.session.commit()
     
     return site_id, site_name
