@@ -2299,17 +2299,34 @@ class SystemSettings(db.Model):
     @staticmethod
     def initialize_defaults():
         """Initialize default settings"""
+        # Check environment variables for overrides
+        enable_ssh_logs = os.environ.get('ENABLE_SSH_LOGS', 'false').lower()
+        collect_vastai = os.environ.get('COLLECT_VASTAI_LOGS', 'false').lower()
+        collect_runpod = os.environ.get('COLLECT_RUNPOD_LOGS', 'false').lower()
+        
         defaults = {
             'allow_anonymous_read': 'false',  # SECURITY: Require login by default (safer)
             'session_timeout_hours': '24',
             'enable_ssh_inventory': 'true',  # SSH to OS for detailed inventory (requires SSH creds)
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
-            'collect_vastai_logs': 'false',  # Optional: Collect Vast.ai daemon logs
-            'collect_runpod_logs': 'false',  # Optional: Collect RunPod agent logs
+            'collect_vastai_logs': collect_vastai,  # Optional: Collect Vast.ai daemon logs (from env)
+            'collect_runpod_logs': collect_runpod,  # Optional: Collect RunPod agent logs (from env)
+            'enable_ssh_log_collection': enable_ssh_logs,  # SSH log collection (set by quickstart)
+            'ssh_log_interval': '15',  # SSH log collection interval in minutes
         }
         for key, value in defaults.items():
-            if not SystemSettings.query.filter_by(key=key).first():
+            existing = SystemSettings.query.filter_by(key=key).first()
+            if not existing:
                 db.session.add(SystemSettings(key=key, value=value))
+            elif key == 'enable_ssh_log_collection' and enable_ssh_logs == 'true':
+                # Override from env var if explicitly enabled
+                existing.value = enable_ssh_logs
+            elif key == 'collect_vastai_logs' and collect_vastai == 'true':
+                # Override from env var if explicitly enabled
+                existing.value = collect_vastai
+            elif key == 'collect_runpod_logs' and collect_runpod == 'true':
+                # Override from env var if explicitly enabled
+                existing.value = collect_runpod
         db.session.commit()
 
 # Backwards compatibility alias
