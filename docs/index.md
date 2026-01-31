@@ -133,6 +133,7 @@ After installation, use the `ipmi-monitor` CLI:
 | 💾 **ECC Tracking** | Identify which DIMM has memory errors |
 | 🎮 **GPU Health** | Detect NVIDIA Xid errors via SSH |
 | 📜 **SSH System Logs** | Collect dmesg, journalctl, syslog, mcelog |
+| 🖥️ **Platform Logs** | Collect Vast.ai daemon and RunPod agent logs |
 | 🔧 **Hardware Errors** | AER, PCIe, ECC errors parsed automatically |
 | 🚨 **Alerts** | Email, Telegram, webhook notifications |
 | ✅ **Alert Resolution** | Notify when issues clear |
@@ -155,6 +156,8 @@ After installation, use the `ipmi-monitor` CLI:
 | 🚀 **Initial Data Collection** | Fresh installs auto-collect sensors/events with progress modal |
 | 🔒 **Auto SSL Renewal** | Certbot container automatically obtains/renews Let's Encrypt certs |
 | 🌐 **Subpath Routing** | Deploy at `/ipmi/` alongside other CryptoLabs services |
+| 🏷️ **Site Name Branding** | Configure site name via DC Overview for consistent branding |
+| 🖥️ **Vast.ai/RunPod Logs** | Auto-collects daemon logs when deployed via DC Overview with exporters |
 | 🔄 **Watchtower Integration** | Automatic container updates every 5 minutes |
 | 👤 **Read-Write Role** | New role with settings access but no user management |
 | 📥 **Fixed Export/Import** | Alert rules now export/import correctly |

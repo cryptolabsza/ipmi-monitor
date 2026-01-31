@@ -29,7 +29,8 @@
 - 🌡️ **Sensor Monitoring** - Temperature, fan, voltage, power readings
 - 💾 **ECC Memory Tracking** - Identify which DIMM has errors
 - 🎮 **GPU Health Monitoring** - Detect NVIDIA GPU errors via SSH (Xid errors)
-- 📜 **SSH System Logs** - Collect dmesg, journalctl, syslog, mcelog, **Docker daemon logs** via SSH
+- 📜 **SSH System Logs** - Collect dmesg, journalctl, syslog, mcelog, Docker daemon logs via SSH
+- 🖥️ **Vast.ai/RunPod Logs** - Auto-collect daemon logs when deployed with DC Overview
 - 🔧 **Hardware Error Detection** - AER, PCIe, ECC errors parsed automatically
 - 🔄 **Uptime & Reboot Detection** - Track unexpected server reboots
 - 🚨 **Alert Rules** - Configurable alerts with email, Telegram, webhooks
@@ -43,10 +44,12 @@
 - 🔗 **DC Overview Import** - Auto-detect and import servers from DC Overview
 - 🔐 **SSH Key Management** - Auto-detect keys, paste content, or generate ED25519 keys
 - 📜 **SSH Log Collection** - Optional during setup (dmesg, syslog, GPU errors)
+- 🖥️ **Vast.ai/RunPod Logs** - Auto-collects daemon logs when deployed via DC Overview with exporters enabled
 - 🚀 **Initial Data Collection** - Fresh installs auto-collect with progress modal
 - 🔒 **Auto SSL Renewal** - Certbot container for automatic Let's Encrypt cert renewal
 - 📋 **SEL Management** - Enable/disable event logging, view SEL info, get SEL time
 - 💚 **Sensor Highlighting** - Changed values pulse green after refresh
+- 🏷️ **Site Name Branding** - Configure site name via DC Overview for consistent branding
 - 🤖 **Optional AI Features** - Enable AI-powered insights via Settings → AI Features
 
 ---
@@ -509,6 +512,10 @@ docker run --rm -v OLD_VOLUME:/from -v NEW_VOLUME:/to alpine cp -av /from/. /to/
 | `DATA_RETENTION_DAYS` | 30 | How long to keep events |
 | `SSH_USER` | root | Default SSH username for system log collection |
 | `SSH_PASS` | - | Default SSH password (or use SSH keys) |
+| `SITE_NAME` | IPMI Monitor | Site name for branding (set via DC Overview) |
+| `ENABLE_SSH_LOGS` | false | Enable SSH log collection |
+| `COLLECT_VASTAI_LOGS` | false | Collect Vast.ai daemon logs (auto-set by DC Overview) |
+| `COLLECT_RUNPOD_LOGS` | false | Collect RunPod agent logs (auto-set by DC Overview) |
 
 ---
 
@@ -516,9 +523,12 @@ docker run --rm -v OLD_VOLUME:/from -v NEW_VOLUME:/to alpine cp -av /from/. /to/
 
 SSH access enables powerful features:
 - **System Logs** - dmesg, journalctl, syslog, Docker daemon logs
+- **GPU Platform Logs** - Vast.ai daemon and RunPod agent logs (when enabled)
 - **Hardware Inventory** - Detailed CPU, DIMM, GPU, NIC, storage info
 - **GPU Monitoring** - NVIDIA Xid errors, driver version, CUDA version
 - **Uptime Tracking** - Detect unexpected reboots
+
+> **Note:** When deployed via `dc-overview quickstart` with Vast.ai or RunPod exporters enabled, IPMI Monitor automatically collects platform-specific daemon logs.
 
 ### Option 1: SSH Keys (Recommended)
 

@@ -530,6 +530,30 @@ When you ask Docker-related questions in AI Chat, it automatically:
 2. Searches the GPU Hosting Knowledge Base for solutions
 3. Provides combined answers with community-sourced fixes
 
+### Vast.ai and RunPod Log Collection
+
+When IPMI Monitor is deployed via `dc-overview quickstart` with Vast.ai or RunPod exporters enabled, it automatically collects platform-specific daemon logs.
+
+**Vast.ai Daemon Logs:**
+- Collected from `/var/log/vastai/` and `journalctl -u vastai`
+- Captures rental events, GPU allocation, daemon errors
+- Useful for troubleshooting Vast.ai marketplace issues
+
+**RunPod Agent Logs:**
+- Collected from RunPod agent log locations
+- Captures job events, GPU allocation, agent errors
+- Useful for troubleshooting RunPod deployment issues
+
+**Auto-Configuration:**
+When deployed via DC Overview with exporters enabled:
+```yaml
+# These are automatically set by dc-overview quickstart
+COLLECT_VASTAI_LOGS=true   # When vast_exporter is enabled
+COLLECT_RUNPOD_LOGS=true   # When runpod_exporter is enabled
+```
+
+You don't need to configure this manually - it's automatically enabled based on your DC Overview configuration.
+
 ### SSH Authentication Events
 
 IPMI Monitor parses SSH authentication logs to detect:
