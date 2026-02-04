@@ -26,6 +26,15 @@ import urllib3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# CryptoLabs Alert System integration (v1.1.0+)
+# Provides hooks for push notifications to CryptoLabs app, email, and web browser
+try:
+    from . import alerts as _alerts_module
+    _ALERTS_AVAILABLE = True
+except ImportError:
+    _alerts_module = None
+    _ALERTS_AVAILABLE = False
+
 # Suppress SSL warnings for self-signed BMC certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -4198,16 +4207,43 @@ def check_and_report_connectivity_changes():
                         description = "🚨 SYSTEM DARK - Both BMC and OS unreachable"
                         app.logger.critical(f"CRITICAL: {server.server_name} ({server.bmc_ip}) - SYSTEM DARK")
                         report_connectivity_to_ai(server.server_name, server.bmc_ip, 'system_dark')
+                        # CryptoLabs Alert System hook (v1.1.0+)
+                        if _ALERTS_AVAILABLE:
+                            _alerts_module.get_alert_manager().send_server_down_alert(
+                                server_id=server.bmc_ip,
+                                server_name=server.server_name,
+                                reason="SYSTEM DARK - Both BMC and OS unreachable"
+                            )
                         
                     elif current_status == 'os_down':
                         description = "⚠️ OS/Primary IP unreachable (BMC still responding)"
                         app.logger.warning(f"WARNING: {server.server_name} - OS down, BMC up")
                         report_connectivity_to_ai(server.server_name, server.bmc_ip, 'os_down')
+                        # CryptoLabs Alert System hook (v1.1.0+)
+                        if _ALERTS_AVAILABLE:
+                            _alerts_module.send_alert(
+                                alert_type="server_down",
+                                severity="warning",
+                                title=f"OS unreachable on {server.server_name}",
+                                message="OS/Primary IP unreachable (BMC still responding)",
+                                server_id=server.bmc_ip,
+                                metadata={"server_name": server.server_name, "status": "os_down"}
+                            )
                         
                     elif current_status == 'bmc_down':
                         description = "⚠️ BMC/IPMI unreachable (OS still responding)"
                         app.logger.warning(f"WARNING: {server.server_name} - BMC down, OS up")
                         report_connectivity_to_ai(server.server_name, server.bmc_ip, 'bmc_down')
+                        # CryptoLabs Alert System hook (v1.1.0+)
+                        if _ALERTS_AVAILABLE:
+                            _alerts_module.send_alert(
+                                alert_type="server_down",
+                                severity="warning",
+                                title=f"BMC unreachable on {server.server_name}",
+                                message="BMC/IPMI unreachable (OS still responding)",
+                                server_id=server.bmc_ip,
+                                metadata={"server_name": server.server_name, "status": "bmc_down"}
+                            )
                         
                     elif current_status == 'online':
                         # Recovered - calculate duration
@@ -4232,6 +4268,13 @@ def check_and_report_connectivity_changes():
                         app.logger.info(f"RECOVERED: {server.server_name} - {description}")
                         report_connectivity_to_ai(server.server_name, server.bmc_ip, 'online', duration=duration)
                         _connectivity_states.pop(f"{server.bmc_ip}_offline_time", None)
+                        # CryptoLabs Alert System hook (v1.1.0+)
+                        if _ALERTS_AVAILABLE:
+                            _alerts_module.get_alert_manager().send_server_up_alert(
+                                server_id=server.bmc_ip,
+                                server_name=server.server_name,
+                                downtime_minutes=duration
+                            )
                     
                     # Log the event
                     event = IPMIEvent(
@@ -7123,10 +7166,41 @@ def check_uptime_and_detect_reboot(bmc_ip, server_name, current_uptime_seconds):
         app.logger.error(f"Error checking uptime for {bmc_ip}: {e}")
         return None
 
+def _send_sel_event_alert(bmc_ip, server_name, event_obj):
+    """Send alert for critical/warning SEL events (CryptoLabs Alert System v1.1.0+)"""
+    if not _ALERTS_AVAILABLE:
+        return
+    
+    # Get severity from event object or dict
+    if hasattr(event_obj, 'severity'):
+        severity = event_obj.severity
+        description = event_obj.event_description or ''
+        sensor_type = event_obj.sensor_type or 'Unknown'
+    else:
+        severity = event_obj.get('severity', 'info')
+        description = event_obj.get('event_description', '')
+        sensor_type = event_obj.get('sensor_type', 'Unknown')
+    
+    # Only send alerts for critical and warning events
+    if severity not in ('critical', 'warning'):
+        return
+    
+    is_critical = severity == 'critical'
+    _alerts_module.get_alert_manager().send_sel_event_alert(
+        server_id=bmc_ip,
+        server_name=server_name,
+        event_type=sensor_type,
+        event_message=description,
+        is_critical=is_critical
+    )
+
+
 def save_events_to_db(bmc_ip, server_name, events):
     """Save collected events to database"""
     try:
         new_events = 0
+        events_to_alert = []  # Track new critical/warning events for alerts
+        
         for event in events:
             # Events from collect_ipmi_sel are already IPMIEvent objects
             if hasattr(event, 'bmc_ip'):
@@ -7139,6 +7213,9 @@ def save_events_to_db(bmc_ip, server_name, events):
                 if not existing:
                     db.session.add(event)
                     new_events += 1
+                    # Track for alert
+                    if event.severity in ('critical', 'warning'):
+                        events_to_alert.append(event)
             else:
                 # It's a dict
                 existing = IPMIEvent.query.filter_by(
@@ -7161,6 +7238,9 @@ def save_events_to_db(bmc_ip, server_name, events):
                     )
                     db.session.add(new_event)
                     new_events += 1
+                    # Track for alert
+                    if event.get('severity') in ('critical', 'warning'):
+                        events_to_alert.append(event)
         
         db.session.commit()
         
@@ -7169,6 +7249,13 @@ def save_events_to_db(bmc_ip, server_name, events):
         
         if new_events > 0:
             app.logger.info(f"Saved {new_events} new events from {server_name}")
+        
+        # Send alerts for critical/warning events (CryptoLabs Alert System v1.1.0+)
+        for event_obj in events_to_alert:
+            try:
+                _send_sel_event_alert(bmc_ip, server_name, event_obj)
+            except Exception as e:
+                app.logger.debug(f"Alert send failed: {e}")
         
     except Exception as e:
         db.session.rollback()
@@ -8830,6 +8917,273 @@ def api_power_control(bmc_ip, action):
     except Exception as e:
         app.logger.error(f"Power {action} error for {bmc_ip}: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ============== CL Fleety External Action API ==============
+
+def validate_cryptolabs_api_key(api_key):
+    """Validate CryptoLabs API key against WordPress endpoint.
+    
+    Returns user info dict on success, None on failure.
+    """
+    if not api_key:
+        return None
+    
+    try:
+        import requests as req
+        response = req.post(
+            'https://www.cryptolabs.co.za/wp-json/cryptolabs/v1/ipmi/validate',
+            headers={
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('valid'):
+                return data
+        return None
+    except Exception as e:
+        app.logger.error(f"API key validation error: {e}")
+        return None
+
+
+def check_user_server_access(api_key, bmc_ip):
+    """Check if the user's API key matches this IPMI Monitor instance.
+    
+    The user can only control servers on their own IPMI Monitor installation.
+    """
+    cloud_sync = CloudSync.query.first()
+    if not cloud_sync or not cloud_sync.license_key:
+        return False
+    
+    # User's API key must match this installation's license key
+    # This ensures users can only control their own servers
+    return cloud_sync.license_key == api_key
+
+
+@app.route('/api/v1/action', methods=['POST'])
+def api_external_action():
+    """Execute power action from CL Fleety mobile app.
+    
+    This endpoint is designed for external access from the CL Fleety app.
+    It validates the user's CryptoLabs API key and ensures they own this server.
+    
+    Request JSON:
+        {
+            "action": "power_on|power_off|power_cycle|hard_reset|soft_reset|bmc_reset",
+            "server_id": "bmc_ip or server_name",
+        }
+    
+    Headers:
+        Authorization: Bearer sk-ipmi-xxx
+    """
+    # Get API key from Authorization header
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({
+            'status': 'error',
+            'message': 'Authorization header required (Bearer token)'
+        }), 401
+    
+    api_key = auth_header[7:]  # Remove 'Bearer ' prefix
+    
+    # Validate API key against WordPress
+    user_info = validate_cryptolabs_api_key(api_key)
+    if not user_info:
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid or expired API key'
+        }), 401
+    
+    # Check subscription status
+    subscription = user_info.get('tier') or user_info.get('subscription')
+    if subscription in ['free', 'expired', 'none']:
+        return jsonify({
+            'status': 'error',
+            'message': 'Active subscription required for remote control'
+        }), 402
+    
+    # Check if user has access to this IPMI Monitor installation
+    if not check_user_server_access(api_key, None):
+        return jsonify({
+            'status': 'error',
+            'message': 'API key does not match this installation'
+        }), 403
+    
+    # Get action and server from request
+    data = request.get_json() or {}
+    action = data.get('action', '').lower()
+    server_id = data.get('server_id', '')
+    
+    if not action:
+        return jsonify({
+            'status': 'error',
+            'message': 'Action required'
+        }), 400
+    
+    if not server_id:
+        return jsonify({
+            'status': 'error',
+            'message': 'Server ID required'
+        }), 400
+    
+    # Map CL Fleety action names to IPMI actions
+    action_map = {
+        'power_on': 'on',
+        'power_off': 'off',
+        'power_cycle': 'cycle',
+        'hard_reset': 'reset',
+        'soft_reset': 'soft',
+        'bmc_reset': 'bmc_reset',
+    }
+    
+    ipmi_action = action_map.get(action)
+    if not ipmi_action:
+        return jsonify({
+            'status': 'error',
+            'message': f'Invalid action. Valid actions: {", ".join(action_map.keys())}'
+        }), 400
+    
+    # Find the server by IP or name
+    server = Server.query.filter(
+        (Server.bmc_ip == server_id) | (Server.server_name == server_id)
+    ).first()
+    
+    if not server:
+        return jsonify({
+            'status': 'error',
+            'message': f'Server not found: {server_id}'
+        }), 404
+    
+    bmc_ip = server.bmc_ip
+    server_name = server.server_name
+    
+    # Execute the action
+    try:
+        if ipmi_action == 'bmc_reset':
+            # BMC reset is different from power actions
+            password = get_ipmi_password(bmc_ip)
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'bmc', 'reset', 'cold'],
+                capture_output=True, text=True, timeout=30
+            )
+        else:
+            password = get_ipmi_password(bmc_ip)
+            result = subprocess.run(
+                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
+                 '-U', IPMI_USER, '-P', password, 'power', ipmi_action],
+                capture_output=True, text=True, timeout=30
+            )
+        
+        if result.returncode == 0:
+            # Log the action
+            action_labels = {
+                'on': 'Power On',
+                'off': 'Power Off (Hard)',
+                'soft': 'Soft Shutdown',
+                'cycle': 'Power Cycle',
+                'reset': 'Hard Reset',
+                'bmc_reset': 'BMC Reset (Cold)',
+            }
+            
+            event = IPMIEvent(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                event_date=datetime.utcnow(),
+                sensor_type='System Event',
+                event_description=f'{action_labels.get(ipmi_action, action)} initiated via CL Fleety ({user_info.get("email", "unknown")})',
+                severity='info',
+                sel_id='REMOTE'
+            )
+            db.session.add(event)
+            db.session.commit()
+            
+            app.logger.info(f"CL Fleety: {action} executed on {bmc_ip} ({server_name}) by {user_info.get('email')}")
+            
+            return jsonify({
+                'status': 'success',
+                'message': f'{action_labels.get(ipmi_action, action)} command sent to {server_name}',
+                'server': server_name,
+                'bmc_ip': bmc_ip,
+                'output': result.stdout.strip()
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Command failed: {result.stderr}'
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'status': 'error',
+            'message': f'Timeout executing {action}'
+        }), 500
+    except Exception as e:
+        app.logger.error(f"CL Fleety action error for {bmc_ip}: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@app.route('/api/v1/servers', methods=['GET'])
+def api_external_servers():
+    """Get list of servers for CL Fleety app.
+    
+    Returns simplified server list with status for mobile display.
+    
+    Headers:
+        Authorization: Bearer sk-ipmi-xxx
+    """
+    # Get API key from Authorization header
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({
+            'status': 'error',
+            'message': 'Authorization header required'
+        }), 401
+    
+    api_key = auth_header[7:]
+    
+    # Validate API key
+    user_info = validate_cryptolabs_api_key(api_key)
+    if not user_info:
+        return jsonify({
+            'status': 'error',
+            'message': 'Invalid API key'
+        }), 401
+    
+    # Check access
+    if not check_user_server_access(api_key, None):
+        return jsonify({
+            'status': 'error',
+            'message': 'API key does not match this installation'
+        }), 403
+    
+    # Get servers
+    servers = Server.query.all()
+    server_list = []
+    
+    for server in servers:
+        server_list.append({
+            'server_id': server.bmc_ip,
+            'name': server.server_name,
+            'bmc_ip': server.bmc_ip,
+            'power_on': server.power_on,
+            'reachable': server.reachable,
+            'last_seen': server.last_seen.isoformat() + 'Z' if server.last_seen else None,
+            'location': getattr(server, 'location', None),
+        })
+    
+    return jsonify({
+        'status': 'success',
+        'count': len(server_list),
+        'servers': server_list,
+    })
 
 
 # ============== BMC Management API ==============
@@ -15920,7 +16274,7 @@ def api_email_test():
     current_username = session.get('username')
     user = User.query.filter_by(username=current_username).first() if current_username else None
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     
     try:
         response = requests.post(
@@ -15928,11 +16282,11 @@ def api_email_test():
             json={
                 'alert_type': 'general',
                 'subject': 'IPMI Monitor Test Alert',
-                'message': 'This is a test alert from your IPMI Monitor. If you received this email, your email alerts are working correctly!',
+                'message': 'This is a test alert from your IPMI Monitor.\n\nIf you received this, your notifications are working correctly!\n\nEnabled channels:\n- Email: Sent to your registered email\n- Browser Push: If you enabled browser notifications on cryptolabs.co.za\n- Mobile Push: If you have the CL Fleety app installed',
                 'server_name': 'Test Server',
                 'severity': 'info',
+                'source': 'ipmi-monitor',
                 'site_name': config.site_name or 'IPMI Monitor',
-                'is_test': True  # Bypass alert type check for test emails
             },
             headers={
                 'Authorization': f'Bearer {config.license_key}',
@@ -15942,29 +16296,75 @@ def api_email_test():
         )
         
         if response.ok:
-            return jsonify({'success': True, 'message': 'Test email sent!'})
+            # Parse detailed response
+            try:
+                result = response.json()
+                email_sent = result.get('email_sent', False)
+                push_sent = result.get('push_sent', False)
+                web_push_sent = result.get('web_push_sent', False)
+                web_push_browsers = result.get('web_push_browsers', 0)
+                
+                # Build message
+                channels = []
+                if email_sent:
+                    channels.append('Email')
+                if push_sent:
+                    channels.append('Mobile Push')
+                if web_push_sent:
+                    channels.append(f'Browser Push ({web_push_browsers} browser{"s" if web_push_browsers != 1 else ""})')
+                
+                if channels:
+                    message = f'Test notification sent via: {", ".join(channels)}'
+                else:
+                    message = 'Test notification queued (no active channels)'
+                
+                return jsonify({
+                    'success': True, 
+                    'message': message,
+                    'email_sent': email_sent,
+                    'push_sent': push_sent,
+                    'web_push_sent': web_push_sent,
+                    'web_push_browsers': web_push_browsers
+                })
+            except:
+                return jsonify({'success': True, 'message': 'Test notification sent!'})
         else:
             error = response.json().get('error', 'Failed to send') if response.headers.get('content-type', '').startswith('application/json') else 'Server error'
             return jsonify({'success': False, 'error': error}), response.status_code
             
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Email test error: {e}")
+        app.logger.error(f"Test alert error: {e}")
         return jsonify({'success': False, 'error': f'Connection error: {str(e)}'}), 500
 
 
 def send_email_alert(alert_type, subject, message, server_name=None, server_ip=None, severity='warning'):
     """
-    Send an email alert via CryptoLabs.
+    Send alert notification via CryptoLabs WordPress plugin.
     
     This is called by various monitoring functions when alerts are triggered.
+    The WordPress plugin handles multiple notification channels:
+    - Email (to user's registered email)
+    - Browser Web Push (if user has subscribed)
+    - Mobile Push via CL Fleety app (if registered)
+    
+    Args:
+        alert_type: Type of alert (server_down, server_up, temperature, critical_event, etc.)
+        subject: Alert subject line
+        message: Alert message body
+        server_name: Name of the affected server
+        server_ip: IP address of the affected server
+        severity: Alert severity (info, warning, critical)
+    
+    Returns:
+        bool: True if at least one notification was sent successfully
     """
     config = CloudSync.get_config()
     
     if not config.license_key:
-        app.logger.debug("Email alert skipped - no license key configured")
+        app.logger.debug("Alert notification skipped - no license key configured")
         return False
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     
     try:
         response = requests.post(
@@ -15976,24 +16376,43 @@ def send_email_alert(alert_type, subject, message, server_name=None, server_ip=N
                 'server_name': server_name,
                 'server_ip': server_ip,
                 'severity': severity,
+                'source': 'ipmi-monitor',  # Identifies this as IPMI Monitor for proper routing
                 'site_name': config.site_name or 'IPMI Monitor'
             },
             headers={
                 'Authorization': f'Bearer {config.license_key}',
                 'Content-Type': 'application/json'
             },
-            timeout=10
+            timeout=15
         )
         
         if response.ok:
-            app.logger.info(f"Email alert sent: {alert_type} - {subject}")
+            # Parse response to see what notifications were sent
+            try:
+                result = response.json()
+                notifications = result.get('notifications_sent', [])
+                email_sent = result.get('email_sent', False)
+                push_sent = result.get('push_sent', False)
+                web_push_sent = result.get('web_push_sent', False)
+                
+                app.logger.info(
+                    f"Alert sent: {alert_type} - {subject} | "
+                    f"Email: {'✓' if email_sent else '✗'}, "
+                    f"Push: {'✓' if push_sent else '✗'}, "
+                    f"WebPush: {'✓' if web_push_sent else '✗'}"
+                )
+            except:
+                app.logger.info(f"Alert sent: {alert_type} - {subject}")
             return True
         else:
-            app.logger.warning(f"Email alert failed: {response.status_code} - {response.text}")
+            app.logger.warning(f"Alert notification failed: {response.status_code} - {response.text[:200]}")
             return False
             
+    except requests.exceptions.Timeout:
+        app.logger.error(f"Alert notification timeout for: {subject}")
+        return False
     except Exception as e:
-        app.logger.error(f"Email alert error: {e}")
+        app.logger.error(f"Alert notification error: {e}")
         return False
 
 
@@ -18949,6 +19368,14 @@ def create_app(config_dir=None):
         # Start background collector thread
         collector_thread = threading.Thread(target=background_collector, daemon=True)
         collector_thread.start()
+        
+        # Initialize CryptoLabs Alert System (v1.1.0+)
+        if _ALERTS_AVAILABLE:
+            try:
+                _alerts_module.init_alerts()
+                app.logger.info("CryptoLabs Alert System initialized")
+            except Exception as e:
+                app.logger.debug(f"Alert system init: {e}")
         
         # Check if initial collection is needed (fresh install)
         # Run after a short delay to allow DB init to complete

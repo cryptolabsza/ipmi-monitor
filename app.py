@@ -15838,7 +15838,7 @@ def api_email_test():
     current_username = session.get('username')
     user = User.query.filter_by(username=current_username).first() if current_username else None
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     
     try:
         response = requests.post(
@@ -15846,11 +15846,11 @@ def api_email_test():
             json={
                 'alert_type': 'general',
                 'subject': 'IPMI Monitor Test Alert',
-                'message': 'This is a test alert from your IPMI Monitor. If you received this email, your email alerts are working correctly!',
+                'message': 'This is a test alert from your IPMI Monitor.\n\nIf you received this, your notifications are working correctly!\n\nEnabled channels:\n- Email: Sent to your registered email\n- Browser Push: If you enabled browser notifications on cryptolabs.co.za\n- Mobile Push: If you have the CL Fleety app installed',
                 'server_name': 'Test Server',
                 'severity': 'info',
+                'source': 'ipmi-monitor',
                 'site_name': config.site_name or 'IPMI Monitor',
-                'is_test': True  # Bypass alert type check for test emails
             },
             headers={
                 'Authorization': f'Bearer {config.license_key}',
@@ -15860,29 +15860,75 @@ def api_email_test():
         )
         
         if response.ok:
-            return jsonify({'success': True, 'message': 'Test email sent!'})
+            # Parse detailed response
+            try:
+                result = response.json()
+                email_sent = result.get('email_sent', False)
+                push_sent = result.get('push_sent', False)
+                web_push_sent = result.get('web_push_sent', False)
+                web_push_browsers = result.get('web_push_browsers', 0)
+                
+                # Build message
+                channels = []
+                if email_sent:
+                    channels.append('Email')
+                if push_sent:
+                    channels.append('Mobile Push')
+                if web_push_sent:
+                    channels.append(f'Browser Push ({web_push_browsers} browser{"s" if web_push_browsers != 1 else ""})')
+                
+                if channels:
+                    message = f'Test notification sent via: {", ".join(channels)}'
+                else:
+                    message = 'Test notification queued (no active channels)'
+                
+                return jsonify({
+                    'success': True, 
+                    'message': message,
+                    'email_sent': email_sent,
+                    'push_sent': push_sent,
+                    'web_push_sent': web_push_sent,
+                    'web_push_browsers': web_push_browsers
+                })
+            except:
+                return jsonify({'success': True, 'message': 'Test notification sent!'})
         else:
             error = response.json().get('error', 'Failed to send') if response.headers.get('content-type', '').startswith('application/json') else 'Server error'
             return jsonify({'success': False, 'error': error}), response.status_code
             
     except requests.exceptions.RequestException as e:
-        app.logger.error(f"Email test error: {e}")
+        app.logger.error(f"Test alert error: {e}")
         return jsonify({'success': False, 'error': f'Connection error: {str(e)}'}), 500
 
 
 def send_email_alert(alert_type, subject, message, server_name=None, server_ip=None, severity='warning'):
     """
-    Send an email alert via CryptoLabs.
+    Send alert notification via CryptoLabs WordPress plugin.
     
     This is called by various monitoring functions when alerts are triggered.
+    The WordPress plugin handles multiple notification channels:
+    - Email (to user's registered email)
+    - Browser Web Push (if user has subscribed)
+    - Mobile Push via CL Fleety app (if registered)
+    
+    Args:
+        alert_type: Type of alert (server_down, server_up, temperature, critical_event, etc.)
+        subject: Alert subject line
+        message: Alert message body
+        server_name: Name of the affected server
+        server_ip: IP address of the affected server
+        severity: Alert severity (info, warning, critical)
+    
+    Returns:
+        bool: True if at least one notification was sent successfully
     """
     config = CloudSync.get_config()
     
     if not config.license_key:
-        app.logger.debug("Email alert skipped - no license key configured")
+        app.logger.debug("Alert notification skipped - no license key configured")
         return False
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     
     try:
         response = requests.post(
@@ -15894,24 +15940,43 @@ def send_email_alert(alert_type, subject, message, server_name=None, server_ip=N
                 'server_name': server_name,
                 'server_ip': server_ip,
                 'severity': severity,
+                'source': 'ipmi-monitor',  # Identifies this as IPMI Monitor for proper routing
                 'site_name': config.site_name or 'IPMI Monitor'
             },
             headers={
                 'Authorization': f'Bearer {config.license_key}',
                 'Content-Type': 'application/json'
             },
-            timeout=10
+            timeout=15
         )
         
         if response.ok:
-            app.logger.info(f"Email alert sent: {alert_type} - {subject}")
+            # Parse response to see what notifications were sent
+            try:
+                result = response.json()
+                notifications = result.get('notifications_sent', [])
+                email_sent = result.get('email_sent', False)
+                push_sent = result.get('push_sent', False)
+                web_push_sent = result.get('web_push_sent', False)
+                
+                app.logger.info(
+                    f"Alert sent: {alert_type} - {subject} | "
+                    f"Email: {'✓' if email_sent else '✗'}, "
+                    f"Push: {'✓' if push_sent else '✗'}, "
+                    f"WebPush: {'✓' if web_push_sent else '✗'}"
+                )
+            except:
+                app.logger.info(f"Alert sent: {alert_type} - {subject}")
             return True
         else:
-            app.logger.warning(f"Email alert failed: {response.status_code} - {response.text}")
+            app.logger.warning(f"Alert notification failed: {response.status_code} - {response.text[:200]}")
             return False
             
+    except requests.exceptions.Timeout:
+        app.logger.error(f"Alert notification timeout for: {subject}")
+        return False
     except Exception as e:
-        app.logger.error(f"Email alert error: {e}")
+        app.logger.error(f"Alert notification error: {e}")
         return False
 
 
