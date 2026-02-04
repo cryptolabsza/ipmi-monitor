@@ -737,6 +737,28 @@ EOF
 
 ---
 
+## 📊 Development Status
+
+### Implemented Features ✓
+
+| Feature | Status |
+|---------|--------|
+| Core IPMI monitoring | ✓ Complete |
+| AI-powered insights | ✓ Complete |
+| CryptoLabs SSO integration | ✓ Complete |
+| API key validation | ✓ Complete |
+| 402 Payment Required handling | ✓ Complete (in alerts.py) |
+
+### Pending Features (In Development)
+
+| Feature | Status |
+|---------|--------|
+| 401 Unauthorized UI prompt ("Re-link Account") | ⏳ Pending |
+| Subscription expiry warning banner | ⏳ Pending |
+| API key rotation detection | ⏳ Pending |
+
+---
+
 ## 🛠️ Developer Guide
 
 See [DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) for:
