@@ -1651,21 +1651,23 @@ def activate_ai_license(license_key: str):
     
     try:
         # Activate AI license via docker exec
-        # This validates the key with CryptoLabs AI service and stores it in the database
+        # Validates directly with WordPress (source of truth for subscriptions)
         activate_script = f'''
 import sqlite3
 import requests
 import sys
 
 license_key = "{license_key}"
-ai_service_url = "https://ipmi-ai.cryptolabs.co.za"
+# Validate directly with WordPress CryptoLabs API
+wordpress_url = "https://www.cryptolabs.co.za"
 db_path = "/app/data/ipmi_events.db"
 
 try:
-    # Validate with AI service
+    # Validate with WordPress CryptoLabs API
     response = requests.post(
-        f"{{ai_service_url}}/api/v1/validate",
-        json={{"license_key": license_key}},
+        f"{{wordpress_url}}/wp-json/cryptolabs/v1/ipmi/validate",
+        json={{"api_key": license_key}},
+        headers={{"Content-Type": "application/json"}},
         timeout=10
     )
     validation = response.json()
