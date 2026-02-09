@@ -242,6 +242,37 @@ sudo dc-overview quickstart -c /path/to/config.yaml -y
 
 All services are accessed through [cryptolabs-proxy](https://github.com/cryptolabsza/cryptolabs-proxy) which provides unified authentication.
 
+### Cross-Tool Config Auto-Detection
+
+When deploying both tools, the **second quickstart automatically reuses configuration** from the first — no redundant prompts:
+
+```
+# Scenario A: ipmi-monitor first, dc-overview second
+sudo ipmi-monitor quickstart -c ipmi-config.yaml -y   # Sets up proxy, credentials, servers
+sudo dc-overview quickstart -c dc-config.yaml -y       # Auto-detects proxy credentials, SSL, SSH keys
+
+# Scenario B: dc-overview first, ipmi-monitor second
+sudo dc-overview quickstart -c dc-config.yaml -y       # Sets up proxy, credentials, servers
+sudo ipmi-monitor quickstart -c ipmi-config.yaml -y    # Auto-detects proxy credentials, AI key, site name
+```
+
+**What gets auto-detected from an existing proxy:**
+- Fleet admin credentials (`FLEET_ADMIN_USER` / `FLEET_ADMIN_PASS`)
+- Site name (`SITE_NAME`)
+- AI / Watchdog license key (`WATCHDOG_API_KEY`)
+- Domain and SSL mode (from nginx config)
+- SSH keys and server list (from `/etc/ipmi-monitor/` or `/etc/dc-overview/`)
+
+**Priority order** (highest to lowest):
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | Config file (`-c`) | `fleet_admin_pass: mypass` in YAML |
+| 2 | Running proxy env vars | Auto-detected from `cryptolabs-proxy` container |
+| 3 | Interactive prompt | Asked if neither of the above provides a value |
+
+> **Note:** Config file values always win. If your two config files specify different credentials, each deployment uses its own file's values — the proxy is not silently overridden. The auto-detection only fills in values that are **missing** from the config file.
+
 ### CLI Commands
 
 ```bash
