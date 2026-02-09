@@ -1579,30 +1579,11 @@ def _populate_server_manager(
         "-H", "X-Fleet-Auth-Role: admin",
     ]
     
-    # Register SSH key if available
-    ssh_key_id = None
+    # SSH key is auto-detected by dc-overview from the mounted volume
+    # at /etc/dc-overview/ssh_keys/fleet_key (resolve_ssh_key_path fallback),
+    # so no explicit registration needed - avoids duplicate dropdown entries.
     if ssh_key_dir and (ssh_key_dir / "fleet_key").exists():
-        data = json_module.dumps({
-            "name": "Fleet SSH Key",
-            "key_path": "/etc/dc-overview/ssh_keys/fleet_key",
-        })
-        
-        result = subprocess.run([
-            "docker", "exec", "dc-overview",
-            "curl", "-s", "-X", "POST",
-            "http://127.0.0.1:5001/api/ssh-keys",
-        ] + AUTH_HEADERS + ["-d", data],
-            capture_output=True, text=True, timeout=10
-        )
-        
-        if result.returncode == 0 and result.stdout.strip():
-            try:
-                resp = json_module.loads(result.stdout)
-                ssh_key_id = resp.get("id")
-                if ssh_key_id:
-                    console.print(f"[green]✓[/green] SSH key registered in Server Manager")
-            except Exception:
-                pass
+        console.print(f"[green]✓[/green] SSH key mounted for Server Manager")
     
     # Add servers
     added = 0
@@ -1638,16 +1619,8 @@ def _populate_server_manager(
             except Exception:
                 pass
         
-        # Associate SSH key with server
-        if server_id and ssh_key_id:
-            key_data = json_module.dumps({"ssh_key_id": ssh_key_id})
-            subprocess.run([
-                "docker", "exec", "dc-overview",
-                "curl", "-s", "-X", "POST",
-                f"http://127.0.0.1:5001/api/servers/{server_id}/ssh-key",
-            ] + AUTH_HEADERS + ["-d", key_data],
-                capture_output=True, text=True, timeout=10
-            )
+        # SSH key association not needed - dc-overview auto-detects
+        # the fleet key from /etc/dc-overview/ssh_keys/fleet_key
     
     if added > 0:
         console.print(f"[green]✓[/green] Added {added} servers to Server Manager")
