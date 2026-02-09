@@ -1336,6 +1336,17 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
             console.print("[yellow]⚠[/yellow] cryptolabs-proxy module not installed, skipping proxy setup")
             console.print("  Install with: [cyan]pip install cryptolabs-proxy[/cyan]")
     
+    # Deploy Server Manager (dc-overview) container
+    # This enables DC Watchdog deployment for clients with a CryptoLabs AI key
+    _deploy_server_manager(
+        fleet_admin_user=fleet_admin_user,
+        fleet_admin_pass=fleet_admin_pass,
+        domain=domain,
+        site_name=site_name,
+        image_tag=image_tag,
+        setup_proxy=setup_proxy or proxy_already_running,
+    )
+    
     # Activate AI license in database if configured
     if license_key:
         activate_ai_license(license_key)
@@ -1405,6 +1416,104 @@ def generate_servers_yaml(servers: List[Dict], config_dir: Path, ssh_key_map: Di
                 f.write(f"    ssh_key_name: {srv['ssh_key_name']}\n")
             if srv.get('ssh_port'):
                 f.write(f"    ssh_port: {srv['ssh_port']}\n")
+
+
+def _deploy_server_manager(
+    fleet_admin_user: str,
+    fleet_admin_pass: str,
+    domain: str = None,
+    site_name: str = "IPMI Monitor",
+    image_tag: str = "dev",
+    setup_proxy: bool = False,
+):
+    """Deploy the Server Manager (dc-overview) container.
+    
+    This provides a web UI for managing servers, deploying DC Watchdog agents,
+    and viewing server details. Matches dc-overview's _deploy_dc_overview_container().
+    
+    Unlike dc-overview quickstart, this does NOT set up Prometheus, Grafana,
+    or exporters - it only deploys the Server Manager container itself.
+    """
+    console.print("\n[dim]Deploying Server Manager...[/dim]")
+    
+    # Check if already running
+    result = subprocess.run(
+        ["docker", "inspect", "dc-overview", "--format", "{{.State.Running}}"],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0 and result.stdout.strip() == "true":
+        console.print("[green]✓[/green] Server Manager already running")
+        return
+    
+    # Remove any stopped/created container
+    subprocess.run(["docker", "rm", "-f", "dc-overview"], capture_output=True)
+    
+    # Determine image tag (match ipmi-monitor's channel)
+    sm_tag = 'dev' if image_tag == 'dev' else 'latest'
+    
+    # Pull the image
+    console.print(f"[dim]Pulling Server Manager image ({sm_tag})...[/dim]")
+    subprocess.run(
+        ["docker", "pull", f"ghcr.io/cryptolabsza/dc-overview:{sm_tag}"],
+        capture_output=True, timeout=120
+    )
+    
+    # Generate a secret key for the Server Manager
+    flask_secret = secrets.token_hex(16)
+    
+    # Build env vars
+    env_vars = [
+        "-e", f"FLASK_SECRET_KEY={flask_secret}",
+        "-e", "DC_OVERVIEW_PORT=5001",
+        "-e", f"TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}",
+    ]
+    
+    # If behind proxy, set APPLICATION_ROOT
+    if setup_proxy:
+        env_vars += ["-e", "APPLICATION_ROOT=/dc"]
+    
+    # Build the docker run command
+    cmd = [
+        "docker", "run", "-d",
+        "--name", "dc-overview",
+        "--restart", "unless-stopped",
+    ] + env_vars + [
+        "-v", "dc-overview-data:/data",
+        "--health-cmd", "curl -f http://127.0.0.1:5001/api/health || exit 1",
+        "--health-interval", "10s",
+        "--health-timeout", "5s",
+        "--health-retries", "3",
+        "--health-start-period", "15s",
+        "--network", DOCKER_NETWORK_NAME,
+        "--ip", STATIC_IPS["dc-overview"],
+        "--label", "com.centurylinklabs.watchtower.enable=true",
+        f"ghcr.io/cryptolabsza/dc-overview:{sm_tag}"
+    ]
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        error_msg = result.stderr[:200] if result.stderr else "Unknown error"
+        console.print(f"[yellow]⚠[/yellow] Server Manager deploy failed: {error_msg}")
+        return
+    
+    # Wait for healthy
+    for i in range(20):
+        try:
+            result = subprocess.run(
+                ["docker", "inspect", "--format", "{{.State.Health.Status}}", "dc-overview"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip() == "healthy":
+                console.print("[green]✓[/green] Server Manager started")
+                if setup_proxy and domain:
+                    console.print(f"  Server Manager: [cyan]https://{domain}/dc/[/cyan]")
+                return
+        except Exception:
+            pass
+        time.sleep(3)
+    
+    console.print("[yellow]⚠[/yellow] Server Manager may still be initializing")
 
 
 def activate_ai_license(license_key: str):
