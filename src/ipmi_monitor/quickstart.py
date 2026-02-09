@@ -1263,10 +1263,12 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     else:
         console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
     
-    # Stop/remove existing ipmi-monitor container if it exists
-    # (dc-overview quickstart may have already deployed it in its Step 7)
-    subprocess.run(["docker", "stop", "ipmi-monitor"], capture_output=True)
-    subprocess.run(["docker", "rm", "ipmi-monitor"], capture_output=True)
+    # Stop/remove existing containers that our compose manages
+    # (dc-overview quickstart may have already deployed ipmi-monitor in its Step 7,
+    # and watchtower may be occupying our static IP)
+    for container in ["ipmi-monitor", "watchtower"]:
+        subprocess.run(["docker", "stop", container], capture_output=True)
+        subprocess.run(["docker", "rm", container], capture_output=True)
     
     # Ensure the data volume exists (compose uses external: true to avoid conflicts)
     subprocess.run(
