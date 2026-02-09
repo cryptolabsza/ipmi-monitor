@@ -64,6 +64,7 @@ STATIC_IPS = {
     "ipmi-monitor": "172.30.0.6",
     "vast-exporter": "172.30.0.7",
     "server-manager": "172.30.0.8",
+    "watchtower": "172.30.0.9",
 }
 
 console = Console()
