@@ -770,6 +770,7 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         cfg_email = None
         cfg_watchdog_api_key = ''
         cfg_watchdog_url = 'https://watchdog.cryptolabs.co.za'
+        ssh_cfg = {}
     
     # Check Docker
     if not check_docker_installed():
@@ -1345,6 +1346,10 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
         site_name=site_name,
         image_tag=image_tag,
         setup_proxy=setup_proxy or proxy_already_running,
+        servers=servers,
+        ssh_user=ssh_cfg.get('username', 'root') if ssh_cfg else 'root',
+        ssh_port=ssh_cfg.get('port', 22) if ssh_cfg else 22,
+        ssh_key_dir=CONFIG_DIR / "ssh_keys" if (CONFIG_DIR / "ssh_keys").exists() else None,
     )
     
     # Activate AI license in database if configured
@@ -1425,11 +1430,16 @@ def _deploy_server_manager(
     site_name: str = "IPMI Monitor",
     image_tag: str = "dev",
     setup_proxy: bool = False,
+    servers: List[Dict] = None,
+    ssh_user: str = "root",
+    ssh_port: int = 22,
+    ssh_key_dir: Path = None,
 ):
-    """Deploy the Server Manager (dc-overview) container.
+    """Deploy the Server Manager (dc-overview) container and populate it with servers.
     
     This provides a web UI for managing servers, deploying DC Watchdog agents,
-    and viewing server details. Matches dc-overview's _deploy_dc_overview_container().
+    and viewing server details. Matches dc-overview's _deploy_dc_overview_container()
+    and _populate_dc_overview_servers().
     
     Unlike dc-overview quickstart, this does NOT set up Prometheus, Grafana,
     or exporters - it only deploys the Server Manager container itself.
@@ -1458,6 +1468,24 @@ def _deploy_server_manager(
         capture_output=True, timeout=120
     )
     
+    # Prepare SSH keys directory for the Server Manager
+    # Copy ipmi-monitor's SSH keys to a dc-overview config directory
+    sm_config_dir = Path("/etc/dc-overview")
+    sm_ssh_dir = sm_config_dir / "ssh_keys"
+    if ssh_key_dir and ssh_key_dir.exists():
+        sm_ssh_dir.mkdir(parents=True, exist_ok=True)
+        for key_file in ssh_key_dir.iterdir():
+            if key_file.is_file() and not key_file.name.endswith('.pub'):
+                dest = sm_ssh_dir / "fleet_key"
+                shutil.copy2(key_file, dest)
+                os.chmod(dest, 0o600)
+                # Set ownership to uid 1000 (dcuser inside the container)
+                try:
+                    os.chown(dest, 1000, 1000)
+                except OSError:
+                    pass
+                break  # Only need the first/default key
+    
     # Generate a secret key for the Server Manager
     flask_secret = secrets.token_hex(16)
     
@@ -1472,13 +1500,20 @@ def _deploy_server_manager(
     if setup_proxy:
         env_vars += ["-e", "APPLICATION_ROOT=/dc"]
     
+    # Volume mounts
+    volumes = [
+        "-v", "dc-overview-data:/data",
+    ]
+    # Mount SSH keys if available
+    if sm_ssh_dir.exists() and any(sm_ssh_dir.iterdir()):
+        volumes += ["-v", f"{sm_config_dir}:/etc/dc-overview:ro"]
+    
     # Build the docker run command
     cmd = [
         "docker", "run", "-d",
         "--name", "dc-overview",
         "--restart", "unless-stopped",
-    ] + env_vars + [
-        "-v", "dc-overview-data:/data",
+    ] + env_vars + volumes + [
         "--health-cmd", "curl -f http://127.0.0.1:5001/api/health || exit 1",
         "--health-interval", "10s",
         "--health-timeout", "5s",
@@ -1498,6 +1533,7 @@ def _deploy_server_manager(
         return
     
     # Wait for healthy
+    sm_healthy = False
     for i in range(20):
         try:
             result = subprocess.run(
@@ -1505,15 +1541,116 @@ def _deploy_server_manager(
                 capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0 and result.stdout.strip() == "healthy":
+                sm_healthy = True
                 console.print("[green]✓[/green] Server Manager started")
-                if setup_proxy and domain:
-                    console.print(f"  Server Manager: [cyan]https://{domain}/dc/[/cyan]")
-                return
+                break
         except Exception:
             pass
         time.sleep(3)
     
-    console.print("[yellow]⚠[/yellow] Server Manager may still be initializing")
+    if not sm_healthy:
+        console.print("[yellow]⚠[/yellow] Server Manager may still be initializing")
+        return
+    
+    # Populate Server Manager with servers and SSH key
+    _populate_server_manager(servers or [], ssh_user, ssh_port, sm_ssh_dir)
+    
+    if setup_proxy and domain:
+        console.print(f"  Server Manager: [cyan]https://{domain}/dc/[/cyan]")
+
+
+def _populate_server_manager(
+    servers: List[Dict],
+    ssh_user: str = "root",
+    ssh_port: int = 22,
+    ssh_key_dir: Path = None,
+):
+    """Populate the Server Manager with servers and SSH keys.
+    
+    Mirrors dc-overview's _populate_dc_overview_servers() and _setup_dc_overview_ssh_key().
+    Uses the dc-overview container's internal API via docker exec.
+    """
+    import json as json_module
+    
+    AUTH_HEADERS = [
+        "-H", "Content-Type: application/json",
+        "-H", "X-Fleet-Authenticated: true",
+        "-H", "X-Fleet-Auth-User: admin",
+        "-H", "X-Fleet-Auth-Role: admin",
+    ]
+    
+    # Register SSH key if available
+    ssh_key_id = None
+    if ssh_key_dir and (ssh_key_dir / "fleet_key").exists():
+        data = json_module.dumps({
+            "name": "Fleet SSH Key",
+            "key_path": "/etc/dc-overview/ssh_keys/fleet_key",
+        })
+        
+        result = subprocess.run([
+            "docker", "exec", "dc-overview",
+            "curl", "-s", "-X", "POST",
+            "http://127.0.0.1:5001/api/ssh-keys",
+        ] + AUTH_HEADERS + ["-d", data],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                resp = json_module.loads(result.stdout)
+                ssh_key_id = resp.get("id")
+                if ssh_key_id:
+                    console.print(f"[green]✓[/green] SSH key registered in Server Manager")
+            except Exception:
+                pass
+    
+    # Add servers
+    added = 0
+    for srv in servers:
+        server_ip = srv.get("server_ip")
+        if not server_ip:
+            continue
+        
+        server_data = {
+            "name": srv.get("name", server_ip),
+            "server_ip": server_ip,
+            "ssh_user": srv.get("ssh_user", ssh_user),
+            "ssh_port": srv.get("ssh_port", ssh_port),
+        }
+        
+        data = json_module.dumps(server_data)
+        
+        result = subprocess.run([
+            "docker", "exec", "dc-overview",
+            "curl", "-s", "-X", "POST",
+            "http://127.0.0.1:5001/api/servers",
+        ] + AUTH_HEADERS + ["-d", data],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        server_id = None
+        if result.returncode == 0 and result.stdout.strip():
+            try:
+                resp = json_module.loads(result.stdout)
+                server_id = resp.get("id")
+                if server_id:
+                    added += 1
+            except Exception:
+                pass
+        
+        # Associate SSH key with server
+        if server_id and ssh_key_id:
+            key_data = json_module.dumps({"ssh_key_id": ssh_key_id})
+            subprocess.run([
+                "docker", "exec", "dc-overview",
+                "curl", "-s", "-X", "POST",
+                f"http://127.0.0.1:5001/api/servers/{server_id}/ssh-key",
+            ] + AUTH_HEADERS + ["-d", key_data],
+                capture_output=True, text=True, timeout=10
+            )
+    
+    if added > 0:
+        console.print(f"[green]✓[/green] Added {added} servers to Server Manager")
 
 
 def activate_ai_license(license_key: str):
