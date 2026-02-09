@@ -48,3 +48,10 @@ ipmi_monitor:
 
 # Auto-updates
 enable_watchtower: true
+
+# DC Watchdog - External uptime monitoring (paid service)
+# Requires a valid CryptoLabs subscription (https://www.cryptolabs.co.za/account/)
+# If you have a valid AI license key above, it will be used as the watchdog API key
+# watchdog:
+#   api_key: sk-ipmi-XXX  # Or uses ai_license_key as fallback
+#   server_url: https://watchdog.cryptolabs.co.za

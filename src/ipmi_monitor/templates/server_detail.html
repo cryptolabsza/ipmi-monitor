@@ -443,13 +443,17 @@
 <body>
     <div class="container">
         <header>
-            <div>
-                <div class="breadcrumb">
-                    <a href="{{ url_for('dashboard') }}">← Dashboard</a>
-                    <span>/</span>
-                    <span>Server Detail</span>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <a href="/" style="color: #00b4d8; border: 1px solid #00b4d8; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; white-space: nowrap;" onmouseover="this.style.background='rgba(0,180,216,0.1)'" onmouseout="this.style.background='transparent'">Home</a>
+                <span style="color: var(--border-color); font-size: 1.2rem; user-select: none;">|</span>
+                <div>
+                    <div class="breadcrumb">
+                        <a href="{{ url_for('dashboard') }}">← Dashboard</a>
+                        <span>/</span>
+                        <span>Server Detail</span>
+                    </div>
+                    <h1>{{ bmc_ip }}</h1>
                 </div>
-                <h1>{{ bmc_ip }}</h1>
             </div>
             <div class="btn-group">
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>

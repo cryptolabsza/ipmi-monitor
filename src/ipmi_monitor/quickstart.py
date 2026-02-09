@@ -8,11 +8,14 @@ The client runs:
 And answers a few questions. Docker containers are deployed automatically.
 """
 
+import json
 import os
+import re
 import subprocess
 import sys
 import secrets
 import shutil
+import time
 from pathlib import Path
 from typing import Optional, List, Dict
 
@@ -37,13 +40,31 @@ try:
         check_existing_letsencrypt_cert,
         ensure_docker_network,
         DOCKER_NETWORK_NAME as PROXY_NETWORK_NAME,
+        DOCKER_NETWORK_SUBNET as PROXY_NETWORK_SUBNET,
         PROXY_STATIC_IP,
     )
     HAS_PROXY_MODULE = True
 except ImportError:
     HAS_PROXY_MODULE = False
     PROXY_NETWORK_NAME = "cryptolabs"
-    PROXY_STATIC_IP = "172.30.0.2"
+    PROXY_NETWORK_SUBNET = "172.30.0.0/16"
+    PROXY_STATIC_IP = "172.30.0.10"  # Must match dc-overview's assignment
+
+# Docker network constants (matching dc-overview fleet_manager.py)
+DOCKER_NETWORK_NAME = PROXY_NETWORK_NAME if HAS_PROXY_MODULE else "cryptolabs"
+DOCKER_NETWORK_SUBNET = PROXY_NETWORK_SUBNET if HAS_PROXY_MODULE else "172.30.0.0/16"
+DOCKER_NETWORK_GATEWAY = "172.30.0.1"
+
+# Static IPs for all services - must match dc-overview's STATIC_IPS
+STATIC_IPS = {
+    "cryptolabs-proxy": "172.30.0.10",
+    "dc-overview": "172.30.0.3",
+    "prometheus": "172.30.0.4",
+    "grafana": "172.30.0.5",
+    "ipmi-monitor": "172.30.0.6",
+    "vast-exporter": "172.30.0.7",
+    "server-manager": "172.30.0.8",
+}
 
 console = Console()
 
@@ -181,6 +202,103 @@ def run_docker_compose(config_dir: Path, command: str = "up -d"):
 def generate_secret_key() -> str:
     """Generate a secure random secret key."""
     return secrets.token_hex(32)
+
+
+def _ensure_docker_network():
+    """Ensure the cryptolabs Docker network exists with the correct subnet.
+    
+    Uses a fixed subnet so containers can be assigned static IPs for security.
+    This allows services to trust only specific proxy IPs rather than entire ranges.
+    Matches dc-overview's fleet_manager._ensure_docker_network().
+    """
+    if HAS_PROXY_MODULE:
+        # Use the cryptolabs-proxy module's implementation
+        ensure_docker_network()
+        return True
+    
+    # Check if network exists
+    result = subprocess.run(
+        ["docker", "network", "inspect", DOCKER_NETWORK_NAME],
+        capture_output=True, text=True
+    )
+    
+    if result.returncode == 0:
+        # Network exists - check if it has the right subnet
+        try:
+            network_info = json.loads(result.stdout)
+            if network_info:
+                existing_subnet = network_info[0].get("IPAM", {}).get("Config", [{}])[0].get("Subnet", "")
+                if existing_subnet == DOCKER_NETWORK_SUBNET:
+                    console.print(f"[dim]Network {DOCKER_NETWORK_NAME} exists with subnet {existing_subnet}[/dim]")
+                    return True
+                
+                # Network exists but with wrong subnet - recreate for static IPs
+                console.print(f"[yellow]⚠[/yellow] Network {DOCKER_NETWORK_NAME} has wrong subnet ({existing_subnet}), recreating...")
+                
+                # Disconnect all containers first
+                containers = network_info[0].get("Containers", {})
+                for container_id, container_info in containers.items():
+                    container_name = container_info.get("Name", container_id)
+                    subprocess.run(
+                        ["docker", "network", "disconnect", "-f", DOCKER_NETWORK_NAME, container_name],
+                        capture_output=True
+                    )
+                
+                subprocess.run(["docker", "network", "rm", DOCKER_NETWORK_NAME], capture_output=True)
+                
+        except (json.JSONDecodeError, IndexError, KeyError):
+            console.print(f"[yellow]⚠[/yellow] Cannot inspect network, recreating...")
+            subprocess.run(["docker", "network", "rm", DOCKER_NETWORK_NAME], capture_output=True)
+    
+    # Create network with specific subnet
+    result = subprocess.run(
+        ["docker", "network", "create",
+         "--subnet", DOCKER_NETWORK_SUBNET,
+         "--gateway", DOCKER_NETWORK_GATEWAY,
+         DOCKER_NETWORK_NAME],
+        capture_output=True, text=True
+    )
+    
+    if result.returncode == 0:
+        console.print(f"[green]✓[/green] Created Docker network {DOCKER_NETWORK_NAME} ({DOCKER_NETWORK_SUBNET})")
+        return True
+    else:
+        console.print(f"[red]✗[/red] Failed to create network: {result.stderr[:100]}")
+        # Fallback without specific subnet
+        fallback = subprocess.run(["docker", "network", "create", DOCKER_NETWORK_NAME], capture_output=True)
+        if fallback.returncode == 0:
+            console.print(f"[yellow]⚠[/yellow] Created network without subnet (static IPs disabled)")
+        return fallback.returncode == 0
+
+
+def _free_ports_80_443():
+    """Free up ports 80 and 443 before starting the proxy.
+    
+    Stops conflicting services: host nginx, apache2, existing proxy containers.
+    Matches dc-overview's fleet_manager._free_ports_80_443().
+    """
+    # Stop host web servers
+    subprocess.run(["systemctl", "stop", "nginx"], capture_output=True)
+    subprocess.run(["systemctl", "disable", "nginx"], capture_output=True)
+    subprocess.run(["systemctl", "stop", "apache2"], capture_output=True)
+    subprocess.run(["systemctl", "disable", "apache2"], capture_output=True)
+    
+    # Force remove any existing proxy container (handles "Created" state too)
+    subprocess.run(["docker", "rm", "-f", "cryptolabs-proxy"], capture_output=True)
+    
+    time.sleep(1)
+    
+    # Check if ports are actually free
+    result = subprocess.run(["ss", "-tlnp"], capture_output=True, text=True)
+    if result.returncode == 0:
+        for line in result.stdout.split('\n'):
+            if ':80 ' in line or ':443 ' in line:
+                pid_match = re.search(r'pid=(\d+)', line)
+                if pid_match:
+                    pid = pid_match.group(1)
+                    subprocess.run(["kill", "-9", pid], capture_output=True)
+    
+    time.sleep(1)
 
 
 def looks_like_ip(s: str) -> bool:
@@ -606,12 +724,24 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         # Watchtower
         cfg_enable_watchtower = file_config.get('enable_watchtower', True)
         
+        # Site name (for proxy landing page branding)
+        cfg_site_name = file_config.get('site_name', 'IPMI Monitor')
+        
         # SSL/Proxy settings
         ssl_mode = ssl_cfg.get('mode', 'none')
         cfg_enable_proxy = ssl_mode != 'none'
         cfg_domain = ssl_cfg.get('domain')
         cfg_use_letsencrypt = ssl_mode == 'letsencrypt'
         cfg_email = ssl_cfg.get('email')
+        
+        # Watchdog settings (paid service - requires valid AI key / CryptoLabs subscription)
+        watchdog_cfg = file_config.get('watchdog', {})
+        cfg_watchdog_api_key = (
+            watchdog_cfg.get('api_key') or
+            ipmi_cfg.get('ai_license_key') or  # Fallback: same key as AI features
+            ''
+        )
+        cfg_watchdog_url = watchdog_cfg.get('server_url', 'https://watchdog.cryptolabs.co.za')
     else:
         cfg_servers = []
         cfg_admin_user = None
@@ -623,10 +753,13 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         cfg_enable_ssh_logs = None
         cfg_enable_ssh_inventory = None
         cfg_image_tag = None
+        cfg_site_name = 'IPMI Monitor'
         cfg_enable_proxy = None
         cfg_domain = None
         cfg_use_letsencrypt = None
         cfg_email = None
+        cfg_watchdog_api_key = ''
+        cfg_watchdog_url = 'https://watchdog.cryptolabs.co.za'
     
     # Check Docker
     if not check_docker_installed():
@@ -1002,6 +1135,10 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     # ============ Step 8: Deploy ============
     console.print("\n[bold]Step 8: Deploying IPMI Monitor[/bold]\n")
     
+    # Ensure Docker network exists with correct subnet (for static IPs)
+    console.print("[dim]Setting up Docker network...[/dim]")
+    _ensure_docker_network()
+    
     # Create config directory
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     
@@ -1044,6 +1181,7 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     
     # Generate .env file
     fleet_secret = generate_secret_key()
+    site_name = cfg_site_name or "IPMI Monitor"
     env_content = f"""# IPMI Monitor Environment Configuration
 # Generated by quickstart
 
@@ -1056,12 +1194,18 @@ FLEET_ADMIN_USER={fleet_admin_user}
 FLEET_ADMIN_PASS={fleet_admin_pass if fleet_admin_pass else ''}
 AUTH_SECRET_KEY={fleet_secret}
 
+# Site branding
+SITE_NAME={site_name}
+
 # Default IPMI credentials
 IPMI_USER={default_ipmi_user}
 IPMI_PASS={default_ipmi_pass}
 
 # SSH Log Collection
 ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
+
+# Security: Trust only the proxy's static IP (matches dc-overview)
+TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
 """
     if license_key:
         env_content += f"\n# AI Features\nAI_LICENSE_KEY={license_key}\n"
@@ -1088,7 +1232,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         image_tag=image_tag,
         proxy_tag=proxy_tag,
         web_port=web_port,
-        app_name="IPMI Monitor",
+        app_name=site_name if site_name != "IPMI Monitor" else "IPMI Monitor",
+        site_name=site_name,
         poll_interval=300,
         ai_enabled=enable_ai,
         enable_watchtower=enable_watchtower,
@@ -1100,6 +1245,8 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         certbot_email=certbot_email,  # For auto-renewal/retry
         ssh_keys_dir=bool(ssh_key_map),
         network_mode=None,  # Use bridge network
+        # Static IPs for security (matching dc-overview)
+        static_ips=STATIC_IPS,
     )
     
     (CONFIG_DIR / "docker-compose.yml").write_text(compose_content)
@@ -1107,6 +1254,10 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
     
     # Handle proxy setup - use cryptolabs-proxy API if available
     if setup_proxy and not proxy_already_running:
+        # Free up ports 80/443 (stop nginx, apache, existing proxy containers)
+        console.print("[dim]Freeing ports 80/443...[/dim]")
+        _free_ports_80_443()
+        
         if HAS_PROXY_MODULE:
             # Use cryptolabs-proxy's SSL management (handles existing LE certs, etc.)
             console.print("[dim]Setting up proxy via cryptolabs-proxy module...[/dim]")
@@ -1116,6 +1267,9 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
                 use_letsencrypt=use_letsencrypt,
                 fleet_admin_user=fleet_admin_user,
                 fleet_admin_pass=fleet_admin_pass,
+                site_name=site_name,
+                watchdog_api_key=cfg_watchdog_api_key,
+                watchdog_url=cfg_watchdog_url,
             )
             
             # The module will handle SSL certs, but we still need to start via docker-compose
@@ -1188,10 +1342,45 @@ ENABLE_SSH_LOGS={str(enable_ssh_logs).lower()}
         success, output = run_docker_compose(CONFIG_DIR, "up -d")
     
     if success:
-        console.print(f"[green]✓[/green] IPMI Monitor started")
+        console.print(f"[green]✓[/green] Containers started")
     else:
         console.print(f"[red]✗[/red] Failed to start: {output}")
         return
+    
+    # Wait for IPMI Monitor to be healthy
+    console.print("[dim]Waiting for IPMI Monitor to initialize...[/dim]")
+    for i in range(30):
+        try:
+            result = subprocess.run(
+                ["docker", "exec", "ipmi-monitor", "curl", "-sf", "http://localhost:5000/health"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                console.print("[green]✓[/green] IPMI Monitor is healthy")
+                break
+        except Exception:
+            pass
+        time.sleep(2)
+    else:
+        console.print("[yellow]⚠[/yellow] IPMI Monitor may still be initializing")
+    
+    # Wait for proxy to be healthy (if we started one)
+    if setup_proxy and not proxy_already_running:
+        console.print("[dim]Waiting for CryptoLabs Proxy to initialize...[/dim]")
+        for i in range(30):
+            try:
+                result = subprocess.run(
+                    ["curl", "-sf", "http://localhost/api/health"],
+                    capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                    console.print("[green]✓[/green] CryptoLabs Proxy is healthy")
+                    break
+            except Exception:
+                pass
+            time.sleep(2)
+        else:
+            console.print("[yellow]⚠[/yellow] Proxy may still be initializing")
     
     # Activate AI license in database if configured
     if license_key:
