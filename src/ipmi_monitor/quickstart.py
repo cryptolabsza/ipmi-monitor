@@ -188,13 +188,22 @@ def run_docker_compose(config_dir: Path, command: str = "up -d"):
         )
         if result.returncode == 0:
             return True, result.stdout
-        
-        # Try v1 syntax
+        v2_error = result.stderr or result.stdout
+    except FileNotFoundError:
+        v2_error = "docker compose (v2) not found"
+    
+    # Try v1 syntax as fallback
+    try:
         result = subprocess.run(
             ["docker-compose", "-f", str(config_dir / "docker-compose.yml")] + command.split(),
             capture_output=True, text=True, cwd=str(config_dir)
         )
-        return result.returncode == 0, result.stdout if result.returncode == 0 else result.stderr
+        if result.returncode == 0:
+            return True, result.stdout
+        return False, result.stderr or result.stdout
+    except FileNotFoundError:
+        # Neither v1 nor v2 worked - return v2 error (more useful)
+        return False, v2_error
     except Exception as e:
         return False, str(e)
 
