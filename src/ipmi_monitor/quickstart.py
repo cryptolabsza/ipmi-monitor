@@ -2675,8 +2675,11 @@ def read_ssh_key_file(key_path: str) -> Optional[str]:
         key_path = os.path.expanduser(key_path)
         if os.path.exists(key_path):
             with open(key_path, 'r') as f:
-                content = f.read().strip()
-            if content.startswith('-----BEGIN') and 'PRIVATE KEY' in content:
+                content = f.read()
+            # Ensure trailing newline (required by OpenSSH key format)
+            if not content.endswith('\n'):
+                content += '\n'
+            if content.strip().startswith('-----BEGIN') and 'PRIVATE KEY' in content:
                 return content
             else:
                 console.print(f"[yellow]⚠[/yellow] File {key_path} doesn't appear to be a valid SSH private key")
