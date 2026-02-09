@@ -81,11 +81,12 @@ services:
 # not included in this compose file. This matches dc-overview's working pattern.
 
 # =============================================================================
-# Volumes
+# Volumes - use external if the volume already exists (e.g. created by dc-overview)
 # =============================================================================
 volumes:
   ipmi_data:
     name: ipmi-monitor-data
+    external: true
 
 # =============================================================================
 # Networks

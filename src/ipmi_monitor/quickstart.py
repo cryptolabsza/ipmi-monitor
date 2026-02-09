@@ -1263,6 +1263,17 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     else:
         console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
     
+    # Stop/remove existing ipmi-monitor container if it exists
+    # (dc-overview quickstart may have already deployed it in its Step 7)
+    subprocess.run(["docker", "stop", "ipmi-monitor"], capture_output=True)
+    subprocess.run(["docker", "rm", "ipmi-monitor"], capture_output=True)
+    
+    # Ensure the data volume exists (compose uses external: true to avoid conflicts)
+    subprocess.run(
+        ["docker", "volume", "create", "ipmi-monitor-data"],
+        capture_output=True
+    )
+    
     # Start ipmi-monitor containers (docker-compose only has ipmi-monitor + watchtower)
     with Progress(SpinnerColumn(), TextColumn("Starting containers..."), console=console) as progress:
         progress.add_task("", total=None)
