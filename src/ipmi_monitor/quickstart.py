@@ -1529,11 +1529,21 @@ def _deploy_server_manager(
     # Generate a secret key for the Server Manager
     flask_secret = secrets.token_hex(16)
     
+    # Get internal API token from proxy for secure service-to-service config API
+    internal_token = ''
+    if HAS_PROXY_MODULE:
+        try:
+            from cryptolabs_proxy import get_internal_api_token
+            internal_token = get_internal_api_token() or ''
+        except Exception:
+            pass
+    
     # Build env vars
     env_vars = [
         "-e", f"FLASK_SECRET_KEY={flask_secret}",
         "-e", "DC_OVERVIEW_PORT=5001",
         "-e", f"TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}",
+        "-e", f"INTERNAL_API_TOKEN={internal_token}",
     ]
     
     # If behind proxy, set APPLICATION_ROOT
