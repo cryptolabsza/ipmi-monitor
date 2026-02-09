@@ -77,82 +77,8 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
 {% endif %}
 
-{% if enable_proxy %}
-  # ===========================================================================
-  # CryptoLabs Proxy - Unified Reverse Proxy with SSL & Auth
-  # ===========================================================================
-  cryptolabs-proxy:
-    image: ghcr.io/cryptolabsza/cryptolabs-proxy:{{ proxy_tag | default('latest') }}
-    container_name: cryptolabs-proxy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      # Fleet authentication (unified login)
-      - FLEET_ADMIN_USER=${FLEET_ADMIN_USER:-admin}
-      - FLEET_ADMIN_PASS=${FLEET_ADMIN_PASS}
-      - AUTH_SECRET_KEY=${AUTH_SECRET_KEY}
-      - SITE_NAME={{ site_name | default('IPMI Monitor') }}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-      - ./certbot/conf:/etc/letsencrypt:ro
-      - ./certbot/www:/var/www/certbot:ro
-      - fleet_auth_data:/data
-    depends_on:
-      - ipmi-monitor
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-    networks:
-      cryptolabs:
-{% if static_ips %}
-        ipv4_address: {{ static_ips['cryptolabs-proxy'] }}
-{% endif %}
-
-{% if domain and certbot_email %}
-  # ===========================================================================
-  # Certbot - Auto Certificate Management
-  # - Attempts to obtain certificates if not present (every 12 hours)
-  # - Renews existing certificates automatically
-  # - Reloads nginx after successful cert operations
-  # ===========================================================================
-  certbot:
-    image: certbot/certbot
-    container_name: certbot
-    restart: unless-stopped
-    volumes:
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - DOMAIN={{ domain }}
-      - EMAIL={{ certbot_email }}
-    entrypoint: "/bin/sh -c 'trap exit TERM; \
-      while :; do \
-        if [ ! -f /etc/letsencrypt/live/{{ domain }}/fullchain.pem ]; then \
-          echo \"[Certbot] No cert found, attempting to obtain...\"; \
-          certbot certonly --webroot --webroot-path=/var/www/certbot \
-            -d {{ domain }} --email {{ certbot_email }} \
-            --agree-tos --non-interactive --keep && \
-            echo \"[Certbot] Certificate obtained! Run: ipmi-monitor setup-ssl to activate\"; \
-        else \
-          certbot renew --webroot --webroot-path=/var/www/certbot --quiet; \
-        fi; \
-        sleep 12h & wait $${!}; \
-      done'"
-    depends_on:
-      - cryptolabs-proxy
-    networks:
-      - cryptolabs
-{% endif %}
-{% endif %}
+# NOTE: cryptolabs-proxy is deployed separately via setup_proxy() (docker run),
+# not included in this compose file. This matches dc-overview's working pattern.
 
 # =============================================================================
 # Volumes
@@ -160,10 +86,6 @@ services:
 volumes:
   ipmi_data:
     name: ipmi-monitor-data
-{% if enable_proxy %}
-  fleet_auth_data:
-    name: fleet-auth-data
-{% endif %}
 
 # =============================================================================
 # Networks

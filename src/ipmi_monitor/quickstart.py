@@ -1223,37 +1223,21 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     os.chmod(CONFIG_DIR / ".env", 0o600)  # Protect credentials
     console.print(f"[green]✓[/green] Environment configuration saved")
     
-    # Generate docker-compose.yml
+    # Generate docker-compose.yml (only ipmi-monitor + watchtower)
+    # Proxy is deployed separately via setup_proxy() - same pattern as dc-overview
     env = get_jinja_env()
     template = env.get_template("docker-compose.yml.j2")
     
-    # Determine proxy image tag (use dev if ipmi-monitor is using dev)
-    proxy_tag = 'dev' if image_tag == 'dev' else 'latest'
-    
-    # image_tag is already set by user selection in Step 6
-    # Get certbot email (might be set even if LE initially failed due to rate limiting)
-    certbot_email = letsencrypt_email if 'letsencrypt_email' in dir() and letsencrypt_email else None
-    
-    # Only include proxy in docker-compose if we're setting up a new one
-    start_new_proxy = setup_proxy and not proxy_already_running
-    
     compose_content = template.render(
         image_tag=image_tag,
-        proxy_tag=proxy_tag,
         web_port=web_port,
         app_name=site_name if site_name != "IPMI Monitor" else "IPMI Monitor",
         site_name=site_name,
         poll_interval=300,
         ai_enabled=enable_ai,
         enable_watchtower=enable_watchtower,
-        enable_proxy=start_new_proxy,
-        use_existing_proxy=proxy_already_running,  # Use external network if proxy exists
-        use_letsencrypt=use_letsencrypt,
-        letsencrypt_domain=domain if use_letsencrypt else None,
-        domain=domain,
-        certbot_email=certbot_email,  # For auto-renewal/retry
+        enable_proxy=setup_proxy or proxy_already_running,  # Controls env vars (APPLICATION_ROOT, etc.)
         ssh_keys_dir=bool(ssh_key_map),
-        network_mode=None,  # Use bridge network
         # Static IPs for security (matching dc-overview)
         static_ips=STATIC_IPS,
     )
@@ -1261,64 +1245,12 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     (CONFIG_DIR / "docker-compose.yml").write_text(compose_content)
     console.print(f"[green]✓[/green] Docker Compose configuration saved")
     
-    # Handle proxy setup - use cryptolabs-proxy API if available
-    if setup_proxy and not proxy_already_running:
-        # Free up ports 80/443 (stop nginx, apache, existing proxy containers)
-        console.print("[dim]Freeing ports 80/443...[/dim]")
-        _free_ports_80_443()
-        
-        if HAS_PROXY_MODULE:
-            # Use cryptolabs-proxy's SSL management (handles existing LE certs, etc.)
-            console.print("[dim]Setting up proxy via cryptolabs-proxy module...[/dim]")
-            proxy_config = ProxyConfig(
-                domain=domain or local_ip,
-                email=letsencrypt_email or f"admin@{domain or local_ip}",
-                use_letsencrypt=use_letsencrypt,
-                fleet_admin_user=fleet_admin_user,
-                fleet_admin_pass=fleet_admin_pass,
-                site_name=site_name,
-                watchdog_api_key=cfg_watchdog_api_key,
-                watchdog_url=cfg_watchdog_url,
-            )
-            
-            # The module will handle SSL certs, but we still need to start via docker-compose
-            # So just ensure SSL certs are ready
-            from cryptolabs_proxy.setup import ensure_ssl_certs
-            success, ssl_message = ensure_ssl_certs(proxy_config)
-            console.print(f"[dim]{ssl_message}[/dim]")
-            
-            # Create certbot directories
-            (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
-            (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
-            
-            # Still need nginx config for docker-compose volume mount
-            nginx_content = generate_proxy_nginx_config(
-                domain=domain or local_ip,
-                use_letsencrypt=use_letsencrypt and success,
-            )
-            (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
-            console.print(f"[green]✓[/green] Proxy configuration saved")
-        else:
-            # Legacy: generate self-signed cert (nginx needs certs to start)
-            generate_self_signed_cert(CONFIG_DIR / "ssl", domain or local_ip)
-            
-            # Create certbot directories
-            (CONFIG_DIR / "certbot" / "conf").mkdir(parents=True, exist_ok=True)
-            (CONFIG_DIR / "certbot" / "www").mkdir(parents=True, exist_ok=True)
-            
-            # Generate nginx config
-            nginx_content = generate_proxy_nginx_config(
-                domain=domain or local_ip,
-                use_letsencrypt=use_letsencrypt,
-            )
-            (CONFIG_DIR / "nginx.conf").write_text(nginx_content)
-            console.print(f"[green]✓[/green] Proxy configuration saved (self-signed)")
-    elif proxy_already_running:
+    # If proxy already running, add /ipmi/ route to it
+    if proxy_already_running:
         console.print(f"[green]✓[/green] Using existing proxy configuration")
-        # Add /ipmi/ route to existing proxy
         add_ipmi_route_to_proxy()
     
-    # Pull Docker images
+    # Pull IPMI Monitor Docker image
     with Progress(SpinnerColumn(), TextColumn(f"Pulling IPMI Monitor image ({image_tag})..."), console=console) as progress:
         progress.add_task("", total=None)
         result = subprocess.run(
@@ -1331,27 +1263,13 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     else:
         console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
     
-    # Pull proxy image if proxy is enabled and not already running
-    if setup_proxy and not proxy_already_running:
-        with Progress(SpinnerColumn(), TextColumn(f"Pulling CryptoLabs Proxy image ({proxy_tag})..."), console=console) as progress:
-            progress.add_task("", total=None)
-            result = subprocess.run(
-                ["docker", "pull", f"ghcr.io/cryptolabsza/cryptolabs-proxy:{proxy_tag}"],
-                capture_output=True, text=True
-            )
-        
-        if result.returncode == 0:
-            console.print(f"[green]✓[/green] CryptoLabs Proxy image pulled")
-        else:
-            console.print(f"[yellow]⚠[/yellow] Proxy image pull warning: {result.stderr[:100]}")
-    
-    # Start containers
+    # Start ipmi-monitor containers (docker-compose only has ipmi-monitor + watchtower)
     with Progress(SpinnerColumn(), TextColumn("Starting containers..."), console=console) as progress:
         progress.add_task("", total=None)
         success, output = run_docker_compose(CONFIG_DIR, "up -d")
     
     if success:
-        console.print(f"[green]✓[/green] Containers started")
+        console.print(f"[green]✓[/green] IPMI Monitor container started")
     else:
         console.print(f"[red]✗[/red] Failed to start: {output}")
         return
@@ -1373,41 +1291,40 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     else:
         console.print("[yellow]⚠[/yellow] IPMI Monitor may still be initializing")
     
-    # Wait for proxy to be healthy (if we started one)
+    # Deploy CryptoLabs Proxy separately via setup_proxy() - same pattern as dc-overview
+    # This handles SSL, Docker network, container deployment, and nginx config in one call
     if setup_proxy and not proxy_already_running:
-        console.print("[dim]Waiting for CryptoLabs Proxy to initialize...[/dim]")
-        for i in range(30):
-            try:
-                result = subprocess.run(
-                    ["curl", "-sf", "http://localhost/api/health"],
-                    capture_output=True, text=True, timeout=5
-                )
-                if result.returncode == 0:
-                    console.print("[green]✓[/green] CryptoLabs Proxy is healthy")
-                    break
-            except Exception:
-                pass
-            time.sleep(2)
+        console.print("\n[dim]Setting up CryptoLabs Proxy...[/dim]")
+        
+        if HAS_PROXY_MODULE:
+            proxy_config = ProxyConfig(
+                domain=domain or local_ip,
+                email=letsencrypt_email or f"admin@{domain or local_ip}",
+                use_letsencrypt=use_letsencrypt,
+                fleet_admin_user=fleet_admin_user,
+                fleet_admin_pass=fleet_admin_pass,
+                site_name=site_name,
+                watchdog_api_key=cfg_watchdog_api_key,
+                watchdog_url=cfg_watchdog_url,
+            )
+            
+            def log_callback(msg: str):
+                console.print(f"[dim]{msg}[/dim]")
+            
+            proxy_success, proxy_message = cryptolabs_setup_proxy(proxy_config, callback=log_callback)
+            
+            if proxy_success:
+                console.print("[green]✓[/green] CryptoLabs Proxy started and healthy")
+            else:
+                console.print(f"[red]✗[/red] Proxy setup failed: {proxy_message}")
+                console.print("[yellow]⚠[/yellow] IPMI Monitor is running but proxy is not available")
         else:
-            console.print("[yellow]⚠[/yellow] Proxy may still be initializing")
+            console.print("[yellow]⚠[/yellow] cryptolabs-proxy module not installed, skipping proxy setup")
+            console.print("  Install with: [cyan]pip install cryptolabs-proxy[/cyan]")
     
     # Activate AI license in database if configured
     if license_key:
         activate_ai_license(license_key)
-    
-    # Handle Let's Encrypt certificate (only for new proxy setup, and only if not already handled)
-    if setup_proxy and not proxy_already_running and use_letsencrypt and domain and letsencrypt_email:
-        # Check if cryptolabs-proxy already set up valid LE certs
-        le_already_valid = False
-        if HAS_PROXY_MODULE:
-            is_valid, _, _ = check_existing_letsencrypt_cert(domain)
-            le_already_valid = is_valid
-        
-        if not le_already_valid:
-            console.print("\n[dim]Obtaining Let's Encrypt certificate...[/dim]")
-            obtain_letsencrypt_cert(CONFIG_DIR, domain, letsencrypt_email)
-        else:
-            console.print("[green]✓[/green] Let's Encrypt certificate already valid")
     
     # Show summary
     saved_servers = [s for s in servers if s.get("bmc_ip")]
@@ -1613,8 +1530,10 @@ def generate_proxy_nginx_config(domain: str, use_letsencrypt: bool = False) -> s
     prometheus) will be added by dc-overview quickstart when installed.
     """
     
-    ssl_cert = f"/etc/letsencrypt/live/{domain}/fullchain.pem" if use_letsencrypt else "/etc/nginx/ssl/server.crt"
-    ssl_key = f"/etc/letsencrypt/live/{domain}/privkey.pem" if use_letsencrypt else "/etc/nginx/ssl/server.key"
+    # Always use /etc/nginx/ssl/ - ensure_ssl_certs() copies LE or self-signed certs here
+    # The certbot/conf volume is only for certbot renewal, not nginx cert loading
+    ssl_cert = "/etc/nginx/ssl/server.crt"
+    ssl_key = "/etc/nginx/ssl/server.key"
     
     return f'''# CryptoLabs Proxy - Nginx Configuration with Unified Authentication
 # Generated by: ipmi-monitor quickstart
