@@ -57,6 +57,24 @@ class ScriptNameMiddleware:
         return self.app(environ, start_response)
 
 app.wsgi_app = ScriptNameMiddleware(app.wsgi_app)
+
+@app.context_processor
+def inject_template_vars():
+    """Inject base path and fleet home URL into all templates."""
+    base_path = request.environ.get('SCRIPT_NAME', '') or app.config.get('APPLICATION_ROOT', '')
+    
+    # Fleet home URL - links back to the Fleet Management dashboard (cryptolabs-proxy landing page)
+    # Priority: 1) FLEET_HOME_URL env var  2) "/" when behind proxy  3) empty (hide button)
+    fleet_home_url = os.environ.get('FLEET_HOME_URL', '')
+    if not fleet_home_url and base_path:
+        fleet_home_url = '/'
+    
+    return {
+        'base_path': base_path,
+        'api_base': base_path,
+        'fleet_home_url': fleet_home_url,
+    }
+
 # Use absolute path for database - data volume is mounted at /app/data
 DATA_DIR = os.environ.get('DATA_DIR', '/app/data')
 os.makedirs(DATA_DIR, exist_ok=True)

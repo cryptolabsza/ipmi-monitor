@@ -457,13 +457,22 @@
 <body>
     <div class="container">
         <header>
-            <div>
-                <div class="breadcrumb">
-                    <a href="{{ url_for('dashboard') }}">← Dashboard</a>
-                    <span>/</span>
-                    <span>Server Detail</span>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                {% if fleet_home_url %}
+                <a href="{{ fleet_home_url }}" style="color: #00b4d8; border: 1px solid #00b4d8; padding: 6px 14px; border-radius: 6px; text-decoration: none; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px;" onmouseover="this.style.background='rgba(0,180,216,0.1)'" onmouseout="this.style.background='transparent'" title="Back to Fleet Management Dashboard">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Fleet Home
+                </a>
+                <span style="color: var(--border-color); font-size: 1.2rem; user-select: none;">|</span>
+                {% endif %}
+                <div>
+                    <div class="breadcrumb">
+                        <a href="{{ url_for('dashboard') }}">← Dashboard</a>
+                        <span>/</span>
+                        <span>Server Detail</span>
+                    </div>
+                    <h1>{{ bmc_ip }}</h1>
                 </div>
-                <h1>{{ bmc_ip }}</h1>
             </div>
             <div class="btn-group">
                 <button class="btn" onclick="exportEvents()">📥 Export CSV</button>

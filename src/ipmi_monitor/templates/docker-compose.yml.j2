@@ -28,6 +28,7 @@ services:
       - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-127.0.0.1,{{ static_ips['cryptolabs-proxy'] if static_ips else '172.30.0.10' }}}
 {% if enable_proxy %}
       - APPLICATION_ROOT=/ipmi
+      - FLEET_HOME_URL=/
       - SESSION_COOKIE_SECURE=true
 {% endif %}
 {% if ai_enabled %}

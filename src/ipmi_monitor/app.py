@@ -322,12 +322,21 @@ app.wsgi_app = ScriptNameMiddleware(app.wsgi_app)
 
 @app.context_processor
 def inject_base_path():
-    """Inject base path into all templates for JavaScript API calls."""
+    """Inject base path and fleet home URL into all templates."""
     # Get base path from SCRIPT_NAME (set by middleware) or config
     base_path = request.environ.get('SCRIPT_NAME', '') or app.config.get('APPLICATION_ROOT', '')
+    
+    # Fleet home URL - links back to the Fleet Management dashboard (cryptolabs-proxy landing page)
+    # Priority: 1) FLEET_HOME_URL env var  2) "/" when behind proxy  3) empty (hide button)
+    fleet_home_url = os.environ.get('FLEET_HOME_URL', '')
+    if not fleet_home_url and base_path:
+        # Running behind proxy at a subpath (e.g. /ipmi/) - fleet home is the proxy root
+        fleet_home_url = '/'
+    
     return {
         'base_path': base_path,
-        'api_base': base_path  # Alias for clarity in JS
+        'api_base': base_path,  # Alias for clarity in JS
+        'fleet_home_url': fleet_home_url,
     }
 
 db = SQLAlchemy(app)
