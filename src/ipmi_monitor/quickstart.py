@@ -1503,6 +1503,7 @@ def _deploy_server_manager(
     # Volume mounts
     volumes = [
         "-v", "dc-overview-data:/data",
+        "-v", "fleet-auth-data:/data/auth",  # Shared with cryptolabs-proxy for SSO API keys
     ]
     # Mount SSH keys if available
     if sm_ssh_dir.exists() and any(sm_ssh_dir.iterdir()):
