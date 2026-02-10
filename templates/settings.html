@@ -1323,6 +1323,72 @@
                 </div>
             </div>
             
+            <!-- Browser Push Notifications Card -->
+            <div class="card" id="pushNotificationsCard">
+                <div class="card-title">🔔 Browser Push Notifications</div>
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">
+                    Receive real-time alerts directly in your browser. Works even when this tab is closed.
+                </p>
+                
+                <!-- Not supported message -->
+                <div id="pushNotSupported" style="display: none;">
+                    <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center; opacity: 0.7;">
+                        <span style="font-size: 2rem; display: block; margin-bottom: 10px;">⚠️</span>
+                        <div style="font-weight: 600; margin-bottom: 5px;">Browser Not Supported</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            Your browser does not support Web Push notifications. Try Chrome, Firefox, or Edge.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Not connected message -->
+                <div id="pushNotConnected" style="display: none;">
+                    <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center; opacity: 0.7;">
+                        <span style="font-size: 2rem; display: block; margin-bottom: 10px;">🔒</span>
+                        <div style="font-weight: 600; margin-bottom: 5px;">AI Account Required</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">
+                            Link your CryptoLabs AI account to enable browser push notifications.
+                        </div>
+                        <button class="btn btn-primary" onclick="showTab('ai', event || window.event)">🔗 Go to AI Features</button>
+                    </div>
+                </div>
+                
+                <!-- Permission denied message -->
+                <div id="pushDenied" style="display: none;">
+                    <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                        <span style="font-size: 2rem; display: block; margin-bottom: 10px;">🚫</span>
+                        <div style="font-weight: 600; margin-bottom: 5px; color: var(--danger-color, #ff4757);">Notifications Blocked</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                            Notifications were denied. Please enable them in your browser settings and refresh this page.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Main push content -->
+                <div id="pushContent" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;" id="pushStatusIcon">🔔</span>
+                            <div>
+                                <div style="font-weight: 600;">Browser Notifications</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);" id="pushStatusText">Checking status...</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" id="pushToggleBtn" onclick="togglePushNotifications()" disabled>
+                            Enable
+                        </button>
+                    </div>
+                    
+                    <!-- Subscribed browser info & test -->
+                    <div id="pushSubscribedSection" style="display: none;">
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button class="btn btn-secondary btn-sm" onclick="testPushNotification()">🧪 Send Test</button>
+                            <span id="pushTestResult" style="font-size: 0.85rem;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <div class="card">
                 <div class="card-title">📧 Email Notifications (SMTP)</div>
                 <p style="color: var(--text-secondary); margin-bottom: 15px;">
@@ -2078,7 +2144,7 @@
             if (tabId === 'ssh') { loadSshSettings(); loadSshKeys(); loadSshLogSettings(); }
             if (tabId === 'import') loadExportPreview();
             if (tabId === 'alerts') { loadAlertRules(); loadAlertHistory(); loadAlertStats(); loadEccTracking(); }
-            if (tabId === 'notifications') { loadNotificationConfigs(); loadEmailAlertStatus(); }
+            if (tabId === 'notifications') { loadNotificationConfigs(); loadEmailAlertStatus(); initPushNotifications(); }
             if (tabId === 'security') loadAdminCredentials();
             if (tabId === 'ai') loadAiConfig();
         }
@@ -2215,10 +2281,10 @@
                     const keyToUse = api_key || token;
                     
                     if (keyToUse) {
-                        // Auto-fill and save - the backend will link accounts
+                        // Auto-fill and save with WordPress account info for linking
                         document.getElementById('aiLicenseKey').value = keyToUse;
                         document.getElementById('aiSyncEnabled').checked = true;
-                        await saveAiConfig();
+                        await saveAiConfig(user_email, wp_user_id);
                         
                         showAlert(`✅ Connected to CryptoLabs AI as ${user_email}!`, 'success');
                     }
@@ -2348,22 +2414,28 @@
             }
         }
         
-        async function saveAiConfig() {
+        async function saveAiConfig(userEmail, wpUserId) {
             const licenseKey = document.getElementById('aiLicenseKey').value.trim();
             const syncEnabled = document.getElementById('aiSyncEnabled').checked;
             const siteName = document.getElementById('aiSiteName').value.trim();
             const siteLocation = document.getElementById('aiSiteLocation').value.trim();
             
+            const payload = {
+                license_key: licenseKey || undefined,
+                sync_enabled: syncEnabled,
+                site_name: siteName || undefined,
+                site_location: siteLocation || undefined
+            };
+            
+            // Include WordPress account info for linking (from SSO popup)
+            if (userEmail) payload.user_email = userEmail;
+            if (wpUserId) payload.wp_user_id = wpUserId;
+            
             try {
                 const response = await fetch(apiUrl('/api/ai/config'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        license_key: licenseKey || undefined,
-                        sync_enabled: syncEnabled,
-                        site_name: siteName || undefined,
-                        site_location: siteLocation || undefined
-                    })
+                    body: JSON.stringify(payload)
                 });
                 
                 const data = await response.json();
@@ -2417,6 +2489,24 @@
                     
                     // Load preferences
                     loadEmailAlertPrefs();
+                } else if (config.subscription_valid && config.license_key && !loadEmailAlertStatus._retried) {
+                    // AI is connected but wp_email missing - trigger a re-validation to auto-link
+                    // The backend will fetch the email from the AI service validation response
+                    loadEmailAlertStatus._retried = true;
+                    try {
+                        await fetch(apiUrl('/api/ai/config'), {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ license_key: config.license_key })
+                        });
+                        // Reload to pick up the newly linked email
+                        loadEmailAlertStatus();
+                        return;
+                    } catch (e) {
+                        console.error('Auto re-link failed:', e);
+                    }
+                    disabledSection.style.display = 'block';
+                    enabledSection.style.display = 'none';
                 } else {
                     // Not linked - show disabled message
                     disabledSection.style.display = 'block';
@@ -2517,6 +2607,236 @@
             setTimeout(() => {
                 document.getElementById('emailAlertStatus').innerHTML = '';
             }, 5000);
+        }
+        
+        // ============== Browser Push Notifications ==============
+        
+        let pushVapidKey = null;
+        
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+        
+        async function initPushNotifications() {
+            const isPushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+            
+            // Check if AI is connected first
+            try {
+                const configResponse = await fetch(apiUrl('/api/ai/config'));
+                const config = await configResponse.json();
+                
+                if (!config || !config.license_key || !config.subscription_valid) {
+                    document.getElementById('pushNotConnected').style.display = 'block';
+                    return;
+                }
+            } catch (e) {
+                document.getElementById('pushNotConnected').style.display = 'block';
+                return;
+            }
+            
+            if (!isPushSupported) {
+                document.getElementById('pushNotSupported').style.display = 'block';
+                return;
+            }
+            
+            // Show main content
+            document.getElementById('pushContent').style.display = 'block';
+            
+            // Fetch VAPID key
+            try {
+                const response = await fetch(apiUrl('/api/push/vapid-key'));
+                if (response.ok) {
+                    const data = await response.json();
+                    pushVapidKey = data.public_key || data.vapid_key;
+                }
+            } catch (e) {
+                console.error('Failed to get VAPID key:', e);
+            }
+            
+            if (!pushVapidKey) {
+                document.getElementById('pushStatusText').textContent = 'Push service unavailable';
+                return;
+            }
+            
+            // Check current subscription status
+            await checkPushStatus();
+        }
+        
+        async function checkPushStatus() {
+            const btn = document.getElementById('pushToggleBtn');
+            const statusText = document.getElementById('pushStatusText');
+            const statusIcon = document.getElementById('pushStatusIcon');
+            const subscribedSection = document.getElementById('pushSubscribedSection');
+            
+            try {
+                const registration = await navigator.serviceWorker.getRegistration('/');
+                let subscription = null;
+                
+                if (registration) {
+                    subscription = await registration.pushManager.getSubscription();
+                }
+                
+                const permission = Notification.permission;
+                
+                if (subscription) {
+                    statusText.textContent = 'Enabled - receiving notifications in this browser';
+                    statusIcon.textContent = '🔔';
+                    btn.textContent = '🔕 Disable';
+                    btn.className = 'btn btn-sm';
+                    btn.style.background = 'var(--danger-color, #ff4757)';
+                    btn.style.color = '#fff';
+                    btn.disabled = false;
+                    subscribedSection.style.display = 'block';
+                } else if (permission === 'denied') {
+                    document.getElementById('pushContent').style.display = 'none';
+                    document.getElementById('pushDenied').style.display = 'block';
+                } else {
+                    statusText.textContent = 'Not enabled - click to receive browser alerts';
+                    statusIcon.textContent = '🔕';
+                    btn.textContent = '🔔 Enable';
+                    btn.className = 'btn btn-primary btn-sm';
+                    btn.style.background = '';
+                    btn.style.color = '';
+                    btn.disabled = false;
+                    subscribedSection.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Error checking push status:', e);
+                statusText.textContent = 'Error checking status';
+            }
+        }
+        
+        async function togglePushNotifications() {
+            const btn = document.getElementById('pushToggleBtn');
+            const statusText = document.getElementById('pushStatusText');
+            
+            try {
+                const registration = await navigator.serviceWorker.getRegistration('/');
+                let subscription = null;
+                if (registration) {
+                    subscription = await registration.pushManager.getSubscription();
+                }
+                
+                if (subscription) {
+                    // Unsubscribe
+                    btn.disabled = true;
+                    btn.textContent = 'Disabling...';
+                    
+                    await subscription.unsubscribe();
+                    
+                    // Notify server
+                    await fetch(apiUrl('/api/push/unsubscribe'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ endpoint: subscription.endpoint })
+                    });
+                    
+                    // Unregister service worker
+                    if (registration) await registration.unregister();
+                    
+                    showAlert('Browser push notifications disabled', 'success');
+                    await checkPushStatus();
+                } else {
+                    // Subscribe
+                    btn.disabled = true;
+                    btn.textContent = 'Enabling...';
+                    statusText.textContent = 'Requesting permission...';
+                    
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        showAlert('Notification permission denied. Please enable in browser settings.', 'error');
+                        await checkPushStatus();
+                        return;
+                    }
+                    
+                    statusText.textContent = 'Registering service worker...';
+                    
+                    // Clean up stale service workers
+                    const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of existingRegistrations) {
+                        try {
+                            const existingSub = await reg.pushManager.getSubscription();
+                            if (existingSub) await existingSub.unsubscribe();
+                            await reg.unregister();
+                        } catch (e) { /* ignore cleanup errors */ }
+                    }
+                    
+                    // Register fresh service worker
+                    const newRegistration = await navigator.serviceWorker.register(apiUrl('/sw-push.js'), { scope: '/' });
+                    
+                    // Wait for activation
+                    await new Promise((resolve, reject) => {
+                        const sw = newRegistration.installing || newRegistration.waiting || newRegistration.active;
+                        if (newRegistration.active) { resolve(); return; }
+                        if (sw) {
+                            sw.addEventListener('statechange', function() {
+                                if (this.state === 'activated') resolve();
+                                if (this.state === 'redundant') reject(new Error('Service worker failed'));
+                            });
+                        } else { reject(new Error('No service worker')); }
+                    });
+                    
+                    statusText.textContent = 'Subscribing to push...';
+                    
+                    // Subscribe to push
+                    const keyArray = urlBase64ToUint8Array(pushVapidKey);
+                    const newSubscription = await newRegistration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: keyArray
+                    });
+                    
+                    // Send subscription to server
+                    const response = await fetch(apiUrl('/api/push/subscribe'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newSubscription.toJSON())
+                    });
+                    
+                    const result = await response.json();
+                    if (result.success) {
+                        showAlert('Browser push notifications enabled!', 'success');
+                    } else {
+                        showAlert('Subscription saved but server returned: ' + (result.error || 'Unknown error'), 'error');
+                    }
+                    
+                    await checkPushStatus();
+                }
+            } catch (e) {
+                console.error('Push toggle error:', e);
+                showAlert('Error: ' + e.message, 'error');
+                await checkPushStatus();
+            }
+        }
+        
+        async function testPushNotification() {
+            const resultEl = document.getElementById('pushTestResult');
+            resultEl.innerHTML = '<span style="color: var(--accent-blue);">🔔 Sending test...</span>';
+            
+            try {
+                const response = await fetch(apiUrl('/api/push/test'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultEl.innerHTML = '<span style="color: var(--accent-green);">✅ Test sent! Check your notifications.</span>';
+                } else {
+                    resultEl.innerHTML = '<span style="color: var(--accent-red);">❌ ' + (data.error || 'Failed') + '</span>';
+                }
+            } catch (e) {
+                resultEl.innerHTML = '<span style="color: var(--accent-red);">❌ Error: ' + e.message + '</span>';
+            }
+            
+            setTimeout(() => { resultEl.innerHTML = ''; }, 5000);
         }
         
         function showAlert(message, type) {
@@ -5295,15 +5615,19 @@
                 console.log('OAuth callback detected on settings page, processing...');
                 
                 try {
-                    // Save the API key to the backend
+                    // Save the API key and WordPress account info to the backend
+                    const payload = {
+                        license_key: apiKey,
+                        sync_enabled: true
+                    };
+                    if (userEmail) payload.user_email = decodeURIComponent(userEmail);
+                    if (wpUserId) payload.wp_user_id = wpUserId;
+                    
                     const response = await fetch(apiUrl('/api/ai/config'), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         credentials: 'same-origin',
-                        body: JSON.stringify({
-                            license_key: apiKey,
-                            sync_enabled: true
-                        })
+                        body: JSON.stringify(payload)
                     });
                     
                     if (response.ok) {

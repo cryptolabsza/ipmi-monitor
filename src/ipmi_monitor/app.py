@@ -4437,7 +4437,9 @@ def validate_license_key(license_key):
                 'valid': result.get('valid', False),
                 'tier': tier,
                 'max_servers': result.get('max_servers') or get_tier_max_servers(tier),
-                'features': result.get('features', [])
+                'features': result.get('features', []),
+                'email': result.get('email'),
+                'customer_id': result.get('customer_id')
             }
     except Exception as e:
         app.logger.error(f"License validation failed: {e}")
@@ -15968,10 +15970,10 @@ def api_get_ai_config():
     return jsonify(result)
 
 
-@app.route('/api/ai/config', methods=['PUT'])
+@app.route('/api/ai/config', methods=['PUT', 'POST'])
 @admin_required
 def api_update_ai_config():
-    """Update AI cloud configuration"""
+    """Update AI cloud configuration (PUT from settings form, POST from OAuth callback)"""
     data = request.get_json()
     
     try:
@@ -15989,6 +15991,19 @@ def api_update_ai_config():
                     config.subscription_valid = True
                     config.max_servers = validation.get('max_servers', 50)
                     config.features = json.dumps(validation.get('features', []))
+                    
+                    # Auto-link WordPress account from validation response
+                    # The AI service returns the email from WordPress, so we always have it
+                    validated_email = validation.get('email') or data.get('user_email')
+                    if validated_email:
+                        current_username = session.get('username')
+                        if current_username:
+                            user = User.query.filter_by(username=current_username).first()
+                            if user and not user.wp_email:
+                                user.wp_email = validated_email
+                                user.wp_user_id = int(data['wp_user_id']) if data.get('wp_user_id') else user.wp_user_id
+                                user.wp_linked_at = datetime.utcnow()
+                                app.logger.info(f"Auto-linked WordPress email '{validated_email}' to user '{current_username}' from license validation")
                 else:
                     return jsonify({'error': 'Invalid license key'}), 400
             else:
@@ -16010,6 +16025,17 @@ def api_update_ai_config():
                         user.wp_linked_at = None
                 
                 app.logger.info('AI disconnected - license key and WordPress account cleared')
+        
+        # Explicit WordPress account link from SSO popup (overrides any existing link)
+        if 'user_email' in data and data['user_email']:
+            current_username = session.get('username')
+            if current_username:
+                user = User.query.filter_by(username=current_username).first()
+                if user:
+                    user.wp_email = data['user_email']
+                    user.wp_user_id = int(data['wp_user_id']) if data.get('wp_user_id') else user.wp_user_id
+                    user.wp_linked_at = datetime.utcnow()
+                    app.logger.info(f"Linked local user '{current_username}' to WordPress account '{data['user_email']}' (ID: {data.get('wp_user_id')})")
         
         # Update sync enabled
         if 'sync_enabled' in data:
@@ -16382,6 +16408,190 @@ def api_email_test():
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Test alert error: {e}")
         return jsonify({'success': False, 'error': f'Connection error: {str(e)}'}), 500
+
+
+# ============== Browser Push Notifications ==============
+
+@app.route('/sw-push.js')
+def serve_push_service_worker():
+    """Serve the push notification service worker"""
+    sw_js = '''
+self.addEventListener('push', function(event) {
+    var data = {};
+    try { data = event.data ? event.data.json() : {}; } catch(e) { data = { body: event.data ? event.data.text() : 'New notification' }; }
+    
+    var title = data.title || 'IPMI Monitor Alert';
+    var options = {
+        body: data.body || data.message || 'You have a new alert',
+        icon: data.icon || '/static/favicon.svg',
+        badge: data.badge || '/static/favicon.svg',
+        tag: data.tag || 'ipmi-alert-' + Date.now(),
+        data: { url: data.url || data.click_url || '/' },
+        requireInteraction: data.severity === 'critical',
+        silent: false
+    };
+    
+    event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', function(event) {
+    event.notification.close();
+    var url = (event.notification.data && event.notification.data.url) || '/';
+    event.waitUntil(
+        clients.matchAll({type: 'window'}).then(function(clientList) {
+            for (var i = 0; i < clientList.length; i++) {
+                var client = clientList[i];
+                if (client.url.indexOf(url) !== -1 && 'focus' in client) return client.focus();
+            }
+            return clients.openWindow(url);
+        })
+    );
+});
+'''.strip()
+    return app.response_class(sw_js, mimetype='application/javascript', headers={
+        'Service-Worker-Allowed': '/',
+        'Cache-Control': 'no-cache, must-revalidate'
+    })
+
+
+@app.route('/api/push/vapid-key', methods=['GET'])
+@admin_required
+def api_push_vapid_key():
+    """Get VAPID public key from WordPress for push subscription"""
+    config = CloudSync.get_config()
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected'}), 400
+    
+    wp_url = 'https://cryptolabs.co.za'
+    try:
+        response = requests.get(
+            f"{wp_url}/wp-json/cryptolabs/v1/push/vapid-key",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=10
+        )
+        if response.ok:
+            return jsonify(response.json())
+        return jsonify({'success': False, 'error': 'Failed to get VAPID key'}), response.status_code
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"VAPID key fetch error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/push/subscribe', methods=['POST'])
+@admin_required
+def api_push_subscribe():
+    """Subscribe browser to push notifications via WordPress"""
+    config = CloudSync.get_config()
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected'}), 400
+    
+    wp_url = 'https://cryptolabs.co.za'
+    body = request.get_json() or {}
+    
+    try:
+        response = requests.post(
+            f"{wp_url}/wp-json/cryptolabs/v1/push/subscribe",
+            json=body,
+            headers={
+                'Authorization': f'Bearer {config.license_key}',
+                'Content-Type': 'application/json'
+            },
+            timeout=10
+        )
+        if response.ok:
+            return jsonify(response.json())
+        error = 'Failed to subscribe'
+        try:
+            error = response.json().get('error', error)
+        except:
+            pass
+        return jsonify({'success': False, 'error': error}), response.status_code
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Push subscribe error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/push/unsubscribe', methods=['POST'])
+@admin_required
+def api_push_unsubscribe():
+    """Unsubscribe browser from push notifications"""
+    config = CloudSync.get_config()
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected'}), 400
+    
+    wp_url = 'https://cryptolabs.co.za'
+    body = request.get_json() or {}
+    
+    try:
+        response = requests.post(
+            f"{wp_url}/wp-json/cryptolabs/v1/push/unsubscribe",
+            json=body,
+            headers={
+                'Authorization': f'Bearer {config.license_key}',
+                'Content-Type': 'application/json'
+            },
+            timeout=10
+        )
+        if response.ok:
+            return jsonify(response.json())
+        return jsonify({'success': False, 'error': 'Failed to unsubscribe'}), response.status_code
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Push unsubscribe error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/push/status', methods=['GET'])
+@admin_required
+def api_push_status():
+    """Get push subscription status from WordPress"""
+    config = CloudSync.get_config()
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected'}), 400
+    
+    wp_url = 'https://cryptolabs.co.za'
+    try:
+        response = requests.get(
+            f"{wp_url}/wp-json/cryptolabs/v1/push/status",
+            headers={'Authorization': f'Bearer {config.license_key}'},
+            timeout=10
+        )
+        if response.ok:
+            return jsonify(response.json())
+        return jsonify({'subscriptions': [], 'count': 0})
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Push status error: {e}")
+        return jsonify({'subscriptions': [], 'count': 0})
+
+
+@app.route('/api/push/test', methods=['POST'])
+@admin_required
+def api_push_test():
+    """Send a test push notification"""
+    config = CloudSync.get_config()
+    if not config.license_key:
+        return jsonify({'success': False, 'error': 'AI features not connected'}), 400
+    
+    wp_url = 'https://cryptolabs.co.za'
+    try:
+        response = requests.post(
+            f"{wp_url}/wp-json/cryptolabs/v1/push/test",
+            headers={
+                'Authorization': f'Bearer {config.license_key}',
+                'Content-Type': 'application/json'
+            },
+            timeout=15
+        )
+        if response.ok:
+            return jsonify(response.json())
+        error = 'Failed to send test notification'
+        try:
+            error = response.json().get('error', error)
+        except:
+            pass
+        return jsonify({'success': False, 'error': error}), response.status_code
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Push test error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 def send_email_alert(alert_type, subject, message, server_name=None, server_ip=None, severity='warning'):
