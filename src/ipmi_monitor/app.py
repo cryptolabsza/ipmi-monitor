@@ -7621,10 +7621,48 @@ def collect_ssh_logs_for_server(server):
     _collect_and_store_ssh_logs(server_info)
 
 
+def _ensure_ssh_logs_table():
+    """Ensure the ssh_logs table exists (self-healing for older deployments)."""
+    try:
+        from sqlalchemy import inspect as sa_inspect
+        inspector = sa_inspect(db.engine)
+        if 'ssh_logs' not in inspector.get_table_names():
+            db.session.execute(db.text('''
+                CREATE TABLE IF NOT EXISTS ssh_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    customer_id VARCHAR(50) DEFAULT 'default',
+                    server_name VARCHAR(100) NOT NULL,
+                    bmc_ip VARCHAR(45),
+                    log_type VARCHAR(30) NOT NULL,
+                    severity VARCHAR(20) DEFAULT 'info',
+                    timestamp DATETIME NOT NULL,
+                    message TEXT NOT NULL,
+                    source_file VARCHAR(100),
+                    raw_line TEXT,
+                    parsed_data TEXT,
+                    collected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(server_name, log_type, timestamp, message)
+                )
+            '''))
+            db.session.execute(db.text('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server ON ssh_logs(server_name)'))
+            db.session.execute(db.text('CREATE INDEX IF NOT EXISTS idx_ssh_logs_type ON ssh_logs(log_type)'))
+            db.session.execute(db.text('CREATE INDEX IF NOT EXISTS idx_ssh_logs_timestamp ON ssh_logs(timestamp)'))
+            db.session.execute(db.text('CREATE INDEX IF NOT EXISTS idx_ssh_logs_severity ON ssh_logs(severity)'))
+            db.session.execute(db.text('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server_timestamp ON ssh_logs(server_name, timestamp DESC)'))
+            db.session.execute(db.text('CREATE INDEX IF NOT EXISTS idx_ssh_logs_server_severity ON ssh_logs(server_name, severity)'))
+            db.session.commit()
+            app.logger.info("Self-heal: created ssh_logs table")
+    except Exception as e:
+        app.logger.warning(f"Could not ensure ssh_logs table: {e}")
+
+
 def _collect_and_store_ssh_logs(server_info):
     """Collect logs from a single server via SSH and store parsed events"""
     import re
     from datetime import datetime
+    
+    # Ensure table exists (self-heal for older deployments)
+    _ensure_ssh_logs_table()
     
     # Get SSH key content if configured
     ssh_key_content = None
