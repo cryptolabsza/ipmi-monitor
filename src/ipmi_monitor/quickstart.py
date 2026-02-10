@@ -71,13 +71,13 @@ STATIC_IPS = {
 console = Console()
 
 def get_default_docker_tag() -> str:
-    """Determine default Docker image tag - always defaults to 'latest' (stable).
+    """Determine default Docker image tag based on the installed branch.
     
-    Users who want dev should explicitly select it. The stable/latest channel
-    is the recommended default for production use.
+    - If installed from 'dev' branch → default to 'dev'
+    - Otherwise → default to 'latest' (stable, recommended for production)
     """
-    # Always default to stable/latest - users can opt-in to dev if desired
-    return 'latest'
+    from . import get_image_tag
+    return get_image_tag()
 
 custom_style = Style([
     ('qmark', 'fg:cyan bold'),

@@ -44,3 +44,16 @@ def get_version_info() -> str:
         parts.append(f"built {__build_time__}")
     
     return " ".join(parts)
+
+
+def get_image_tag() -> str:
+    """Return the Docker image tag matching the current branch.
+    
+    - 'dev' branch  → 'dev' tag
+    - 'main' branch → 'latest' tag  (default)
+    - anything else → 'latest' tag
+    """
+    branch = (__git_branch__ or '').lower()
+    if branch == 'dev':
+        return 'dev'
+    return 'latest'
