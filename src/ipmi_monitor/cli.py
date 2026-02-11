@@ -14,13 +14,12 @@ from rich.table import Table
 from rich import print as rprint
 
 from . import __version__, get_version_info
-from .wizard import SetupWizard
 from .service import ServiceManager
 from .quickstart import run_quickstart
 
 console = Console()
 
-# Docker config directory (where quickstart puts files)
+# Docker config directory (where setup puts files)
 DOCKER_CONFIG_DIR = Path("/etc/ipmi-monitor")
 
 
@@ -36,11 +35,11 @@ def main():
     \b
     Quick Start:
         pip install ipmi-monitor
-        sudo ipmi-monitor quickstart
+        sudo ipmi-monitor setup
     
     \b
     Commands:
-        quickstart   ⚡ One-command setup (recommended)
+        setup        ⚡ One-command setup (recommended)
         add-server   Add another server to monitor
         status       Check service status
         version      Show detailed version info
@@ -76,7 +75,7 @@ def version():
               help="Path to YAML config file for non-interactive setup")
 @click.option("-y", "--yes", "yes_mode", is_flag=True, 
               help="Skip confirmation prompts (requires --config)")
-def quickstart(config_path: str, yes_mode: bool):
+def setup(config_path: str, yes_mode: bool):
     """
     ⚡ One-command setup - does everything!
     
@@ -87,66 +86,14 @@ def quickstart(config_path: str, yes_mode: bool):
         - Prompts for your server's BMC/IPMI credentials
         - Optionally configures SSH for detailed monitoring
         - Sets up AI Insights (if you have a license)
-        - Installs and starts the service
+        - Deploys via Docker with fleet management integration
     
     \b
     EXAMPLES:
-        sudo ipmi-monitor quickstart                           # Interactive mode
-        sudo ipmi-monitor quickstart -c config.yaml -y         # Non-interactive with config
+        sudo ipmi-monitor setup                           # Interactive mode
+        sudo ipmi-monitor setup -c config.yaml -y         # Non-interactive with config
     """
     run_quickstart(config_path=config_path, yes_mode=yes_mode)
-
-
-@main.command()
-@click.option("--install-service", is_flag=True, help="Install as systemd service")
-@click.option("--config-dir", default=None, help="Configuration directory")
-@click.option("--non-interactive", is_flag=True, help="Use defaults, no prompts")
-def setup(install_service: bool, config_dir: str, non_interactive: bool):
-    """
-    Run the interactive setup wizard.
-    
-    This will guide you through:
-    
-    \b
-    - Configuring your first BMC/IPMI server
-    - Setting up SSH access for system monitoring
-    - Optionally linking your CryptoLabs account for AI features
-    - Installing as a system service (optional)
-    
-    Example:
-    
-        sudo ipmi-monitor setup --install-service
-    """
-    console.print()
-    console.print(Panel.fit(
-        "[bold cyan]IPMI Monitor Setup Wizard[/bold cyan]\n"
-        f"[dim]Version {__version__}[/dim]",
-        border_style="cyan"
-    ))
-    console.print()
-    
-    wizard = SetupWizard(
-        config_dir=config_dir,
-        non_interactive=non_interactive
-    )
-    
-    try:
-        config = wizard.run()
-        
-        if install_service:
-            if os.geteuid() != 0:
-                console.print("[red]Error:[/red] Installing service requires root. Run with sudo.")
-                sys.exit(1)
-            
-            service_mgr = ServiceManager()
-            service_mgr.install(config)
-            console.print("\n[green]✓[/green] Service installed! Start with: [cyan]sudo systemctl start ipmi-monitor[/cyan]")
-        else:
-            console.print("\n[green]✓[/green] Setup complete! Start with: [cyan]ipmi-monitor run[/cyan]")
-            
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Setup cancelled.[/yellow]")
-        sys.exit(1)
 
 
 @main.command()
@@ -358,12 +305,12 @@ def stop():
     Stops the Docker containers defined in docker-compose.yml.
     """
     if not DOCKER_CONFIG_DIR.exists():
-        console.print("[red]Error:[/red] Config directory not found. Run quickstart first.")
+        console.print("[red]Error:[/red] Config directory not found. Run [cyan]sudo ipmi-monitor setup[/cyan] first.")
         sys.exit(1)
     
     compose_file = DOCKER_CONFIG_DIR / "docker-compose.yml"
     if not compose_file.exists():
-        console.print("[red]Error:[/red] docker-compose.yml not found. Run quickstart first.")
+        console.print("[red]Error:[/red] docker-compose.yml not found. Run [cyan]sudo ipmi-monitor setup[/cyan] first.")
         sys.exit(1)
     
     success, output = run_docker_compose_cmd("down")
@@ -381,12 +328,12 @@ def start():
     Starts the Docker containers defined in docker-compose.yml.
     """
     if not DOCKER_CONFIG_DIR.exists():
-        console.print("[red]Error:[/red] Config directory not found. Run quickstart first.")
+        console.print("[red]Error:[/red] Config directory not found. Run [cyan]sudo ipmi-monitor setup[/cyan] first.")
         sys.exit(1)
     
     compose_file = DOCKER_CONFIG_DIR / "docker-compose.yml"
     if not compose_file.exists():
-        console.print("[red]Error:[/red] docker-compose.yml not found. Run quickstart first.")
+        console.print("[red]Error:[/red] docker-compose.yml not found. Run [cyan]sudo ipmi-monitor setup[/cyan] first.")
         sys.exit(1)
     
     success, output = run_docker_compose_cmd("up -d")
@@ -439,7 +386,7 @@ def restart():
     Restart IPMI Monitor containers.
     """
     if not DOCKER_CONFIG_DIR.exists():
-        console.print("[red]Error:[/red] Config directory not found. Run quickstart first.")
+        console.print("[red]Error:[/red] Config directory not found. Run [cyan]sudo ipmi-monitor setup[/cyan] first.")
         sys.exit(1)
     
     success, output = run_docker_compose_cmd("restart")
@@ -596,7 +543,7 @@ def uninstall():
         console.print("\n[yellow]Containers are still running.[/yellow]")
         console.print("Stop them with: [cyan]docker stop ipmi-monitor ipmi-nginx[/cyan]")
     
-    console.print("\n[dim]To reinstall: sudo ipmi-monitor quickstart[/dim]")
+    console.print("\n[dim]To reinstall: sudo ipmi-monitor setup[/dim]")
 
 
 def run_docker_compose_cmd(command: str):

@@ -315,7 +315,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.1.0'  # Docker quickstart release
+APP_VERSION = '1.1.0'  # Docker setup release
 
 def get_build_info():
     """
@@ -584,7 +584,7 @@ PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
 # 1. If TRUSTED_PROXY_IPS env var is set, ONLY trust those specific IPs (most secure)
 # 2. Otherwise, fall back to Docker network ranges (less secure, for dev/legacy)
 #
-# The dc-overview quickstart sets TRUSTED_PROXY_IPS to the proxy's static IP.
+# The dc-overview setup sets TRUSTED_PROXY_IPS to the proxy's static IP.
 
 _env_trusted_ips = os.environ.get('TRUSTED_PROXY_IPS', '').strip()
 
@@ -2268,7 +2268,7 @@ class User(db.Model):
         
         if not admin:
             # Create new admin user
-            # If custom password provided via quickstart, mark as already changed (no reset prompt)
+            # If custom password provided via setup, mark as already changed (no reset prompt)
             admin = User(
                 username='admin',
                 password_hash=User.hash_password(admin_pass),
@@ -2283,7 +2283,7 @@ class User(db.Model):
                 print(f"[IPMI Monitor] Created admin user with default password (change recommended)", flush=True)
         elif is_custom_password and not admin.password_changed:
             # Update password if ADMIN_PASS is set to non-default and user hasn't manually changed it
-            # This allows quickstart to set a custom password even after first run
+            # This allows setup to set a custom password even after first run
             admin.password_hash = User.hash_password(admin_pass)
             admin.password_changed = True  # Mark as changed since custom password was set
             db.session.commit()
@@ -2329,7 +2329,7 @@ class SystemSettings(db.Model):
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
             'collect_vastai_logs': collect_vastai,  # Optional: Collect Vast.ai daemon logs (from env)
             'collect_runpod_logs': collect_runpod,  # Optional: Collect RunPod agent logs (from env)
-            'enable_ssh_log_collection': enable_ssh_logs,  # SSH log collection (set by quickstart)
+            'enable_ssh_log_collection': enable_ssh_logs,  # SSH log collection (set by setup)
             'ssh_log_interval': '15',  # SSH log collection interval in minutes
         }
         for key, value in defaults.items():
@@ -2889,7 +2889,7 @@ def get_or_create_site_id():
     
     config = CloudSync.get_config()
     
-    # Check for SITE_NAME environment variable (from dc-overview quickstart)
+    # Check for SITE_NAME environment variable (from dc-overview setup)
     env_site_name = os.environ.get('SITE_NAME', '')
     
     # If site_id exists, use it (but update site_name from env if changed)

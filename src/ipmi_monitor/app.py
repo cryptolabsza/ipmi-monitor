@@ -2272,12 +2272,12 @@ class User(db.Model):
     def initialize_default():
         """Create default admin if none exists.
         
-        Password is read from ADMIN_PASS environment variable (set by quickstart).
+        Password is read from ADMIN_PASS environment variable (set by setup).
         Falls back to 'admin' for backwards compatibility.
         """
         admin = User.query.filter_by(role='admin').first()
         if not admin:
-            # Get password from env var (set by quickstart via .env file)
+            # Get password from env var (set by setup via .env file)
             admin_pass = os.environ.get('ADMIN_PASS', 'admin')
             is_custom = admin_pass != 'admin'
             
@@ -2334,7 +2334,7 @@ class SystemSettings(db.Model):
             'collection_workers': 'auto',  # 'auto' = use CPU count, or a fixed number
             'collect_vastai_logs': collect_vastai,  # Optional: Collect Vast.ai daemon logs (from env)
             'collect_runpod_logs': collect_runpod,  # Optional: Collect RunPod agent logs (from env)
-            'enable_ssh_log_collection': enable_ssh_logs,  # SSH log collection (set by quickstart)
+            'enable_ssh_log_collection': enable_ssh_logs,  # SSH log collection (set by setup)
             'ssh_log_interval': '15',  # SSH log collection interval in minutes
         }
         for key, value in defaults.items():
@@ -3033,7 +3033,7 @@ def get_or_create_site_id():
     
     config = CloudSync.get_config()
     
-    # Check for SITE_NAME environment variable (from dc-overview quickstart)
+    # Check for SITE_NAME environment variable (from dc-overview setup)
     env_site_name = os.environ.get('SITE_NAME', '')
     
     # If site_id exists, use it (but update site_name from env if changed)
@@ -19472,7 +19472,7 @@ def auto_load_ssh_keys():
     """
     Auto-load SSH keys from mounted volume on startup.
     
-    This allows quickstart to copy SSH keys to /etc/ipmi-monitor/ssh_keys/
+    This allows setup to copy SSH keys to /etc/ipmi-monitor/ssh_keys/
     and have them automatically imported into the database.
     
     Looks in /app/ssh_keys (Docker) or CONFIG_DIR/ssh_keys
