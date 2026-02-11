@@ -87,7 +87,7 @@ The wizard will:
 2. **Add servers** - Link imported servers with BMC IPs, or add new ones
 3. **Configure credentials** - Set up IPMI and SSH authentication
 4. **SSH log collection** - Optionally enable SSH log collection (dmesg, syslog, GPU errors)
-5. **Deploy containers** - Set up ipmi-monitor + cryptolabs-proxy + watchtower
+5. **Deploy containers** - Set up ipmi-monitor + cryptolabs-proxy (cryptolabs-proxy deploys cryptolabs-watchtower for auto-updates)
 6. **Configure SSL** - Let's Encrypt with auto-renewal, or self-signed
 7. **Initial collection** - Fresh installs automatically collect data on first start
 

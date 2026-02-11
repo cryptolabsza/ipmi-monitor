@@ -65,7 +65,6 @@ STATIC_IPS = {
     "ipmi-monitor": "172.30.0.6",
     "vast-exporter": "172.30.0.7",
     "server-manager": "172.30.0.8",
-    "watchtower": "172.30.0.9",
 }
 
 console = Console()
@@ -731,9 +730,7 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         cfg_enable_ssh_logs = ipmi_cfg.get('enable_ssh_logs', False)
         cfg_enable_ssh_inventory = ipmi_cfg.get('enable_ssh_inventory', True)
         cfg_image_tag = ipmi_cfg.get('image_tag', file_config.get('image_tag', 'latest'))
-        
-        # Watchtower
-        cfg_enable_watchtower = file_config.get('enable_watchtower', True)
+        cfg_enable_watchtower_all = file_config.get('enable_watchtower_all', False)
         
         # Site name (for proxy landing page branding)
         cfg_site_name = file_config.get('site_name', 'IPMI Monitor')
@@ -760,10 +757,10 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         cfg_web_port = None
         cfg_enable_ai = None
         cfg_license_key = None
-        cfg_enable_watchtower = None
         cfg_enable_ssh_logs = None
         cfg_enable_ssh_inventory = None
         cfg_image_tag = None
+        cfg_enable_watchtower_all = None
         cfg_site_name = 'IPMI Monitor'
         cfg_enable_proxy = None
         cfg_domain = None
@@ -1044,19 +1041,26 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     
     # ============ Step 5: Auto-Updates ============
     console.print("\n[bold]Step 5: Auto-Updates[/bold]\n")
-    
-    if cfg_enable_watchtower is not None:
-        enable_watchtower = cfg_enable_watchtower
-        console.print(f"[green]✓[/green] Auto-updates: {'Enabled' if enable_watchtower else 'Disabled'} (from config)")
+    enable_watchtower_all = False
+    if setup_proxy or proxy_already_running:
+        if cfg_enable_watchtower_all is not None:
+            enable_watchtower_all = cfg_enable_watchtower_all
+            console.print(f"[green]✓[/green] Auto-updates for all components: {'Enabled' if enable_watchtower_all else 'Disabled'} (from config)")
+        else:
+            console.print("[dim]By default, only cryptolabs-proxy (reverse proxy + fleet manager) is auto-updated.[/dim]")
+            enable_watchtower_all = questionary.confirm(
+                "Enable auto-updates for all components (IPMI Monitor, etc.)?",
+                default=False,
+                style=custom_style
+            ).ask()
+            if enable_watchtower_all is None:
+                enable_watchtower_all = False
+            if enable_watchtower_all:
+                console.print("[green]✓[/green] Auto-updates enabled for all components")
+            else:
+                console.print("[green]✓[/green] Auto-updates: cryptolabs-proxy only (Fleet Manager has manual update for others)")
     else:
-        console.print("[dim]Watchtower automatically updates IPMI Monitor when new versions are released.[/dim]\n")
-        enable_watchtower = questionary.confirm(
-            "Enable automatic updates? (recommended)",
-            default=True,
-            style=custom_style
-        ).ask()
-        if enable_watchtower is None:
-            enable_watchtower = True
+        console.print("[dim]No proxy configured - no auto-updates (install proxy for cryptolabs-watchtower)[/dim]")
     
     # ============ Step 5b: SSH Log Collection ============
     # Only ask if servers have SSH configured
@@ -1277,8 +1281,8 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
         site_name=site_name,
         poll_interval=300,
         ai_enabled=enable_ai,
-        enable_watchtower=enable_watchtower,
         enable_proxy=setup_proxy or proxy_already_running,  # Controls env vars (APPLICATION_ROOT, etc.)
+        enable_watchtower_all=enable_watchtower_all,
         ssh_keys_dir=bool(ssh_key_map),
         # Static IPs for security (matching dc-overview)
         static_ips=STATIC_IPS,
@@ -1305,10 +1309,9 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
     else:
         console.print(f"[yellow]⚠[/yellow] Image pull warning: {result.stderr[:100]}")
     
-    # Stop/remove existing containers that our compose manages
-    # (dc-overview quickstart may have already deployed ipmi-monitor in its Step 7,
-    # and watchtower may be occupying our static IP)
-    for container in ["ipmi-monitor", "watchtower"]:
+    # Stop/remove existing containers that our compose will manage
+    # cryptolabs-watchtower is deployed by cryptolabs-proxy - we don't touch it
+    for container in ["ipmi-monitor"]:
         subprocess.run(["docker", "stop", container], capture_output=True)
         subprocess.run(["docker", "rm", container], capture_output=True)
     
@@ -1318,7 +1321,7 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
         capture_output=True
     )
     
-    # Start ipmi-monitor containers (docker-compose only has ipmi-monitor + watchtower)
+    # Start ipmi-monitor containers (watchtower deployed by cryptolabs-proxy when proxy configured)
     with Progress(SpinnerColumn(), TextColumn("Starting containers..."), console=console) as progress:
         progress.add_task("", total=None)
         success, output = run_docker_compose(CONFIG_DIR, "up -d")

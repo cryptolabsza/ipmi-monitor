@@ -420,13 +420,13 @@ ai:
 
 ### Quickstart Deployment (Recommended)
 
-If you used `sudo ipmi-monitor quickstart`, updates are automatic via Watchtower:
+If you used `sudo ipmi-monitor quickstart` with the HTTPS proxy (cryptolabs-proxy), updates are automatic via **cryptolabs-watchtower** (deployed by cryptolabs-proxy):
 
 ```bash
 # Check for updates manually
 ipmi-monitor upgrade
 
-# Or just wait - Watchtower checks every 5 minutes
+# Or just wait - cryptolabs-watchtower checks every 5 minutes
 ```
 
 ### pip CLI Update
@@ -445,9 +445,9 @@ docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
 cd /etc/ipmi-monitor && docker compose up -d
 ```
 
-### Automatic Updates with Watchtower
+### Automatic Updates with cryptolabs-watchtower
 
-If you used quickstart, Watchtower is already included. For manual Docker setups, add Watchtower to your `docker-compose.yml`:
+**cryptolabs-proxy** deploys **cryptolabs-watchtower** when the proxy is configured. When using quickstart with HTTPS, auto-updates are included. For manual setups with cryptolabs-proxy, run `cryptolabs-proxy setup` to get both proxy and watchtower. Other services (dc-overview, ipmi-monitor) add the label so cryptolabs-watchtower can update them:
 
 ```yaml
 services:
@@ -455,17 +455,6 @@ services:
     # ... your existing config ...
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
-
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300  # Check every 5 minutes
-    command: --label-enable  # Only update labeled containers
 ```
 
 | Tag | Description |

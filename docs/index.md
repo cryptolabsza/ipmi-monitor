@@ -56,7 +56,7 @@ sudo ~/.local/bin/ipmi-monitor quickstart
 - ✅ Detect DC Overview and import existing servers/SSH keys
 - ✅ Detect or manually add your servers with BMC IPs
 - ✅ Configure IPMI and SSH credentials  
-- ✅ Deploy Docker containers (ipmi-monitor + cryptolabs-proxy + watchtower)
+- ✅ Deploy Docker containers (ipmi-monitor + cryptolabs-proxy; cryptolabs-proxy deploys cryptolabs-watchtower for auto-updates)
 - ✅ Set up SSL with Let's Encrypt (with auto-renewal)
 - ✅ Enable automatic updates via Watchtower
 - ✅ Trigger initial data collection on first start

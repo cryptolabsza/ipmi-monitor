@@ -498,7 +498,7 @@ def uninstall():
             value="ipmi-only"
         ),
         questionary.Choice(
-            "Remove everything (IPMI Monitor + nginx + watchtower + data)",
+            "Remove everything (IPMI Monitor + nginx + data)",
             value="all"
         ),
         questionary.Choice(
@@ -533,12 +533,10 @@ def uninstall():
         return
     
     if choice == "ipmi-only":
-        # Remove only ipmi-monitor container, keep nginx
+        # Remove only ipmi-monitor container, keep nginx and cryptolabs-watchtower (deployed by cryptolabs-proxy)
         console.print("[dim]Removing IPMI Monitor container...[/dim]")
         subprocess.run(["docker", "stop", "ipmi-monitor"], capture_output=True)
         subprocess.run(["docker", "rm", "ipmi-monitor"], capture_output=True)
-        subprocess.run(["docker", "stop", "watchtower"], capture_output=True)
-        subprocess.run(["docker", "rm", "watchtower"], capture_output=True)
         console.print("[green]✓[/green] IPMI Monitor container removed")
         
         # Update nginx config to remove /ipmi/ location
@@ -554,8 +552,8 @@ def uninstall():
         console.print("[dim]Stopping all containers...[/dim]")
         run_docker_compose_cmd("down -v")
         
-        # Remove any remaining containers
-        for container in ["ipmi-monitor", "ipmi-nginx", "ipmi-certbot", "watchtower"]:
+        # Remove any remaining containers (exclude cryptolabs-watchtower - deployed by cryptolabs-proxy)
+        for container in ["ipmi-monitor", "ipmi-nginx", "ipmi-certbot"]:
             subprocess.run(["docker", "stop", container], capture_output=True)
             subprocess.run(["docker", "rm", container], capture_output=True)
         
@@ -596,7 +594,7 @@ def uninstall():
             console.print("[green]✓[/green] Config directory removed")
         
         console.print("\n[yellow]Containers are still running.[/yellow]")
-        console.print("Stop them with: [cyan]docker stop ipmi-monitor ipmi-nginx watchtower[/cyan]")
+        console.print("Stop them with: [cyan]docker stop ipmi-monitor ipmi-nginx[/cyan]")
     
     console.print("\n[dim]To reinstall: sudo ipmi-monitor quickstart[/dim]")
 

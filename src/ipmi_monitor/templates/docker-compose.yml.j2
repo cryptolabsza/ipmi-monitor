@@ -48,37 +48,16 @@ services:
       retries: 3
       start_period: 30s
     labels:
+{% if enable_watchtower_all %}
       - "com.centurylinklabs.watchtower.enable=true"
+{% endif %}
     networks:
       cryptolabs:
 {% if static_ips %}
         ipv4_address: {{ static_ips['ipmi-monitor'] }}
 {% endif %}
 
-{% if enable_watchtower %}
-  # ===========================================================================
-  # Watchtower - Auto-updates
-  # ===========================================================================
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    restart: unless-stopped
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300
-      - WATCHTOWER_LABEL_ENABLE=true
-      - WATCHTOWER_INCLUDE_STOPPED=true
-      - WATCHTOWER_ROLLING_RESTART=true
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      cryptolabs:
-{% if static_ips and static_ips['watchtower'] is defined %}
-        ipv4_address: {{ static_ips['watchtower'] }}
-{% endif %}
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-{% endif %}
+{# Watchtower is deployed by cryptolabs-proxy when proxy is configured (single source of truth) #}
 
 # NOTE: cryptolabs-proxy is deployed separately via setup_proxy() (docker run),
 # not included in this compose file. This matches dc-overview's working pattern.
