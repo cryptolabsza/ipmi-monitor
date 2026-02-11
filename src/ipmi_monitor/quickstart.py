@@ -728,7 +728,6 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         cfg_enable_ai = bool(ipmi_cfg.get('ai_license_key'))
         cfg_license_key = ipmi_cfg.get('ai_license_key')
         cfg_enable_ssh_logs = ipmi_cfg.get('enable_ssh_logs', False)
-        cfg_enable_ssh_inventory = ipmi_cfg.get('enable_ssh_inventory', True)
         cfg_image_tag = ipmi_cfg.get('image_tag', file_config.get('image_tag', 'latest'))
         cfg_enable_watchtower_all = file_config.get('enable_watchtower_all', False)
         
@@ -758,7 +757,6 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         cfg_enable_ai = None
         cfg_license_key = None
         cfg_enable_ssh_logs = None
-        cfg_enable_ssh_inventory = None
         cfg_image_tag = None
         cfg_enable_watchtower_all = None
         cfg_site_name = 'IPMI Monitor'
@@ -953,40 +951,45 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         admin_password = fleet_admin_pass
         console.print(f"[green]✓[/green] Admin user: {fleet_admin_user} (from existing proxy)")
     else:
-        console.print("[dim]Set credentials for the Fleet Management dashboard.[/dim]")
-        console.print("[dim]This provides unified login for all CryptoLabs services.[/dim]\n")
-        console.print("[dim]User Roles:[/dim]")
-        console.print("[dim]  • admin - Full access to all features and user management[/dim]")
-        console.print("[dim]  • readwrite - Can view and modify data[/dim]")
-        console.print("[dim]  • readonly - Can only view data[/dim]\n")
-        
-        fleet_admin_user = questionary.text(
-            "Fleet admin username:",
-            default="admin",
-            style=custom_style
-        ).ask()
-        
-        if fleet_admin_user is None:
+        if yes_mode:
             fleet_admin_user = "admin"
-        
-        fleet_admin_pass = questionary.password(
-            "Fleet admin password:",
-            validate=lambda x: len(x) >= 4 or "Password must be at least 4 characters",
-            style=custom_style
-        ).ask()
-        
-        if fleet_admin_pass:
-            confirm_fleet_pass = questionary.password(
-                "Confirm password:",
+            fleet_admin_pass = "admin"
+            admin_password = "admin"
+            console.print(f"[green]✓[/green] Admin user: admin (default for -y mode)")
+        else:
+            console.print("[dim]Set credentials for the Fleet Management dashboard.[/dim]")
+            console.print("[dim]This provides unified login for all CryptoLabs services.[/dim]\n")
+            console.print("[dim]User Roles:[/dim]")
+            console.print("[dim]  • admin - Full access to all features and user management[/dim]")
+            console.print("[dim]  • readwrite - Can view and modify data[/dim]")
+            console.print("[dim]  • readonly - Can only view data[/dim]\n")
+            
+            fleet_admin_user = questionary.text(
+                "Fleet admin username:",
+                default="admin",
+                style=custom_style
+            ).ask() or "admin"
+            
+            fleet_admin_pass = questionary.password(
+                "Fleet admin password:",
+                validate=lambda x: len(x) >= 4 or "Password must be at least 4 characters",
                 style=custom_style
             ).ask()
             
-            if fleet_admin_pass != confirm_fleet_pass:
-                console.print("[yellow]⚠[/yellow] Passwords don't match. You'll need to set it on first login.")
-                fleet_admin_pass = None
-        
-        # Use fleet credentials for IPMI Monitor admin as well (unified login)
-        admin_password = fleet_admin_pass if fleet_admin_pass else "admin"
+            if fleet_admin_pass:
+                confirm_fleet_pass = questionary.password(
+                    "Confirm password:",
+                    style=custom_style
+                ).ask()
+                
+                if fleet_admin_pass != confirm_fleet_pass:
+                    console.print("[yellow]⚠[/yellow] Passwords don't match. You'll need to set it on first login.")
+                    fleet_admin_pass = None
+            
+            # Ensure fleet_admin_pass is never None downstream
+            if not fleet_admin_pass:
+                fleet_admin_pass = "admin"
+            admin_password = fleet_admin_pass
     
     # ============ Step 4: AI Features (Optional) ============
     console.print("\n[bold]Step 4: AI Features (Optional)[/bold]\n")
@@ -1018,26 +1021,31 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         license_key = detected_license_key
         console.print(f"[green]✓[/green] AI Features: Enabled (key from existing deployment)")
     else:
-        console.print("[dim]AI Insights analyzes server issues and suggests fixes.[/dim]")
-        console.print("[dim]Requires a CryptoLabs AI account (free tier available).[/dim]\n")
-        
-        enable_ai = questionary.confirm(
-            "Enable AI Insights?",
-            default=False,
-            style=custom_style
-        ).ask()
-        
-        if enable_ai is None:
+        if yes_mode:
             enable_ai = False
-        
-        license_key = None
-        if enable_ai:
-            console.print("\n[dim]Get your license key at: https://www.cryptolabs.co.za/my-account/[/dim]")
-            license_key = questionary.text(
-                "CryptoLabs License Key:",
-                validate=lambda x: len(x) > 0 or "Key required",
+            license_key = None
+            console.print(f"[green]✓[/green] AI Features: Disabled (default for -y mode)")
+        else:
+            console.print("[dim]AI Insights analyzes server issues and suggests fixes.[/dim]")
+            console.print("[dim]Requires a CryptoLabs AI account (free tier available).[/dim]\n")
+            
+            enable_ai = questionary.confirm(
+                "Enable AI Insights?",
+                default=False,
                 style=custom_style
             ).ask()
+            
+            if enable_ai is None:
+                enable_ai = False
+            
+            license_key = None
+            if enable_ai:
+                console.print("\n[dim]Get your license key at: https://www.cryptolabs.co.za/my-account/[/dim]")
+                license_key = questionary.text(
+                    "CryptoLabs License Key:",
+                    validate=lambda x: len(x) > 0 or "Key required",
+                    style=custom_style
+                ).ask()
     
     # ============ Step 5: Auto-Updates ============
     console.print("\n[bold]Step 5: Auto-Updates[/bold]\n")
@@ -1048,6 +1056,9 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         if cfg_enable_watchtower_all is not None:
             enable_watchtower_all = cfg_enable_watchtower_all
             console.print(f"[green]✓[/green] Auto-updates for all components: {'Enabled' if enable_watchtower_all else 'Disabled'} (from config)")
+        elif yes_mode:
+            enable_watchtower_all = False
+            console.print(f"[green]✓[/green] Auto-updates: cryptolabs-proxy only (default for -y mode)")
         else:
             console.print("[dim]By default, only cryptolabs-proxy (reverse proxy + fleet manager) is auto-updated.[/dim]")
             enable_watchtower_all = questionary.confirm(
@@ -1073,18 +1084,22 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         if has_ssh_servers:
             console.print(f"[green]✓[/green] SSH log collection: {'Enabled' if enable_ssh_logs else 'Disabled'} (from config)")
     elif has_ssh_servers:
-        console.print("\n[bold]Step 5b: SSH Log Collection (Optional)[/bold]\n")
-        console.print("[dim]Collect system logs from servers via SSH (dmesg, syslog, GPU errors).[/dim]")
-        console.print("[dim]Useful for troubleshooting hardware issues.[/dim]\n")
-        
-        enable_ssh_logs = questionary.confirm(
-            "Enable SSH log collection?",
-            default=False,
-            style=custom_style
-        ).ask()
-        
-        if enable_ssh_logs is None:
+        if yes_mode:
             enable_ssh_logs = False
+            console.print(f"[green]✓[/green] SSH log collection: Disabled (default for -y mode)")
+        else:
+            console.print("\n[bold]Step 5b: SSH Log Collection (Optional)[/bold]\n")
+            console.print("[dim]Collect system logs from servers via SSH (dmesg, syslog, GPU errors).[/dim]")
+            console.print("[dim]Useful for troubleshooting hardware issues.[/dim]\n")
+            
+            enable_ssh_logs = questionary.confirm(
+                "Enable SSH log collection?",
+                default=False,
+                style=custom_style
+            ).ask()
+            
+            if enable_ssh_logs is None:
+                enable_ssh_logs = False
     else:
         enable_ssh_logs = False
     
@@ -1094,6 +1109,9 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     if cfg_image_tag:
         image_tag = cfg_image_tag
         console.print(f"[green]✓[/green] Image channel: {image_tag} (from config)")
+    elif yes_mode:
+        image_tag = get_default_docker_tag()
+        console.print(f"[green]✓[/green] Image channel: {image_tag} (default for -y mode)")
     else:
         console.print("[dim]Choose which Docker image channel to use.[/dim]\n")
         default_tag = get_default_docker_tag()
@@ -1150,6 +1168,9 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
         
         console.print("\n[dim]No additional proxy configuration needed.[/dim]")
         setup_proxy = True  # Mark as using proxy, but won't create new one
+    elif yes_mode:
+        setup_proxy = True
+        console.print(f"[green]✓[/green] HTTPS proxy: Enabled (default for -y mode)")
     else:
         setup_proxy = questionary.confirm(
             "Set up HTTPS reverse proxy?",
@@ -1179,6 +1200,8 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
                     default=True,
                     style=custom_style
                 ).ask()
+                if use_letsencrypt is None:
+                    use_letsencrypt = False
                 
                 if use_letsencrypt:
                     console.print("[dim]Let's Encrypt requires ports 80 and 443 to be open.[/dim]")
@@ -1248,7 +1271,7 @@ SECRET_KEY={generate_secret_key()}
 
 # Fleet Management (unified auth)
 FLEET_ADMIN_USER={fleet_admin_user}
-FLEET_ADMIN_PASS={fleet_admin_pass if fleet_admin_pass else ''}
+FLEET_ADMIN_PASS={fleet_admin_pass}
 AUTH_SECRET_KEY={fleet_secret}
 
 # Site branding
@@ -1303,7 +1326,7 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
         progress.add_task("", total=None)
         result = subprocess.run(
             ["docker", "pull", f"ghcr.io/cryptolabsza/ipmi-monitor:{image_tag}"],
-            capture_output=True, text=True
+            capture_output=True, text=True, timeout=300
         )
     
     if result.returncode == 0:
@@ -1549,6 +1572,8 @@ def _deploy_server_manager(
         "-e", "DC_OVERVIEW_PORT=5001",
         "-e", f"TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}",
         "-e", f"INTERNAL_API_TOKEN={internal_token}",
+        "-e", f"FLEET_ADMIN_USER={fleet_admin_user}",
+        "-e", f"FLEET_ADMIN_PASS={fleet_admin_pass or ''}",
     ]
     
     # If behind proxy, set APPLICATION_ROOT
@@ -1712,7 +1737,7 @@ import sqlite3
 import requests
 import sys
 
-license_key = "{license_key}"
+license_key = {repr(license_key)}
 # Validate directly with WordPress CryptoLabs API
 wordpress_url = "https://www.cryptolabs.co.za"
 db_path = "/app/data/ipmi_events.db"
@@ -2088,6 +2113,8 @@ def add_servers_bulk() -> List[Dict]:
         style=custom_style
     ).ask()
     
+    if method is None:
+        return []
     if method == "file":
         return import_servers_from_file()
     elif method == "paste":
@@ -2562,6 +2589,9 @@ def add_server_interactive() -> Optional[Dict]:
         validate=lambda x: len(x) > 0,
         style=custom_style
     ).ask()
+    
+    if not bmc_ip:
+        return None
     
     bmc_user = questionary.text(
         "BMC username:",
