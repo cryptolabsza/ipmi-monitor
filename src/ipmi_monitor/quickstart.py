@@ -1042,6 +1042,8 @@ def run_quickstart(config_path: str = None, yes_mode: bool = False):
     # ============ Step 5: Auto-Updates ============
     console.print("\n[bold]Step 5: Auto-Updates[/bold]\n")
     enable_watchtower_all = False
+    # setup_proxy is fully resolved in Step 7; use config hint or proxy detection for now
+    setup_proxy = cfg_enable_proxy if cfg_enable_proxy is not None else False
     if setup_proxy or proxy_already_running:
         if cfg_enable_watchtower_all is not None:
             enable_watchtower_all = cfg_enable_watchtower_all
