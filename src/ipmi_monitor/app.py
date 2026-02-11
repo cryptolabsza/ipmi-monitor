@@ -16291,7 +16291,7 @@ def api_email_preferences():
     if not config.license_key:
         return jsonify({'success': False, 'error': 'AI features not connected. Link your CryptoLabs account first.'}), 400
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     
     try:
         if request.method == 'GET':
@@ -16462,7 +16462,7 @@ def api_push_vapid_key():
     if not config.license_key:
         return jsonify({'success': False, 'error': 'AI features not connected'}), 400
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     try:
         response = requests.get(
             f"{wp_url}/wp-json/cryptolabs/v1/push/vapid-key",
@@ -16485,7 +16485,7 @@ def api_push_subscribe():
     if not config.license_key:
         return jsonify({'success': False, 'error': 'AI features not connected'}), 400
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     body = request.get_json() or {}
     
     try:
@@ -16519,7 +16519,7 @@ def api_push_unsubscribe():
     if not config.license_key:
         return jsonify({'success': False, 'error': 'AI features not connected'}), 400
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     body = request.get_json() or {}
     
     try:
@@ -16548,7 +16548,7 @@ def api_push_status():
     if not config.license_key:
         return jsonify({'success': False, 'error': 'AI features not connected'}), 400
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     try:
         response = requests.get(
             f"{wp_url}/wp-json/cryptolabs/v1/push/status",
@@ -16571,7 +16571,7 @@ def api_push_test():
     if not config.license_key:
         return jsonify({'success': False, 'error': 'AI features not connected'}), 400
     
-    wp_url = 'https://cryptolabs.co.za'
+    wp_url = 'https://www.cryptolabs.co.za'
     try:
         response = requests.post(
             f"{wp_url}/wp-json/cryptolabs/v1/push/test",

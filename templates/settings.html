@@ -1347,7 +1347,7 @@
                         <span style="font-size: 2rem; display: block; margin-bottom: 10px;">🔒</span>
                         <div style="font-weight: 600; margin-bottom: 5px;">AI Account Required</div>
                         <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 15px;">
-                            Link your CryptoLabs AI account to enable browser push notifications.
+                            Link your CryptoLabs AI account to enable push notifications.
                         </div>
                         <button class="btn btn-primary" onclick="showTab('ai', event || window.event)">🔗 Go to AI Features</button>
                     </div>
@@ -1366,7 +1366,18 @@
                 
                 <!-- Main push content -->
                 <div id="pushContent" style="display: none;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                    <!-- How it works info -->
+                    <div style="padding: 12px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 15px; border-left: 3px solid var(--accent-blue, #3498db);">
+                        <div style="font-weight: 600; margin-bottom: 6px; font-size: 0.9rem;">How Push Notifications Work</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+                            IPMI Monitor sends alerts through your <strong>CryptoLabs account</strong>. When an alert triggers 
+                            (temperature, server down, etc.), it is delivered to all your enabled notification channels — 
+                            browser push, mobile app, and email.
+                        </div>
+                    </div>
+                    
+                    <!-- Browser push toggle -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <span style="font-size: 1.2rem;" id="pushStatusIcon">🔔</span>
                             <div>
@@ -1381,10 +1392,43 @@
                     
                     <!-- Subscribed browser info & test -->
                     <div id="pushSubscribedSection" style="display: none;">
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <button class="btn btn-secondary btn-sm" onclick="testPushNotification()">🧪 Send Test</button>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+                            <button class="btn btn-secondary btn-sm" onclick="testPushNotification()">🧪 Send Test Notification</button>
                             <span id="pushTestResult" style="font-size: 0.85rem;"></span>
                         </div>
+                    </div>
+                    
+                    <!-- Test button for when push is subscribed via WP account but not locally -->
+                    <div id="pushTestViaWpSection" style="display: none;">
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+                            <button class="btn btn-secondary btn-sm" onclick="testPushNotification()">🧪 Send Test Notification</button>
+                            <span id="pushTestResultWp" style="font-size: 0.85rem;"></span>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional notification channels -->
+                    <div style="margin-top: 8px; padding: 14px; background: var(--bg-secondary); border-radius: 8px;">
+                        <div style="font-weight: 600; margin-bottom: 10px; font-size: 0.9rem;">📱 More Notification Channels</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
+                            <p style="margin: 0 0 8px 0;">
+                                You can also manage push notifications and enable the <strong>CL Fleety mobile app</strong> from your CryptoLabs account:
+                            </p>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
+                                <a href="https://www.cryptolabs.co.za/account/" target="_blank" rel="noopener"
+                                   class="btn btn-secondary btn-sm" style="text-decoration: none;">
+                                    🌐 Manage on CryptoLabs Account
+                                </a>
+                            </div>
+                            <p style="margin: 10px 0 0 0; font-size: 0.8rem; opacity: 0.7;">
+                                From your account page you can: manage subscribed browsers, enable mobile app push, 
+                                configure alert preferences, and test notifications across all channels.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- WP push status -->
+                    <div id="wpPushStatus" style="display: none; margin-top: 12px; padding: 10px 12px; background: var(--bg-secondary); border-radius: 8px; font-size: 0.85rem;">
+                        <span id="wpPushStatusText" style="color: var(--text-secondary);"></span>
                     </div>
                 </div>
             </div>
@@ -2646,10 +2690,10 @@
                 return;
             }
             
-            // Show main content
+            // Show main content (instructions, WP link, etc. are always useful)
             document.getElementById('pushContent').style.display = 'block';
             
-            // Fetch VAPID key
+            // Fetch VAPID key from WordPress
             try {
                 const response = await fetch(apiUrl('/api/push/vapid-key'));
                 if (response.ok) {
@@ -2661,7 +2705,14 @@
             }
             
             if (!pushVapidKey) {
-                document.getElementById('pushStatusText').textContent = 'Push service unavailable';
+                // VAPID key not available — disable inline enable but show alternative
+                document.getElementById('pushStatusText').textContent = 'Direct subscription unavailable — use your CryptoLabs account instead';
+                document.getElementById('pushToggleBtn').style.display = 'none';
+                // Still check WP status and show test button if they have subscriptions via WP
+                const wpStatusEl = document.getElementById('wpPushStatus');
+                const wpStatusText = document.getElementById('wpPushStatusText');
+                const testViaWpSection = document.getElementById('pushTestViaWpSection');
+                checkWpPushStatus(wpStatusEl, wpStatusText, testViaWpSection, false);
                 return;
             }
             
@@ -2674,9 +2725,13 @@
             const statusText = document.getElementById('pushStatusText');
             const statusIcon = document.getElementById('pushStatusIcon');
             const subscribedSection = document.getElementById('pushSubscribedSection');
+            const testViaWpSection = document.getElementById('pushTestViaWpSection');
+            const wpStatusEl = document.getElementById('wpPushStatus');
+            const wpStatusText = document.getElementById('wpPushStatusText');
             
             try {
-                const registration = await navigator.serviceWorker.getRegistration('/');
+                const swScope = BASE_PATH ? BASE_PATH + '/' : '/';
+                const registration = await navigator.serviceWorker.getRegistration(swScope);
                 let subscription = null;
                 
                 if (registration) {
@@ -2694,11 +2749,12 @@
                     btn.style.color = '#fff';
                     btn.disabled = false;
                     subscribedSection.style.display = 'block';
+                    testViaWpSection.style.display = 'none';
                 } else if (permission === 'denied') {
                     document.getElementById('pushContent').style.display = 'none';
                     document.getElementById('pushDenied').style.display = 'block';
                 } else {
-                    statusText.textContent = 'Not enabled - click to receive browser alerts';
+                    statusText.textContent = 'Not enabled in this browser - click Enable to subscribe';
                     statusIcon.textContent = '🔕';
                     btn.textContent = '🔔 Enable';
                     btn.className = 'btn btn-primary btn-sm';
@@ -2706,10 +2762,38 @@
                     btn.style.color = '';
                     btn.disabled = false;
                     subscribedSection.style.display = 'none';
+                    testViaWpSection.style.display = 'none';
                 }
+                
+                // Also check WordPress for existing subscriptions (e.g. from account page or other browsers)
+                checkWpPushStatus(wpStatusEl, wpStatusText, testViaWpSection, !!subscription);
             } catch (e) {
                 console.error('Error checking push status:', e);
                 statusText.textContent = 'Error checking status';
+            }
+        }
+        
+        async function checkWpPushStatus(wpStatusEl, wpStatusText, testViaWpSection, hasLocalSub) {
+            try {
+                const response = await fetch(apiUrl('/api/push/status'));
+                if (!response.ok) return;
+                const data = await response.json();
+                const count = data.count || 0;
+                
+                if (count > 0) {
+                    wpStatusEl.style.display = 'block';
+                    const browsers = count === 1 ? '1 browser' : `${count} browsers`;
+                    wpStatusText.innerHTML = `<span style="color: var(--accent-green);">✓</span> Push notifications active on <strong>${browsers}</strong> via your CryptoLabs account`;
+                    // If user has WP subscriptions but not a local one, show the test button
+                    if (!hasLocalSub) {
+                        testViaWpSection.style.display = 'block';
+                    }
+                } else if (!hasLocalSub) {
+                    wpStatusEl.style.display = 'block';
+                    wpStatusText.innerHTML = 'No browsers subscribed yet. Click <strong>Enable</strong> above, or subscribe via your <a href="https://www.cryptolabs.co.za/account/" target="_blank" style="color: var(--accent-blue, #3498db);">CryptoLabs account</a>.';
+                }
+            } catch (e) {
+                // Silently ignore — this is informational
             }
         }
         
@@ -2718,7 +2802,8 @@
             const statusText = document.getElementById('pushStatusText');
             
             try {
-                const registration = await navigator.serviceWorker.getRegistration('/');
+                const swScope = BASE_PATH ? BASE_PATH + '/' : '/';
+                const registration = await navigator.serviceWorker.getRegistration(swScope);
                 let subscription = null;
                 if (registration) {
                     subscription = await registration.pushManager.getSubscription();
@@ -2768,8 +2853,9 @@
                         } catch (e) { /* ignore cleanup errors */ }
                     }
                     
-                    // Register fresh service worker
-                    const newRegistration = await navigator.serviceWorker.register(apiUrl('/sw-push.js'), { scope: '/' });
+                    // Register fresh service worker (scope must match the proxy base path)
+                    const swScope = BASE_PATH ? BASE_PATH + '/' : '/';
+                    const newRegistration = await navigator.serviceWorker.register(apiUrl('/sw-push.js'), { scope: swScope });
                     
                     // Wait for activation
                     await new Promise((resolve, reject) => {
@@ -2816,8 +2902,15 @@
         }
         
         async function testPushNotification() {
+            // Update both possible result elements
             const resultEl = document.getElementById('pushTestResult');
-            resultEl.innerHTML = '<span style="color: var(--accent-blue);">🔔 Sending test...</span>';
+            const resultElWp = document.getElementById('pushTestResultWp');
+            const setResult = function(html) {
+                if (resultEl) resultEl.innerHTML = html;
+                if (resultElWp) resultElWp.innerHTML = html;
+            };
+            
+            setResult('<span style="color: var(--accent-blue);">🔔 Sending test...</span>');
             
             try {
                 const response = await fetch(apiUrl('/api/push/test'), {
@@ -2828,15 +2921,20 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    resultEl.innerHTML = '<span style="color: var(--accent-green);">✅ Test sent! Check your notifications.</span>';
+                    const details = [];
+                    if (data.web_push_sent) details.push('browser push');
+                    if (data.push_sent) details.push('mobile app');
+                    if (data.email_sent) details.push('email');
+                    const channels = details.length > 0 ? ' (' + details.join(', ') + ')' : '';
+                    setResult('<span style="color: var(--accent-green);">✅ Test sent!' + channels + ' Check your notifications.</span>');
                 } else {
-                    resultEl.innerHTML = '<span style="color: var(--accent-red);">❌ ' + (data.error || 'Failed') + '</span>';
+                    setResult('<span style="color: var(--accent-red);">❌ ' + (data.error || 'Failed to send test') + '</span>');
                 }
             } catch (e) {
-                resultEl.innerHTML = '<span style="color: var(--accent-red);">❌ Error: ' + e.message + '</span>';
+                setResult('<span style="color: var(--accent-red);">❌ Error: ' + e.message + '</span>');
             }
             
-            setTimeout(() => { resultEl.innerHTML = ''; }, 5000);
+            setTimeout(() => { setResult(''); }, 8000);
         }
         
         function showAlert(message, type) {
