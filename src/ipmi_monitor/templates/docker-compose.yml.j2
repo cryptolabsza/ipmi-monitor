@@ -47,9 +47,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    labels:
 {% if enable_watchtower_all %}
-      - "com.centurylinklabs.watchtower.enable=true"
+    labels:
+      com.centurylinklabs.watchtower.enable: "true"
 {% endif %}
     networks:
       cryptolabs:
