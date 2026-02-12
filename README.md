@@ -75,9 +75,9 @@ See [examples/ipmi-config.yaml](examples/ipmi-config.yaml) for a complete config
 
 **Ubuntu 24.04+ / Python 3.12+** (uses pipx):
 ```bash
-sudo apt install pipx -y
+apt install pipx -y && pipx ensurepath
+source ~/.bashrc
 pipx install ipmi-monitor
-pipx ensurepath && source ~/.bashrc
 sudo ipmi-monitor setup
 ```
 

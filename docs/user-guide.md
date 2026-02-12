@@ -74,8 +74,11 @@ IPMI Monitor works with any server that has an IPMI-compliant BMC (Baseboard Man
 The easiest way to get started is the interactive quickstart wizard:
 
 ```bash
+# Install pipx (prerequisite)
+apt install pipx -y && pipx ensurepath
+source ~/.bashrc
+
 # Install the CLI tool
-sudo apt install pipx -y
 pipx install ipmi-monitor
 
 # Run the wizard (use full path since pipx bin isn't in sudo PATH)

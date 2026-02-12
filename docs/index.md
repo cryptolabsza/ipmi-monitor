@@ -44,8 +44,11 @@ See [examples/ipmi-config.yaml](https://github.com/cryptolabsza/ipmi-monitor/blo
 ### Interactive Setup
 
 ```bash
+# Install pipx (prerequisite)
+apt install pipx -y && pipx ensurepath
+source ~/.bashrc
+
 # Install the CLI tool
-sudo apt install pipx -y
 pipx install ipmi-monitor
 
 # Run the quickstart wizard (use full path since pipx bin isn't in sudo PATH)

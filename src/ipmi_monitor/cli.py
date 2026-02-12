@@ -34,6 +34,7 @@ def main():
     
     \b
     Quick Start:
+        apt install pipx -y && pipx ensurepath && source ~/.bashrc
         pipx install ipmi-monitor
         sudo ipmi-monitor setup
     
