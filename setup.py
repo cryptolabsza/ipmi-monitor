@@ -31,6 +31,14 @@ def generate_build_info():
     except Exception:
         pass
     
+    # For release builds (tag like v1.1.2), map to 'main' since releases come from main
+    if branch and branch.startswith('v') and '.' in branch:
+        branch = 'main'
+    
+    # If still no branch info, default to 'main' for PyPI releases
+    if not branch or branch == 'detached':
+        branch = 'main'
+    
     build_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
     
     target_dir = Path(__file__).parent / "src" / "ipmi_monitor"
