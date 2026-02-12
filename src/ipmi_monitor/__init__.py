@@ -4,7 +4,7 @@ IPMI Monitor - Server Monitoring with AI-Powered Insights
 A comprehensive IPMI/BMC monitoring solution for GPU datacenters and server rooms.
 """
 
-__version__ = "1.1.3"
+__version__ = "1.1.4"
 __author__ = "CryptoLabs"
 __email__ = "info@cryptolabs.co.za"
 
@@ -46,14 +46,15 @@ def get_version_info() -> str:
     return " ".join(parts)
 
 
-def get_image_tag() -> str:
-    """Return the Docker image tag matching the current branch.
+def get_image_tag(dev: bool = False) -> str:
+    """Return the Docker image tag to use.
     
-    - 'dev' branch  → 'dev' tag
-    - 'main' branch → 'latest' tag  (default)
-    - anything else → 'latest' tag
+    Always returns 'latest' (stable) unless --dev flag is explicitly passed.
+    This prevents accidentally deploying dev images in production.
+    
+    Args:
+        dev: If True, return 'dev' tag. Requires explicit --dev CLI flag.
     """
-    branch = (__git_branch__ or '').lower()
-    if branch == 'dev':
+    if dev:
         return 'dev'
     return 'latest'

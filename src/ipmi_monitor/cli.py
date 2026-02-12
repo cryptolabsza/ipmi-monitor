@@ -76,7 +76,8 @@ def version():
               help="Path to YAML config file for non-interactive setup")
 @click.option("-y", "--yes", "yes_mode", is_flag=True, 
               help="Skip confirmation prompts (requires --config)")
-def setup(config_path: str, yes_mode: bool):
+@click.option("--dev", is_flag=True, help="Use dev Docker images instead of stable (latest)")
+def setup(config_path: str, yes_mode: bool, dev: bool):
     """
     ⚡ One-command setup - does everything!
     
@@ -93,7 +94,13 @@ def setup(config_path: str, yes_mode: bool):
     EXAMPLES:
         sudo ipmi-monitor setup                           # Interactive mode
         sudo ipmi-monitor setup -c config.yaml -y         # Non-interactive with config
+        sudo ipmi-monitor setup --dev                     # Use dev images
     """
+    if dev:
+        import os
+        os.environ['IPMI_IMAGE_TAG'] = 'dev'
+        from rich.console import Console
+        Console().print("[yellow]⚠ Using dev Docker images (--dev flag)[/yellow]")
     run_quickstart(config_path=config_path, yes_mode=yes_mode)
 
 

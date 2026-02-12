@@ -70,13 +70,13 @@ STATIC_IPS = {
 console = Console()
 
 def get_default_docker_tag() -> str:
-    """Determine default Docker image tag based on the installed branch.
+    """Determine default Docker image tag.
     
-    - If installed from 'dev' branch → default to 'dev'
-    - Otherwise → default to 'latest' (stable, recommended for production)
+    Always returns 'latest' (stable) unless --dev flag was passed,
+    which sets the IPMI_IMAGE_TAG environment variable.
     """
-    from . import get_image_tag
-    return get_image_tag()
+    import os
+    return os.environ.get('IPMI_IMAGE_TAG', 'latest')
 
 custom_style = Style([
     ('qmark', 'fg:cyan bold'),
@@ -1496,7 +1496,7 @@ def _deploy_server_manager(
     fleet_admin_pass: str,
     domain: str = None,
     site_name: str = "IPMI Monitor",
-    image_tag: str = "dev",
+    image_tag: str = "latest",
     setup_proxy: bool = False,
     servers: List[Dict] = None,
     ssh_user: str = "root",
