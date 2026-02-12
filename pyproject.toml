@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ipmi-monitor"
-version = "1.1.1"
+version = "1.1.2"
 description = "IPMI/BMC Server Monitoring with AI-Powered Insights"
 readme = "README.md"
 license = {text = "MIT"}
