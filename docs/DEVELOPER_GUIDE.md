@@ -257,7 +257,7 @@ docker exec ipmi-monitor env | grep -E "GIT_|BUILD_|APP_"
 
 | Tag | Source | Stability | Use Case |
 |-----|--------|-----------|----------|
-| `v1.1.0` | Git tag | ⭐ Stable | Production (pinned) |
+| `v1.1.1` | Git tag | ⭐ Stable | Production (pinned) |
 | `latest` | Latest release tag | ⭐ Stable | Production (auto-update) |
 | `stable` | Latest release tag | ⭐ Stable | Production alias |
 | `main` | main branch | 🔶 Pre-release | Staging |
@@ -268,7 +268,7 @@ docker exec ipmi-monitor env | grep -E "GIT_|BUILD_|APP_"
 
 ```bash
 # Production (recommended)
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.0
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.1
 
 # Latest stable
 docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
@@ -309,7 +309,7 @@ git checkout dev
 git pull origin dev
 
 # Create PR on GitHub: dev → main
-# Title: "Release v1.1.0"
+# Title: "Release v1.1.1"
 # Description: Include release notes
 ```
 
@@ -326,7 +326,7 @@ git checkout main
 git pull origin main
 
 # Create annotated tag
-git tag -a v1.1.0 -m "Release v1.1.0
+git tag -a v1.1.1 -m "Release v1.1.1
 
 ## New Features
 - Quickstart wizard with CryptoLabs Proxy integration
@@ -350,15 +350,15 @@ git tag -a v1.1.0 -m "Release v1.1.0
 "
 
 # Push tag to trigger CI
-git push origin v1.1.0
+git push origin v1.1.1
 ```
 
 #### 5. Create GitHub Release
 
 1. Go to: https://github.com/cryptolabsza/ipmi-monitor/releases
 2. Click "Draft a new release"
-3. Select tag: `v1.1.0`
-4. Title: `v1.1.0`
+3. Select tag: `v1.1.1`
+4. Title: `v1.1.1`
 5. Copy release notes from tag
 6. Check "Set as the latest release"
 7. Click "Publish release"
@@ -367,7 +367,7 @@ git push origin v1.1.0
 
 ```bash
 # Check new image is available
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.0
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.1
 
 # Verify tags
 docker images | grep ipmi-monitor

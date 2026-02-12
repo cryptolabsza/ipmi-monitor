@@ -1662,6 +1662,14 @@
     </style>
 </head>
 <body>
+    <script>
+      // Auto-detect dev mode from server-side GIT_BRANCH
+      window.__DEV__ = {{ 'true' if is_dev else 'false' }};
+      if (!window.__DEV__) {
+        console.log = function(){};
+        console.debug = function(){};
+      }
+    </script>
     <div class="container">
         <header>
             <div class="logo" style="display: flex; align-items: center; gap: 15px;">

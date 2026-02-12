@@ -25,7 +25,7 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 
 ---
 
-## 🚀 Quick Start (v1.1.0)
+## 🚀 Quick Start (v1.1.1)
 
 ### Automated Deployment (Recommended)
 
@@ -144,7 +144,7 @@ After installation, use the `ipmi-monitor` CLI:
 | 🐳 **Docker Ready** | Multi-arch images (amd64/arm64) |
 | 🔄 **Auto-Updates** | Watchtower keeps containers updated |
 
-### 🆕 What's New in v1.1.0
+### 🆕 What's New in v1.1.1
 
 | Feature | Description |
 |---------|-------------|

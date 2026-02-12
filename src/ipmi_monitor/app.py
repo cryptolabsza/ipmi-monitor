@@ -333,10 +333,15 @@ def inject_base_path():
         # Running behind proxy at a subpath (e.g. /ipmi/) - fleet home is the proxy root
         fleet_home_url = '/'
     
+    # Detect dev mode from git branch (set during Docker build)
+    git_branch = os.environ.get('GIT_BRANCH', 'unknown')
+    is_dev = git_branch in ['develop', 'dev', 'unknown']
+
     return {
         'base_path': base_path,
         'api_base': base_path,  # Alias for clarity in JS
         'fleet_home_url': fleet_home_url,
+        'is_dev': is_dev,
     }
 
 db = SQLAlchemy(app)

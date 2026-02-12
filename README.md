@@ -38,8 +38,8 @@
 - 🔐 **User Management** - Admin, read-write, and read-only access levels
 - 📥 **Full Backup/Restore** - Export everything: servers, credentials, SSH keys, alerts
 
-### New in v1.1.0
-- 📦 **Quickstart Wizard** - One-command Docker deployment with CryptoLabs Proxy
+### New in v1.1.1
+- 📦 **Setup Wizard** - One-command Docker deployment with CryptoLabs Proxy
 - 🌐 **CryptoLabs Proxy** - Unified reverse proxy with Fleet Management landing page
 - 🔗 **DC Overview Import** - Auto-detect and import servers from DC Overview
 - 🔐 **SSH Key Management** - Auto-detect keys, paste content, or generate ED25519 keys
@@ -66,7 +66,7 @@ pip install git+https://github.com/cryptolabsza/cryptolabs-proxy.git@dev --break
 pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
 
 # Deploy with config file (no prompts)
-sudo ipmi-monitor quickstart -c /path/to/config.yaml -y
+sudo ipmi-monitor setup -c /path/to/config.yaml -y
 ```
 
 See [examples/ipmi-config.yaml](examples/ipmi-config.yaml) for a complete config template.
@@ -78,19 +78,19 @@ See [examples/ipmi-config.yaml](examples/ipmi-config.yaml) for a complete config
 sudo apt install pipx -y
 pipx install ipmi-monitor
 pipx ensurepath && source ~/.bashrc
-sudo ipmi-monitor quickstart
+sudo ipmi-monitor setup
 ```
 
 **Ubuntu 22.04 / Python 3.10** (direct pip):
 ```bash
 pip install ipmi-monitor
-sudo ipmi-monitor quickstart
+sudo ipmi-monitor setup
 ```
 
 **Alternative** (if you get "externally-managed-environment" error):
 ```bash
 pip install ipmi-monitor --break-system-packages
-sudo ipmi-monitor quickstart
+sudo ipmi-monitor setup
 ```
 
 > **Note:** This automatically deploys [cryptolabs-proxy](https://github.com/cryptolabsza/cryptolabs-proxy) as the unified entry point and authentication layer.
@@ -178,7 +178,7 @@ docker restart ipmi-monitor
 
 ### Bulk Import (Many Servers)
 
-During quickstart, choose "Import from file" or "Paste text" to add multiple servers at once.
+During setup, choose "Import from file" or "Paste text" to add multiple servers at once.
 
 **Create a servers.txt file:**
 ```bash
@@ -195,9 +195,9 @@ globalIPMI:ADMIN,ipmipassword
 192.168.1.103,192.168.1.84
 ```
 
-**Then run quickstart and select "Import from file":**
+**Then run setup and select "Import from file":**
 ```bash
-sudo ipmi-monitor quickstart
+sudo ipmi-monitor setup
 # Select: "Import from file (e.g., servers.txt)"
 # Enter path: /root/servers.txt
 ```
@@ -231,7 +231,7 @@ pip install git+https://github.com/cryptolabsza/dc-overview.git@dev --break-syst
 pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
 
 # Deploy dc-overview (includes Grafana + Prometheus + GPU metrics + IPMI Monitor)
-sudo dc-overview quickstart -c /path/to/config.yaml -y
+sudo dc-overview setup -c /path/to/config.yaml -y
 ```
 
 | Tool | What it monitors |
@@ -244,16 +244,16 @@ All services are accessed through [cryptolabs-proxy](https://github.com/cryptola
 
 ### Cross-Tool Config Auto-Detection
 
-When deploying both tools, the **second quickstart automatically reuses configuration** from the first — no redundant prompts:
+When deploying both tools, the **second setup automatically reuses configuration** from the first — no redundant prompts:
 
 ```
 # Scenario A: ipmi-monitor first, dc-overview second
-sudo ipmi-monitor quickstart -c ipmi-config.yaml -y   # Sets up proxy, credentials, servers
-sudo dc-overview quickstart -c dc-config.yaml -y       # Auto-detects proxy credentials, SSL, SSH keys
+sudo ipmi-monitor setup -c ipmi-config.yaml -y   # Sets up proxy, credentials, servers
+sudo dc-overview setup -c dc-config.yaml -y       # Auto-detects proxy credentials, SSL, SSH keys
 
 # Scenario B: dc-overview first, ipmi-monitor second
-sudo dc-overview quickstart -c dc-config.yaml -y       # Sets up proxy, credentials, servers
-sudo ipmi-monitor quickstart -c ipmi-config.yaml -y    # Auto-detects proxy credentials, AI key, site name
+sudo dc-overview setup -c dc-config.yaml -y       # Sets up proxy, credentials, servers
+sudo ipmi-monitor setup -c ipmi-config.yaml -y    # Auto-detects proxy credentials, AI key, site name
 ```
 
 **What gets auto-detected from an existing proxy:**
@@ -276,8 +276,8 @@ sudo ipmi-monitor quickstart -c ipmi-config.yaml -y    # Auto-detects proxy cred
 ### CLI Commands
 
 ```bash
-# Quickstart (recommended)
-sudo ipmi-monitor quickstart    # Interactive Docker deployment
+# Setup (recommended)
+sudo ipmi-monitor setup    # Interactive Docker deployment
 
 # Container management
 ipmi-monitor status             # Show container status
@@ -418,9 +418,9 @@ ai:
 
 ## 🔄 Keeping Up to Date
 
-### Quickstart Deployment (Recommended)
+### Setup Deployment (Recommended)
 
-If you used `sudo ipmi-monitor quickstart` with the HTTPS proxy (cryptolabs-proxy), updates are automatic via **cryptolabs-watchtower** (deployed by cryptolabs-proxy):
+If you used `sudo ipmi-monitor setup` with the HTTPS proxy (cryptolabs-proxy), updates are automatic via **cryptolabs-watchtower** (deployed by cryptolabs-proxy):
 
 ```bash
 # Check for updates manually
@@ -447,7 +447,7 @@ cd /etc/ipmi-monitor && docker compose up -d
 
 ### Automatic Updates with cryptolabs-watchtower
 
-**cryptolabs-proxy** deploys **cryptolabs-watchtower** when the proxy is configured. When using quickstart with HTTPS, auto-updates are included. For manual setups with cryptolabs-proxy, run `cryptolabs-proxy setup` to get both proxy and watchtower. Other services (dc-overview, ipmi-monitor) add the label so cryptolabs-watchtower can update them:
+**cryptolabs-proxy** deploys **cryptolabs-watchtower** when the proxy is configured. When using setup with HTTPS, auto-updates are included. For manual setups with cryptolabs-proxy, run `cryptolabs-proxy setup` to get both proxy and watchtower. Other services (dc-overview, ipmi-monitor) add the label so cryptolabs-watchtower can update them:
 
 ```yaml
 services:
@@ -461,7 +461,7 @@ services:
 |-----|-------------|
 | `:latest` | Latest stable release (recommended) |
 | `:develop` | Development builds (testing new features) |
-| `:v1.0.3` | Specific version (pin for stability) |
+| `:v1.1.1` | Specific version (pin for stability) |
 
 ---
 
@@ -548,7 +548,7 @@ SSH access enables powerful features:
 - **GPU Monitoring** - NVIDIA Xid errors, driver version, CUDA version
 - **Uptime Tracking** - Detect unexpected reboots
 
-> **Note:** When deployed via `dc-overview quickstart` with Vast.ai or RunPod exporters enabled, IPMI Monitor automatically collects platform-specific daemon logs.
+> **Note:** When deployed via `dc-overview setup` with Vast.ai or RunPod exporters enabled, IPMI Monitor automatically collects platform-specific daemon logs.
 
 ### Option 1: SSH Keys (Recommended)
 

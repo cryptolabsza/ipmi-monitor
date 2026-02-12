@@ -69,10 +69,15 @@ def inject_template_vars():
     if not fleet_home_url and base_path:
         fleet_home_url = '/'
     
+    # Detect dev mode from git branch (set during Docker build)
+    git_branch = os.environ.get('GIT_BRANCH', 'unknown')
+    is_dev = git_branch in ['develop', 'dev', 'unknown']
+
     return {
         'base_path': base_path,
         'api_base': base_path,
         'fleet_home_url': fleet_home_url,
+        'is_dev': is_dev,
     }
 
 # Use absolute path for database - data volume is mounted at /app/data

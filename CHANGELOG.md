@@ -5,13 +5,20 @@ All notable changes to IPMI Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - v1.0.4-dev
+## [1.1.1] - 2026-02-12
 
 ### Added
-- (Development in progress)
+- **SSH Log Collection** - Collect system logs (dmesg, journalctl, syslog, mcelog, GPU errors) from servers via SSH
+- **AI Embed/Iframe Support** - AI-powered insights accessible via embed and iframe integration
+- **Push Notifications** - Real-time browser push notifications for critical alerts and events
+- **Server Manager Deployment** - Streamlined Server Manager deployment for fleet management
+- **Watchtower Opt-in** - Container auto-updates via Watchtower are now opt-in with labels
+
+### Changed
+- **Quickstart renamed to Setup** - CLI command `ipmi-monitor quickstart` renamed to `ipmi-monitor setup`
 
 ### Fixed
-- (Development in progress)
+- Various bug fixes and stability improvements
 
 ---
 
@@ -79,6 +86,6 @@ labels:
 
 | Tag | Updates |
 |-----|---------|
-| `:latest` | Stable releases only (1.0.2 → 1.0.3 → 1.0.4) |
+| `:latest` | Stable releases only (1.0.3 → 1.1.1 → ...) |
 | `:develop` | Development builds (continuous) |
-| `:v1.0.3` | Never (pinned version) |
+| `:v1.1.1` | Never (pinned version) |

@@ -20,7 +20,7 @@ feature/*         ←── Individual feature branches
 
 | Tag | Description | Use Case |
 |-----|-------------|----------|
-| `v1.6.0` | Specific version | Production (recommended) |
+| `v1.1.1` | Specific version | Production (recommended) |
 | `latest` | Latest stable release | Production (auto-updates) |
 | `stable` | Alias for latest release | Production |
 | `dev` | Latest from develop branch | Testing new features |
@@ -34,7 +34,7 @@ feature/*         ←── Individual feature branches
 # docker-compose.yml
 services:
   ipmi-monitor:
-    image: ghcr.io/cryptolabsza/ipmi-monitor:v1.6.0
+    image: ghcr.io/cryptolabsza/ipmi-monitor:v1.1.1
 ```
 
 ### Auto-update to latest stable
@@ -50,7 +50,7 @@ services:
 docker exec ipmi-monitor cat /app/VERSION 2>/dev/null || echo "Check dashboard header"
 
 # Pull new version
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.7.0
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.1
 
 # Update and restart
 docker-compose up -d
@@ -105,7 +105,7 @@ git pull origin develop
 ./run_tests.sh  # if exists
 
 # Create PR: develop → main
-# Title: "Release v1.7.0"
+# Title: "Release v1.1.1"
 ```
 
 ### 2. Merge to Main
@@ -121,7 +121,7 @@ git checkout main
 git pull origin main
 
 # Create annotated tag
-git tag -a v1.7.0 -m "Release v1.7.0
+git tag -a v1.1.1 -m "Release v1.1.1
 
 Features:
 - Alert resolution notifications
@@ -134,20 +134,20 @@ Fixes:
 "
 
 # Push tag
-git push origin v1.7.0
+git push origin v1.1.1
 ```
 
 ### 4. Automatic Image Build
 
 When the tag is pushed, GitHub Actions will:
 1. Build the Docker image
-2. Push with tags: `v1.7.0`, `1.7.0`, `1.7`, `latest`, `stable`
+2. Push with tags: `v1.1.1`, `1.1.1`, `1.1`, `latest`, `stable`
 
 ### 5. Create GitHub Release
 
 1. Go to Releases page
 2. Click "Draft a new release"
-3. Select tag `v1.7.0`
+3. Select tag `v1.1.1`
 4. Add release notes
 5. Publish
 
@@ -156,8 +156,8 @@ When the tag is pushed, GitHub Actions will:
 We follow [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** (v2.0.0): Breaking changes
-- **MINOR** (v1.7.0): New features, backwards compatible
-- **PATCH** (v1.6.1): Bug fixes only
+- **MINOR** (v1.1.1): New features, backwards compatible
+- **PATCH** (v1.1.2): Bug fixes only
 
 ## Hotfix Process
 
@@ -175,8 +175,8 @@ git commit -m "Fix critical bug"
 # After merge, tag immediately
 git checkout main
 git pull
-git tag -a v1.6.1 -m "Hotfix: Critical bug fix"
-git push origin v1.6.1
+git tag -a v1.1.2 -m "Hotfix: Critical bug fix"
+git push origin v1.1.2
 
 # Also merge fix back to develop
 git checkout develop
@@ -212,9 +212,9 @@ If a release has issues:
 
 ```bash
 # Roll back to previous version
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.5.0
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.0
 docker-compose down
-# Update docker-compose.yml to use v1.5.0
+# Update docker-compose.yml to use v1.1.0
 docker-compose up -d
 ```
 

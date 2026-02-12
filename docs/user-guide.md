@@ -2,7 +2,7 @@
 
 > Complete documentation for IPMI Monitor - a web-based server hardware monitoring tool.
 
-**Version:** v1.1.0 | **Last Updated:** 2026-01-24
+**Version:** v1.1.1 | **Last Updated:** 2026-01-24
 
 ---
 
