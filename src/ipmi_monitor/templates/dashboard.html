@@ -1851,13 +1851,13 @@
                     
                     <!-- AI Tabs -->
                     <div class="ai-tabs">
-                        <button class="ai-tab" onclick="switchAiTab('agent')" id="agentTabBtn">🤖 Agent</button>
-                        <button class="ai-tab active" onclick="switchAiTab('summary')">📊 Summary</button>
-                        <button class="ai-tab" onclick="switchAiTab('tasks')">🔧 Maintenance Tasks</button>
-                        <button class="ai-tab" onclick="switchAiTab('predictions')">🔮 Predictions</button>
-                        <button class="ai-tab" onclick="switchAiTab('rca')">🔍 RCA</button>
-                        <button class="ai-tab" onclick="switchAiTab('chat')">💬 Chat</button>
-                        <button class="ai-tab" onclick="switchAiTab('usage')">📈 Usage</button>
+                        <button class="ai-tab" onclick="switchAiTab('agent', event)" id="agentTabBtn">🤖 Agent</button>
+                        <button class="ai-tab active" onclick="switchAiTab('summary', event)">📊 Summary</button>
+                        <button class="ai-tab" onclick="switchAiTab('tasks', event)">🔧 Maintenance Tasks</button>
+                        <button class="ai-tab" onclick="switchAiTab('predictions', event)">🔮 Predictions</button>
+                        <button class="ai-tab" onclick="switchAiTab('rca', event)">🔍 RCA</button>
+                        <button class="ai-tab" onclick="switchAiTab('chat', event)">💬 Chat</button>
+                        <button class="ai-tab" onclick="switchAiTab('usage', event)">📈 Usage</button>
                     </div>
                     
                     <!-- Agent Tab (NEW) -->
@@ -3018,7 +3018,7 @@
             }
         }
         
-        function loadAiTabEmbed(tabName) {
+        function loadAiTabEmbed(tabName, forceRefresh = false) {
             if (!aiEmbedConfig || !aiEmbedConfig.embeds) return false;
             
             const embedUrl = aiEmbedConfig.embeds[tabName];
@@ -3031,7 +3031,12 @@
             // Check if iframe already exists
             const existingIframe = tabContent.querySelector('.ai-embed-iframe');
             if (existingIframe) {
-                return true; // Already loaded
+                if (forceRefresh) {
+                    // Force reload by updating src with cache-busting parameter
+                    const separator = embedUrl.includes('?') ? '&' : '?';
+                    existingIframe.src = embedUrl + separator + '_t=' + Date.now();
+                }
+                return true;
             }
             
             // Add iframe container - must fill entire panel (no min-height constraints)
@@ -3054,10 +3059,12 @@
             return true;
         }
         
-        function switchAiTab(tabName) {
+        function switchAiTab(tabName, evt) {
             // Update tab buttons
             document.querySelectorAll('.ai-tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            // Use the passed event or fallback to find the tab button by data attribute
+            const clickedTab = (evt && evt.target) ? evt.target.closest('.ai-tab') : document.querySelector(`.ai-tab[onclick*="'${tabName}'"]`);
+            if (clickedTab) clickedTab.classList.add('active');
             
             // Update tab content
             document.querySelectorAll('.ai-tab-content').forEach(content => content.classList.remove('active'));
@@ -3066,7 +3073,8 @@
             // Try to load embed for this tab if embeds are enabled
             // ALL AI tabs are served as iframes from the AI service (closed-source)
             if (useAiEmbeds && ['summary', 'tasks', 'predictions', 'rca', 'usage', 'chat', 'agent'].includes(tabName)) {
-                loadAiTabEmbed(tabName);
+                // Force refresh on tab click so data is always up-to-date
+                loadAiTabEmbed(tabName, true);
             }
             
             // Fallbacks for inline mode (when embeds not available)

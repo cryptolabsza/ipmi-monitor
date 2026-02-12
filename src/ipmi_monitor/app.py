@@ -19424,6 +19424,8 @@ def init_db():
                     if 'server' not in existing_tables:
                         db.create_all()
                         app.logger.info("Database tables created")
+                        # Run migrations for tables not managed by SQLAlchemy models (e.g. ssh_logs)
+                        _run_migrations(db.inspect(db.engine))
                     else:
                         app.logger.info("Database tables already exist")
                         # Run migrations for new columns/tables
