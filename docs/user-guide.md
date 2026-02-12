@@ -1790,7 +1790,7 @@ Common causes:
 **Option 2: DC Overview with dc-exporter-rs (recommended)**
 ```bash
 # On each GPU server
-pip install dc-overview
+pipx install dc-overview
 dc-overview quickstart
 ```
 

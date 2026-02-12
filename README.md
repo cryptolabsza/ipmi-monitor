@@ -81,15 +81,9 @@ pipx ensurepath && source ~/.bashrc
 sudo ipmi-monitor setup
 ```
 
-**Ubuntu 22.04 / Python 3.10** (direct pip):
+**Ubuntu 22.04 / Python 3.10**:
 ```bash
-pip install ipmi-monitor
-sudo ipmi-monitor setup
-```
-
-**Alternative** (if you get "externally-managed-environment" error):
-```bash
-pip install ipmi-monitor --break-system-packages
+pipx install ipmi-monitor
 sudo ipmi-monitor setup
 ```
 
@@ -429,10 +423,10 @@ ipmi-monitor upgrade
 # Or just wait - cryptolabs-watchtower checks every 5 minutes
 ```
 
-### pip CLI Update
+### CLI Update
 
 ```bash
-pip install --upgrade ipmi-monitor
+pipx upgrade ipmi-monitor
 ```
 
 ### Docker Manual Update

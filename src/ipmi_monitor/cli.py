@@ -34,7 +34,7 @@ def main():
     
     \b
     Quick Start:
-        pip install ipmi-monitor
+        pipx install ipmi-monitor
         sudo ipmi-monitor setup
     
     \b

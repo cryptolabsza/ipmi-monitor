@@ -33,7 +33,7 @@ Deploy everything with a single command using a config file:
 
 ```bash
 # Install from dev branch (latest features)
-pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
+pipx install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev
 
 # Deploy with config file (no prompts)
 sudo ipmi-monitor quickstart -c /path/to/config.yaml -y

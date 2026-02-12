@@ -2,7 +2,7 @@
 IPMI Monitor QuickStart - One command Docker deployment
 
 The client runs:
-    pip install ipmi-monitor
+    pipx install ipmi-monitor
     sudo ipmi-monitor setup
 
 And answers a few questions. Docker containers are deployed automatically.
@@ -1403,7 +1403,7 @@ TRUSTED_PROXY_IPS=127.0.0.1,{STATIC_IPS['cryptolabs-proxy']}
                 console.print("[yellow]⚠[/yellow] IPMI Monitor is running but proxy is not available")
         else:
             console.print("[yellow]⚠[/yellow] cryptolabs-proxy module not installed, skipping proxy setup")
-            console.print("  Install with: [cyan]pip install cryptolabs-proxy[/cyan]")
+            console.print("  Install with: [cyan]pipx install cryptolabs-proxy[/cyan]")
     
     # Deploy Server Manager (dc-overview) container
     # This enables DC Watchdog deployment for clients with a CryptoLabs AI key
