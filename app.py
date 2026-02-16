@@ -13168,8 +13168,9 @@ def api_init_from_defaults():
 # ============== Server Configuration API ==============
 
 @app.route('/api/config/servers')
+@login_required
 def api_config_servers():
-    """Get all server configurations"""
+    """Get all server configurations (requires authentication)"""
     configs = ServerConfig.query.all()
     return jsonify([{
         'bmc_ip': c.bmc_ip,
@@ -13185,9 +13186,10 @@ def api_config_servers():
     } for c in configs])
 
 @app.route('/api/config/server/<bmc_ip>', methods=['GET', 'POST', 'PUT'])
+@login_required
 @require_valid_bmc_ip
 def api_config_server(bmc_ip):
-    """Get or update server configuration (POST/PUT require admin)"""
+    """Get or update server configuration (requires auth, POST/PUT require admin)"""
     # Require admin for modifications
     if request.method in ['POST', 'PUT'] and not is_admin():
         return jsonify({'error': 'Admin authentication required'}), 401

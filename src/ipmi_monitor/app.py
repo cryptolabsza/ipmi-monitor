@@ -13,11 +13,13 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from prometheus_client import Gauge, Counter, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry
 import subprocess
+import shlex
 import threading
 import time
 import json
 import os
 import re
+import uuid
 from pathlib import Path
 import hmac
 import ipaddress
@@ -232,6 +234,10 @@ def run_ssh_secure(server_ip, ssh_user, ssh_pass=None, ssh_key=None, command='',
     env = os.environ.copy()
     
     try:
+        # Sanitize inputs to prevent command injection
+        safe_user = shlex.quote(ssh_user) if ssh_user else 'root'
+        safe_ip = shlex.quote(server_ip) if server_ip else ''
+        
         if ssh_key:
             # Write key to temp file
             import tempfile
@@ -239,14 +245,14 @@ def run_ssh_secure(server_ip, ssh_user, ssh_pass=None, ssh_key=None, command='',
             os.write(fd, ssh_key.encode() if isinstance(ssh_key, str) else ssh_key)
             os.close(fd)
             os.chmod(key_file_path, 0o600)
-            cmd = ['ssh', '-i', key_file_path] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+            cmd = ['ssh', '-i', key_file_path] + ssh_opts + [f'{safe_user}@{safe_ip}', command]
         elif ssh_pass:
             # Try sshpass with environment variable first (more secure)
             env['SSHPASS'] = ssh_pass
-            cmd = ['sshpass', '-e', 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+            cmd = ['sshpass', '-e', 'ssh'] + ssh_opts + [f'{safe_user}@{safe_ip}', command]
         else:
             # No password - try with default SSH key
-            cmd = ['ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+            cmd = ['ssh'] + ssh_opts + [f'{safe_user}@{safe_ip}', command]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
         return result
@@ -1987,7 +1993,7 @@ class IPMIEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bmc_ip = db.Column(db.String(20), nullable=False, index=True)
     server_name = db.Column(db.String(50), nullable=False, index=True)
-    sel_id = db.Column(db.String(10), nullable=False)
+    sel_id = db.Column(db.String(20), nullable=False)
     event_date = db.Column(db.DateTime, nullable=False, index=True)
     sensor_type = db.Column(db.String(50), nullable=False, index=True)
     sensor_id = db.Column(db.String(20))
@@ -3784,6 +3790,10 @@ def run_ssh_command(server_ip, command, ssh_user='root', ssh_key_content=None, s
     key_file_path = None
     
     try:
+        # Sanitize SSH user and IP to prevent injection
+        safe_user = shlex.quote(ssh_user) if ssh_user else 'root'
+        safe_ip = shlex.quote(server_ip) if server_ip else ''
+        
         if ssh_key_content:
             # Write key to temp file
             key_content_clean = ssh_key_content.replace('\r\n', '\n').strip() + '\n'
@@ -3793,12 +3803,12 @@ def run_ssh_command(server_ip, command, ssh_user='root', ssh_key_content=None, s
             os.chmod(key_file.name, 0o600)
             key_file_path = key_file.name
             cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', '-i', key_file_path, 
-                   f'{ssh_user}@{server_ip}', command]
+                   f'{safe_user}@{safe_ip}', command]
         elif ssh_pass:
-            cmd = ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{ssh_user}@{server_ip}', command]
+            cmd = ['sshpass', '-p', ssh_pass, 'ssh'] + ssh_opts + [f'{safe_user}@{safe_ip}', command]
         else:
             # Try default SSH key
-            cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{ssh_user}@{server_ip}', command]
+            cmd = ['ssh'] + ssh_opts + ['-o', 'BatchMode=yes', f'{safe_user}@{safe_ip}', command]
         
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
@@ -10255,15 +10265,31 @@ def api_execute_command(bmc_ip):
             # Execute IPMI command
             user, password = get_ipmi_credentials(bmc_ip)
             
-            # Validate the command doesn't contain dangerous operations
-            dangerous_patterns = ['sel', 'clear', 'user', 'password', 'set', 'chassis']
+            # Validate the IPMI command against allowed commands
+            ALLOWED_IPMI_COMMANDS = [
+                'sensor', 'sdr', 'sel', 'fru', 'power', 'chassis', 'lan', 'mc',
+                'bmc', 'channel', 'event', 'session', 'dcmi', 'delloem', 'sunoem',
+                'raw', 'sol'
+            ]
+            cmd_parts = command.split()
+            if not cmd_parts:
+                return jsonify({'status': 'error', 'message': 'Empty command'}), 400
+            
+            # Reject shell metacharacters to prevent injection
+            if re.search(r'[;&|`$(){}[\]<>\\"\']', command):
+                app.logger.warning(f"AUDIT: BLOCKED command with shell metacharacters from {admin_username}: {command}")
+                return jsonify({'status': 'error', 'message': 'Command contains disallowed characters'}), 400
+            
+            if cmd_parts[0].lower() not in ALLOWED_IPMI_COMMANDS:
+                app.logger.warning(f"AUDIT: BLOCKED disallowed IPMI command from {admin_username}: {command}")
+                return jsonify({'status': 'error', 'message': f'Command "{cmd_parts[0]}" not in allowed list: {", ".join(ALLOWED_IPMI_COMMANDS)}'}), 400
+            
+            dangerous_patterns = ['clear', 'user', 'password', 'set']
             cmd_lower = command.lower()
             if any(pattern in cmd_lower for pattern in dangerous_patterns):
-                # Allow but warn about dangerous commands
                 app.logger.warning(f"AUDIT: Potentially dangerous IPMI command: {command}")
             
-            # Build IPMI command - only allow specific commands for safety
-            cmd_parts = command.split()
+            # Build IPMI command with validated parts
             full_cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
                        '-U', user, '-P', password] + cmd_parts
             
@@ -10272,7 +10298,7 @@ def api_execute_command(bmc_ip):
             audit_entry['exit_code'] = result.returncode
             audit_entry['output_lines'] = len(result.stdout.strip().split('\n')) if result.stdout else 0
             
-            # Log the audit entry as an event
+            # Log the audit entry as an event (unique sel_id per command)
             event = IPMIEvent(
                 bmc_ip=bmc_ip,
                 server_name=server_name,
@@ -10280,7 +10306,7 @@ def api_execute_command(bmc_ip):
                 sensor_type='Admin Command',
                 event_description=f'IPMI command executed by {admin_username}: {command[:100]}...',
                 severity='info',
-                sel_id='ADMIN-CMD'
+                sel_id=f'AC-{uuid.uuid4().hex[:8]}'
             )
             db.session.add(event)
             db.session.commit()
@@ -10313,7 +10339,7 @@ def api_execute_command(bmc_ip):
                 if key:
                     ssh_key_content = key.key_content
             
-            # Log the audit entry as an event
+            # Log the audit entry as an event (unique sel_id per command)
             event = IPMIEvent(
                 bmc_ip=bmc_ip,
                 server_name=server_name,
@@ -10321,7 +10347,7 @@ def api_execute_command(bmc_ip):
                 sensor_type='Admin Command',
                 event_description=f'SSH command executed by {admin_username}: {command[:100]}...',
                 severity='info',
-                sel_id='ADMIN-SSH'
+                sel_id=f'AS-{uuid.uuid4().hex[:8]}'
             )
             db.session.add(event)
             db.session.commit()
@@ -13617,8 +13643,9 @@ def api_init_from_defaults():
 # ============== Server Configuration API ==============
 
 @app.route('/api/config/servers')
+@login_required
 def api_config_servers():
-    """Get all server configurations"""
+    """Get all server configurations (requires authentication)"""
     configs = ServerConfig.query.all()
     return jsonify([{
         'bmc_ip': c.bmc_ip,
@@ -13634,9 +13661,10 @@ def api_config_servers():
     } for c in configs])
 
 @app.route('/api/config/server/<bmc_ip>', methods=['GET', 'POST', 'PUT'])
+@login_required
 @require_valid_bmc_ip
 def api_config_server(bmc_ip):
-    """Get or update server configuration (POST/PUT require admin)"""
+    """Get or update server configuration (requires auth, POST/PUT require admin)"""
     # Require admin for modifications
     if request.method in ['POST', 'PUT'] and not is_admin():
         return jsonify({'error': 'Admin authentication required'}), 401
@@ -17683,24 +17711,30 @@ def api_ai_agent_execute_recovery():
     
     result = {'success': False, 'action': action, 'target': target}
     
+    # Validate target to prevent command injection (alphanumeric, dash, underscore, dots, colons for PCI)
+    if target and not re.match(r'^[a-zA-Z0-9._:/-]+$', target):
+        return jsonify({'error': 'Invalid target format - only alphanumeric, dash, underscore, dot, colon, slash allowed'}), 400
+    
     try:
         if action == 'kill_vm':
             # Kill KVM VM to recover GPU
             if not target:
                 return jsonify({'error': 'target (VM name) is required'}), 400
             
+            safe_target = shlex.quote(target)
+            
             # Check VM state first
-            check = run_ssh(f'virsh domstate {target} 2>&1')
+            check = run_ssh(f'virsh domstate {safe_target} 2>&1')
             if not check['success'] or 'running' not in check.get('stdout', ''):
                 result['error'] = f'VM {target} is not running'
                 return jsonify(result), 400
             
             # Kill the VM
             if force:
-                kill_result = run_ssh(f'virsh destroy {target}')
+                kill_result = run_ssh(f'virsh destroy {safe_target}')
                 action_name = 'destroyed'
             else:
-                kill_result = run_ssh(f'virsh shutdown {target}')
+                kill_result = run_ssh(f'virsh shutdown {safe_target}')
                 action_name = 'shutdown initiated'
             
             if kill_result['success']:
@@ -17730,7 +17764,8 @@ def api_ai_agent_execute_recovery():
             if not target:
                 return jsonify({'error': 'target (container name) is required'}), 400
             
-            stop_result = run_ssh(f'docker stop {target}')
+            safe_target = shlex.quote(target)
+            stop_result = run_ssh(f'docker stop {safe_target}')
             
             if stop_result['success']:
                 event = Event(
@@ -17752,7 +17787,11 @@ def api_ai_agent_execute_recovery():
         elif action == 'soft_reset_gpu':
             # nvidia-smi GPU reset
             gpu_id = target or '0'
-            reset_result = run_ssh(f'nvidia-smi -r -i {gpu_id} 2>&1')
+            # Validate GPU ID is numeric
+            if not re.match(r'^\d+$', str(gpu_id)):
+                return jsonify({'error': 'GPU ID must be numeric'}), 400
+            safe_gpu_id = shlex.quote(str(gpu_id))
+            reset_result = run_ssh(f'nvidia-smi -r -i {safe_gpu_id} 2>&1')
             
             result['success'] = reset_result['success']
             result['output'] = reset_result.get('stdout', '') + reset_result.get('stderr', '')
@@ -17764,8 +17803,13 @@ def api_ai_agent_execute_recovery():
             if not target:
                 return jsonify({'error': 'target (PCI address like 0000:01:00.0) is required'}), 400
             
+            # Validate PCI address format strictly
+            if not re.match(r'^[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F]$', target):
+                return jsonify({'error': 'Invalid PCI address format. Expected: 0000:01:00.0'}), 400
+            
+            safe_target = shlex.quote(target)
             # WARNING: This is disruptive!
-            remove_result = run_ssh(f'echo 1 > /sys/bus/pci/devices/{target}/remove && sleep 2')
+            remove_result = run_ssh(f'echo 1 > /sys/bus/pci/devices/{safe_target}/remove && sleep 2')
             if not remove_result['success']:
                 result['error'] = f'Failed to remove PCI device: {remove_result.get("stderr")}'
                 return jsonify(result), 500
