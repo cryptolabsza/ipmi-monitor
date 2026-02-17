@@ -1,15 +1,5 @@
 FROM python:3.11-slim
 
-# Build arguments for version info
-ARG GIT_COMMIT=unknown
-ARG GIT_BRANCH=unknown
-ARG BUILD_TIME=unknown
-
-# Set as environment variables (available at runtime)
-ENV GIT_COMMIT=${GIT_COMMIT}
-ENV GIT_BRANCH=${GIT_BRANCH}
-ENV BUILD_TIME=${BUILD_TIME}
-
 # Install ipmitool, openssh-client, sshpass, and iputils-ping (for connectivity checks)
 RUN apt-get update && apt-get install -y \
     ipmitool \
@@ -30,6 +20,16 @@ COPY . .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
+
+# Build arguments for version info (placed AFTER COPY to bust cache on every build)
+ARG GIT_COMMIT=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILD_TIME=unknown
+
+# Set as environment variables (available at runtime)
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV GIT_BRANCH=${GIT_BRANCH}
+ENV BUILD_TIME=${BUILD_TIME}
 
 EXPOSE 5000
 
