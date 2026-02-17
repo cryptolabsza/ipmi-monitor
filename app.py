@@ -18,6 +18,7 @@ import time
 import json
 import os
 import re
+import uuid
 import hmac
 import ipaddress
 import requests
@@ -320,7 +321,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.1.1'  # Docker setup release
+APP_VERSION = os.environ.get('APP_VERSION', 'dev')
 
 def get_build_info():
     """
@@ -1960,7 +1961,7 @@ class IPMIEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bmc_ip = db.Column(db.String(20), nullable=False, index=True)
     server_name = db.Column(db.String(50), nullable=False, index=True)
-    sel_id = db.Column(db.String(10), nullable=False)
+    sel_id = db.Column(db.String(20), nullable=False)
     event_date = db.Column(db.DateTime, nullable=False, index=True)
     sensor_type = db.Column(db.String(50), nullable=False, index=True)
     sensor_id = db.Column(db.String(20))
@@ -9837,7 +9838,7 @@ def api_execute_command(bmc_ip):
                 sensor_type='Admin Command',
                 event_description=f'IPMI command executed by {admin_username}: {command[:100]}...',
                 severity='info',
-                sel_id='ADMIN-CMD'
+                sel_id=f'AC-{uuid.uuid4().hex[:8]}'
             )
             db.session.add(event)
             db.session.commit()
@@ -9865,10 +9866,23 @@ def api_execute_command(bmc_ip):
             
             ssh_user = config.ssh_user or 'root'
             ssh_key_content = None
+            ssh_pass = getattr(config, 'ssh_pass', None)
+            
+            # 1. Server-specific SSH key
             if config.ssh_key_id:
                 key = SSHKey.query.get(config.ssh_key_id)
                 if key:
                     ssh_key_content = key.key_content
+            
+            # 2. Fall back to default SSH key from system settings
+            if not ssh_key_content and not ssh_pass:
+                default_key_id = SystemSettings.get('default_ssh_key_id')
+                if default_key_id:
+                    stored_key = SSHKey.query.get(int(default_key_id))
+                    if stored_key:
+                        ssh_key_content = stored_key.key_content
+                else:
+                    ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
             
             # Log the audit entry as an event
             event = IPMIEvent(
@@ -9878,7 +9892,7 @@ def api_execute_command(bmc_ip):
                 sensor_type='Admin Command',
                 event_description=f'SSH command executed by {admin_username}: {command[:100]}...',
                 severity='info',
-                sel_id='ADMIN-SSH'
+                sel_id=f'AS-{uuid.uuid4().hex[:8]}'
             )
             db.session.add(event)
             db.session.commit()
@@ -9889,7 +9903,7 @@ def api_execute_command(bmc_ip):
                     command,
                     ssh_user=ssh_user,
                     ssh_key_content=ssh_key_content,
-                    ssh_pass=getattr(config, 'ssh_pass', None)
+                    ssh_pass=ssh_pass
                 )
                 
                 return jsonify({
@@ -13168,8 +13182,9 @@ def api_init_from_defaults():
 # ============== Server Configuration API ==============
 
 @app.route('/api/config/servers')
+@login_required
 def api_config_servers():
-    """Get all server configurations"""
+    """Get all server configurations (requires authentication)"""
     configs = ServerConfig.query.all()
     return jsonify([{
         'bmc_ip': c.bmc_ip,
@@ -13185,9 +13200,10 @@ def api_config_servers():
     } for c in configs])
 
 @app.route('/api/config/server/<bmc_ip>', methods=['GET', 'POST', 'PUT'])
+@login_required
 @require_valid_bmc_ip
 def api_config_server(bmc_ip):
-    """Get or update server configuration (POST/PUT require admin)"""
+    """Get or update server configuration (requires auth, POST/PUT require admin)"""
     # Require admin for modifications
     if request.method in ['POST', 'PUT'] and not is_admin():
         return jsonify({'error': 'Admin authentication required'}), 401

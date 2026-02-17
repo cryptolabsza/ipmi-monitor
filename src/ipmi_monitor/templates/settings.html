@@ -4010,7 +4010,7 @@
             
             try {
                 // Fetch server config including OS IP from Server table
-                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`));
+                const response = await fetch(apiUrl(`/api/config/server/${bmc_ip}`), { credentials: 'same-origin' });
                 if (response.ok) {
                     const data = await response.json();
                     // OS IP from Server table (managed servers)

@@ -99,7 +99,10 @@ jobs:
           echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
           echo "build_time=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
-          echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+          # Read actual semver from pyproject.toml
+          APP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=${APP_VERSION}" >> $GITHUB_OUTPUT
+          echo "📌 App version: ${APP_VERSION}"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
