@@ -18,6 +18,7 @@ import time
 import json
 import os
 import re
+import uuid
 import hmac
 import ipaddress
 import requests
@@ -1960,7 +1961,7 @@ class IPMIEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     bmc_ip = db.Column(db.String(20), nullable=False, index=True)
     server_name = db.Column(db.String(50), nullable=False, index=True)
-    sel_id = db.Column(db.String(10), nullable=False)
+    sel_id = db.Column(db.String(20), nullable=False)
     event_date = db.Column(db.DateTime, nullable=False, index=True)
     sensor_type = db.Column(db.String(50), nullable=False, index=True)
     sensor_id = db.Column(db.String(20))
@@ -9837,7 +9838,7 @@ def api_execute_command(bmc_ip):
                 sensor_type='Admin Command',
                 event_description=f'IPMI command executed by {admin_username}: {command[:100]}...',
                 severity='info',
-                sel_id='ADMIN-CMD'
+                sel_id=f'AC-{uuid.uuid4().hex[:8]}'
             )
             db.session.add(event)
             db.session.commit()
@@ -9878,7 +9879,7 @@ def api_execute_command(bmc_ip):
                 sensor_type='Admin Command',
                 event_description=f'SSH command executed by {admin_username}: {command[:100]}...',
                 severity='info',
-                sel_id='ADMIN-SSH'
+                sel_id=f'AS-{uuid.uuid4().hex[:8]}'
             )
             db.session.add(event)
             db.session.commit()
