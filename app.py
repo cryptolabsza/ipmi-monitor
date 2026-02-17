@@ -9866,10 +9866,23 @@ def api_execute_command(bmc_ip):
             
             ssh_user = config.ssh_user or 'root'
             ssh_key_content = None
+            ssh_pass = getattr(config, 'ssh_pass', None)
+            
+            # 1. Server-specific SSH key
             if config.ssh_key_id:
                 key = SSHKey.query.get(config.ssh_key_id)
                 if key:
                     ssh_key_content = key.key_content
+            
+            # 2. Fall back to default SSH key from system settings
+            if not ssh_key_content and not ssh_pass:
+                default_key_id = SystemSettings.get('default_ssh_key_id')
+                if default_key_id:
+                    stored_key = SSHKey.query.get(int(default_key_id))
+                    if stored_key:
+                        ssh_key_content = stored_key.key_content
+                else:
+                    ssh_pass = SystemSettings.get('ssh_password') or os.environ.get('SSH_PASS', '')
             
             # Log the audit entry as an event
             event = IPMIEvent(
@@ -9890,7 +9903,7 @@ def api_execute_command(bmc_ip):
                     command,
                     ssh_user=ssh_user,
                     ssh_key_content=ssh_key_content,
-                    ssh_pass=getattr(config, 'ssh_pass', None)
+                    ssh_pass=ssh_pass
                 )
                 
                 return jsonify({
