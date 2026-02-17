@@ -321,7 +321,7 @@ APP_NAME = os.environ.get('APP_NAME', 'IPMI Monitor')
 # =============================================================================
 # VERSION INFORMATION
 # =============================================================================
-APP_VERSION = '1.1.6'  # Synced with pyproject.toml
+APP_VERSION = os.environ.get('APP_VERSION', 'dev')
 
 def get_build_info():
     """

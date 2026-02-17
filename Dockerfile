@@ -25,11 +25,13 @@ RUN mkdir -p /app/data
 ARG GIT_COMMIT=unknown
 ARG GIT_BRANCH=unknown
 ARG BUILD_TIME=unknown
+ARG APP_VERSION=unknown
 
 # Set as environment variables (available at runtime)
 ENV GIT_COMMIT=${GIT_COMMIT}
 ENV GIT_BRANCH=${GIT_BRANCH}
 ENV BUILD_TIME=${BUILD_TIME}
+ENV APP_VERSION=${APP_VERSION}
 
 EXPOSE 5000
 
