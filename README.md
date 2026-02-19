@@ -6,18 +6,22 @@
 
 **Free, self-hosted IPMI/BMC monitoring for your server fleet.** Collect System Event Logs (SEL), monitor sensors, track ECC errors, and get alerts - all from a beautiful web dashboard.
 
-![Dashboard](docs/dashboard.png)
+![Dashboard](docs/screenshots/ipmi-dashboard-clean.png)
 
 ## 📸 Screenshots
 
 <table>
 <tr>
-<td><img src="docs/server-detail-events.png" alt="Events" width="400"/><br/><em>Event Log - Track SEL events</em></td>
-<td><img src="docs/server-detail-sensors.png" alt="Sensors" width="400"/><br/><em>Live Sensors - Temperature, fans, voltage</em></td>
+<td><img src="docs/screenshots/fleet-management-dashboard.png" alt="Fleet Management" width="400"/><br/><em>Fleet Management - Unified service dashboard</em></td>
+<td><img src="docs/screenshots/ipmi-dashboard-clean.png" alt="IPMI Dashboard" width="400"/><br/><em>IPMI Dashboard - Server status and events</em></td>
 </tr>
 <tr>
-<td><img src="docs/server-detail-inventory.png" alt="Inventory" width="400"/><br/><em>Hardware Inventory - CPU, Memory, Storage</em></td>
-<td><img src="docs/server-detail-syslogs.png" alt="System Logs" width="400"/><br/><em>System Logs - SSH-based dmesg, syslog, journalctl</em></td>
+<td><img src="docs/screenshots/ipmi-sensors.png" alt="Sensors" width="400"/><br/><em>Live Sensors - Temperature, fans, voltage</em></td>
+<td><img src="docs/screenshots/ipmi-inventory.png" alt="Inventory" width="400"/><br/><em>Hardware Inventory - CPU, Memory, GPU, Storage</em></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/grafana-dc-overview.png" alt="Grafana DC Overview" width="400"/><br/><em>Grafana - GPU temps, fans, power, VRAM, throttle</em></td>
+<td><img src="docs/screenshots/grafana-vast-dashboard.png" alt="Grafana Vast Dashboard" width="400"/><br/><em>Vast.ai Dashboard - Earnings, GPU usage, power</em></td>
 </tr>
 </table>
 
