@@ -1050,14 +1050,14 @@ class RedfishClient:
             else:
                 event_date = datetime.utcnow()
             
-            # Map severity
+            # Map severity (case-insensitive to handle vendor variations)
             severity_map = {
-                'Critical': 'critical',
-                'Warning': 'warning',
-                'OK': 'info',
-                'Informational': 'info'
+                'critical': 'critical',
+                'warning': 'warning',
+                'ok': 'info',
+                'informational': 'info'
             }
-            mapped_severity = severity_map.get(severity, 'info')
+            mapped_severity = severity_map.get(severity.lower().strip(), 'info')
             
             return {
                 'sel_id': str(event_id),
@@ -5453,23 +5453,47 @@ def safe_error_message(e, default_msg="An error occurred"):
     
     return error_msg
 
-def classify_severity(event_text):
-    """Classify event severity based on keywords"""
-    event_lower = event_text.lower()
-    
-    critical_keywords = ['critical', 'fail', 'fault', 'error', 'non-recoverable', 
-                         'power supply ac lost', 'temperature.*upper critical',
-                         'voltage.*lower critical', 'voltage.*upper critical']
-    warning_keywords = ['warning', 'non-critical', 'predictive', 'threshold']
-    
+def classify_severity(event_text, sensor_type=''):
+    """Classify event severity based on keywords in description and sensor type."""
+    combined = f"{sensor_type} {event_text}".lower()
+
+    # Deasserted = alarm cleared → always informational
+    if 'deasserted' in combined:
+        return 'info'
+
+    # Non-critical thresholds are warnings even though they contain "critical"
+    if 'non-critical' in combined:
+        return 'warning'
+
+    # Predictive failures (SMART) are warnings, not hard failures
+    if re.search(r'predictive.*fail', combined):
+        return 'warning'
+
+    critical_keywords = [
+        'critical', 'fail', 'fault', 'non-recoverable',
+        'power supply ac lost', 'temperature.*upper critical',
+        'voltage.*lower critical', 'voltage.*upper critical',
+        'critical interrupt', 'pci perr', 'pci serr', 'nmi',
+        'uncorrectable', 'machine check', 'bus error',
+        'system event', 'post error',
+    ]
+    warning_keywords = [
+        'warning', 'predictive', 'threshold',
+        'correctable', 'ecc', 'going low', 'going high',
+        'limit exceeded', 'degraded',
+    ]
+
     for keyword in critical_keywords:
-        if re.search(keyword, event_lower):
+        if re.search(keyword, combined):
             return 'critical'
-    
+
     for keyword in warning_keywords:
-        if re.search(keyword, event_lower):
+        if re.search(keyword, combined):
             return 'warning'
-    
+
+    if 'asserted' in combined:
+        return 'warning'
+
     return 'info'
 
 def decode_ecc_event_data(event_data_hex):
@@ -5751,7 +5775,7 @@ def parse_sel_line(line, bmc_ip, server_name):
             
             enhanced_desc = ' | '.join(enhanced_parts)
             
-            severity = classify_severity(event_desc)
+            severity = classify_severity(event_desc, sensor_type)
             
             return IPMIEvent(
                 bmc_ip=bmc_ip,
@@ -6104,7 +6128,7 @@ def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
             enhanced_parts.append(f'[Sensor 0x{sensor_number.upper()}]')
         
         enhanced_desc = ' | '.join(enhanced_parts)
-        severity = classify_severity(description)
+        severity = classify_severity(description, sensor_type)
         
         return IPMIEvent(
             bmc_ip=bmc_ip,
