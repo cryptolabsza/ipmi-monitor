@@ -11,12 +11,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
 # Copy application
 COPY . .
+
+# Install the package (includes dependencies from pyproject.toml)
+RUN pip install --no-cache-dir .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
@@ -39,5 +38,5 @@ EXPOSE 5000
 # Use 1 worker to prevent duplicate background collectors
 # (each worker spawns its own background_collector thread)
 # 8 threads handles concurrent requests adequately for dashboard use
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "8", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "8", "ipmi_monitor.app:app"]
 
