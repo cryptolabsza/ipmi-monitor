@@ -942,7 +942,7 @@ storage-server,192.168.1.102,,,,false`
             const top = (screen.height - height) / 2;
             
             const popup = window.open(
-                'https://cryptolabs.co.za/oauth/ipmi-authorize?redirect_uri=' + encodeURIComponent(window.location.origin + '/api/ai/oauth-callback'),
+                'https://cryptolabs.co.za/?clai_ipmi_oauth=1&redirect_uri=' + encodeURIComponent(window.location.origin + '/api/ai/oauth-callback'),
                 'CryptoLabs Login',
                 `width=${width},height=${height},left=${left},top=${top}`
             );
