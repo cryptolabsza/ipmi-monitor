@@ -8138,6 +8138,9 @@ def _cleanup_old_ssh_logs(days=7):
         app.logger.debug(f"[SSH Logs] Cleanup error: {e}")
 
 
+collector_thread = None  # Set by __main__ block; None when run via gunicorn
+
+
 def background_collector():
     """Start all background threads - job queue architecture"""
     print(f"[IPMI Monitor] Starting job queue architecture...", flush=True)
@@ -15390,12 +15393,15 @@ def health_check():
         health_status['status'] = 'degraded'
         health_status['checks']['database'] = f'error: {str(e)}'
     
-    # Check if collector thread is alive
-    if collector_thread and collector_thread.is_alive():
-        health_status['checks']['collector_thread'] = 'running'
+    # Check if collector thread is alive (only when started via __main__)
+    if collector_thread is not None:
+        if collector_thread.is_alive():
+            health_status['checks']['collector_thread'] = 'running'
+        else:
+            health_status['status'] = 'degraded'
+            health_status['checks']['collector_thread'] = 'not running'
     else:
-        health_status['status'] = 'degraded'
-        health_status['checks']['collector_thread'] = 'not running'
+        health_status['checks']['collector_thread'] = 'gunicorn (managed externally)'
     
     # Get last collection time
     try:
@@ -15405,7 +15411,9 @@ def health_check():
     except:
         pass
     
-    status_code = 200 if health_status['status'] == 'healthy' else 503
+    # 503 only for critical failures (DB down), not for missing collector
+    db_ok = health_status['checks'].get('database') == 'ok'
+    status_code = 200 if db_ok else 503
     return jsonify(health_status), status_code
 
 
