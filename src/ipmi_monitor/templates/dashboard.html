@@ -4264,7 +4264,14 @@
                     summaryOutput.style.display = 'block';
                     const summaryContent = document.getElementById('aiSummaryContent');
                     const summaryTime = document.getElementById('summaryTime');
-                    if (summaryContent) summaryContent.innerHTML = formatAiContent(data.summary.content);
+                    // Try structured JSON first, fall back to legacy
+                    let parsed = null;
+                    try { parsed = JSON.parse(data.summary.content); } catch(e) {}
+                    if (parsed && parsed.status) {
+                        if (summaryContent) summaryContent.innerHTML = renderStructuredSummary(parsed);
+                    } else if (summaryContent) {
+                        summaryContent.innerHTML = formatAiContent(data.summary.content);
+                    }
                     if (summaryTime) summaryTime.textContent = data.summary.generated_at ? 
                         'Generated: ' + new Date(data.summary.generated_at).toLocaleString() : '';
                 }
@@ -4295,6 +4302,91 @@
             }
         }
         
+        function renderStructuredSummary(s) {
+            const statusIcon = {healthy: '✅', warning: '⚠️', critical: '🔴'}[s.status] || '❓';
+            const statusClass = s.status || 'healthy';
+            let html = '';
+
+            // Fleet status header — uses ai-task-card style
+            html += `<div class="ai-task-card ${statusClass === 'healthy' ? 'low' : statusClass}">
+                <div class="ai-task-header">
+                    <span class="ai-task-title">${statusIcon} Fleet Status: ${(s.status||'unknown').charAt(0).toUpperCase() + (s.status||'').slice(1)}</span>
+                    <span class="ai-task-priority ${statusClass === 'healthy' ? 'low' : statusClass}">${(s.status||'unknown').toUpperCase()}</span>
+                </div>
+                <div class="ai-task-meta">
+                    ${s.fleet_size || '?'} servers &bull; ${s.servers_healthy || 0} healthy &bull; ${s.servers_warning || 0} warning &bull; ${s.servers_critical || 0} critical &bull; ${s.event_count || 0} events in ${s.time_range_hours || 24}h
+                </div>
+                <p style="margin: 8px 0 0 0;">${s.executive_summary || ''}</p>
+            </div>`;
+
+            // Critical issues
+            if (s.critical_issues && s.critical_issues.length > 0) {
+                html += `<div class="ai-task-card critical">
+                    <div class="ai-task-header">
+                        <span class="ai-task-title">🔴 Critical Issues</span>
+                        <span class="ai-task-priority critical">${s.critical_issues.length} ISSUE${s.critical_issues.length > 1 ? 'S' : ''}</span>
+                    </div>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
+                s.critical_issues.forEach(i => {
+                    html += `<li style="margin-bottom: 6px;"><strong>${i.server}</strong> — ${i.component ? i.component + ': ' : ''}${i.description}`;
+                    if (i.action) html += `<br><span class="ai-task-meta">→ ${i.action}</span>`;
+                    html += `</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            // Warnings
+            if (s.warnings && s.warnings.length > 0) {
+                html += `<div class="ai-task-card medium">
+                    <div class="ai-task-header">
+                        <span class="ai-task-title">⚠️ Warnings</span>
+                        <span class="ai-task-priority medium">${s.warnings.length} WARNING${s.warnings.length > 1 ? 'S' : ''}</span>
+                    </div>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
+                s.warnings.forEach(w => {
+                    html += `<li style="margin-bottom: 4px;"><strong>${w.server}</strong> — ${w.description}${w.trend ? ` <em>(${w.trend})</em>` : ''}</li>`;
+                });
+                html += `</ul></div>`;
+            }
+
+            // Recommendations
+            if (s.recommendations && s.recommendations.length > 0) {
+                s.recommendations.forEach(r => {
+                    const p = r.priority || 'medium';
+                    html += `<div class="ai-task-card ${p}">
+                        <div class="ai-task-header">
+                            <span class="ai-task-title">💡 ${r.text}</span>
+                            <span class="ai-task-priority ${p}">${p.toUpperCase()}</span>
+                        </div>
+                    </div>`;
+                });
+            }
+
+            // Patterns
+            if (s.patterns && s.patterns.length > 0) {
+                html += `<div class="ai-task-card low">
+                    <div class="ai-task-header">
+                        <span class="ai-task-title">📊 Detected Patterns</span>
+                    </div>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
+                s.patterns.forEach(p => { html += `<li>${p}</li>`; });
+                html += `</ul></div>`;
+            }
+
+            // Positive notes
+            if (s.positive_notes && s.positive_notes.length > 0) {
+                html += `<div class="ai-task-card low">
+                    <div class="ai-task-header">
+                        <span class="ai-task-title">✅ Positive Notes</span>
+                    </div>
+                    <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
+                s.positive_notes.forEach(n => { html += `<li>${n}</li>`; });
+                html += `</ul></div>`;
+            }
+
+            return html;
+        }
+
         function formatAiContent(content) {
             // Strip markdown code blocks (```html ... ```)
             content = content.trim();
@@ -4430,7 +4522,12 @@
                 const data = await response.json();
                 
                 document.getElementById('summaryOutput').style.display = 'block';
-                if (data.summary && (data.summary.html || data.summary.content)) {
+                if (data.summary && data.summary.status) {
+                    // Structured JSON summary (new format)
+                    document.getElementById('aiSummaryContent').innerHTML = renderStructuredSummary(data.summary);
+                    document.getElementById('summaryTime').textContent = 'Generated: ' + new Date().toLocaleString();
+                } else if (data.summary && (data.summary.html || data.summary.content)) {
+                    // Legacy free-form HTML/markdown
                     document.getElementById('aiSummaryContent').innerHTML = data.summary.html || formatAiContent(data.summary.content);
                     document.getElementById('summaryTime').textContent = 'Generated: ' + new Date().toLocaleString();
                 } else if (data.error) {
