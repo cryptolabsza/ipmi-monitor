@@ -38,5 +38,4 @@ EXPOSE 5000
 # Use 1 worker to prevent duplicate background collectors
 # (each worker spawns its own background_collector thread)
 # 8 threads handles concurrent requests adequately for dashboard use
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "8", "ipmi_monitor.app:app"]
-
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "8", "ipmi_monitor.app:create_app()"]
