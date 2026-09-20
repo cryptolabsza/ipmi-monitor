@@ -1811,6 +1811,7 @@ _redfish_cache_lock = threading.Lock()
 
 # Prometheus Metrics
 PROM_REGISTRY = CollectorRegistry()
+_prometheus_refresh_lock = threading.Lock()
 
 # Server metrics
 prom_server_reachable = Gauge(
@@ -6950,11 +6951,12 @@ CPU_COUNT = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
 # Use more workers for high-latency connections - default to max(CPU_COUNT * 4, 10)
 DEFAULT_WORKERS = max(CPU_COUNT * 4, 10)
 COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', DEFAULT_WORKERS))
+MAX_SQLITE_COLLECTION_WORKERS = 8
 SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', 300))  # 5 minutes
 
 def get_collection_workers():
     """Get the configured number of collection workers.
-    Priority: SystemSettings > Environment > Default (max of CPU*4 or 10)
+    Priority: SystemSettings > Environment > Default, bounded for SQLite writes.
     Returns: int - number of workers
     """
     try:
@@ -6962,8 +6964,12 @@ def get_collection_workers():
             setting = SystemSettings.get('collection_workers', 'auto')
             if setting == 'auto' or setting == '0':
                 # Auto mode: use a reasonable default for high-latency connections
-                return DEFAULT_WORKERS
-            return int(setting)
+                workers = DEFAULT_WORKERS
+            else:
+                workers = int(setting)
+            if db.engine.dialect.name == 'sqlite':
+                return min(workers, MAX_SQLITE_COLLECTION_WORKERS)
+            return workers
     except:
         return DEFAULT_WORKERS
 
@@ -8723,22 +8729,21 @@ def _inventory_ack(binding, operation):
 
 
 def _begin_inventory_write_transaction():
-    """Serialize inventory read/compare/write work across worker processes."""
+    """Bound inventory lock waits, including commit, below DC's HTTP timeout."""
     if db.engine.dialect.name != 'sqlite':
-        return
-    last_error = None
-    for delay in (0, 0.02, 0.05, 0.1, 0.2, 0.4):
-        if delay:
-            time.sleep(delay)
-        try:
-            db.session.execute(text('BEGIN IMMEDIATE'))
-            return
-        except OperationalError as error:
-            db.session.rollback()
-            if 'locked' not in str(error).lower() and 'busy' not in str(error).lower():
-                raise
-            last_error = error
-    raise last_error
+        return True
+    connection = db.session.connection()
+    try:
+        # NullPool closes this request's connection at commit/rollback; collectors
+        # and later requests retain their configured sixty-second timeout.
+        connection.exec_driver_sql('PRAGMA busy_timeout = 1000')
+        connection.exec_driver_sql('BEGIN IMMEDIATE')
+    except OperationalError as error:
+        db.session.rollback()
+        if 'locked' in str(error).lower() or 'busy' in str(error).lower():
+            return False
+        raise
+    return True
 
 
 @app.route('/api/internal/inventory/reconcile', methods=['POST'])
@@ -8777,7 +8782,8 @@ def api_reconcile_dc_inventory():
         return jsonify({'error': 'source_id and server_id must be UUIDs'}), 400
 
     desired_lifecycle = 'deprecated' if data['operation'] == 'retire' else 'active'
-    _begin_inventory_write_transaction()
+    if not _begin_inventory_write_transaction():
+        return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
     try:
         binding = InventoryBinding.query.filter_by(
             source_id=source_id, source_server_id=source_server_id
@@ -8860,8 +8866,15 @@ def api_reconcile_dc_inventory():
             binding.lifecycle = desired_lifecycle
             binding.revision = data['revision']
 
+        accepted = _inventory_ack(binding, data['operation'])
         db.session.commit()
-        return jsonify({'accepted': _inventory_ack(binding, data['operation'])})
+        return jsonify({'accepted': accepted})
+    except OperationalError as error:
+        db.session.rollback()
+        if 'locked' in str(error).lower() or 'busy' in str(error).lower():
+            return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
+        app.logger.exception('Inventory reconciliation failed')
+        return jsonify({'error': 'Inventory reconciliation failed'}), 500
     except Exception:
         db.session.rollback()
         app.logger.exception('Inventory reconciliation failed')
@@ -8892,7 +8905,8 @@ def api_preview_inventory_retirement():
     if len(set(bmc_ips)) != len(bmc_ips):
         return jsonify({'error': 'bmc_ips must not contain duplicates'}), 400
 
-    _begin_inventory_write_transaction()
+    if not _begin_inventory_write_transaction():
+        return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
     bound_bmcs = {
         binding.bmc_ip for binding in InventoryBinding.query.filter(InventoryBinding.bmc_ip.in_(bmc_ips)).all()
     }
@@ -8917,7 +8931,13 @@ def api_preview_inventory_retirement():
 
     for server in servers:
         server.deprecate('Explicit inventory reconciliation retirement')
-    db.session.commit()
+    try:
+        db.session.commit()
+    except OperationalError as error:
+        db.session.rollback()
+        if 'locked' in str(error).lower() or 'busy' in str(error).lower():
+            return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
+        raise
     return jsonify({'apply': True, 'servers': preview})
 
 @app.route('/api/servers')
@@ -11244,14 +11264,30 @@ def api_clear_db_events(bmc_ip):
 
 # Prometheus Metrics Endpoint
 def update_prometheus_metrics():
-    """Update all Prometheus metrics from database"""
+    """Export current enabled inventory while leaving archive rows untouched."""
     cutoff_24h = datetime.utcnow() - timedelta(hours=24)
     cutoff_1h = datetime.utcnow() - timedelta(hours=1)
+    active_names = {
+        server.bmc_ip: server.server_name for server in Server.query.filter(
+            Server.enabled.is_(True),
+            db.or_(Server.status == 'active', Server.status.is_(None)),
+        ).all()
+    }
+    active_bmcs = tuple(active_names)
+
+    # Gauge children outlive database rows. Rebuild them each scrape so retirement,
+    # renaming and aging-out sensor readings also disappear from current metrics.
+    for gauge in (
+        prom_server_reachable, prom_server_power_on, prom_events_total,
+        prom_events_critical_24h, prom_events_warning_24h,
+        prom_temperature, prom_fan_speed, prom_voltage, prom_power_watts,
+    ):
+        gauge.clear()
     
     # Per-server metrics
-    servers = ServerStatus.query.all()
+    servers = ServerStatus.query.filter(ServerStatus.bmc_ip.in_(active_bmcs)).all()
     for s in servers:
-        labels = {'bmc_ip': s.bmc_ip, 'server_name': s.server_name}
+        labels = {'bmc_ip': s.bmc_ip, 'server_name': active_names[s.bmc_ip]}
         prom_server_reachable.labels(**labels).set(1 if s.is_reachable else 0)
         prom_server_power_on.labels(**labels).set(1 if s.power_status and 'on' in s.power_status.lower() else 0)
         prom_events_total.labels(**labels).set(s.total_events or 0)
@@ -11261,6 +11297,7 @@ def update_prometheus_metrics():
     # Sensor metrics - get latest reading per sensor (within last hour)
     try:
         sensors = SensorReading.query.filter(
+            SensorReading.bmc_ip.in_(active_bmcs),
             SensorReading.collected_at >= cutoff_1h
         ).all()
         
@@ -11278,7 +11315,7 @@ def update_prometheus_metrics():
             
             labels = {
                 'bmc_ip': sensor.bmc_ip,
-                'server_name': sensor.server_name,
+                'server_name': active_names[sensor.bmc_ip],
                 'sensor_name': sensor.sensor_name
             }
             
@@ -11292,11 +11329,12 @@ def update_prometheus_metrics():
                 # Power sensors from regular IPMI sensors (e.g. "Pwr Consumption")
                 prom_power_watts.labels(
                     bmc_ip=sensor.bmc_ip,
-                    server_name=sensor.server_name
+                    server_name=active_names[sensor.bmc_ip]
                 ).set(sensor.value)
         
         # Also check PowerReading table (from DCMI power reading)
         power_readings = PowerReading.query.filter(
+            PowerReading.bmc_ip.in_(active_bmcs),
             PowerReading.collected_at >= cutoff_1h
         ).all()
         
@@ -11309,19 +11347,21 @@ def update_prometheus_metrics():
             if reading.current_watts is not None:
                 prom_power_watts.labels(
                     bmc_ip=reading.bmc_ip,
-                    server_name=reading.server_name
+                    server_name=active_names[reading.bmc_ip]
                 ).set(reading.current_watts)
     except Exception as e:
         app.logger.warning(f"Error updating sensor metrics: {e}")
     
     # Aggregate metrics
-    prom_total_servers.set(len(servers))
+    prom_total_servers.set(len(active_bmcs))
     prom_reachable_servers.set(sum(1 for s in servers if s.is_reachable))
     prom_total_critical_24h.set(IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip.in_(active_bmcs),
         IPMIEvent.severity == 'critical',
         IPMIEvent.event_date >= cutoff_24h
     ).count())
     prom_total_warning_24h.set(IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip.in_(active_bmcs),
         IPMIEvent.severity == 'warning',
         IPMIEvent.event_date >= cutoff_24h
     ).count())
@@ -11329,13 +11369,14 @@ def update_prometheus_metrics():
     
     # Alert metrics
     try:
-        prom_alerts_total.set(AlertHistory.query.count())
-        prom_alerts_unacknowledged.set(AlertHistory.query.filter_by(acknowledged=False).count())
-        prom_alerts_critical_24h.set(AlertHistory.query.filter(
+        active_alerts = AlertHistory.query.filter(AlertHistory.bmc_ip.in_(active_bmcs))
+        prom_alerts_total.set(active_alerts.count())
+        prom_alerts_unacknowledged.set(active_alerts.filter_by(acknowledged=False).count())
+        prom_alerts_critical_24h.set(active_alerts.filter(
             AlertHistory.fired_at >= cutoff_24h,
             AlertHistory.severity == 'critical'
         ).count())
-        prom_alerts_warning_24h.set(AlertHistory.query.filter(
+        prom_alerts_warning_24h.set(active_alerts.filter(
             AlertHistory.fired_at >= cutoff_24h,
             AlertHistory.severity == 'warning'
         ).count())
@@ -15877,8 +15918,9 @@ def docs_raw():
 @app.route('/metrics')
 def prometheus_metrics():
     """Prometheus metrics endpoint"""
-    update_prometheus_metrics()
-    return Response(generate_latest(PROM_REGISTRY), mimetype=CONTENT_TYPE_LATEST)
+    with _prometheus_refresh_lock:
+        update_prometheus_metrics()
+        return Response(generate_latest(PROM_REGISTRY), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/health')
 def health_check():

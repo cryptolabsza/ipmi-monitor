@@ -8,6 +8,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import pytest
 
 
 def _headers(secret="inventory-secret"):
@@ -338,3 +339,55 @@ with app.test_client() as client:
             "SELECT COUNT(*) FROM inventory_binding WHERE bmc_ip = '10.20.0.90'"
         ).fetchone()[0]
     assert (status, enabled, binding_count) == ("active", 1, 1)
+
+
+@pytest.mark.parametrize("endpoint", ["reconcile", "retire-preview"])
+@pytest.mark.parametrize("lock_kind", ["writer", "reader"])
+def test_locked_receiver_returns_retryable_failure_before_sender_timeout(
+    app_fixture, monkeypatch, tmp_path, endpoint, lock_kind
+):
+    """A busy database cannot occupy receiver threads beyond DC's five-second timeout."""
+    _client, app, db, models = app_fixture
+    _configure_secret(monkeypatch, tmp_path)
+    with app.app_context():
+        db.session.add(models["Server"](
+            bmc_ip="10.20.0.90", server_name="ccc90", server_ip="10.10.0.90"
+        ))
+        db.session.commit()
+        database_path = db.engine.url.database
+
+    payload = _payload() if endpoint == "reconcile" else {
+        "bmc_ips": ["10.20.0.90"], "apply": True, "confirm_retire_count": 1,
+    }
+    path = f"/api/internal/inventory/{endpoint}"
+
+    def submit():
+        started = time.monotonic()
+        with app.test_client() as client:
+            response = client.post(path, json=payload, headers=_headers())
+            return response.status_code, response.headers.get("Retry-After"), time.monotonic() - started
+
+    blocker = sqlite3.connect(database_path)
+    blocker.execute("BEGIN IMMEDIATE" if lock_kind == "writer" else "BEGIN")
+    if lock_kind == "reader":
+        blocker.execute("SELECT * FROM server").fetchall()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending = executor.submit(submit)
+        try:
+            try:
+                outcome = pending.result(timeout=3)
+            except TimeoutError:
+                outcome = None
+        finally:
+            blocker.rollback()
+            blocker.close()
+        if outcome is None:
+            outcome = pending.result(timeout=3)
+
+    assert outcome[0] == 503
+    assert outcome[1] == "1"
+    assert outcome[2] < 3
+    with app.test_client() as client:
+        assert client.post(path, json=payload, headers=_headers()).status_code == 200
+    with app.app_context():
+        assert db.session.execute(db.text("PRAGMA busy_timeout")).scalar() == 60000
