@@ -27,6 +27,8 @@ import requests
 import urllib3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 # CryptoLabs Alert System integration (v1.1.0+)
 # Provides hooks for push notifications to CryptoLabs app, email, and web browser
@@ -1809,6 +1811,7 @@ _redfish_cache_lock = threading.Lock()
 
 # Prometheus Metrics
 PROM_REGISTRY = CollectorRegistry()
+_prometheus_refresh_lock = threading.Lock()
 
 # Server metrics
 prom_server_reachable = Gauge(
@@ -1987,6 +1990,23 @@ class Server(db.Model):
         self.enabled = True
         self.deprecated_at = None
         self.deprecated_reason = None
+
+
+class InventoryBinding(db.Model):
+    """A DC-owned server identity bound explicitly to one IPMI BMC record."""
+    id = db.Column(db.Integer, primary_key=True)
+    source_id = db.Column(db.String(64), nullable=False)
+    source_server_id = db.Column(db.String(64), nullable=False)
+    bmc_ip = db.Column(db.String(45), nullable=False, unique=True)
+    server_name = db.Column(db.String(100), nullable=False)
+    server_ip = db.Column(db.String(45), nullable=False)
+    lifecycle = db.Column(db.String(20), nullable=False, default='active')
+    revision = db.Column(db.Integer, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('source_id', 'source_server_id', name='unique_inventory_source_server'),
+    )
 
 class IPMIEvent(db.Model):
     """IPMI SEL Event"""
@@ -3487,6 +3507,9 @@ def sync_to_cloud(initial_sync=False):
             
             # Get inventory data for all servers
             inventories = ServerInventory.query.all()
+            inventory_bindings = {
+                binding.bmc_ip: binding for binding in InventoryBinding.query.all()
+            }
             
             # Generate instance fingerprint
             instance_id, fingerprint_data = generate_instance_fingerprint()
@@ -3502,7 +3525,15 @@ def sync_to_cloud(initial_sync=False):
                     'name': s.server_name,
                     'bmc_ip': s.bmc_ip,
                     'server_ip': s.server_ip,  # OS IP for SSH access
-                    'description': s.notes or ''
+                    'description': s.notes or '',
+                    # Provenance remains metadata inside the authenticated AI
+                    # license namespace; it never selects the customer.
+                    'source_id': inventory_bindings.get(s.bmc_ip).source_id
+                        if inventory_bindings.get(s.bmc_ip) else None,
+                    'source_server_id': inventory_bindings.get(s.bmc_ip).source_server_id
+                        if inventory_bindings.get(s.bmc_ip) else None,
+                    'lifecycle': s.status or 'active',
+                    'enabled': bool(s.enabled),
                 } for s in servers],
                 'events': [{
                     'id': str(e.id),
@@ -5800,15 +5831,24 @@ def get_ipmi_credentials(bmc_ip):
     
     Priority order:
     1. Per-server config in ServerConfig table
-    2. NVIDIA password if server has use_nvidia_password flag
-    3. Default credentials from SystemSettings (UI)
-    4. Environment variables (IPMI_USER, IPMI_PASS)
+    2. Explicit read-only BMC credential file, when configured
+    3. NVIDIA password if server has use_nvidia_password flag
+    4. Default credentials from SystemSettings (UI)
+    5. Environment variables (IPMI_USER, IPMI_PASS)
     """
     with app.app_context():
         # First check for per-server custom credentials
         config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
         if config and config.ipmi_user and config.ipmi_pass:
             return config.ipmi_user, config.ipmi_pass
+
+        file_credentials, file_error = _file_bmc_credentials(bmc_ip)
+        if file_error:
+            # A configured entry must never silently fall back to a shared
+            # credential. Do not include file contents in logs or responses.
+            return None, None
+        if file_credentials:
+            return file_credentials
         
         # Check if server has use_nvidia_password flag set in database
         server = Server.query.filter_by(bmc_ip=bmc_ip).first()
@@ -5829,6 +5869,45 @@ def get_ipmi_credentials(bmc_ip):
     password = IPMI_PASS_NVIDIA if bmc_ip in NVIDIA_BMCS else IPMI_PASS
     user = IPMI_USER
     return user, password
+
+
+def _file_bmc_credentials(bmc_ip):
+    """Resolve one exact BMC from a read-only JSON secret file.
+
+    Returns ``(credentials, has_error)``. A configured but unreadable file, or
+    a malformed entry for the requested BMC, is fail-closed. Missing entries
+    retain legacy behavior for unmanaged BMCs.
+    """
+    credentials_file = os.environ.get('IPMI_BMC_CREDENTIALS_FILE')
+    if not credentials_file:
+        return None, False
+    try:
+        with open(credentials_file, 'r', encoding='utf-8') as secret_file:
+            mapping = json.load(secret_file)
+        canonical_bmc_ip = str(ipaddress.ip_address(bmc_ip))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return None, True
+    if not isinstance(mapping, dict):
+        return None, True
+    entry = mapping.get(canonical_bmc_ip)
+    if entry is None:
+        return None, False
+    if not isinstance(entry, dict):
+        return None, True
+    username = entry.get('username')
+    password = entry.get('password')
+    if not isinstance(username, str) or not username.strip() or not isinstance(password, str) or not password:
+        return None, True
+    return (username.strip(), password), False
+
+
+def has_explicit_bmc_credentials(bmc_ip):
+    """Whether a BMC has a per-host credential source suitable for enrollment."""
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if config and config.ipmi_user and config.ipmi_pass:
+        return True
+    credentials, has_error = _file_bmc_credentials(bmc_ip)
+    return bool(credentials) and not has_error
 
 def get_ipmi_password(bmc_ip):
     """Get the correct password for a BMC (legacy function)"""
@@ -6638,56 +6717,200 @@ _shutdown_event = _threading.Event()
 # Events older than this are automatically deleted
 DATA_RETENTION_DAYS = int(os.environ.get('DATA_RETENTION_DAYS', 30))  # 30 days default
 CLEANUP_INTERVAL_HOURS = 6  # Run cleanup every 6 hours
+CLEANUP_BATCH_SIZE = max(1, int(os.environ.get('CLEANUP_BATCH_SIZE', 500)))
+CLEANUP_MAX_BATCHES = max(1, int(os.environ.get('CLEANUP_MAX_BATCHES', 20)))  # Per pass
+CLEANUP_MAX_SECONDS = max(1, int(os.environ.get('CLEANUP_MAX_SECONDS', 45)))  # Before next batch
+CLEANUP_CONTINUATION_SECONDS = max(1, int(os.environ.get('CLEANUP_CONTINUATION_SECONDS', 15)))
+_cleanup_target_cursor = 0
+_cleanup_target_cursor_lock = threading.Lock()
 
-def cleanup_old_data():
+
+def _delete_in_batches(
+    fetch_ids,
+    delete_ids,
+    *,
+    label,
+    batch_size=CLEANUP_BATCH_SIZE,
+    max_batches=CLEANUP_MAX_BATCHES,
+    deadline=None,
+    stop_event=_shutdown_event,
+    session_factory=None,
+    release_session=None,
+    after_batch=None,
+):
+    """Delete bounded batches, committing and releasing the SQLite connection each time."""
+    session_factory = session_factory or (lambda: db.session)
+    release_session = release_session or (lambda _session: db.session.remove())
+    result = {'deleted': 0, 'batches': 0, 'complete': False, 'failed': False}
+
+    for _ in range(max_batches):
+        if stop_event.is_set() or (deadline is not None and time.monotonic() >= deadline):
+            break
+
+        session = session_factory()
+        failed = False
+        try:
+            ids = fetch_ids(session, batch_size)
+            if not ids:
+                result['complete'] = True
+                return result
+
+            deleted = delete_ids(session, ids)
+            session.commit()
+        except Exception as exc:
+            session.rollback()
+            result['failed'] = True
+            failed = True
+            app.logger.warning("Data cleanup failed for %s batch: %s", label, exc)
+        finally:
+            release_session(session)
+
+        if failed:
+            return result
+
+        result['deleted'] += deleted
+        result['batches'] += 1
+        if after_batch:
+            after_batch(result)
+        if len(ids) < batch_size:
+            result['complete'] = True
+            return result
+
+    return result
+
+
+def _delete_expired_rows_in_batches(
+    model,
+    timestamp_column,
+    cutoff,
+    *,
+    label,
+    batch_size=CLEANUP_BATCH_SIZE,
+    max_batches=CLEANUP_MAX_BATCHES,
+    deadline=None,
+    stop_event=_shutdown_event,
+    session_factory=None,
+    release_session=None,
+    after_batch=None,
+):
+    """Delete expired SQLAlchemy rows by primary key in independently committed batches."""
+    def fetch_ids(session, limit):
+        return [row[0] for row in session.query(model.id).filter(
+            timestamp_column < cutoff
+        ).order_by(model.id).limit(limit).all()]
+
+    def delete_ids(session, ids):
+        return session.query(model).filter(model.id.in_(ids)).delete(synchronize_session=False)
+
+    return _delete_in_batches(
+        fetch_ids,
+        delete_ids,
+        label=label,
+        batch_size=batch_size,
+        max_batches=max_batches,
+        deadline=deadline,
+        stop_event=stop_event,
+        session_factory=session_factory,
+        release_session=release_session,
+        after_batch=after_batch,
+    )
+
+
+def _cleanup_has_more(results):
+    """Return whether a completed pass left safe, retryable retention work behind."""
+    return any(not result['complete'] and not result['failed'] for result in results.values())
+
+
+def _cleanup_wait_seconds(results):
+    """Choose a short scheduled continuation only while a bounded pass leaves work."""
+    if results and _cleanup_has_more(results):
+        return CLEANUP_CONTINUATION_SECONDS
+    return CLEANUP_INTERVAL_HOURS * 3600
+
+
+def _next_cleanup_target_index(target_count):
+    """Rotate retention categories so a large backlog cannot monopolise each pass."""
+    global _cleanup_target_cursor
+    with _cleanup_target_cursor_lock:
+        index = _cleanup_target_cursor % target_count
+        _cleanup_target_cursor = (index + 1) % target_count
+        return index
+
+
+def cleanup_old_data(
+    *,
+    now=None,
+    batch_size=CLEANUP_BATCH_SIZE,
+    max_batches=CLEANUP_MAX_BATCHES,
+    deadline=None,
+    stop_event=_shutdown_event,
+    session_factory=None,
+    release_session=None,
+):
     """
     Clean up old data to enforce retention policy.
     FREE tier: 30 days max retention.
     This keeps the database size manageable and ensures privacy.
     """
     with app.app_context():
-        try:
-            cutoff = datetime.utcnow() - timedelta(days=DATA_RETENTION_DAYS)
-            
-            # Delete old events
-            old_events = IPMIEvent.query.filter(IPMIEvent.event_date < cutoff).count()
-            if old_events > 0:
-                IPMIEvent.query.filter(IPMIEvent.event_date < cutoff).delete()
-                print(f"[IPMI Monitor] Data cleanup: Deleted {old_events} events older than {DATA_RETENTION_DAYS} days", flush=True)
-            
-            # Delete old sensor readings (keep last 7 days only for sensors)
-            sensor_cutoff = datetime.utcnow() - timedelta(days=7)
-            old_sensors = SensorReading.query.filter(SensorReading.collected_at < sensor_cutoff).count()
-            if old_sensors > 0:
-                SensorReading.query.filter(SensorReading.collected_at < sensor_cutoff).delete()
-                print(f"[IPMI Monitor] Data cleanup: Deleted {old_sensors} old sensor readings", flush=True)
-            
-            # Delete old power readings (keep last 7 days)
-            old_power = PowerReading.query.filter(PowerReading.collected_at < sensor_cutoff).count()
-            if old_power > 0:
-                PowerReading.query.filter(PowerReading.collected_at < sensor_cutoff).delete()
-                print(f"[IPMI Monitor] Data cleanup: Deleted {old_power} old power readings", flush=True)
-            
-            # Delete old alert history (keep last 30 days)
-            old_alerts = AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).count()
-            if old_alerts > 0:
-                AlertHistory.query.filter(AlertHistory.triggered_at < cutoff).delete()
-                print(f"[IPMI Monitor] Data cleanup: Deleted {old_alerts} old alert history", flush=True)
-            
-            # Delete expired AI results (if any)
-            try:
-                old_ai = AIResult.query.filter(AIResult.expires_at < datetime.utcnow()).count()
-                if old_ai > 0:
-                    AIResult.query.filter(AIResult.expires_at < datetime.utcnow()).delete()
-                    print(f"[IPMI Monitor] Data cleanup: Deleted {old_ai} expired AI results", flush=True)
-            except Exception:
-                pass  # AIResult table might not exist yet
-            
-            db.session.commit()
-            
-        except Exception as e:
-            db.session.rollback()
-            print(f"[IPMI Monitor] Data cleanup error: {e}", flush=True)
+        now = now or datetime.utcnow()
+        if deadline is None:
+            deadline = time.monotonic() + CLEANUP_MAX_SECONDS
+        cutoff = now - timedelta(days=DATA_RETENTION_DAYS)
+        sensor_cutoff = now - timedelta(days=7)
+        cleanup_targets = (
+            ('events', IPMIEvent, IPMIEvent.event_date, cutoff),
+            ('sensors', SensorReading, SensorReading.collected_at, sensor_cutoff),
+            ('power', PowerReading, PowerReading.collected_at, sensor_cutoff),
+            ('alerts', AlertHistory, AlertHistory.fired_at, cutoff),
+            ('ai_results', AIResult, AIResult.expires_at, now),
+        )
+        results = {
+            label: {'deleted': 0, 'batches': 0, 'complete': False, 'failed': False}
+            for label, *_ in cleanup_targets
+        }
+        pending = {label for label, *_ in cleanup_targets}
+        target_by_label = {target[0]: target for target in cleanup_targets}
+        batches_used = 0
+
+        while pending and batches_used < max_batches:
+            if stop_event.is_set() or time.monotonic() >= deadline:
+                break
+
+            label = cleanup_targets[_next_cleanup_target_index(len(cleanup_targets))][0]
+            if label not in pending:
+                continue
+
+            _, model, timestamp_column, target_cutoff = target_by_label[label]
+            batch_result = _delete_expired_rows_in_batches(
+                model,
+                timestamp_column,
+                target_cutoff,
+                label=label,
+                batch_size=batch_size,
+                max_batches=1,
+                deadline=deadline,
+                stop_event=stop_event,
+                session_factory=session_factory,
+                release_session=release_session,
+            )
+            result = results[label]
+            result['deleted'] += batch_result['deleted']
+            result['batches'] += batch_result['batches']
+            result['complete'] = batch_result['complete']
+            result['failed'] = batch_result['failed']
+            batches_used += batch_result['batches']
+
+            if batch_result['complete'] or batch_result['failed']:
+                pending.remove(label)
+            elif not batch_result['batches']:
+                break
+
+        for label, result in results.items():
+            if result['deleted']:
+                print(f"[IPMI Monitor] Data cleanup: Deleted {result['deleted']} expired {label}", flush=True)
+
+        return results
 
 
 # ============== Job Queue Architecture ==============
@@ -6728,11 +6951,12 @@ CPU_COUNT = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
 # Use more workers for high-latency connections - default to max(CPU_COUNT * 4, 10)
 DEFAULT_WORKERS = max(CPU_COUNT * 4, 10)
 COLLECTION_WORKERS = int(os.environ.get('COLLECTION_WORKERS', DEFAULT_WORKERS))
+MAX_SQLITE_COLLECTION_WORKERS = 8
 SYNC_INTERVAL = int(os.environ.get('SYNC_INTERVAL', 300))  # 5 minutes
 
 def get_collection_workers():
     """Get the configured number of collection workers.
-    Priority: SystemSettings > Environment > Default (max of CPU*4 or 10)
+    Priority: SystemSettings > Environment > Default, bounded for SQLite writes.
     Returns: int - number of workers
     """
     try:
@@ -6740,8 +6964,12 @@ def get_collection_workers():
             setting = SystemSettings.get('collection_workers', 'auto')
             if setting == 'auto' or setting == '0':
                 # Auto mode: use a reasonable default for high-latency connections
-                return DEFAULT_WORKERS
-            return int(setting)
+                workers = DEFAULT_WORKERS
+            else:
+                workers = int(setting)
+            if db.engine.dialect.name == 'sqlite':
+                return min(workers, MAX_SQLITE_COLLECTION_WORKERS)
+            return workers
     except:
         return DEFAULT_WORKERS
 
@@ -7451,7 +7679,11 @@ def connectivity_timer():
 
 def cleanup_timer():
     """Independent cleanup timer"""
-    print(f"[Cleanup Timer] Started (interval: {CLEANUP_INTERVAL_HOURS}h)", flush=True)
+    print(
+        f"[Cleanup Timer] Started (interval: {CLEANUP_INTERVAL_HOURS}h, "
+        f"continuation: {CLEANUP_CONTINUATION_SECONDS}s)",
+        flush=True,
+    )
     
     # Initial delay
     _shutdown_event.wait(300)
@@ -7459,12 +7691,16 @@ def cleanup_timer():
     while not _shutdown_event.is_set():
         try:
             with app.app_context():
-                cleanup_old_data()
+                results = cleanup_old_data()
         except Exception as e:
             print(f"[Cleanup Timer] Error: {e}", flush=True)
+            results = None
         
-        # Wait for next cleanup
-        _shutdown_event.wait(CLEANUP_INTERVAL_HOURS * 3600)
+        # Continue unfinished work soon, but every new batch still gets its own transaction.
+        wait_seconds = _cleanup_wait_seconds(results)
+        if wait_seconds == CLEANUP_CONTINUATION_SECONDS:
+            print(f"[Cleanup Timer] Backlog remains; continuing in {wait_seconds}s", flush=True)
+        _shutdown_event.wait(wait_seconds)
     
     print(f"[Cleanup Timer] Stopped", flush=True)
 
@@ -8122,20 +8358,49 @@ def _parse_runpod_logs(output, server_name):
     return entries
 
 
-def _cleanup_old_ssh_logs(days=7):
-    """Remove SSH logs older than specified days"""
-    try:
-        cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
-        result = db.session.execute(
-            db.text('DELETE FROM ssh_logs WHERE collected_at < :cutoff'),
-            {'cutoff': cutoff}
+def _cleanup_old_ssh_logs(
+    days=7,
+    *,
+    now=None,
+    batch_size=CLEANUP_BATCH_SIZE,
+    max_batches=CLEANUP_MAX_BATCHES,
+    deadline=None,
+    session_factory=None,
+    release_session=None,
+):
+    """Remove expired SSH logs in independently committed, bounded batches."""
+    cutoff = (now or datetime.utcnow()) - timedelta(days=days)
+
+    def fetch_ids(session, limit):
+        rows = session.execute(
+            db.text(
+                'SELECT id FROM ssh_logs WHERE collected_at < :cutoff ORDER BY id LIMIT :limit'
+            ),
+            {'cutoff': cutoff, 'limit': limit},
         )
-        db.session.commit()
-        deleted = result.rowcount
-        if deleted > 0:
-            app.logger.info(f"[SSH Logs] Cleaned up {deleted} old log entries")
-    except Exception as e:
-        app.logger.debug(f"[SSH Logs] Cleanup error: {e}")
+        return [row[0] for row in rows]
+
+    def delete_ids(session, ids):
+        params = {f'id_{index}': row_id for index, row_id in enumerate(ids)}
+        placeholders = ', '.join(f':id_{index}' for index in range(len(ids)))
+        result = session.execute(
+            db.text(f'DELETE FROM ssh_logs WHERE id IN ({placeholders})'), params
+        )
+        return result.rowcount if result.rowcount >= 0 else len(ids)
+
+    result = _delete_in_batches(
+        fetch_ids,
+        delete_ids,
+        label='ssh_logs',
+        batch_size=batch_size,
+        max_batches=max_batches,
+        deadline=deadline if deadline is not None else time.monotonic() + CLEANUP_MAX_SECONDS,
+        session_factory=session_factory,
+        release_session=release_session,
+    )
+    if result['deleted']:
+        app.logger.info("[SSH Logs] Cleaned up %s old log entries", result['deleted'])
+    return result
 
 
 collector_thread = None  # Set by __main__ block; None when run via gunicorn
@@ -8205,7 +8470,7 @@ def run_initial_collection():
     with app.app_context():
         # Check if we already have data (not a fresh install)
         sensor_count = SensorReading.query.count()
-        event_count = IpmiEvent.query.count()
+        event_count = IPMIEvent.query.count()
         
         if sensor_count > 0 or event_count > 0:
             # Already have data, mark as complete
@@ -8422,6 +8687,259 @@ def dashboard():
     """Main dashboard - requires login or anonymous access enabled"""
     return render_template('dashboard.html')
 
+
+def _read_inventory_service_secret():
+    """Read the optional DC inventory secret without exposing its value."""
+    secret_file = os.environ.get('IPMI_INVENTORY_SECRET_FILE')
+    if not secret_file:
+        return None
+    try:
+        secret = Path(secret_file).read_text(encoding='utf-8').strip()
+        return secret or None
+    except OSError:
+        return None
+
+
+def _inventory_request_is_authorized():
+    """Verify the scoped service bearer token without string-encoding failures."""
+    expected_secret = _read_inventory_service_secret()
+    auth_header = request.headers.get('Authorization', '')
+    token = auth_header[7:] if auth_header.startswith('Bearer ') else ''
+    if not expected_secret or not token:
+        return False
+    try:
+        return hmac.compare_digest(token.encode('utf-8'), expected_secret.encode('utf-8'))
+    except UnicodeError:
+        return False
+
+
+def _inventory_ack(binding, operation):
+    server = Server.query.filter_by(bmc_ip=binding.bmc_ip).one()
+    return {
+        'source_id': binding.source_id,
+        'server_id': binding.source_server_id,
+        'revision': binding.revision,
+        'operation': operation,
+        'name': server.server_name,
+        'server_ip': server.server_ip,
+        'bmc_ip': server.bmc_ip,
+        'status': server.status,
+        'enabled': bool(server.enabled),
+    }
+
+
+def _begin_inventory_write_transaction():
+    """Bound inventory lock waits, including commit, below DC's HTTP timeout."""
+    if db.engine.dialect.name != 'sqlite':
+        return True
+    connection = db.session.connection()
+    try:
+        # NullPool closes this request's connection at commit/rollback; collectors
+        # and later requests retain their configured sixty-second timeout.
+        connection.exec_driver_sql('PRAGMA busy_timeout = 1000')
+        connection.exec_driver_sql('BEGIN IMMEDIATE')
+    except OperationalError as error:
+        db.session.rollback()
+        if 'locked' in str(error).lower() or 'busy' in str(error).lower():
+            return False
+        raise
+    return True
+
+
+@app.route('/api/internal/inventory/reconcile', methods=['POST'])
+def api_reconcile_dc_inventory():
+    """Reconcile one revisioned DC inventory record without trusting proxy headers."""
+    if not _inventory_request_is_authorized():
+        return jsonify({'error': 'Inventory service authentication required'}), 401
+
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({'error': 'JSON object required'}), 400
+    required_fields = ('source_id', 'server_id', 'revision', 'operation', 'name', 'server_ip', 'bmc_ip')
+    if any(not data.get(field) for field in required_fields):
+        return jsonify({'error': 'source_id, server_id, revision, operation, name, server_ip, and bmc_ip required'}), 400
+    if isinstance(data['revision'], bool) or not isinstance(data['revision'], int) or data['revision'] <= 0:
+        return jsonify({'error': 'revision must be a positive integer'}), 400
+    if data['operation'] not in ('upsert', 'retire'):
+        return jsonify({'error': 'operation must be upsert or retire'}), 400
+
+    try:
+        source_id = str(data['source_id']).strip()
+        source_server_id = str(data['server_id']).strip()
+        server_name = str(data['name']).strip()
+        server_ip = str(ipaddress.ip_address(str(data['server_ip']).strip()))
+        bmc_ip = str(ipaddress.ip_address(str(data['bmc_ip']).strip()))
+    except ValueError:
+        return jsonify({'error': 'server_ip and bmc_ip must be valid IP addresses'}), 400
+    if not source_id or not source_server_id or not server_name:
+        return jsonify({'error': 'source_id, server_id, and name cannot be empty'}), 400
+    if len(source_id) > 64 or len(source_server_id) > 64 or len(server_name) > 100:
+        return jsonify({'error': 'inventory identity fields exceed their maximum length'}), 400
+    try:
+        uuid.UUID(source_id)
+        uuid.UUID(source_server_id)
+    except ValueError:
+        return jsonify({'error': 'source_id and server_id must be UUIDs'}), 400
+
+    desired_lifecycle = 'deprecated' if data['operation'] == 'retire' else 'active'
+    if not _begin_inventory_write_transaction():
+        return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
+    try:
+        binding = InventoryBinding.query.filter_by(
+            source_id=source_id, source_server_id=source_server_id
+        ).first()
+        bmc_binding = InventoryBinding.query.filter_by(bmc_ip=bmc_ip).first()
+        if binding:
+            if binding.bmc_ip != bmc_ip:
+                return jsonify({'error': 'bound BMC identity cannot be changed'}), 409
+            if data['revision'] < binding.revision:
+                return jsonify({'error': 'stale inventory revision'}), 409
+            if data['revision'] == binding.revision:
+                current = _inventory_ack(binding, data['operation'])
+                if (
+                    current['name'] != server_name or current['server_ip'] != server_ip
+                    or current['status'] != desired_lifecycle
+                    or current['enabled'] != (desired_lifecycle == 'active')
+                ):
+                    return jsonify({'error': 'revision already acknowledged with different state'}), 409
+                return jsonify({'accepted': current})
+        elif bmc_binding:
+            return jsonify({'error': 'BMC is already bound to another DC server'}), 409
+
+        server = Server.query.filter_by(bmc_ip=bmc_ip).first()
+        if not binding and server and (server.server_name != server_name or server.server_ip != server_ip):
+            return jsonify({'error': 'existing BMC record requires exact name and OS IP for adoption'}), 409
+
+        if not server:
+            if desired_lifecycle == 'active' and not has_explicit_bmc_credentials(bmc_ip):
+                return jsonify({
+                    'error': 'new active BMC requires an explicit per-host credential source before enrollment'
+                }), 409
+            server = Server(
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                server_ip=server_ip,
+                enabled=desired_lifecycle == 'active',
+                status=desired_lifecycle,
+            )
+            db.session.add(server)
+        else:
+            server.server_name = server_name
+            server.server_ip = server_ip
+            server.enabled = desired_lifecycle == 'active'
+            server.status = desired_lifecycle
+            if desired_lifecycle == 'deprecated':
+                server.deprecated_at = server.deprecated_at or datetime.utcnow()
+            else:
+                server.deprecated_at = None
+                server.deprecated_reason = None
+
+        status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
+        if not status:
+            status = ServerStatus(bmc_ip=bmc_ip, server_name=server_name, power_status='unknown')
+            db.session.add(status)
+        else:
+            status.server_name = server_name
+
+        inventory = ServerInventory.query.filter_by(bmc_ip=bmc_ip).first()
+        if not inventory:
+            inventory = ServerInventory(bmc_ip=bmc_ip, server_name=server_name, primary_ip=server_ip)
+            db.session.add(inventory)
+        else:
+            inventory.server_name = server_name
+            inventory.primary_ip = server_ip
+
+        if not binding:
+            binding = InventoryBinding(
+                source_id=source_id,
+                source_server_id=source_server_id,
+                bmc_ip=bmc_ip,
+                server_name=server_name,
+                server_ip=server_ip,
+                lifecycle=desired_lifecycle,
+                revision=data['revision'],
+            )
+            db.session.add(binding)
+        else:
+            binding.server_name = server_name
+            binding.server_ip = server_ip
+            binding.lifecycle = desired_lifecycle
+            binding.revision = data['revision']
+
+        accepted = _inventory_ack(binding, data['operation'])
+        db.session.commit()
+        return jsonify({'accepted': accepted})
+    except OperationalError as error:
+        db.session.rollback()
+        if 'locked' in str(error).lower() or 'busy' in str(error).lower():
+            return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
+        app.logger.exception('Inventory reconciliation failed')
+        return jsonify({'error': 'Inventory reconciliation failed'}), 500
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Inventory reconciliation failed')
+        return jsonify({'error': 'Inventory reconciliation failed'}), 500
+
+
+@app.route('/api/internal/inventory/retire-preview', methods=['POST'])
+def api_preview_inventory_retirement():
+    """Preview or explicitly retire an exact list of unmanaged obsolete BMCs.
+
+    This one-time operator endpoint is deliberately not connected to startup or
+    polling. It preserves every historical table and will not touch a BMC that
+    has a revisioned DC binding.
+    """
+    if not _inventory_request_is_authorized():
+        return jsonify({'error': 'Inventory service authentication required'}), 401
+
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify({'error': 'JSON object required'}), 400
+    raw_bmc_ips = data.get('bmc_ips')
+    if not isinstance(raw_bmc_ips, list) or not 1 <= len(raw_bmc_ips) <= 100:
+        return jsonify({'error': 'bmc_ips must contain 1 to 100 explicit BMC addresses'}), 400
+    try:
+        bmc_ips = [str(ipaddress.ip_address(str(value).strip())) for value in raw_bmc_ips]
+    except ValueError:
+        return jsonify({'error': 'bmc_ips must contain valid IP addresses'}), 400
+    if len(set(bmc_ips)) != len(bmc_ips):
+        return jsonify({'error': 'bmc_ips must not contain duplicates'}), 400
+
+    if not _begin_inventory_write_transaction():
+        return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
+    bound_bmcs = {
+        binding.bmc_ip for binding in InventoryBinding.query.filter(InventoryBinding.bmc_ip.in_(bmc_ips)).all()
+    }
+    if bound_bmcs:
+        return jsonify({'error': 'revisioned DC bindings must retire through their source', 'bmc_ips': sorted(bound_bmcs)}), 409
+    servers = Server.query.filter(Server.bmc_ip.in_(bmc_ips)).all()
+    found = {server.bmc_ip for server in servers}
+    missing = sorted(set(bmc_ips) - found)
+    if missing:
+        return jsonify({'error': 'selected BMC records were not found', 'bmc_ips': missing}), 404
+
+    preview = [{
+        'bmc_ip': server.bmc_ip,
+        'server_name': server.server_name,
+        'status': server.status or 'active',
+        'enabled': bool(server.enabled),
+    } for server in servers]
+    if data.get('apply') is not True:
+        return jsonify({'apply': False, 'servers': preview})
+    if data.get('confirm_retire_count') != len(bmc_ips):
+        return jsonify({'error': 'confirm_retire_count must match the exact selected BMC list'}), 400
+
+    for server in servers:
+        server.deprecate('Explicit inventory reconciliation retirement')
+    try:
+        db.session.commit()
+    except OperationalError as error:
+        db.session.rollback()
+        if 'locked' in str(error).lower() or 'busy' in str(error).lower():
+            return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
+        raise
+    return jsonify({'apply': True, 'servers': preview})
+
 @app.route('/api/servers')
 @view_required
 def api_servers():
@@ -8429,7 +8947,12 @@ def api_servers():
     hours = request.args.get('hours', 24, type=int)
     cutoff = datetime.utcnow() - timedelta(hours=hours)
     
-    servers = ServerStatus.query.all()
+    # The dashboard is an active operational view. Deprecated/disabled rows
+    # remain in the database for reporting but are not current fleet members.
+    servers = ServerStatus.query.join(Server, Server.bmc_ip == ServerStatus.bmc_ip).filter(
+        Server.enabled.is_(True),
+        db.or_(Server.status == 'active', Server.status.is_(None)),
+    ).all()
     result = []
     
     for s in servers:
@@ -10741,14 +11264,30 @@ def api_clear_db_events(bmc_ip):
 
 # Prometheus Metrics Endpoint
 def update_prometheus_metrics():
-    """Update all Prometheus metrics from database"""
+    """Export current enabled inventory while leaving archive rows untouched."""
     cutoff_24h = datetime.utcnow() - timedelta(hours=24)
     cutoff_1h = datetime.utcnow() - timedelta(hours=1)
+    active_names = {
+        server.bmc_ip: server.server_name for server in Server.query.filter(
+            Server.enabled.is_(True),
+            db.or_(Server.status == 'active', Server.status.is_(None)),
+        ).all()
+    }
+    active_bmcs = tuple(active_names)
+
+    # Gauge children outlive database rows. Rebuild them each scrape so retirement,
+    # renaming and aging-out sensor readings also disappear from current metrics.
+    for gauge in (
+        prom_server_reachable, prom_server_power_on, prom_events_total,
+        prom_events_critical_24h, prom_events_warning_24h,
+        prom_temperature, prom_fan_speed, prom_voltage, prom_power_watts,
+    ):
+        gauge.clear()
     
     # Per-server metrics
-    servers = ServerStatus.query.all()
+    servers = ServerStatus.query.filter(ServerStatus.bmc_ip.in_(active_bmcs)).all()
     for s in servers:
-        labels = {'bmc_ip': s.bmc_ip, 'server_name': s.server_name}
+        labels = {'bmc_ip': s.bmc_ip, 'server_name': active_names[s.bmc_ip]}
         prom_server_reachable.labels(**labels).set(1 if s.is_reachable else 0)
         prom_server_power_on.labels(**labels).set(1 if s.power_status and 'on' in s.power_status.lower() else 0)
         prom_events_total.labels(**labels).set(s.total_events or 0)
@@ -10758,6 +11297,7 @@ def update_prometheus_metrics():
     # Sensor metrics - get latest reading per sensor (within last hour)
     try:
         sensors = SensorReading.query.filter(
+            SensorReading.bmc_ip.in_(active_bmcs),
             SensorReading.collected_at >= cutoff_1h
         ).all()
         
@@ -10775,7 +11315,7 @@ def update_prometheus_metrics():
             
             labels = {
                 'bmc_ip': sensor.bmc_ip,
-                'server_name': sensor.server_name,
+                'server_name': active_names[sensor.bmc_ip],
                 'sensor_name': sensor.sensor_name
             }
             
@@ -10789,11 +11329,12 @@ def update_prometheus_metrics():
                 # Power sensors from regular IPMI sensors (e.g. "Pwr Consumption")
                 prom_power_watts.labels(
                     bmc_ip=sensor.bmc_ip,
-                    server_name=sensor.server_name
+                    server_name=active_names[sensor.bmc_ip]
                 ).set(sensor.value)
         
         # Also check PowerReading table (from DCMI power reading)
         power_readings = PowerReading.query.filter(
+            PowerReading.bmc_ip.in_(active_bmcs),
             PowerReading.collected_at >= cutoff_1h
         ).all()
         
@@ -10806,19 +11347,21 @@ def update_prometheus_metrics():
             if reading.current_watts is not None:
                 prom_power_watts.labels(
                     bmc_ip=reading.bmc_ip,
-                    server_name=reading.server_name
+                    server_name=active_names[reading.bmc_ip]
                 ).set(reading.current_watts)
     except Exception as e:
         app.logger.warning(f"Error updating sensor metrics: {e}")
     
     # Aggregate metrics
-    prom_total_servers.set(len(servers))
+    prom_total_servers.set(len(active_bmcs))
     prom_reachable_servers.set(sum(1 for s in servers if s.is_reachable))
     prom_total_critical_24h.set(IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip.in_(active_bmcs),
         IPMIEvent.severity == 'critical',
         IPMIEvent.event_date >= cutoff_24h
     ).count())
     prom_total_warning_24h.set(IPMIEvent.query.filter(
+        IPMIEvent.bmc_ip.in_(active_bmcs),
         IPMIEvent.severity == 'warning',
         IPMIEvent.event_date >= cutoff_24h
     ).count())
@@ -10826,13 +11369,14 @@ def update_prometheus_metrics():
     
     # Alert metrics
     try:
-        prom_alerts_total.set(AlertHistory.query.count())
-        prom_alerts_unacknowledged.set(AlertHistory.query.filter_by(acknowledged=False).count())
-        prom_alerts_critical_24h.set(AlertHistory.query.filter(
+        active_alerts = AlertHistory.query.filter(AlertHistory.bmc_ip.in_(active_bmcs))
+        prom_alerts_total.set(active_alerts.count())
+        prom_alerts_unacknowledged.set(active_alerts.filter_by(acknowledged=False).count())
+        prom_alerts_critical_24h.set(active_alerts.filter(
             AlertHistory.fired_at >= cutoff_24h,
             AlertHistory.severity == 'critical'
         ).count())
-        prom_alerts_warning_24h.set(AlertHistory.query.filter(
+        prom_alerts_warning_24h.set(active_alerts.filter(
             AlertHistory.fired_at >= cutoff_24h,
             AlertHistory.severity == 'warning'
         ).count())
@@ -10859,6 +11403,7 @@ def api_managed_servers():
     else:
         # Default: only active servers (NULL status treated as active for backwards compat)
         servers = Server.query.filter(
+            Server.enabled.is_(True),
             db.or_(Server.status == 'active', Server.status.is_(None))
         ).all()
     
@@ -15373,8 +15918,9 @@ def docs_raw():
 @app.route('/metrics')
 def prometheus_metrics():
     """Prometheus metrics endpoint"""
-    update_prometheus_metrics()
-    return Response(generate_latest(PROM_REGISTRY), mimetype=CONTENT_TYPE_LATEST)
+    with _prometheus_refresh_lock:
+        update_prometheus_metrics()
+        return Response(generate_latest(PROM_REGISTRY), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/health')
 def health_check():
@@ -19181,6 +19727,24 @@ def _run_migrations(inspector):
     
     try:
         existing_tables = inspector.get_table_names()
+
+        if 'inventory_binding' not in existing_tables:
+            app.logger.info("Migration: Creating inventory_binding table...")
+            execute_sql('''
+                CREATE TABLE IF NOT EXISTS inventory_binding (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_id VARCHAR(64) NOT NULL,
+                    source_server_id VARCHAR(64) NOT NULL,
+                    bmc_ip VARCHAR(45) NOT NULL UNIQUE,
+                    server_name VARCHAR(100) NOT NULL,
+                    server_ip VARCHAR(45) NOT NULL,
+                    lifecycle VARCHAR(20) NOT NULL DEFAULT 'active',
+                    revision INTEGER NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(source_id, source_server_id)
+                )
+            ''')
+            app.logger.info("Migration: inventory_binding table created")
         
         # Migration 1: Add ssh_key table
         if 'ssh_key' not in existing_tables:
@@ -19746,4 +20310,3 @@ def create_app(config_dir=None):
 if __name__ == '__main__':
     # Run Flask app directly (for development)
     app.run(host='0.0.0.0', port=5000, debug=False)
-

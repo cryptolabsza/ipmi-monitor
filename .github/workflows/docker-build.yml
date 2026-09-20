@@ -113,7 +113,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
           build-args: |
             GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
             GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}

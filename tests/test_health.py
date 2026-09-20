@@ -34,12 +34,22 @@ class TestHealthEndpoint:
 
     def test_health_collector_not_running(self, app_fixture):
         client, app, db, models = app_fixture
+        mock_thread = MagicMock()
+        mock_thread.is_alive.return_value = False
         with app.app_context():
-            with patch('ipmi_monitor.app.collector_thread', None, create=True):
+            with patch('ipmi_monitor.app.collector_thread', mock_thread, create=True):
                 resp = client.get('/health')
                 body = resp.get_json()
                 assert body['status'] == 'degraded'
                 assert body['checks']['collector_thread'] == 'not running'
+
+    def test_health_external_collector_is_healthy(self, app_fixture):
+        client, app, db, models = app_fixture
+        with app.app_context():
+            with patch('ipmi_monitor.app.collector_thread', None, create=True):
+                body = client.get('/health').get_json()
+                assert body['status'] == 'healthy'
+                assert body['checks']['collector_thread'] == 'gunicorn (managed externally)'
 
     def test_health_collector_running(self, app_fixture):
         client, app, db, models = app_fixture

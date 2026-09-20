@@ -13,6 +13,12 @@ import pytest
 # Ensure the source package is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
+# Some test modules import the application while pytest collects tests.  Set a
+# writable database location before that can initialize Flask-SQLAlchemy's
+# engine; per-test fixtures still create and drop their own schema.
+os.environ['DATA_DIR'] = tempfile.mkdtemp(prefix='ipmi-monitor-tests-')
+os.environ['SECRET_KEY'] = 'test-secret-key'
+
 
 def _login_as(client, role='admin'):
     """Set session to an authenticated user with the given role."""
