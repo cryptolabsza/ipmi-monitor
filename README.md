@@ -271,6 +271,20 @@ sudo ipmi-monitor setup -c ipmi-config.yaml -y    # Auto-detects proxy credentia
 
 > **Note:** Config file values always win. If your two config files specify different credentials, each deployment uses its own file's values — the proxy is not silently overridden. The auto-detection only fills in values that are **missing** from the config file.
 
+### DC Inventory Credential Receiver
+
+When IPMI Monitor receives inventory from DC Overview, configure the existing
+shared inventory secret as a read-only file and set `IPMI_INVENTORY_SECRET_FILE`
+to its container path. Do not place that secret in an environment variable or
+in a request body. DC Overview signs requests with `DC-HMAC` and encrypts an
+optional credential bundle with a key derived from that file.
+
+`FLEET_CREDENTIAL_AUTHORITY` must be either `local` or `vault`. IPMI Monitor
+defaults to `vault` when `IPMI_BMC_CREDENTIALS_FILE` is configured, otherwise
+it defaults to `local`. Vault mode continues metadata-only inventory sync but
+rejects credential bundles. Standalone Compose deployments must mount the same
+secret file read-only into both services and explicitly set the authority.
+
 ### CLI Commands
 
 ```bash
