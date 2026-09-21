@@ -3,16 +3,75 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+from base64 import urlsafe_b64encode
+from hashlib import sha256
+from io import StringIO
+import hmac
+import json
 import os
 import sqlite3
 import subprocess
 import sys
 import time
 import pytest
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+import paramiko
 
 
 def _headers(secret="inventory-secret"):
     return {"Authorization": f"Bearer {secret}"}
+
+
+def _canonical_payload(payload):
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _hmac_headers(payload, secret="inventory-secret"):
+    signature = hmac.new(secret.encode("utf-8"), _canonical_payload(payload), sha256).hexdigest()
+    return {"Authorization": f"DC-HMAC {signature}"}
+
+
+def _private_key():
+    key = paramiko.RSAKey.generate(1024)
+    output = StringIO()
+    key.write_private_key(output)
+    return output.getvalue()
+
+
+def _credential_bundle(payload, *, ssh_password="ssh-secret", bmc_managed=True, bmc_password="bmc-secret"):
+    derived_key = HKDF(
+        algorithm=hashes.SHA256(), length=32, salt=None,
+        info=b"dc-overview/ipmi-credentials/v1",
+    ).derive(b"inventory-secret")
+    plaintext = {
+        "version": 1,
+        "source_id": payload["source_id"],
+        "server_id": payload["server_id"],
+        "revision": payload["revision"],
+        "operation": payload["operation"],
+        "name": payload["name"],
+        "server_ip": payload["server_ip"],
+        "bmc_ip": payload["bmc_ip"],
+        "credentials": {
+            "ssh": {
+                "username": "root", "port": 22, "private_key": _private_key(),
+                "password": ssh_password,
+            },
+            "bmc_managed": bmc_managed,
+            "bmc": {"username": "ADMIN", "password": bmc_password} if bmc_managed and bmc_password else None,
+        },
+    }
+    return Fernet(urlsafe_b64encode(derived_key)).encrypt(
+        json.dumps(plaintext, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+
+
+def _bundled_payload(revision=1, **changes):
+    payload = _payload(revision, **changes)
+    payload["credential_bundle"] = _credential_bundle(payload)
+    return payload
 
 
 def _payload(revision=1, operation="upsert", **changes):
@@ -36,6 +95,11 @@ def _configure_secret(monkeypatch, tmp_path):
     credentials_path = Path(tmp_path) / "bmc-credentials.json"
     credentials_path.write_text('{"10.20.0.90": {"username": "operator", "password": "test-only"}}')
     monkeypatch.setenv("IPMI_BMC_CREDENTIALS_FILE", str(credentials_path))
+
+
+def _configure_local_secret(monkeypatch, tmp_path):
+    _configure_secret(monkeypatch, tmp_path)
+    monkeypatch.setenv("FLEET_CREDENTIAL_AUTHORITY", "local")
 
 
 def test_reconcile_requires_configured_bearer_secret(app_fixture, monkeypatch, tmp_path):
@@ -208,6 +272,242 @@ def test_receiver_requires_explicit_credentials_before_creating_new_active_serve
     assert no_credential.status_code == 409
     with app.app_context():
         assert models["Server"].query.filter_by(bmc_ip="10.20.0.96").first() is None
+
+
+def test_local_signed_bundle_enrolls_credentials_and_acks_its_exact_digest(app_fixture, monkeypatch, tmp_path):
+    """A signed encrypted bundle creates one bound server and its local credentials atomically."""
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    payload = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_hmac_headers(payload)
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["credential_revision"] == 1
+    assert body["credential_digest"] == sha256(payload["credential_bundle"].encode("utf-8")).hexdigest()
+    expected_response_signature = hmac.new(
+        b"inventory-secret", _canonical_payload(body), sha256
+    ).hexdigest()
+    assert response.headers["X-DC-Response-Signature"] == expected_response_signature
+    with app.app_context():
+        from ipmi_monitor.app import InventoryBinding, SSHKey
+
+        binding = InventoryBinding.query.filter_by(bmc_ip="10.20.0.96").one()
+        config = models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.96").one()
+        key = SSHKey.query.get(config.ssh_key_id)
+        assert (binding.credential_revision, binding.credential_digest, binding.bmc_managed) == (
+            1, body["credential_digest"], True,
+        )
+        assert (config.ssh_user, config.ssh_port, config.ssh_pass) == ("root", 22, "ssh-secret")
+        assert (config.ipmi_user, config.ipmi_pass) == ("ADMIN", "bmc-secret")
+        assert key is not None and key.key_content.startswith("-----BEGIN")
+
+
+def test_bundle_requires_canonical_hmac_and_rejects_bearer_without_mutation(app_fixture, monkeypatch, tmp_path):
+    """The shared encryption secret never travels as a bearer credential with ciphertext."""
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    payload = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_headers()
+    ).status_code == 401
+    tampered = {**payload, "name": "tampered"}
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=tampered, headers=_hmac_headers(payload)
+    ).status_code == 401
+    with app.app_context():
+        assert models["Server"].query.filter_by(bmc_ip="10.20.0.96").first() is None
+
+
+def test_bundle_rejects_tampering_and_metadata_substitution_without_mutation(app_fixture, monkeypatch, tmp_path):
+    """Fernet authentication and encrypted metadata binding reject replay/substitution before writes."""
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    payload = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+    payload["credential_bundle"] = payload["credential_bundle"][:-1] + "A"
+
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_hmac_headers(payload)
+    )
+    assert response.status_code == 400
+    with app.app_context():
+        assert models["Server"].query.filter_by(bmc_ip="10.20.0.96").first() is None
+
+
+def test_bundled_replay_is_idempotent_but_same_revision_different_bundle_conflicts(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    payload = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+    headers = _hmac_headers(payload)
+    assert client.post("/api/internal/inventory/reconcile", json=payload, headers=headers).status_code == 200
+    repeated = client.post("/api/internal/inventory/reconcile", json=payload, headers=headers)
+    assert repeated.status_code == 200
+    conflict = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=conflict, headers=_hmac_headers(conflict)
+    ).status_code == 409
+
+
+def test_upgrade_from_legacy_metadata_at_same_revision_applies_missing_bundle_once(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    legacy = _payload()
+    # Existing receiver behavior remains available for old senders.
+    assert client.post("/api/internal/inventory/reconcile", json=legacy, headers=_headers()).status_code == 200
+    bundled = _bundled_payload()
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=bundled, headers=_hmac_headers(bundled)
+    )
+    assert response.status_code == 200
+    assert response.get_json()["credential_revision"] == 1
+
+
+def test_bundle_explicit_bmc_clear_never_resurrects_old_per_server_or_file_password(app_fixture, monkeypatch, tmp_path):
+    """A DC-managed clear takes precedence over stale config and shared file credentials."""
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    initial = _bundled_payload()
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=initial, headers=_hmac_headers(initial)
+    ).status_code == 200
+    clear = _payload(2)
+    clear["credential_bundle"] = _credential_bundle(
+        clear, ssh_password=None, bmc_managed=True, bmc_password=None
+    )
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=clear, headers=_hmac_headers(clear)
+    ).status_code == 200
+    with app.app_context():
+        from ipmi_monitor.app import get_ipmi_credentials
+
+        config = models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.90").one()
+        assert (config.ipmi_user, config.ipmi_pass, config.ssh_pass) == (None, None, None)
+        assert get_ipmi_credentials("10.20.0.90") == (None, None)
+
+
+def test_vault_authority_rejects_bundle_before_inventory_or_credentials_change(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_secret(monkeypatch, tmp_path)
+    payload = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_hmac_headers(payload)
+    )
+    assert response.status_code == 409
+    with app.app_context():
+        assert models["Server"].query.filter_by(bmc_ip="10.20.0.96").first() is None
+
+
+def test_signed_metadata_request_remains_supported_and_legacy_ack_is_not_signed(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_secret(monkeypatch, tmp_path)
+    payload = _payload()
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_hmac_headers(payload)
+    )
+    assert response.status_code == 200
+    assert set(response.get_json()) == {"accepted"}
+    assert "X-DC-Response-Signature" not in response.headers
+
+
+def test_invalid_explicit_credential_authority_fails_closed(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    monkeypatch.setenv("FLEET_CREDENTIAL_AUTHORITY", "untrusted")
+    payload = _bundled_payload(bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_hmac_headers(payload)
+    ).status_code == 409
+    with app.app_context():
+        assert models["Server"].query.filter_by(bmc_ip="10.20.0.96").first() is None
+
+
+def test_retirement_clears_only_the_binding_owned_propagated_credentials(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    initial = _bundled_payload()
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=initial, headers=_hmac_headers(initial)
+    ).status_code == 200
+    retire = _payload(2, operation="retire")
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=retire, headers=_hmac_headers(retire)
+    )
+    assert response.status_code == 200
+    with app.app_context():
+        from ipmi_monitor.app import SSHKey
+
+        config = models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.90").one()
+        assert (config.ssh_pass, config.ssh_key_id, config.ipmi_user, config.ipmi_pass) == (
+            None, None, None, None,
+        )
+        assert SSHKey.query.count() == 0
+
+
+def test_bundled_retirement_of_an_unknown_bmc_never_stores_supplied_credentials(app_fixture, monkeypatch, tmp_path):
+    """A retirement records lifecycle history but must not enroll its credential pair."""
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    payload = _bundled_payload(1, operation="retire", bmc_ip="10.20.0.96", server_ip="10.10.0.96")
+
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=payload, headers=_hmac_headers(payload)
+    )
+
+    assert response.status_code == 200
+    with app.app_context():
+        server = models["Server"].query.filter_by(bmc_ip="10.20.0.96").one()
+        assert (server.status, server.enabled) == ("deprecated", False)
+        assert models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.96").first() is None
+        from ipmi_monitor.app import SSHKey
+        assert SSHKey.query.count() == 0
+
+
+def test_metadata_only_retirement_preserves_credentials_not_installed_by_a_bundle(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    with app.app_context():
+        db.session.add(models["ServerConfig"](
+            bmc_ip="10.20.0.90", server_name="ccc90", ssh_user="root", ssh_pass="manual-secret"
+        ))
+        db.session.commit()
+    initial = _payload()
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=initial, headers=_headers()
+    ).status_code == 200
+    retire = _payload(2, operation="retire")
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=retire, headers=_hmac_headers(retire)
+    ).status_code == 200
+    with app.app_context():
+        assert models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.90").one().ssh_pass == "manual-secret"
+
+
+def test_shared_binding_key_causes_conflict_without_changing_either_server(app_fixture, monkeypatch, tmp_path):
+    client, app, db, models = app_fixture
+    _configure_local_secret(monkeypatch, tmp_path)
+    initial = _bundled_payload()
+    assert client.post(
+        "/api/internal/inventory/reconcile", json=initial, headers=_hmac_headers(initial)
+    ).status_code == 200
+    with app.app_context():
+        config = models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.90").one()
+        db.session.add(models["ServerConfig"](
+            bmc_ip="10.20.0.97", server_name="unrelated", ssh_key_id=config.ssh_key_id
+        ))
+        db.session.commit()
+    update = _payload(2)
+    update["credential_bundle"] = _credential_bundle(update, ssh_password="changed")
+    response = client.post(
+        "/api/internal/inventory/reconcile", json=update, headers=_hmac_headers(update)
+    )
+    assert response.status_code == 409
+    with app.app_context():
+        config = models["ServerConfig"].query.filter_by(bmc_ip="10.20.0.90").one()
+        assert config.ssh_pass == "ssh-secret"
 
 
 def test_concurrent_independent_clients_leave_highest_revision_as_final_state(app_fixture, monkeypatch, tmp_path):

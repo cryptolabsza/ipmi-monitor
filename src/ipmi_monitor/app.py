@@ -23,12 +23,19 @@ import uuid
 from pathlib import Path
 import hmac
 import ipaddress
+import hashlib
+import base64
+from io import StringIO
 import requests
 import urllib3
+import paramiko
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
+from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 # CryptoLabs Alert System integration (v1.1.0+)
 # Provides hooks for push notifications to CryptoLabs app, email, and web browser
@@ -2002,6 +2009,9 @@ class InventoryBinding(db.Model):
     server_ip = db.Column(db.String(45), nullable=False)
     lifecycle = db.Column(db.String(20), nullable=False, default='active')
     revision = db.Column(db.Integer, nullable=False)
+    credential_revision = db.Column(db.Integer, nullable=True)
+    credential_digest = db.Column(db.String(64), nullable=True)
+    bmc_managed = db.Column(db.Boolean, nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
@@ -5842,6 +5852,12 @@ def get_ipmi_credentials(bmc_ip):
         if config and config.ipmi_user and config.ipmi_pass:
             return config.ipmi_user, config.ipmi_pass
 
+        # An explicit DC-managed clear must never revive a stale per-server,
+        # file, or shared default credential for this bound BMC.
+        binding = InventoryBinding.query.filter_by(bmc_ip=bmc_ip).first()
+        if binding and binding.bmc_managed:
+            return None, None
+
         file_credentials, file_error = _file_bmc_credentials(bmc_ip)
         if file_error:
             # A configured entry must never silently fall back to a shared
@@ -8700,17 +8716,202 @@ def _read_inventory_service_secret():
         return None
 
 
-def _inventory_request_is_authorized():
-    """Verify the scoped service bearer token without string-encoding failures."""
+def _inventory_request_is_authorized(data, allow_legacy_bearer=True):
+    """Authenticate canonical DC requests without exposing the shared secret.
+
+    Encrypted credential bundles must use a payload HMAC so the transport key
+    itself never crosses the network.  Bearer authentication remains only for
+    metadata-only callers during the receiver upgrade window.
+    """
     expected_secret = _read_inventory_service_secret()
     auth_header = request.headers.get('Authorization', '')
-    token = auth_header[7:] if auth_header.startswith('Bearer ') else ''
-    if not expected_secret or not token:
+    if not expected_secret:
+        return False
+    if auth_header.startswith('DC-HMAC '):
+        supplied_signature = auth_header[8:]
+        try:
+            canonical_payload = json.dumps(
+                data, sort_keys=True, separators=(',', ':')
+            ).encode('utf-8')
+            expected_signature = hmac.new(
+                expected_secret.encode('utf-8'), canonical_payload, hashlib.sha256
+            ).hexdigest()
+            return hmac.compare_digest(supplied_signature, expected_signature)
+        except (TypeError, UnicodeError):
+            return False
+    if not allow_legacy_bearer or 'credential_bundle' in data or not auth_header.startswith('Bearer '):
+        return False
+    token = auth_header[7:]
+    if not token:
         return False
     try:
         return hmac.compare_digest(token.encode('utf-8'), expected_secret.encode('utf-8'))
     except UnicodeError:
         return False
+
+
+def _credential_authority():
+    """Return the configured credential authority or None for invalid values."""
+    configured = os.environ.get('FLEET_CREDENTIAL_AUTHORITY')
+    if configured is None:
+        return 'vault' if os.environ.get('IPMI_BMC_CREDENTIALS_FILE') else 'local'
+    authority = configured.strip().lower()
+    return authority if authority in ('local', 'vault') else None
+
+
+def _credential_fernet():
+    """Derive the v1 credential transport cipher from the inventory secret."""
+    secret = _read_inventory_service_secret()
+    if not secret:
+        return None
+    derived_key = HKDF(
+        algorithm=hashes.SHA256(), length=32, salt=None,
+        info=b'dc-overview/ipmi-credentials/v1',
+    ).derive(secret.encode('utf-8'))
+    return Fernet(base64.urlsafe_b64encode(derived_key))
+
+
+def _valid_private_key_material(value):
+    """Reject paths and malformed key text before a receiver stores it."""
+    if not isinstance(value, str) or not value or len(value) > 32768:
+        return False
+    if not value.lstrip().startswith('-----BEGIN ') or 'PRIVATE KEY-----' not in value:
+        return False
+    key_types = (paramiko.RSAKey, paramiko.ECDSAKey, paramiko.Ed25519Key)
+    dss_key = getattr(paramiko, 'DSSKey', None)
+    if dss_key is not None:
+        key_types += (dss_key,)
+    for key_type in key_types:
+        try:
+            key_type.from_private_key(StringIO(value))
+            return True
+        except (paramiko.SSHException, ValueError, TypeError):
+            continue
+    return False
+
+
+def _decrypt_credential_bundle(bundle, metadata):
+    """Decrypt and strictly validate a credential bundle without logging secrets."""
+    if not isinstance(bundle, str) or not bundle or len(bundle) > 131072:
+        return None
+    cipher = _credential_fernet()
+    if cipher is None:
+        return None
+    try:
+        document = json.loads(cipher.decrypt(bundle.encode('ascii')).decode('utf-8'))
+    except (InvalidToken, UnicodeError, ValueError, json.JSONDecodeError):
+        return None
+    expected_document_keys = {
+        'version', 'source_id', 'server_id', 'revision', 'operation', 'name', 'server_ip', 'bmc_ip', 'credentials'
+    }
+    if not isinstance(document, dict) or set(document) != expected_document_keys or document.get('version') != 1:
+        return None
+    for field in ('source_id', 'server_id', 'revision', 'operation', 'name', 'server_ip', 'bmc_ip'):
+        if document.get(field) != metadata[field]:
+            return None
+    credentials = document.get('credentials')
+    if not isinstance(credentials, dict) or set(credentials) != {'ssh', 'bmc_managed', 'bmc'}:
+        return None
+    ssh = credentials.get('ssh')
+    if not isinstance(ssh, dict) or set(ssh) != {'username', 'port', 'private_key', 'password'}:
+        return None
+    username = ssh.get('username')
+    port = ssh.get('port')
+    private_key = ssh.get('private_key')
+    password = ssh.get('password')
+    if (
+        not isinstance(username, str) or not username.strip() or len(username) > 50
+        or isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535
+        or private_key is not None and not _valid_private_key_material(private_key)
+        or password is not None and (not isinstance(password, str) or len(password) > 500)
+    ):
+        return None
+    bmc_managed = credentials.get('bmc_managed')
+    bmc = credentials.get('bmc')
+    if not isinstance(bmc_managed, bool):
+        return None
+    if not bmc_managed and bmc is not None:
+        return None
+    if bmc_managed and bmc is not None:
+        if not isinstance(bmc, dict) or set(bmc) != {'username', 'password'}:
+            return None
+        bmc_username, bmc_password = bmc.get('username'), bmc.get('password')
+        if (
+            not isinstance(bmc_username, str) or not bmc_username.strip() or len(bmc_username) > 50
+            or not isinstance(bmc_password, str) or not bmc_password or len(bmc_password) > 100
+        ):
+            return None
+    elif bmc is not None:
+        return None
+    return credentials
+
+
+def _binding_key_name(source_id, source_server_id):
+    digest = hashlib.sha256(f'{source_id}:{source_server_id}'.encode('utf-8')).hexdigest()
+    return f'dc-credential-{digest[:32]}'
+
+
+def _apply_bundle_credentials(binding, server_name, bmc_ip, credentials):
+    """Install one binding's credentials inside the caller's inventory transaction."""
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config:
+        config = ServerConfig(bmc_ip=bmc_ip, server_name=server_name)
+        db.session.add(config)
+    config.server_name = server_name
+    ssh = credentials['ssh']
+    config.ssh_user = ssh['username'].strip()
+    config.ssh_port = ssh['port']
+    config.ssh_pass = ssh['password']
+    config.ssh_key = None
+    key_name = _binding_key_name(binding.source_id, binding.source_server_id)
+    prior_key = SSHKey.query.filter_by(name=key_name).first()
+    if prior_key and ServerConfig.query.filter(
+        ServerConfig.ssh_key_id == prior_key.id, ServerConfig.bmc_ip != bmc_ip
+    ).first():
+        # A deterministic key belongs to only this binding. Refuse a corrupt
+        # shared association rather than update a secret used by another BMC.
+        return False
+    if ssh['private_key'] is None:
+        config.ssh_key_id = None
+        if prior_key and ServerConfig.query.filter_by(ssh_key_id=prior_key.id).count() == 0:
+            db.session.delete(prior_key)
+    else:
+        fingerprint = SSHKey.get_fingerprint(ssh['private_key'])
+        if not prior_key:
+            prior_key = SSHKey(name=key_name, key_content=ssh['private_key'], fingerprint=fingerprint)
+            db.session.add(prior_key)
+            db.session.flush()
+        else:
+            prior_key.key_content = ssh['private_key']
+            prior_key.fingerprint = fingerprint
+        config.ssh_key_id = prior_key.id
+    binding.bmc_managed = credentials['bmc_managed']
+    if credentials['bmc_managed']:
+        bmc = credentials['bmc']
+        config.ipmi_user = bmc['username'].strip() if bmc else None
+        config.ipmi_pass = bmc['password'] if bmc else None
+    return True
+
+
+def _clear_binding_credentials(binding, bmc_ip):
+    """Retire only credentials this binding installed; leave unrelated rows intact."""
+    if binding.credential_revision is None:
+        return
+    config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+    if not config:
+        return
+    config.ssh_pass = None
+    config.ssh_key = None
+    owned_key = SSHKey.query.filter_by(
+        name=_binding_key_name(binding.source_id, binding.source_server_id)
+    ).first()
+    if owned_key and config.ssh_key_id == owned_key.id:
+        config.ssh_key_id = None
+        if ServerConfig.query.filter_by(ssh_key_id=owned_key.id).count() == 0:
+            db.session.delete(owned_key)
+    if binding.bmc_managed:
+        config.ipmi_user = None
+        config.ipmi_pass = None
 
 
 def _inventory_ack(binding, operation):
@@ -8726,6 +8927,22 @@ def _inventory_ack(binding, operation):
         'status': server.status,
         'enabled': bool(server.enabled),
     }
+
+
+def _signed_bundle_ack(accepted, binding):
+    """Return the credential acknowledgement only after its transaction committed."""
+    body = {
+        'accepted': accepted,
+        'credential_revision': binding.credential_revision,
+        'credential_digest': binding.credential_digest,
+    }
+    secret = _read_inventory_service_secret()
+    canonical_body = json.dumps(body, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    response = jsonify(body)
+    response.headers['X-DC-Response-Signature'] = hmac.new(
+        secret.encode('utf-8'), canonical_body, hashlib.sha256
+    ).hexdigest()
+    return response
 
 
 def _begin_inventory_write_transaction():
@@ -8749,12 +8966,17 @@ def _begin_inventory_write_transaction():
 @app.route('/api/internal/inventory/reconcile', methods=['POST'])
 def api_reconcile_dc_inventory():
     """Reconcile one revisioned DC inventory record without trusting proxy headers."""
-    if not _inventory_request_is_authorized():
-        return jsonify({'error': 'Inventory service authentication required'}), 401
-
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         return jsonify({'error': 'JSON object required'}), 400
+    allowed_fields = {
+        'source_id', 'server_id', 'revision', 'operation', 'name', 'server_ip', 'bmc_ip', 'credential_bundle'
+    }
+    if set(data) - allowed_fields:
+        return jsonify({'error': 'unsupported inventory fields'}), 400
+    bundled = 'credential_bundle' in data
+    if not _inventory_request_is_authorized(data):
+        return jsonify({'error': 'Inventory service authentication required'}), 401
     required_fields = ('source_id', 'server_id', 'revision', 'operation', 'name', 'server_ip', 'bmc_ip')
     if any(not data.get(field) for field in required_fields):
         return jsonify({'error': 'source_id, server_id, revision, operation, name, server_ip, and bmc_ip required'}), 400
@@ -8781,6 +9003,23 @@ def api_reconcile_dc_inventory():
     except ValueError:
         return jsonify({'error': 'source_id and server_id must be UUIDs'}), 400
 
+    metadata = {
+        'source_id': source_id,
+        'server_id': source_server_id,
+        'revision': data['revision'],
+        'operation': data['operation'],
+        'name': server_name,
+        'server_ip': server_ip,
+        'bmc_ip': bmc_ip,
+    }
+    credentials = None
+    if bundled:
+        if _credential_authority() != 'local':
+            return jsonify({'error': 'Credential updates are disabled while vault authority is configured'}), 409
+        credentials = _decrypt_credential_bundle(data['credential_bundle'], metadata)
+        if credentials is None:
+            return jsonify({'error': 'Invalid encrypted credential bundle'}), 400
+
     desired_lifecycle = 'deprecated' if data['operation'] == 'retire' else 'active'
     if not _begin_inventory_write_transaction():
         return jsonify({'error': 'Inventory database is busy; retry later'}), 503, {'Retry-After': '1'}
@@ -8802,6 +9041,25 @@ def api_reconcile_dc_inventory():
                     or current['enabled'] != (desired_lifecycle == 'active')
                 ):
                     return jsonify({'error': 'revision already acknowledged with different state'}), 409
+                if bundled:
+                    digest = hashlib.sha256(data['credential_bundle'].encode('utf-8')).hexdigest()
+                    if binding.credential_revision == binding.revision:
+                        if not hmac.compare_digest(binding.credential_digest or '', digest):
+                            return jsonify({'error': 'revision already acknowledged with different credentials'}), 409
+                    else:
+                        # An old receiver could have accepted the metadata at
+                        # this revision. Apply credentials exactly once after
+                        # upgrade only when the lifecycle state still matches.
+                        if desired_lifecycle == 'deprecated':
+                            _clear_binding_credentials(binding, bmc_ip)
+                        else:
+                            if not _apply_bundle_credentials(binding, server_name, bmc_ip, credentials):
+                                db.session.rollback()
+                                return jsonify({'error': 'binding credential key is shared by another server'}), 409
+                        binding.credential_revision = binding.revision
+                        binding.credential_digest = digest
+                        db.session.commit()
+                    return _signed_bundle_ack(current, binding)
                 return jsonify({'accepted': current})
         elif bmc_binding:
             return jsonify({'error': 'BMC is already bound to another DC server'}), 409
@@ -8811,6 +9069,18 @@ def api_reconcile_dc_inventory():
             return jsonify({'error': 'existing BMC record requires exact name and OS IP for adoption'}), 409
 
         if not server:
+            # A bundle's BMC pair is installed before enrollment validation so
+            # new BMCs can join with an explicit credential source.
+            if (
+                desired_lifecycle == 'active'
+                and bundled and credentials['bmc_managed'] and credentials['bmc']
+            ):
+                enrollment_config = ServerConfig.query.filter_by(bmc_ip=bmc_ip).first()
+                if not enrollment_config:
+                    enrollment_config = ServerConfig(bmc_ip=bmc_ip, server_name=server_name)
+                    db.session.add(enrollment_config)
+                enrollment_config.ipmi_user = credentials['bmc']['username'].strip()
+                enrollment_config.ipmi_pass = credentials['bmc']['password']
             if desired_lifecycle == 'active' and not has_explicit_bmc_credentials(bmc_ip):
                 return jsonify({
                     'error': 'new active BMC requires an explicit per-host credential source before enrollment'
@@ -8866,8 +9136,19 @@ def api_reconcile_dc_inventory():
             binding.lifecycle = desired_lifecycle
             binding.revision = data['revision']
 
+        if desired_lifecycle == 'deprecated':
+            _clear_binding_credentials(binding, bmc_ip)
+        elif bundled:
+            if not _apply_bundle_credentials(binding, server_name, bmc_ip, credentials):
+                db.session.rollback()
+                return jsonify({'error': 'binding credential key is shared by another server'}), 409
+        if bundled:
+            binding.credential_revision = data['revision']
+            binding.credential_digest = hashlib.sha256(data['credential_bundle'].encode('utf-8')).hexdigest()
         accepted = _inventory_ack(binding, data['operation'])
         db.session.commit()
+        if bundled:
+            return _signed_bundle_ack(accepted, binding)
         return jsonify({'accepted': accepted})
     except OperationalError as error:
         db.session.rollback()
@@ -8889,12 +9170,11 @@ def api_preview_inventory_retirement():
     polling. It preserves every historical table and will not touch a BMC that
     has a revisioned DC binding.
     """
-    if not _inventory_request_is_authorized():
-        return jsonify({'error': 'Inventory service authentication required'}), 401
-
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         return jsonify({'error': 'JSON object required'}), 400
+    if not _inventory_request_is_authorized(data):
+        return jsonify({'error': 'Inventory service authentication required'}), 401
     raw_bmc_ips = data.get('bmc_ips')
     if not isinstance(raw_bmc_ips, list) or not 1 <= len(raw_bmc_ips) <= 100:
         return jsonify({'error': 'bmc_ips must contain 1 to 100 explicit BMC addresses'}), 400
@@ -19740,11 +20020,24 @@ def _run_migrations(inspector):
                     server_ip VARCHAR(45) NOT NULL,
                     lifecycle VARCHAR(20) NOT NULL DEFAULT 'active',
                     revision INTEGER NOT NULL,
+                    credential_revision INTEGER,
+                    credential_digest VARCHAR(64),
+                    bmc_managed BOOLEAN,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(source_id, source_server_id)
                 )
             ''')
             app.logger.info("Migration: inventory_binding table created")
+        else:
+            columns = [c['name'] for c in inspector.get_columns('inventory_binding')]
+            for column_name, column_type in (
+                ('credential_revision', 'INTEGER'),
+                ('credential_digest', 'VARCHAR(64)'),
+                ('bmc_managed', 'BOOLEAN'),
+            ):
+                if column_name not in columns:
+                    app.logger.info(f"Migration: Adding {column_name} to inventory_binding...")
+                    execute_sql(f'ALTER TABLE inventory_binding ADD COLUMN {column_name} {column_type}')
         
         # Migration 1: Add ssh_key table
         if 'ssh_key' not in existing_tables:
