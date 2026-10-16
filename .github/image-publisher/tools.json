@@ -1,0 +1,15 @@
+{
+  "gh": {
+    "version": "v2.102.0",
+    "url": "https://github.com/cli/cli/releases/download/v2.102.0/gh_2.102.0_linux_amd64.tar.gz",
+    "sha256": "bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386",
+    "size": 15319960,
+    "member": "gh_2.102.0_linux_amd64/bin/gh"
+  },
+  "regctl": {
+    "version": "v0.11.6",
+    "url": "https://github.com/regclient/regclient/releases/download/v0.11.6/regctl-linux-amd64",
+    "sha256": "8e0e62a497fcdb8048d18aa927a139613176ba0531f412bc541044e28f9856bd",
+    "size": 12898428
+  }
+}
