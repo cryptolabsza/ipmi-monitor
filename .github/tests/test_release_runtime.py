@@ -35,6 +35,12 @@ class ReleaseRuntimeTest(unittest.TestCase):
   self.event={'name':'release','sha':SHA,'event':{'action':'published','release':{'tag_name':'v1.2.0','draft':False}}}
  def test_automatic_release_selects_actual_exact_commit_attempt_artifact(self):
   self.assertEqual(r.resolve_ids(POLICY,Producer(),self.event,['','','']),(123,2,456))
+ def test_discovery_refuses_dev_only_and_selects_main_over_newer_dev(self):
+  producer=Producer();producer.runs[0]['head_branch']='dev'
+  with self.assertRaisesRegex(r.Held,'producer absent'):
+   r.resolve_ids(POLICY,producer,self.event,['','',''])
+  producer=Producer();producer.runs.append({**producer.runs[0],'id':124,'head_branch':'dev'})
+  self.assertEqual(r.resolve_ids(POLICY,producer,self.event,['','','']),(123,2,456))
  def test_dynamic_ids_are_only_three_positive_numbers(self):
   self.assertEqual(r.resolve_ids(POLICY,Producer(),self.event,['123','2','456']),(123,2,456))
   for ids in [['123','','456'],['0','2','456'],['123','-1','456'],['true','2','456'],['1;echo','2','456']]:

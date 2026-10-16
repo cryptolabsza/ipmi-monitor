@@ -73,8 +73,7 @@ def prepare(project,files,proof,event,client,*,mirror_github):
     version,artifacts=inspect(files,project)
     repository=PROJECTS[project]
     require(proof['repository']==repository and re.fullmatch('[0-9a-f]{40}',proof['head_sha']) is not None,'verified source identity')
-    require(proof['branch'] in {'main','dev'},'verified source branch')
-    if project=='dc-overview':require(proof['branch']=='main','DC release metadata requires main producer')
+    require(proof['branch']=='main','publication requires verified protected main producer')
     require(client.source_project(proof['head_sha'])=={'name':project,'version':version},'source project/version')
     tag='v'+version;data=event['event'];kind=event['name']
     require(kind in {'release','workflow_dispatch'},'release event')

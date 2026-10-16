@@ -108,7 +108,7 @@ def resolve_ids(policy,client,event,values):
     release=client.release(tag)
     require(release.get('tag_name')==tag and release.get('draft')is False,'published release required')
     sha=client.tag_commit(tag)
-    runs=[run for run in client.producer_runs(policy,sha) if run['head_sha']==sha and run['head_branch'] in {'main','dev'}
+    runs=[run for run in client.producer_runs(policy,sha) if run['head_sha']==sha and run['head_branch']=='main'
           and run['event'] in {'push','workflow_dispatch'} and run['status']=='completed' and run['conclusion']=='success']
     require(runs and all(v.positive(x['id']) and v.positive(x['run_attempt']) for x in runs),'matching protected producer absent')
     run=max(runs,key=lambda x:x['id'])

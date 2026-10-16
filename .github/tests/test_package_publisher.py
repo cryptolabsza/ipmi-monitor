@@ -92,6 +92,18 @@ class PackagePublisherTest(unittest.TestCase):
             proof={**self.proof,'repository':'cryptolabsza/ipmi-monitor'}
             plan=p.prepare('ipmi-monitor',root,proof,{'name':'workflow_dispatch','sha':SHA,'event':{'inputs':{}}},c,mirror_github=False)
             self.assertEqual(plan['version'],VERSION)
+    def test_all_projects_require_main_before_creating_publication_plan_or_writing(self):
+        for project,repository in p.PROJECTS.items():
+            with self.subTest(project=project),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);distributions(root,project)
+                client=Client();client.source={'name':project,'version':VERSION}
+                proof={'head_sha':SHA,'branch':'main','repository':repository}
+                plan=p.prepare(project,root,proof,self.release_event,client,mirror_github=project in {'cryptolabs-proxy','dc-overview'})
+                self.assertEqual(plan['project'],project)
+                with self.assertRaisesRegex(p.Held,'main'):
+                    p.prepare(project,root,{**proof,'branch':'dev'},self.release_event,client,mirror_github=project in {'cryptolabs-proxy','dc-overview'})
+                self.assertEqual(client.calls,[],'dev producer must not reach either upload client')
+
     def test_conflicting_existing_destinations_refuse_before_any_upload(self):
         for destination in ['pypi','github']:
             with self.subTest(destination=destination):
