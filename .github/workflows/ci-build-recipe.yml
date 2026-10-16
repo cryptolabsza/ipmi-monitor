@@ -57,7 +57,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
       with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        images: ghcr.io/cryptolabsza/ipmi-monitor
         tags: |
           # For version tags (v1.6.0): create v1.6.0, 1.6.0, 1.6, latest
           type=semver,pattern={{version}}

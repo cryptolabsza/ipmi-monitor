@@ -115,6 +115,20 @@ class PublicBuildRouteTest(unittest.TestCase):
                 self.assertIn(archive_name, upload['with']['path'])
                 self.assertIn(archive.with_suffix('.json').name, upload['with']['path'])
 
+    def test_metadata_image_and_environment_are_defined_inside_each_leaf(self):
+        expected_image = 'ghcr.io/cryptolabsza/ipmi-monitor'
+        for filename, source, data, expected in self.recipes():
+            self.assertNotIn('env.REGISTRY', source)
+            self.assertNotIn('env.IMAGE_NAME', source)
+            reads = set(re.findall(r'env\.([A-Z_]+)', source))
+            self.assertLessEqual(reads, {'RELEASE_JOB_DIR'})
+            if 'RELEASE_JOB_DIR' in reads:
+                self.assertIn("printf 'RELEASE_JOB_DIR=%s", source)
+                self.assertIn('>> "$GITHUB_ENV"', source)
+            for step in data['jobs'][expected['job']]['steps']:
+                if step.get('uses', '').startswith('docker/metadata-action@'):
+                    self.assertEqual(step['with']['images'], expected_image)
+
     def test_callers_pin_immutable_recipes_without_credentials_or_source_inputs(self):
         for caller, recipe in SPEC['callers'].items():
             filename, jid = caller.split('#')
