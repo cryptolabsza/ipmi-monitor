@@ -11,7 +11,7 @@ jobs:
     if: github.event_name != 'pull_request'
     needs:
     - build
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-publish-recipe.yml@d7602a4caec566f660e7463a8d252dc565795a52
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-publish-recipe.yml@c121d8ae29916a6dad69e055f0ed8978bc2203c3
     permissions:
       contents: read
       actions: read
