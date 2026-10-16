@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 45
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
   cpu-build:
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@608db60be890c4223350ce44c6433505ee26c4d3
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
     permissions:
       contents: read
 'on':

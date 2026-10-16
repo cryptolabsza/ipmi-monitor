@@ -4,7 +4,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 jobs:
   build:
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-build-recipe.yml@608db60be890c4223350ce44c6433505ee26c4d3
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
     permissions:
       contents: read
   publish-build:
