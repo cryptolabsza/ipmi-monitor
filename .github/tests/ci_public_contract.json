@@ -1,0 +1,63 @@
+{
+  "repository_id": 1109244855,
+  "recipes": {
+    "ci-build-recipe.yml": {
+      "job": "build",
+      "commands": [
+        "# Get version from tag or generate from branch\nif [[ \"${{ github.ref }}\" == refs/tags/v* ]]; then\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/main ]] || [[ \"${{ github.ref }}\" == refs/heads/master ]]; then\n  VERSION=\"latest\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/develop ]] || [[ \"${{ github.ref }}\" == refs/heads/dev ]]; then\n  VERSION=\"dev\"\n  CHANNEL=\"development\"\nelse\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"feature\"\nfi\n\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"channel=$CHANNEL\" >> $GITHUB_OUTPUT\necho \"\ud83d\udce6 Building: $VERSION ($CHANNEL channel)\"\n",
+        "echo \"git_commit=${{ github.sha }}\" >> $GITHUB_OUTPUT\necho \"git_branch=${{ github.ref_name }}\" >> $GITHUB_OUTPUT\necho \"build_time=$(date -u '+%Y-%m-%d %H:%M UTC')\" >> $GITHUB_OUTPUT\n# Read actual semver from pyproject.toml\nAPP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=${APP_VERSION}\" >> $GITHUB_OUTPUT\necho \"\ud83d\udccc App version: ${APP_VERSION}\"\n"
+      ]
+    },
+    "ci-python-build-recipe.yml": {
+      "job": "build",
+      "commands": [
+        "pip install build twine",
+        "VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"Version: $VERSION\"\n",
+        "python -m build"
+      ]
+    },
+    "ci-pages-build-recipe.yml": {
+      "job": "build",
+      "commands": []
+    }
+  },
+  "callers": {
+    "docker-build.yml#build": "ci-build-recipe.yml",
+    "publish.yml#cpu-build": "ci-python-build-recipe.yml",
+    "pages.yml#build": "ci-pages-build-recipe.yml"
+  },
+  "held": {
+    "docker-build.yml#publish-build": {
+      "commands": [
+        "# Get version from tag or generate from branch\nif [[ \"${{ github.ref }}\" == refs/tags/v* ]]; then\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/main ]] || [[ \"${{ github.ref }}\" == refs/heads/master ]]; then\n  VERSION=\"latest\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/develop ]] || [[ \"${{ github.ref }}\" == refs/heads/dev ]]; then\n  VERSION=\"dev\"\n  CHANNEL=\"development\"\nelse\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"feature\"\nfi\n\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"channel=$CHANNEL\" >> $GITHUB_OUTPUT\necho \"\ud83d\udce6 Building: $VERSION ($CHANNEL channel)\"\n",
+        "echo \"git_commit=${{ github.sha }}\" >> $GITHUB_OUTPUT\necho \"git_branch=${{ github.ref_name }}\" >> $GITHUB_OUTPUT\necho \"build_time=$(date -u '+%Y-%m-%d %H:%M UTC')\" >> $GITHUB_OUTPUT\n# Read actual semver from pyproject.toml\nAPP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=${APP_VERSION}\" >> $GITHUB_OUTPUT\necho \"\ud83d\udccc App version: ${APP_VERSION}\"\n",
+        "echo \"## \ud83d\udc33 Docker Build Complete\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"**Channel:** ${{ steps.version.outputs.channel }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Version:** ${{ steps.version.outputs.version }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Commit:** ${{ github.sha }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Platforms:** linux/amd64\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"### Tags pushed:\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\necho \"${{ steps.meta.outputs.tags }}\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\n"
+      ]
+    },
+    "publish.yml#publish": {
+      "commands": [
+        "pip install build twine",
+        "VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"Version: $VERSION\"\n",
+        "python -m build",
+        "python -m twine upload dist/* --skip-existing",
+        "VERSION=${{ steps.get_version.outputs.version }}\necho \"## \ud83d\udce6 Published ipmi-monitor $VERSION to PyPI\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"Install with:\" >> $GITHUB_STEP_SUMMARY\necho \"\\`\\`\\`bash\" >> $GITHUB_STEP_SUMMARY\necho \"pipx install ipmi-monitor==$VERSION\" >> $GITHUB_STEP_SUMMARY\necho \"\\`\\`\\`\" >> $GITHUB_STEP_SUMMARY\n"
+      ]
+    },
+    "pages.yml#deploy": {
+      "commands": []
+    },
+    "sync-docs.yml#sync-docs": {
+      "commands": [
+        "# Copy user guide to AI knowledge base\ncp ipmi-monitor/docs/user-guide.md ipmi-monitor-ai/knowledge/ipmi_monitor_guide.md\n\necho \"Documentation synced at $(date)\"\n",
+        "cd ipmi-monitor-ai\ngit config user.name \"GitHub Actions\"\ngit config user.email \"actions@github.com\"\n\n# Check if there are changes\nif git diff --quiet; then\n  echo \"No changes to commit\"\nelse\n  git add knowledge/ipmi_monitor_guide.md\n  git commit -m \"Sync documentation from ipmi-monitor\n\n  Auto-synced from: ${{ github.repository }}@${{ github.sha }}\"\n  git push\n  echo \"Documentation synced successfully!\"\nfi\n"
+      ]
+    },
+    "sync-knowledge.yml#sync-to-docs": {
+      "commands": [
+        "echo \"=== Syncing knowledge files to docs folder ===\"\n\nfor f in knowledge/*.md; do\n  filename=$(basename \"$f\")\n  target=\"docs/$filename\"\n  \n  echo \"Processing: $filename\"\n  \n  # Check if already has Jekyll frontmatter\n  if head -1 \"$f\" | grep -q \"^---\"; then\n    cp \"$f\" \"$target\"\n  else\n    # Extract title from first H1 heading\n    title=$(grep \"^# \" \"$f\" | head -1 | sed 's/^# //')\n    \n    # Add Jekyll frontmatter\n    {\n      echo \"---\"\n      echo \"layout: default\"\n      echo \"title: ${title:-$filename}\"\n      echo \"---\"\n      echo \"\"\n      cat \"$f\"\n    } > \"$target\"\n  fi\n  \n  # Convert .md links to .html for GitHub Pages\n  sed -i 's/\\.md)/.html)/g' \"$target\"\n  \n  echo \"  \u2713 $filename -> $target\"\ndone\n",
+        "git config user.name \"github-actions[bot]\"\ngit config user.email \"github-actions[bot]@users.noreply.github.com\"\n\n# Check if there are changes\nif git diff --quiet && git diff --staged --quiet; then\n  echo \"\u2705 No changes to commit\"\n  exit 0\nfi\n\necho \"=== Changes detected ===\"\ngit diff --stat\n\ngit add docs/\ngit commit -m \"docs: Sync knowledge base to GitHub Pages\n\nAuto-generated from knowledge/ directory\"\ngit push\n\necho \"\u2705 Docs folder synced\"\n",
+        "echo \"=== AI Service will auto-sync on next startup ===\"\necho \"Source: https://github.com/cryptolabsza/ipmi-monitor/tree/main/knowledge\"\necho \"\"\necho \"The AI service pulls knowledge from the public repo.\"\necho \"No token or push access needed!\"\n"
+      ]
+    }
+  }
+}
