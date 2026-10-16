@@ -60,7 +60,7 @@ def prepare(policy,images,files,proof,context,api=gh_json):
     if len(images)>1:require((files/'SHA256SUMS').read_text()==''.join(sums),'image checksum list')
     return plans
 
-def promote(policy,images,release_tag,source_sha,expected,api=gh_json):
+def promote_verified(policy,images,release_tag,source_sha,expected,api=gh_json,receipt_path=None):
     import image_promotion as promotion
     require(re.fullmatch('[0-9a-f]{40}',source_sha) and set(expected)==set(images),'complete manual promotion identities')
     version=source_version(policy,source_sha,api);require(release_tag=='v'+version,'release source version')
@@ -69,9 +69,21 @@ def promote(policy,images,release_tag,source_sha,expected,api=gh_json):
     comparison=api('/repos/'+policy.repository+'/compare/'+source_sha+'...'+branch['commit']['sha']);require(comparison['status'] in {'ahead','identical'} and comparison['merge_base_commit']['sha']==source_sha,'promotion source ancestry')
     context={'project':policy.repository.split('/')[1],'repository':policy.repository,'version':version,'tag':release_tag,'source_sha':source_sha}
     before=package_gate(images);receipt=promotion.promote(context,expected,['linux/amd64'],client)
+    if receipt_path is not None:receipt_path.write_text(json.dumps(receipt,indent=2)+'\n')
     require(receipt['status']=='verified','manual promotion held or partial')
     require(client.release_commit(policy.repository,release_tag)==source_sha,'release source changed')
     package_gate(images,after=True,previous=before);return receipt
+
+def promote(policy,images,release_tag,source_sha,expected,api=gh_json,receipt_path=None):
+    if receipt_path is None:receipt_path=Path(os.environ['RUNNER_TEMP'])/'promotion-receipt.json'
+    try:
+        return promote_verified(policy,images,release_tag,source_sha,expected,api,receipt_path)
+    except Exception:
+        receipt=json.loads(receipt_path.read_text()) if receipt_path is not None and receipt_path.exists() else {'schema_version':1,'status':'held','targets':[],'operations':[]}
+        if receipt.get('status')=='verified':receipt['status']='partial'
+        receipt.setdefault('error_code','promotion_source_package_or_registry_proof_failed')
+        if receipt_path is not None:receipt_path.write_text(json.dumps(receipt,indent=2)+'\n')
+        return receipt
 
 def metadata(policy,mode,api=gh_json):
     import image_promotion as promotion
@@ -96,7 +108,8 @@ def main(policy,images):
         if args.mode=='promote':
             require(os.environ['GITHUB_EVENT_NAME']=='workflow_dispatch','manual promotion only')
             expected={image:os.environ[image.upper().replace('-','_')+'_DIGEST'] for image in images}
-            print(json.dumps(promote(policy,images,os.environ['RELEASE_TAG'],os.environ['SOURCE_SHA'],expected)));return 0
+            receipt=promote(policy,images,os.environ['RELEASE_TAG'],os.environ['SOURCE_SHA'],expected,receipt_path=Path(os.environ['RUNNER_TEMP'])/'promotion-receipt.json')
+            print(json.dumps(receipt));return 0 if receipt['status']=='verified' else 1
         run=int(os.environ['GITHUB_RUN_ID']);attempt=int(os.environ['GITHUB_RUN_ATTEMPT']);require((args.run,args.attempt)==(run,attempt),'current run/attempt')
         with tempfile.TemporaryDirectory(prefix='image-transport-',dir=os.environ.get('RUNNER_TEMP','/tmp')) as td:
             root=Path(td);proof=verify(policy,args.run,args.attempt,args.artifact,output=root/'verified');context={'repository':policy.repository,'repository_id':policy.repository_id,'sha':os.environ['GITHUB_SHA'],'branch':'main','run_id':run,'run_attempt':attempt};plans=prepare(policy,images,root/'verified/files',proof,context)

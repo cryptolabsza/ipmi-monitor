@@ -33,6 +33,22 @@ class ImageBoundary(unittest.TestCase):
   data=('[project]\nname="'+name+'"\nversion="1.2.3"\n').encode();api=lambda path:{'encoding':'base64','path':'pyproject.toml','size':len(data),'content':base64.b64encode(data).decode()}
   with tempfile.TemporaryDirectory() as td,patch.dict(os.environ,{'GITHUB_SHA':'a'*40,'RUNNER_TEMP':td,'GITHUB_OUTPUT':td+'/output'}):
    receipt=m.metadata(Policy(),'preflight',api);self.assertEqual((receipt['status'],receipt['build'],receipt['channel']),('discovery',True,'main'));self.assertEqual(receipt['release']['version'],'1.2.3');self.assertEqual(receipt['operations'],[])
+ def test_partial_promotion_retains_exact_operations_and_always_upload(self):
+  if ROOT.name.startswith('ipmi-monitor'):return
+  import os,tempfile
+  from unittest.mock import patch
+  m=self.module();import image_promotion as promotion
+  name='dc-overview' if ROOT.name.startswith('dc-overview') else 'cryptolabs-proxy';sha='a'*40
+  class Policy:repository='cryptolabsza/'+name
+  class Client:
+   def release_commit(self,*args):return sha
+  receipt={'status':'partial','targets':[{'repository':'target'}],'operations':[{'alias':'latest','before_digest':'sha256:old','after_digest':'sha256:new'}],'error_code':'alias_readback_mismatch'}
+  api=lambda path: {'protected':True,'commit':{'sha':sha}} if '/branches/' in path else {'status':'identical','merge_base_commit':{'sha':sha}}
+  with tempfile.TemporaryDirectory() as td,patch.dict(os.environ,{'RUNNER_TEMP':td}),patch.object(m,'source_version',return_value='1.2.3'),patch.object(m,'package_gate',return_value={}),patch.object(promotion,'Client',return_value=Client()),patch.object(promotion,'promote',return_value=receipt):
+   try:m.promote(Policy(),[name],'v1.2.3',sha,{name:'sha256:'+'b'*64},api)
+   except m.Held:pass
+   saved=Path(td)/'promotion-receipt.json';self.assertTrue(saved.exists(),'partial alias mutation must retain its exact receipt');self.assertEqual(json.loads(saved.read_text()),receipt)
+  leaf=yaml.safe_load((ROOT/'.github/workflows/ci-image-promote-recipe.yml').read_text())['jobs']['promote'];upload=next(s for s in leaf['steps'] if s.get('uses','').startswith('actions/upload-artifact@'));self.assertEqual(upload['if'],'always()');self.assertEqual(upload['with']['name'],'image-promotion-receipt');self.assertEqual(upload['with']['retention-days'],90)
  def test_immutable_publisher_has_only_literal_helpers_and_no_application_execution(self):
   p=ROOT/'.github/workflows/ci-image-publish-recipe.yml';self.assertTrue(p.exists());d=yaml.safe_load(p.read_text())
   for name,j in d['jobs'].items():
