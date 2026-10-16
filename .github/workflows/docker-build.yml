@@ -4,100 +4,22 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 jobs:
   build:
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-build-recipe.yml@c8ab0681b57e933ff243d7bb91765e85767ba849
     permissions:
       contents: read
   publish-build:
-    runs-on:
-    - self-hosted
-    - ci-authority-held-r1109244855
+    if: github.event_name != 'pull_request'
+    needs:
+    - build
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-publish-recipe.yml@d7602a4caec566f660e7463a8d252dc565795a52
     permissions:
       contents: read
+      actions: read
       packages: write
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      with:
-        persist-credentials: false
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-    - name: Log in to Container Registry
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.CR_PAT || secrets.GITHUB_TOKEN }}
-    - name: Determine version info
-      id: version
-      run: "# Get version from tag or generate from branch\nif [[ \"${{ github.ref }}\" == refs/tags/v* ]]; then\n\
-        \  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/main\
-        \ ]] || [[ \"${{ github.ref }}\" == refs/heads/master ]]; then\n  VERSION=\"latest\"\n  CHANNEL=\"stable\"\
-        \nelif [[ \"${{ github.ref }}\" == refs/heads/develop ]] || [[ \"${{ github.ref }}\" == refs/heads/dev ]];\
-        \ then\n  VERSION=\"dev\"\n  CHANNEL=\"development\"\nelse\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"\
-        feature\"\nfi\n\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"channel=$CHANNEL\" >> $GITHUB_OUTPUT\n\
-        echo \"\U0001F4E6 Building: $VERSION ($CHANNEL channel)\"\n"
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          # For version tags (v1.6.0): create v1.6.0, 1.6.0, 1.6, latest
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
-          type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-          type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-
-          # For main branch: just 'main' tag (latest only from version tags)
-          type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
-
-          # For develop/dev branch: 'dev' and 'develop' tags
-          type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' }}
-          type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' }}
-
-          # For PRs: pr-{number}
-          type=ref,event=pr
-
-          # SHA for all builds (for debugging)
-          type=sha,prefix=sha-
-
-          # Manual override tag
-          type=raw,value=${{ github.event.inputs.tag_override }},enable=${{ github.event.inputs.tag_override != '' }}
-    - name: Get build info
-      id: build_info
-      run: "echo \"git_commit=${{ github.sha }}\" >> $GITHUB_OUTPUT\necho \"git_branch=${{ github.ref_name }}\"\
-        \ >> $GITHUB_OUTPUT\necho \"build_time=$(date -u '+%Y-%m-%d %H:%M UTC')\" >> $GITHUB_OUTPUT\n# Read actual\
-        \ semver from pyproject.toml\nAPP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*\"\\(.*\\)\".*/\\\
-        1/')\necho \"version=${APP_VERSION}\" >> $GITHUB_OUTPUT\necho \"\U0001F4CC App version: ${APP_VERSION}\"\
-        \n"
-    - name: Build and push Docker image
-      uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
-      with:
-        context: .
-        platforms: linux/amd64
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max,ignore-error=true
-        build-args: |
-          GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
-          GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
-          BUILD_TIME=${{ steps.build_info.outputs.build_time }}
-          APP_VERSION=${{ steps.build_info.outputs.version }}
-    - name: Summary
-      run: "echo \"## \U0001F433 Docker Build Complete\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\n\
-        echo \"**Channel:** ${{ steps.version.outputs.channel }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Version:**\
-        \ ${{ steps.version.outputs.version }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Commit:** ${{ github.sha }}\"\
-        \ >> $GITHUB_STEP_SUMMARY\necho \"**Platforms:** linux/amd64\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\n\
-        echo \"### Tags pushed:\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\necho \"${{ steps.meta.outputs.tags\
-        \ }}\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\n"
-    timeout-minutes: 45
-    if: github.event_name != 'pull_request'
+    with:
+      producer_run_id: ${{ github.run_id }}
+      producer_attempt: ${{ github.run_attempt }}
+      artifact_id: ${{ needs.build.outputs.artifact_id }}
 'on':
   push:
     branches:

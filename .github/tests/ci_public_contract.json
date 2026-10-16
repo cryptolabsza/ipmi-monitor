@@ -22,18 +22,11 @@
     }
   },
   "callers": {
-    "docker-build.yml#build": "ci-build-recipe.yml",
+    "docker-build.yml#build": "ci-image-build-recipe.yml",
     "publish.yml#cpu-build": "ci-python-build-recipe.yml",
     "pages.yml#build": "ci-pages-build-recipe.yml"
   },
   "held": {
-    "docker-build.yml#publish-build": {
-      "commands": [
-        "# Get version from tag or generate from branch\nif [[ \"${{ github.ref }}\" == refs/tags/v* ]]; then\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/main ]] || [[ \"${{ github.ref }}\" == refs/heads/master ]]; then\n  VERSION=\"latest\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/develop ]] || [[ \"${{ github.ref }}\" == refs/heads/dev ]]; then\n  VERSION=\"dev\"\n  CHANNEL=\"development\"\nelse\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"feature\"\nfi\n\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"channel=$CHANNEL\" >> $GITHUB_OUTPUT\necho \"\ud83d\udce6 Building: $VERSION ($CHANNEL channel)\"\n",
-        "echo \"git_commit=${{ github.sha }}\" >> $GITHUB_OUTPUT\necho \"git_branch=${{ github.ref_name }}\" >> $GITHUB_OUTPUT\necho \"build_time=$(date -u '+%Y-%m-%d %H:%M UTC')\" >> $GITHUB_OUTPUT\n# Read actual semver from pyproject.toml\nAPP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=${APP_VERSION}\" >> $GITHUB_OUTPUT\necho \"\ud83d\udccc App version: ${APP_VERSION}\"\n",
-        "echo \"## \ud83d\udc33 Docker Build Complete\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"**Channel:** ${{ steps.version.outputs.channel }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Version:** ${{ steps.version.outputs.version }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Commit:** ${{ github.sha }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Platforms:** linux/amd64\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"### Tags pushed:\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\necho \"${{ steps.meta.outputs.tags }}\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\n"
-      ]
-    },
     "pages.yml#deploy": {
       "commands": []
     },
