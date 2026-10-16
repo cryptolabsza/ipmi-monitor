@@ -33,7 +33,7 @@ jobs:
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: cryptolabsza/ipmi-monitor
-        ref: '282f83abef3f1631b3995adb668c3970edd0aaaa'
+        ref: 'b03de4b7b6f96ec0e4cf2268c14ce67fb11af47f'
         persist-credentials: false
         fetch-depth: 1
         path: publisher
