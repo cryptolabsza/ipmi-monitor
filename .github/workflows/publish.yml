@@ -7,7 +7,7 @@ jobs:
   publish:
     needs: cpu-build
     if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pypi-publish-recipe.yml@3a7cd6089c081d603bb9ff3f9ef3dbc33deac14f
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pypi-publish-recipe.yml@4be51343189670485e05a35e3e8ba9ff4ffe9d30
     permissions:
       actions: read
       contents: read
