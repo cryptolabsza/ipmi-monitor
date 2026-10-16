@@ -1,53 +1,61 @@
 name: Publish to PyPI
-
-on:
+jobs:
+  publish:
+    runs-on:
+    - self-hosted
+    - ci-authority-held-r1109244855
+    permissions:
+      id-token: write
+    steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        persist-credentials: false
+    - name: Set up Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - name: Install build tools
+      run: pip install build twine
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    - name: Build package
+      run: python -m build
+    - name: Publish to PyPI
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: python -m twine upload dist/* --skip-existing
+    - name: Summary
+      run: "VERSION=${{ steps.get_version.outputs.version }}\necho \"## \U0001F4E6 Published ipmi-monitor $VERSION\
+        \ to PyPI\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"Install with:\" >> $GITHUB_STEP_SUMMARY\n\
+        echo \"\\`\\`\\`bash\" >> $GITHUB_STEP_SUMMARY\necho \"pipx install ipmi-monitor==$VERSION\" >> $GITHUB_STEP_SUMMARY\n\
+        echo \"\\`\\`\\`\" >> $GITHUB_STEP_SUMMARY\n"
+    timeout-minutes: 45
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+  cpu-build:
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@608db60be890c4223350ce44c6433505ee26c4d3
+    permissions:
+      contents: read
+'on':
   release:
-    types: [published]
+    types:
+    - published
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (must match pyproject.toml)'
+        description: Version to publish (must match pyproject.toml)
         required: false
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install build tools
-        run: pip install build twine
-
-      - name: Get version
-        id: get_version
-        run: |
-          VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Build package
-        run: python -m build
-
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: python -m twine upload dist/* --skip-existing
-
-      - name: Summary
-        run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          echo "## 📦 Published ipmi-monitor $VERSION to PyPI" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Install with:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "pipx install ipmi-monitor==$VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+  push:
+    branches:
+    - dev
+    - main
+  pull_request:
+    branches:
+    - dev
+    - main
+permissions:
+  contents: read

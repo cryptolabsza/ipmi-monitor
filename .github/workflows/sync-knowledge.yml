@@ -1,80 +1,44 @@
 name: Sync Knowledge Base to Docs
-
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'knowledge/**'
-  workflow_dispatch:  # Allow manual trigger
-
 jobs:
   sync-to-docs:
-    runs-on: ubuntu-latest
+    runs-on:
+    - self-hosted
+    - ci-authority-held-r1109244855
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Sync knowledge to docs folder
-        run: |
-          echo "=== Syncing knowledge files to docs folder ==="
-          
-          for f in knowledge/*.md; do
-            filename=$(basename "$f")
-            target="docs/$filename"
-            
-            echo "Processing: $filename"
-            
-            # Check if already has Jekyll frontmatter
-            if head -1 "$f" | grep -q "^---"; then
-              cp "$f" "$target"
-            else
-              # Extract title from first H1 heading
-              title=$(grep "^# " "$f" | head -1 | sed 's/^# //')
-              
-              # Add Jekyll frontmatter
-              {
-                echo "---"
-                echo "layout: default"
-                echo "title: ${title:-$filename}"
-                echo "---"
-                echo ""
-                cat "$f"
-              } > "$target"
-            fi
-            
-            # Convert .md links to .html for GitHub Pages
-            sed -i 's/\.md)/.html)/g' "$target"
-            
-            echo "  ✓ $filename -> $target"
-          done
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Check if there are changes
-          if git diff --quiet && git diff --staged --quiet; then
-            echo "✅ No changes to commit"
-            exit 0
-          fi
-          
-          echo "=== Changes detected ==="
-          git diff --stat
-          
-          git add docs/
-          git commit -m "docs: Sync knowledge base to GitHub Pages
-
-          Auto-generated from knowledge/ directory"
-          git push
-          
-          echo "✅ Docs folder synced"
-
-      - name: Notify AI Service to refresh
-        if: success()
-        run: |
-          echo "=== AI Service will auto-sync on next startup ==="
-          echo "Source: https://github.com/cryptolabsza/ipmi-monitor/tree/main/knowledge"
-          echo ""
-          echo "The AI service pulls knowledge from the public repo."
-          echo "No token or push access needed!"
+    - name: Checkout
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        persist-credentials: false
+    - name: Sync knowledge to docs folder
+      run: "echo \"=== Syncing knowledge files to docs folder ===\"\n\nfor f in knowledge/*.md; do\n  filename=$(basename\
+        \ \"$f\")\n  target=\"docs/$filename\"\n  \n  echo \"Processing: $filename\"\n  \n  # Check if already has\
+        \ Jekyll frontmatter\n  if head -1 \"$f\" | grep -q \"^---\"; then\n    cp \"$f\" \"$target\"\n  else\n\
+        \    # Extract title from first H1 heading\n    title=$(grep \"^# \" \"$f\" | head -1 | sed 's/^# //')\n\
+        \    \n    # Add Jekyll frontmatter\n    {\n      echo \"---\"\n      echo \"layout: default\"\n      echo\
+        \ \"title: ${title:-$filename}\"\n      echo \"---\"\n      echo \"\"\n      cat \"$f\"\n    } > \"$target\"\
+        \n  fi\n  \n  # Convert .md links to .html for GitHub Pages\n  sed -i 's/\\.md)/.html)/g' \"$target\"\n\
+        \  \n  echo \"  \u2713 $filename -> $target\"\ndone\n"
+    - name: Commit and push
+      run: "git config user.name \"github-actions[bot]\"\ngit config user.email \"github-actions[bot]@users.noreply.github.com\"\
+        \n\n# Check if there are changes\nif git diff --quiet && git diff --staged --quiet; then\n  echo \"\u2705\
+        \ No changes to commit\"\n  exit 0\nfi\n\necho \"=== Changes detected ===\"\ngit diff --stat\n\ngit add\
+        \ docs/\ngit commit -m \"docs: Sync knowledge base to GitHub Pages\n\nAuto-generated from knowledge/ directory\"\
+        \ngit push\n\necho \"\u2705 Docs folder synced\"\n"
+    - name: Notify AI Service to refresh
+      if: success()
+      run: |
+        echo "=== AI Service will auto-sync on next startup ==="
+        echo "Source: https://github.com/cryptolabsza/ipmi-monitor/tree/main/knowledge"
+        echo ""
+        echo "The AI service pulls knowledge from the public repo."
+        echo "No token or push access needed!"
+    timeout-minutes: 45
+'on':
+  push:
+    branches:
+    - main
+    paths:
+    - knowledge/**
+  workflow_dispatch: null
+permissions:
+  contents: read
