@@ -34,15 +34,6 @@
         "echo \"## \ud83d\udc33 Docker Build Complete\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"**Channel:** ${{ steps.version.outputs.channel }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Version:** ${{ steps.version.outputs.version }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Commit:** ${{ github.sha }}\" >> $GITHUB_STEP_SUMMARY\necho \"**Platforms:** linux/amd64\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"### Tags pushed:\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\necho \"${{ steps.meta.outputs.tags }}\" >> $GITHUB_STEP_SUMMARY\necho '```' >> $GITHUB_STEP_SUMMARY\n"
       ]
     },
-    "publish.yml#publish": {
-      "commands": [
-        "pip install build twine",
-        "VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\necho \"Version: $VERSION\"\n",
-        "python -m build",
-        "python -m twine upload dist/* --skip-existing",
-        "VERSION=${{ steps.get_version.outputs.version }}\necho \"## \ud83d\udce6 Published ipmi-monitor $VERSION to PyPI\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"Install with:\" >> $GITHUB_STEP_SUMMARY\necho \"\\`\\`\\`bash\" >> $GITHUB_STEP_SUMMARY\necho \"pipx install ipmi-monitor==$VERSION\" >> $GITHUB_STEP_SUMMARY\necho \"\\`\\`\\`\" >> $GITHUB_STEP_SUMMARY\n"
-      ]
-    },
     "pages.yml#deploy": {
       "commands": []
     },

@@ -1,45 +1,24 @@
 name: Publish to PyPI
 jobs:
-  publish:
-    runs-on:
-    - self-hosted
-    - ci-authority-held-r1109244855
-    permissions:
-      id-token: write
-    steps:
-    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      with:
-        persist-credentials: false
-    - name: Set up Python
-      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-      with:
-        python-version: '3.12'
-    - name: Install build tools
-      run: pip install build twine
-    - name: Get version
-      id: get_version
-      run: |
-        VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION"
-    - name: Build package
-      run: python -m build
-    - name: Publish to PyPI
-      env:
-        TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-      run: python -m twine upload dist/* --skip-existing
-    - name: Summary
-      run: "VERSION=${{ steps.get_version.outputs.version }}\necho \"## \U0001F4E6 Published ipmi-monitor $VERSION\
-        \ to PyPI\" >> $GITHUB_STEP_SUMMARY\necho \"\" >> $GITHUB_STEP_SUMMARY\necho \"Install with:\" >> $GITHUB_STEP_SUMMARY\n\
-        echo \"\\`\\`\\`bash\" >> $GITHUB_STEP_SUMMARY\necho \"pipx install ipmi-monitor==$VERSION\" >> $GITHUB_STEP_SUMMARY\n\
-        echo \"\\`\\`\\`\" >> $GITHUB_STEP_SUMMARY\n"
-    timeout-minutes: 45
-    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
   cpu-build:
     uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
     permissions:
       contents: read
+  publish:
+    needs: cpu-build
+    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pypi-publish-recipe.yml@3a7cd6089c081d603bb9ff3f9ef3dbc33deac14f
+    permissions:
+      actions: read
+      contents: read
+    with:
+      producer_run_id: ${{ inputs.producer_run_id || (needs.cpu-build.result == 'success' && github.run_id) || '' }}
+      producer_attempt: ${{ inputs.producer_attempt || (needs.cpu-build.result == 'success' && github.run_attempt) || '' }}
+      artifact_id: ${{ inputs.artifact_id || needs.cpu-build.outputs.artifact_id || '' }}
+    secrets:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+permissions:
+  contents: read
 'on':
   release:
     types:
@@ -49,6 +28,18 @@ jobs:
       version:
         description: Version to publish (must match pyproject.toml)
         required: false
+      producer_run_id:
+        description: Existing verified producer producer run id, or leave all three blank
+        required: false
+        type: string
+      producer_attempt:
+        description: Existing verified producer producer attempt, or leave all three blank
+        required: false
+        type: string
+      artifact_id:
+        description: Existing verified producer artifact id, or leave all three blank
+        required: false
+        type: string
   push:
     branches:
     - dev
@@ -57,5 +48,3 @@ jobs:
     branches:
     - dev
     - main
-permissions:
-  contents: read
