@@ -1,0 +1,70 @@
+name: Immutable verified image artifact publication
+'on':
+  workflow_call:
+    inputs:
+      producer_run_id:
+        type: string
+        required: true
+      producer_attempt:
+        type: string
+        required: true
+      artifact_id:
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+  packages: write
+jobs:
+  publish:
+    if: github.repository_id == '1109244855' && github.ref_protected == true && github.ref == 'refs/heads/main' && (github.event_name
+      == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on:
+      group: ci-publish-ephemeral
+      labels:
+      - ci-linux-publish-v1-r1109244855
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+    - name: Checkout only frozen reviewed image helpers
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: cryptolabsza/ipmi-monitor
+        ref: '282f83abef3f1631b3995adb668c3970edd0aaaa'
+        persist-credentials: false
+        fetch-depth: 1
+        path: publisher
+        sparse-checkout: '/.github/image-publisher/bootstrap_tools.py
+
+          /.github/image-publisher/image_publisher.py
+
+          /.github/image-publisher/policy.py
+
+          /.github/image-publisher/tools.json
+
+          /.github/image-publisher/transport.py
+
+          /.github/image-publisher/verify_artifact.py
+
+          '
+        sparse-checkout-cone-mode: false
+    - name: Verify frozen upstream verifier and OCI parser
+      run: 'echo ''54bd08ddf7e59e755c0f21b3413699459cb837d152ff4b57716660f2ff71c7c3  publisher/.github/image-publisher/verify_artifact.py''
+        | sha256sum --check -
+
+        echo ''ef55392ffcdf59a30a232c436520e10b318a3895e139f0c40904e33f7dccd2a8  publisher/.github/image-publisher/image_publisher.py''
+        | sha256sum --check -
+
+        '
+    - name: Install verified normal-user official tools
+      run: python3 publisher/.github/image-publisher/bootstrap_tools.py
+    - name: Verify actual producer and publish exact artifact bytes
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PRODUCER_RUN_ID: ${{ inputs.producer_run_id }}
+        PRODUCER_ATTEMPT: ${{ inputs.producer_attempt }}
+        ARTIFACT_ID: ${{ inputs.artifact_id }}
+      run: python3 publisher/.github/image-publisher/policy.py publish "$PRODUCER_RUN_ID" "$PRODUCER_ATTEMPT" "$ARTIFACT_ID"
