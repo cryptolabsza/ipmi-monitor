@@ -17,3 +17,19 @@ class LocalBuildRecipeTests(unittest.TestCase):
   baseline=yaml.safe_load(subprocess.check_output(['git','show',BH+':'+path],cwd=ROOT));normal=copy.deepcopy(recipe);normal['jobs']['build']['steps']=[s for s in normal['jobs']['build']['steps'] if s['name'] not in {checkout['name'],verify['name'],handoff['name']}]
   target=next(s for s in normal['jobs']['build']['steps'] if s.get('id')=='upload');target['with']=next(s for s in baseline['jobs']['build']['steps'] if s.get('id')=='upload')['with']
   self.assertEqual(normal,baseline)
+
+PH='927b6572263cf158ffa2e7b2b78704667cbb9fcd'
+class LocalPublicationRecipeTests(unittest.TestCase):
+ def test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes(self):
+  path='.github/workflows/ci-image-publish-recipe.yml';actual=yaml.safe_load((ROOT/path).read_text());baseline=yaml.safe_load(subprocess.check_output(['git','show',PH+':'+path],cwd=ROOT));normal=copy.deepcopy(actual)
+  for name,job in actual['jobs'].items():
+   old=baseline['jobs'][name];checkout=job['steps'][0];self.assertEqual(checkout['with']['ref'],PH)
+   sparse=checkout['with']['sparse-checkout'].splitlines();self.assertIn('/.github/image-publisher/local_artifact.py',sparse);self.assertIn('/.github/image-publisher/local_artifact_routes.py',sparse)
+   verify=next(s for s in job['steps'] if s.get('name')=='Verify frozen upstream verifier and OCI parser');previous=next(s for s in old['steps'] if s.get('name')==verify['name'])
+   oldhash='54bd08ddf7e59e755c0f21b3413699459cb837d152ff4b57716660f2ff71c7c3';newhash=hashlib.sha256(subprocess.check_output(['git','show',PH+':.github/image-publisher/verify_artifact.py'],cwd=ROOT)).hexdigest();extra=''
+   for filename in ('local_artifact.py','local_artifact_routes.py'):
+    raw=subprocess.check_output(['git','show',PH+':.github/image-publisher/'+filename],cwd=ROOT);extra+="echo '"+hashlib.sha256(raw).hexdigest()+'  publisher/.github/image-publisher/'+filename+"' | sha256sum --check -\n"
+   self.assertEqual(verify['run'],previous['run'].replace(oldhash,newhash)+extra)
+   normal['jobs'][name]['steps'][0]['with']=copy.deepcopy(old['steps'][0]['with'])
+   next(s for s in normal['jobs'][name]['steps'] if s.get('name')==verify['name'])['run']=previous['run']
+  self.assertEqual(normal,baseline)

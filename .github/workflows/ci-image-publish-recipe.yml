@@ -33,7 +33,7 @@ jobs:
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: cryptolabsza/ipmi-monitor
-        ref: 'b03de4b7b6f96ec0e4cf2268c14ce67fb11af47f'
+        ref: 927b6572263cf158ffa2e7b2b78704667cbb9fcd
         persist-credentials: false
         fetch-depth: 1
         path: publisher
@@ -49,13 +49,23 @@ jobs:
 
           /.github/image-publisher/verify_artifact.py
 
+          /.github/image-publisher/local_artifact.py
+
+          /.github/image-publisher/local_artifact_routes.py
+
           '
         sparse-checkout-cone-mode: false
     - name: Verify frozen upstream verifier and OCI parser
-      run: 'echo ''54bd08ddf7e59e755c0f21b3413699459cb837d152ff4b57716660f2ff71c7c3  publisher/.github/image-publisher/verify_artifact.py''
+      run: 'echo ''8992c0f2c0a29d5d1697a2f2fade9dbc5e03539505cec63ad1608c2026a49623  publisher/.github/image-publisher/verify_artifact.py''
         | sha256sum --check -
 
         echo ''ef55392ffcdf59a30a232c436520e10b318a3895e139f0c40904e33f7dccd2a8  publisher/.github/image-publisher/image_publisher.py''
+        | sha256sum --check -
+
+        echo ''ebc03d2cfb813919cdc863df3b29e94a5f2bfb801ef3afbeb60aed114944da89  publisher/.github/image-publisher/local_artifact.py''
+        | sha256sum --check -
+
+        echo ''ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7  publisher/.github/image-publisher/local_artifact_routes.py''
         | sha256sum --check -
 
         '
