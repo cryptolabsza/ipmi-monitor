@@ -32,6 +32,18 @@ jobs:
         ref: ${{ github.sha }}
         fetch-depth: 0
         persist-credentials: false
+    - name: Checkout immutable local image producer
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: cryptolabsza/ipmi-monitor
+        ref: 96d0bf5584e4df5a87d971bf2fe6e08f9bc0c8d0
+        persist-credentials: false
+        fetch-depth: 1
+        path: .local-image-producer
+        sparse-checkout: |
+          /.github/image-publisher/local_handoff.py
+          /.github/image-publisher/local_artifacts/
+        sparse-checkout-cone-mode: false
     - name: Set up managed Python
       uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
       with:
@@ -134,16 +146,21 @@ jobs:
         \ receipt={'artifact_kind':'oci-archive','expected_image':'ghcr.io/cryptolabsza/'+image,'repository':os.environ['GITHUB_REPOSITORY'],'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),'source_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'run_attempt':os.environ['GITHUB_RUN_ATTEMPT'],'filename':p.name,'sha256':h.hexdigest()}\n\
         \ p.with_suffix('.json').write_text(json.dumps(receipt,sort_keys=True)+'\\n');sums.append(h.hexdigest()+'  '+p.name+'\\\
         n')\nif len(['ipmi-monitor'])>1:(root/'SHA256SUMS').write_text(''.join(sums))\nPYRECEIPT\n"
+    - name: Verify immutable local producer bytes
+      run: |
+        echo 'd3f8760b98e546e5b93e76af4fb9596af21333663170dabc2a41942f7e4f269e  .local-image-producer/.github/image-publisher/local_handoff.py' | sha256sum --check -
+        echo 'ebc03d2cfb813919cdc863df3b29e94a5f2bfb801ef3afbeb60aed114944da89  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact.py' | sha256sum --check -
+        echo 'ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact_routes.py' | sha256sum --check -
+        echo '8992c0f2c0a29d5d1697a2f2fade9dbc5e03539505cec63ad1608c2026a49623  .local-image-producer/.github/image-publisher/local_artifacts/verify_artifact.py' | sha256sum --check -
+    - name: Upload fixed image bundle to local store
+      run: python3 .local-image-producer/.github/image-publisher/local_handoff.py
     - name: Upload immutable OCI image artifacts
       id: upload
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
       with:
         name: cpu-image-${{ github.run_id }}-${{ github.run_attempt }}
-        path: 'ci-artifacts/ipmi-monitor.tar
-
-          ci-artifacts/ipmi-monitor.json
-
-          '
+        path: ${{ runner.temp }}/image-local-manifest/manifest.json
+        compression-level: 0
         if-no-files-found: error
         retention-days: 7
     outputs:
