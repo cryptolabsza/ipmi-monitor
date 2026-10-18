@@ -33,3 +33,15 @@ class LocalPublicationRecipeTests(unittest.TestCase):
    normal['jobs'][name]['steps'][0]['with']=copy.deepcopy(old['steps'][0]['with'])
    next(s for s in normal['jobs'][name]['steps'] if s.get('name')==verify['name'])['run']=previous['run']
   self.assertEqual(normal,baseline)
+
+P='3ebfad9db5c2a0734d34142d8bcc39faef0373c8'
+BR_REAL='07fb5683850468b8ca1782b9ed73544c38e0f59d'
+class LocalCallerTests(unittest.TestCase):
+ def test_only_image_handoff_caller_pins_change_and_real_git_objects_resolve(self):
+  path='.github/workflows/docker-build.yml';actual=yaml.safe_load((ROOT/path).read_text());baseline=yaml.safe_load(subprocess.check_output(['git','show',P+':'+path],cwd=ROOT));normal=copy.deepcopy(actual)
+  expected={'build':('ci-image-build-recipe.yml',BR_REAL),'publish-build':('ci-image-publish-recipe.yml',P)}
+  for job,(filename,sha) in expected.items():
+   self.assertEqual(actual['jobs'][job]['uses'],'cryptolabsza/ipmi-monitor'+'/.github/workflows/'+filename+'@'+sha)
+   frozen=yaml.safe_load(subprocess.check_output(['git','show',sha+':.github/workflows/'+filename],cwd=ROOT));self.assertIn('jobs',frozen)
+   normal['jobs'][job]['uses']=baseline['jobs'][job]['uses']
+  self.assertEqual(normal,baseline)
