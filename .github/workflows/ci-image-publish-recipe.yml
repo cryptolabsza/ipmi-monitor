@@ -33,7 +33,7 @@ jobs:
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: cryptolabsza/ipmi-monitor
-        ref: b58e527c53d5e687d8e43ed43e133e268974c5b3
+        ref: a547075f580657f11d6ee03ea6faa0a171947834
         persist-credentials: false
         fetch-depth: 1
         path: publisher
@@ -56,7 +56,7 @@ jobs:
           '
         sparse-checkout-cone-mode: false
     - name: Verify frozen upstream verifier and OCI parser
-      run: 'echo ''8992c0f2c0a29d5d1697a2f2fade9dbc5e03539505cec63ad1608c2026a49623  publisher/.github/image-publisher/verify_artifact.py''
+      run: 'echo ''48dfdb3b21447397f24c5450417c2f88d81f08c6d79ad6957928d8e31671eab2  publisher/.github/image-publisher/verify_artifact.py''
         | sha256sum --check -
 
         echo ''ef55392ffcdf59a30a232c436520e10b318a3895e139f0c40904e33f7dccd2a8  publisher/.github/image-publisher/image_publisher.py''

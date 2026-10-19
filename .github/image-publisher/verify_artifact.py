@@ -143,7 +143,7 @@ def verify_metadata(api,policy,run_id,attempt,artifact_id,now=None):
             require(value[key]['id']==policy.repository_id and value[key]['full_name']==policy.repository,'run repository identity')
         branch=value['head_branch'];head=value['head_sha']
         require(branch in {'main','dev'} and sha(head),'protected source ref')
-        require(value['event'] in {'push','workflow_dispatch'} and value.get('pull_requests')==[],'protected source event')
+        require(value['event'] in {'push','workflow_dispatch'} and type(value.get('pull_requests'))is list,'protected source event')
         require(value['path'] in {policy.workflow_path,policy.workflow_path+'@'+branch,policy.workflow_path+'@refs/heads/'+branch},'producer workflow path')
         require((value['status']=='completed' and value['conclusion']=='success') or (value['status']=='in_progress' and value['conclusion']is None) or (policy.allow_queued_run and value['status']=='queued' and value['conclusion']is None),'producer run state')
         refs=[r for r in value['referenced_workflows'] if r['path'].split('@')[0]==policy.recipe_ref.split('@')[0]]
