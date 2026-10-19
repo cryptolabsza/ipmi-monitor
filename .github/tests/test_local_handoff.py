@@ -55,6 +55,7 @@ if __name__=='__main__':unittest.main()
 class ImmutableCommonTests(unittest.TestCase):
  def test_exact_committed_common_source_copies(self):
   source=ROOT/'.github/image-publisher/local_artifacts';origin=json.loads((source/'origin.json').read_text())
-  self.assertEqual(origin['commit'],'86d3f5b8437385278e745e2fc4098a54e3d5d59b')
+  self.assertEqual(origin['commit'],'4fe8d0d9825692a7c56a6b704153d314339b107e')
+  self.assertEqual(origin['file_commits'],dict(zip(('local_artifact.py','local_artifact_routes.py','verify_artifact.py'),('4fe8d0d9825692a7c56a6b704153d314339b107e','86d3f5b8437385278e745e2fc4098a54e3d5d59b','86d3f5b8437385278e745e2fc4098a54e3d5d59b'))))
   self.assertEqual(set(origin['files']),{'local_artifact.py','local_artifact_routes.py','verify_artifact.py'})
   for name,digest in origin['files'].items():self.assertEqual(hashlib.sha256((source/name).read_bytes()).hexdigest(),digest)
