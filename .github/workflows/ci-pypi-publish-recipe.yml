@@ -1,0 +1,79 @@
+name: Artifact-only Python publisher recipe
+'on':
+  workflow_call:
+    inputs:
+      producer_run_id:
+        type: string
+        required: false
+        default: ''
+      producer_attempt:
+        type: string
+        required: false
+        default: ''
+      artifact_id:
+        type: string
+        required: false
+        default: ''
+    secrets:
+      PYPI_API_TOKEN:
+        required: true
+permissions: &id001
+  actions: read
+  contents: read
+jobs:
+  publish:
+    if: github.repository_id == '1109244855' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    runs-on:
+      group: ci-publish-ephemeral
+      labels:
+      - ci-linux-publish-v1-r1109244855
+    timeout-minutes: 45
+    permissions: *id001
+    steps:
+    - name: Checkout reviewed publisher files only
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: cryptolabsza/ipmi-monitor
+        ref: ab6416e43d95e60e4011869a876d89f1d4f276b5
+        path: publisher-code
+        persist-credentials: false
+        sparse-checkout-cone-mode: false
+        sparse-checkout: '/.github/publisher/verify_artifact.py
+
+          /.github/publisher/package_publisher.py
+
+          /.github/publisher/release_runtime.py
+
+          /.github/publisher/bootstrap_gh.py
+
+          /.github/publisher/policy.py'
+    - name: Set up managed Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - name: Install fixed upload client
+      run: python -m pip --isolated install --index-url https://pypi.org/simple twine==7.0.0
+    - name: Install verified official GitHub CLI
+      run: python publisher-code/.github/publisher/bootstrap_gh.py
+    - name: Verify producer and exact distribution data
+      id: verify
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PRODUCER_RUN_ID: ${{ inputs.producer_run_id }}
+        PRODUCER_ATTEMPT: ${{ inputs.producer_attempt }}
+        ARTIFACT_ID: ${{ inputs.artifact_id }}
+      run: python publisher-code/.github/publisher/release_runtime.py verify "$PRODUCER_RUN_ID" "$PRODUCER_ATTEMPT" "$ARTIFACT_ID"
+    - name: Publish and independently verify destination bytes
+      id: upload
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      run: python publisher-code/.github/publisher/release_runtime.py upload
+    - name: Retain independently verified publication receipt
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: verified-python-publication-${{ github.run_id }}-${{ github.run_attempt }}
+        path: verified-artifact/publication-receipt.json
+        if-no-files-found: error
+        retention-days: 90

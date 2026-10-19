@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 
 # Install ipmitool, openssh-client, sshpass, and iputils-ping (for connectivity checks)
-RUN apt-get update && apt-get install -y \
+COPY .github/ci/use-https-apt-mirrors.sh /tmp/ci-use-https-apt-mirrors.sh
+RUN sh /tmp/ci-use-https-apt-mirrors.sh && apt-get update && apt-get install -y \
     ipmitool \
     openssh-client \
     sshpass \

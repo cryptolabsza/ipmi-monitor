@@ -1,0 +1,168 @@
+name: Public CPU OCI image artifact recipe
+'on':
+  workflow_call:
+    outputs:
+      artifact_id:
+        description: Uploaded artifact ID
+        value: ${{ jobs.build.outputs.artifact_id }}
+      artifact_digest:
+        description: GitHub upload artifact SHA256
+        value: ${{ jobs.build.outputs.artifact_digest }}
+permissions:
+  contents: read
+jobs:
+  build:
+    if: 'github.repository_id == ''1109244855'' && (((github.event_name == ''push'' || github.event_name == ''workflow_dispatch'')
+      && github.ref_protected == true && (github.ref == ''refs/heads/dev'' || github.ref == ''refs/heads/main'')) || (github.event_name
+      == ''pull_request'' && github.event.pull_request.head.repo.id == 1109244855 && (github.base_ref == ''dev'' || github.base_ref
+      == ''main'')))
+
+      '
+    runs-on:
+      group: ci-build-public-ephemeral
+      labels:
+      - ci-linux-cpu-v1-r1109244855
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout exact source
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.sha }}
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Checkout immutable local image producer
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        repository: cryptolabsza/ipmi-monitor
+        ref: bdf25d6e695aa332678ba5953b49c5d245014357
+        persist-credentials: false
+        fetch-depth: 1
+        path: .local-image-producer
+        sparse-checkout: |
+          /.github/image-publisher/local_handoff.py
+          /.github/image-publisher/local_artifacts/
+        sparse-checkout-cone-mode: false
+    - name: Set up managed Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - name: Verify public admission and source contracts
+      run: 'python -m pip install --quiet PyYAML==6.0.3
+
+        python -m unittest discover -s .github/tests -p ''test_ci_public_route.py'' -v
+
+        python -m unittest discover -s .github/tests -p ''test_image_transport.py'' -v
+
+        '
+    - name: Allocate build artifact directory
+      run: 'mkdir -p ci-artifacts
+
+        '
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+    - name: Determine version info
+      id: version
+      run: "# Get version from tag or generate from branch\nif [[ \"${{ github.ref }}\" == refs/tags/v* ]]; then\n  VERSION=\"\
+        ${{ github.ref_name }}\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" == refs/heads/main ]] || [[ \"${{ github.ref\
+        \ }}\" == refs/heads/master ]]; then\n  VERSION=\"latest\"\n  CHANNEL=\"stable\"\nelif [[ \"${{ github.ref }}\" ==\
+        \ refs/heads/develop ]] || [[ \"${{ github.ref }}\" == refs/heads/dev ]]; then\n  VERSION=\"dev\"\n  CHANNEL=\"development\"\
+        \nelse\n  VERSION=\"${{ github.ref_name }}\"\n  CHANNEL=\"feature\"\nfi\n\necho \"version=$VERSION\" >> $GITHUB_OUTPUT\n\
+        echo \"channel=$CHANNEL\" >> $GITHUB_OUTPUT\necho \"\U0001F4E6 Building: $VERSION ($CHANNEL channel)\"\n"
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+      with:
+        images: ghcr.io/cryptolabsza/ipmi-monitor
+        tags: '# For version tags (v1.6.0): create v1.6.0, 1.6.0, 1.6, latest
+
+          type=semver,pattern={{version}}
+
+          type=semver,pattern={{major}}.{{minor}}
+
+          type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, ''refs/tags/v0.'') }}
+
+          type=raw,value=latest,enable=${{ startsWith(github.ref, ''refs/tags/v'') }}
+
+          type=raw,value=stable,enable=${{ startsWith(github.ref, ''refs/tags/v'') }}
+
+
+          # For main branch: just ''main'' tag (latest only from version tags)
+
+          type=raw,value=main,enable=${{ github.ref == ''refs/heads/main'' }}
+
+
+          # For develop/dev branch: ''dev'' and ''develop'' tags
+
+          type=raw,value=dev,enable=${{ github.ref == ''refs/heads/develop'' || github.ref == ''refs/heads/dev'' }}
+
+          type=raw,value=develop,enable=${{ github.ref == ''refs/heads/develop'' || github.ref == ''refs/heads/dev'' }}
+
+
+          # For PRs: pr-{number}
+
+          type=ref,event=pr
+
+
+          # SHA for all builds (for debugging)
+
+          type=sha,prefix=sha-
+
+
+          # Manual override tag
+
+          '
+    - name: Get build info
+      id: build_info
+      run: "echo \"git_commit=${{ github.sha }}\" >> $GITHUB_OUTPUT\necho \"git_branch=${{ github.ref_name }}\" >> $GITHUB_OUTPUT\n\
+        echo \"build_time=$(date -u '+%Y-%m-%d %H:%M UTC')\" >> $GITHUB_OUTPUT\n# Read actual semver from pyproject.toml\n\
+        APP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*\"\\(.*\\)\".*/\\1/')\necho \"version=${APP_VERSION}\"\
+        \ >> $GITHUB_OUTPUT\necho \"\U0001F4CC App version: ${APP_VERSION}\"\n"
+    - name: Build without publishing Docker image
+      uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+      with:
+        context: .
+        platforms: linux/amd64
+        push: false
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max,ignore-error=true
+        build-args: 'GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
+
+          GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
+
+          BUILD_TIME=${{ steps.build_info.outputs.build_time }}
+
+          APP_VERSION=${{ steps.build_info.outputs.version }}
+
+          '
+        outputs: type=oci,dest=${{ github.workspace }}/ci-artifacts/ipmi-monitor.tar
+        provenance: false
+    - name: Record complete OCI image receipts
+      run: "python - <<'PYRECEIPT'\nimport hashlib,json,os,pathlib\nroot=pathlib.Path('ci-artifacts');sums=[]\nfor image in\
+        \ ['ipmi-monitor']:\n p=root/(image+'.tar');h=hashlib.sha256()\n with p.open('rb') as stream:\n  for block in iter(lambda:stream.read(1024*1024),b''):h.update(block)\n\
+        \ receipt={'artifact_kind':'oci-archive','expected_image':'ghcr.io/cryptolabsza/'+image,'repository':os.environ['GITHUB_REPOSITORY'],'repository_id':int(os.environ['GITHUB_REPOSITORY_ID']),'source_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'run_attempt':os.environ['GITHUB_RUN_ATTEMPT'],'filename':p.name,'sha256':h.hexdigest()}\n\
+        \ p.with_suffix('.json').write_text(json.dumps(receipt,sort_keys=True)+'\\n');sums.append(h.hexdigest()+'  '+p.name+'\\\
+        n')\nif len(['ipmi-monitor'])>1:(root/'SHA256SUMS').write_text(''.join(sums))\nPYRECEIPT\n"
+    - name: Verify immutable local producer bytes
+      run: |
+        echo 'd3f8760b98e546e5b93e76af4fb9596af21333663170dabc2a41942f7e4f269e  .local-image-producer/.github/image-publisher/local_handoff.py' | sha256sum --check -
+        echo 'd3a0f0ce8482e12404ad0fc8c9228100d863fcab28b986ec3c0b1c165e48cefb  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact.py' | sha256sum --check -
+        echo 'ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact_routes.py' | sha256sum --check -
+        echo '8992c0f2c0a29d5d1697a2f2fade9dbc5e03539505cec63ad1608c2026a49623  .local-image-producer/.github/image-publisher/local_artifacts/verify_artifact.py' | sha256sum --check -
+    - name: Upload fixed image bundle to local store
+      run: python3 .local-image-producer/.github/image-publisher/local_handoff.py
+    - name: Upload immutable OCI image artifacts
+      id: upload
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: cpu-image-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ runner.temp }}/image-local-manifest/manifest.json
+        compression-level: 0
+        if-no-files-found: error
+        retention-days: 7
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}

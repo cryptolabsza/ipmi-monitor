@@ -1,0 +1,48 @@
+name: Public CPU build recipe
+'on':
+  workflow_call:
+    outputs:
+      artifact_id:
+        description: Uploaded artifact ID
+        value: ${{ jobs.build.outputs.artifact_id }}
+permissions:
+  contents: read
+jobs:
+  build:
+    if: >
+      github.repository_id == '1109244855' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref_protected == true && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == 1109244855 && (github.base_ref
+      == 'dev' || github.base_ref == 'main')))
+    runs-on:
+      group: ci-build-public-ephemeral
+      labels:
+      - ci-linux-cpu-v1-r1109244855
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout exact source
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.sha }}
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Set up managed Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - name: Verify public admission and source contracts
+      run: |
+        python -m pip install --quiet PyYAML==6.0.3
+        python -m unittest discover -s .github/tests -p 'test_ci_public_route.py' -v
+    - name: Build with Jekyll
+      uses: actions/jekyll-build-pages@44a6e6beabd48582f863aeeb6cb2151cc1716697
+      with:
+        source: ./docs
+        destination: ./_site
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+      id: upload
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact_id }}

@@ -1,0 +1,14 @@
+{
+  "repository": "cryptolabsza/ci-infrastructure",
+  "commit": "4fe8d0d9825692a7c56a6b704153d314339b107e",
+  "file_commits": {
+    "local_artifact.py": "4fe8d0d9825692a7c56a6b704153d314339b107e",
+    "local_artifact_routes.py": "86d3f5b8437385278e745e2fc4098a54e3d5d59b",
+    "verify_artifact.py": "86d3f5b8437385278e745e2fc4098a54e3d5d59b"
+  },
+  "files": {
+    "local_artifact.py": "d3a0f0ce8482e12404ad0fc8c9228100d863fcab28b986ec3c0b1c165e48cefb",
+    "local_artifact_routes.py": "ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7",
+    "verify_artifact.py": "8992c0f2c0a29d5d1697a2f2fade9dbc5e03539505cec63ad1608c2026a49623"
+  }
+}
