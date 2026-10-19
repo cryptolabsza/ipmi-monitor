@@ -1,0 +1,496 @@
+{
+  "repository": {
+    "id": 1109245105,
+    "full_name": "cryptolabsza/Custom-TTS",
+    "private": true
+  },
+  "run": {
+    "id": 39189170762,
+    "run_attempt": 1,
+    "repository": {
+      "id": 1109245105,
+      "full_name": "cryptolabsza/Custom-TTS"
+    },
+    "head_repository": {
+      "id": 1109245105,
+      "full_name": "cryptolabsza/Custom-TTS"
+    },
+    "head_branch": "dev",
+    "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+    "event": "push",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/pulls/4",
+        "id": 4914919763,
+        "number": 4,
+        "head": {
+          "ref": "dev",
+          "sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+          "repo": {
+            "id": 1109245105,
+            "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS",
+            "name": "Custom-TTS"
+          }
+        },
+        "base": {
+          "ref": "main",
+          "sha": "8529b11a7282418492524f0549440beaebe27f3a",
+          "repo": {
+            "id": 1109245105,
+            "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS",
+            "name": "Custom-TTS"
+          }
+        }
+      }
+    ],
+    "path": ".github/workflows/build-deploy.yml",
+    "status": "completed",
+    "conclusion": "failure",
+    "referenced_workflows": [
+      {
+        "path": "cryptolabsza/Custom-TTS/.github/workflows/ci-build-recipe.yml@7adebbd55b2c568f649d0785aec70917eb2a5a16",
+        "sha": "7adebbd55b2c568f649d0785aec70917eb2a5a16"
+      },
+      {
+        "path": "cryptolabsza/Custom-TTS/.github/workflows/ci-publish-recipe.yml@4a91b790a149786a425ae013c4f6df90ffcababd",
+        "sha": "4a91b790a149786a425ae013c4f6df90ffcababd"
+      }
+    ]
+  },
+  "attempt": {
+    "id": 39189170762,
+    "run_attempt": 1,
+    "repository": {
+      "id": 1109245105,
+      "full_name": "cryptolabsza/Custom-TTS"
+    },
+    "head_repository": {
+      "id": 1109245105,
+      "full_name": "cryptolabsza/Custom-TTS"
+    },
+    "head_branch": "dev",
+    "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+    "event": "push",
+    "pull_requests": [
+      {
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/pulls/4",
+        "id": 4914919763,
+        "number": 4,
+        "head": {
+          "ref": "dev",
+          "sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+          "repo": {
+            "id": 1109245105,
+            "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS",
+            "name": "Custom-TTS"
+          }
+        },
+        "base": {
+          "ref": "main",
+          "sha": "8529b11a7282418492524f0549440beaebe27f3a",
+          "repo": {
+            "id": 1109245105,
+            "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS",
+            "name": "Custom-TTS"
+          }
+        }
+      }
+    ],
+    "path": ".github/workflows/build-deploy.yml",
+    "status": "completed",
+    "conclusion": "failure",
+    "referenced_workflows": [
+      {
+        "path": "cryptolabsza/Custom-TTS/.github/workflows/ci-build-recipe.yml@7adebbd55b2c568f649d0785aec70917eb2a5a16",
+        "sha": "7adebbd55b2c568f649d0785aec70917eb2a5a16"
+      },
+      {
+        "path": "cryptolabsza/Custom-TTS/.github/workflows/ci-publish-recipe.yml@4a91b790a149786a425ae013c4f6df90ffcababd",
+        "sha": "4a91b790a149786a425ae013c4f6df90ffcababd"
+      }
+    ]
+  },
+  "jobs": {
+    "total_count": 4,
+    "jobs": [
+      {
+        "id": 117857942486,
+        "run_id": 39189170762,
+        "workflow_name": "Build and Deploy",
+        "head_branch": "dev",
+        "run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/runs/39189170762",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOQh28sc8AAAAbcOF71g",
+        "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/jobs/117857942486",
+        "html_url": "https://github.com/cryptolabsza/Custom-TTS/actions/runs/39189170762/job/117857942486",
+        "status": "completed",
+        "conclusion": "success",
+        "created_at": "2026-10-19T02:16:13Z",
+        "started_at": "2026-10-19T02:23:31Z",
+        "completed_at": "2026-10-19T02:28:42Z",
+        "name": "build / build",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-19T02:23:33Z",
+            "completed_at": "2026-10-19T02:23:43Z"
+          },
+          {
+            "name": "Checkout repository",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-19T02:23:43Z",
+            "completed_at": "2026-10-19T02:23:52Z"
+          },
+          {
+            "name": "Set up Docker Buildx",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-19T02:23:52Z",
+            "completed_at": "2026-10-19T02:24:31Z"
+          },
+          {
+            "name": "Build and push backend",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-19T02:24:31Z",
+            "completed_at": "2026-10-19T02:27:42Z"
+          },
+          {
+            "name": "Build and push frontend",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5,
+            "started_at": "2026-10-19T02:27:42Z",
+            "completed_at": "2026-10-19T02:28:04Z"
+          },
+          {
+            "name": "Record OCI archive checksums",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6,
+            "started_at": "2026-10-19T02:28:04Z",
+            "completed_at": "2026-10-19T02:28:04Z"
+          },
+          {
+            "name": "Checkout reviewed local artifact producer helpers",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7,
+            "started_at": "2026-10-19T02:28:04Z",
+            "completed_at": "2026-10-19T02:28:06Z"
+          },
+          {
+            "name": "Check reviewed local artifact helper bytes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8,
+            "started_at": "2026-10-19T02:28:06Z",
+            "completed_at": "2026-10-19T02:28:06Z"
+          },
+          {
+            "name": "Upload opaque image bytes and record canonical manifest",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9,
+            "started_at": "2026-10-19T02:28:06Z",
+            "completed_at": "2026-10-19T02:28:29Z"
+          },
+          {
+            "name": "Upload verified local manifest",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10,
+            "started_at": "2026-10-19T02:28:29Z",
+            "completed_at": "2026-10-19T02:28:32Z"
+          },
+          {
+            "name": "Post Checkout reviewed local artifact producer helpers",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16,
+            "started_at": "2026-10-19T02:28:32Z",
+            "completed_at": "2026-10-19T02:28:32Z"
+          },
+          {
+            "name": "Post Build and push frontend",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17,
+            "started_at": "2026-10-19T02:28:32Z",
+            "completed_at": "2026-10-19T02:28:33Z"
+          },
+          {
+            "name": "Post Build and push backend",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18,
+            "started_at": "2026-10-19T02:28:33Z",
+            "completed_at": "2026-10-19T02:28:33Z"
+          },
+          {
+            "name": "Post Set up Docker Buildx",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19,
+            "started_at": "2026-10-19T02:28:33Z",
+            "completed_at": "2026-10-19T02:28:35Z"
+          },
+          {
+            "name": "Post Checkout repository",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20,
+            "started_at": "2026-10-19T02:28:35Z",
+            "completed_at": "2026-10-19T02:28:35Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 21,
+            "started_at": "2026-10-19T02:28:35Z",
+            "completed_at": "2026-10-19T02:28:35Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/check-runs/117857942486",
+        "labels": [
+          "ci-linux-cpu-v1-r1109245105"
+        ],
+        "runner_id": 599,
+        "runner_name": "ci-30a8ddaa-025e-43e9-bb5a-ff54a4d133ab",
+        "runner_group_id": 10,
+        "runner_group_name": "ci-build-ephemeral"
+      },
+      {
+        "id": 117860943610,
+        "run_id": 39189170762,
+        "workflow_name": "Build and Deploy",
+        "head_branch": "dev",
+        "run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/runs/39189170762",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOQh28sc8AAAAbcQ9G-g",
+        "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/jobs/117860943610",
+        "html_url": "https://github.com/cryptolabsza/Custom-TTS/actions/runs/39189170762/job/117860943610",
+        "status": "completed",
+        "conclusion": "failure",
+        "created_at": "2026-10-19T02:28:42Z",
+        "started_at": "2026-10-19T02:31:03Z",
+        "completed_at": "2026-10-19T02:31:20Z",
+        "name": "publish / verify-dev",
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1,
+            "started_at": "2026-10-19T02:31:05Z",
+            "completed_at": "2026-10-19T02:31:06Z"
+          },
+          {
+            "name": "Check out only the reviewed immutable publisher helpers",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2,
+            "started_at": "2026-10-19T02:31:06Z",
+            "completed_at": "2026-10-19T02:31:10Z"
+          },
+          {
+            "name": "Check the reviewed shared verifier bytes",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3,
+            "started_at": "2026-10-19T02:31:10Z",
+            "completed_at": "2026-10-19T02:31:10Z"
+          },
+          {
+            "name": "Install verified official normal-user tools",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4,
+            "started_at": "2026-10-19T02:31:10Z",
+            "completed_at": "2026-10-19T02:31:13Z"
+          },
+          {
+            "name": "Verify actual dev producer without publication",
+            "status": "completed",
+            "conclusion": "failure",
+            "number": 5,
+            "started_at": "2026-10-19T02:31:13Z",
+            "completed_at": "2026-10-19T02:31:15Z"
+          },
+          {
+            "name": "Retain the deployment boundary",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 6,
+            "started_at": "2026-10-19T02:31:15Z",
+            "completed_at": "2026-10-19T02:31:15Z"
+          },
+          {
+            "name": "Post Check out only the reviewed immutable publisher helpers",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12,
+            "started_at": "2026-10-19T02:31:15Z",
+            "completed_at": "2026-10-19T02:31:15Z"
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13,
+            "started_at": "2026-10-19T02:31:15Z",
+            "completed_at": "2026-10-19T02:31:15Z"
+          }
+        ],
+        "check_run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/check-runs/117860943610",
+        "labels": [
+          "ci-linux-publish-v1-r1109245105"
+        ],
+        "runner_id": 603,
+        "runner_name": "ci-775599d5-7d37-4443-88c7-cd03630922d4",
+        "runner_group_id": 12,
+        "runner_group_name": "ci-publish-ephemeral"
+      },
+      {
+        "id": 117860945133,
+        "run_id": 39189170762,
+        "workflow_name": "Build and Deploy",
+        "head_branch": "dev",
+        "run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/runs/39189170762",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOQh28sc8AAAAbcQ9M7Q",
+        "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/jobs/117860945133",
+        "html_url": "https://github.com/cryptolabsza/Custom-TTS/actions/runs/39189170762/job/117860945133",
+        "status": "completed",
+        "conclusion": "skipped",
+        "created_at": "2026-10-19T02:28:42Z",
+        "started_at": "2026-10-19T02:28:42Z",
+        "completed_at": "2026-10-19T02:28:42Z",
+        "name": "publish / publish-main",
+        "steps": [],
+        "check_run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/check-runs/117860945133",
+        "labels": [
+          "ci-linux-publish-v1-r1109245105"
+        ],
+        "runner_id": null,
+        "runner_name": null,
+        "runner_group_id": null,
+        "runner_group_name": null
+      },
+      {
+        "id": 117861581357,
+        "run_id": 39189170762,
+        "workflow_name": "Build and Deploy",
+        "head_branch": "dev",
+        "run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/runs/39189170762",
+        "run_attempt": 1,
+        "node_id": "CR_kwDOQh28sc8AAAAbcRkCLQ",
+        "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2",
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/jobs/117861581357",
+        "html_url": "https://github.com/cryptolabsza/Custom-TTS/actions/runs/39189170762/job/117861581357",
+        "status": "completed",
+        "conclusion": "skipped",
+        "created_at": "2026-10-19T02:31:21Z",
+        "started_at": "2026-10-19T02:31:21Z",
+        "completed_at": "2026-10-19T02:31:20Z",
+        "name": "deploy",
+        "steps": [],
+        "check_run_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/check-runs/117861581357",
+        "labels": [
+          "self-hosted",
+          "ci-unsupported-broker-r1109245105"
+        ],
+        "runner_id": null,
+        "runner_name": null,
+        "runner_group_id": null,
+        "runner_group_name": null
+      }
+    ]
+  },
+  "artifact": {
+    "id": 12160040270,
+    "node_id": "MDg6QXJ0aWZhY3QxMjE2MDA0MDI3MA==",
+    "name": "cpu-image-39189170762-1",
+    "size_in_bytes": 605,
+    "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/artifacts/12160040270",
+    "archive_download_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/artifacts/12160040270/zip",
+    "expired": false,
+    "digest": "sha256:7aae9a7e264e091ed9bfe593aeecf31b2485e8fe0f65dc5d0362f1aa090717ed",
+    "created_at": "2026-10-19T02:28:32Z",
+    "updated_at": "2026-10-19T02:28:32Z",
+    "expires_at": "2026-10-26T02:28:29Z",
+    "workflow_run": {
+      "id": 39189170762,
+      "repository_id": 1109245105,
+      "head_repository_id": 1109245105,
+      "head_branch": "dev",
+      "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2"
+    }
+  },
+  "artifacts": {
+    "total_count": 1,
+    "artifacts": [
+      {
+        "id": 12160040270,
+        "node_id": "MDg6QXJ0aWZhY3QxMjE2MDA0MDI3MA==",
+        "name": "cpu-image-39189170762-1",
+        "size_in_bytes": 605,
+        "url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/artifacts/12160040270",
+        "archive_download_url": "https://api.github.com/repos/cryptolabsza/Custom-TTS/actions/artifacts/12160040270/zip",
+        "expired": false,
+        "digest": "sha256:7aae9a7e264e091ed9bfe593aeecf31b2485e8fe0f65dc5d0362f1aa090717ed",
+        "created_at": "2026-10-19T02:28:32Z",
+        "updated_at": "2026-10-19T02:28:32Z",
+        "expires_at": "2026-10-26T02:28:29Z",
+        "workflow_run": {
+          "id": 39189170762,
+          "repository_id": 1109245105,
+          "head_repository_id": 1109245105,
+          "head_branch": "dev",
+          "head_sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2"
+        }
+      }
+    ]
+  },
+  "branch": {
+    "name": "dev",
+    "protected": true,
+    "commit": {
+      "sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2"
+    }
+  },
+  "compare": {
+    "status": "identical",
+    "base_commit": {
+      "sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2"
+    },
+    "merge_base_commit": {
+      "sha": "6ec08d6da25376d3c1f94ab46d7693c1d8f8e4d2"
+    }
+  },
+  "provenance": {
+    "source": "retained TTS reader diagnosis, run39189170762 attempt1",
+    "raw_sha256": {
+      "repository.json": "7888880a9704a2d66ba5a37d8e6c720fae9daee4af52bb6d4750746771e3699c",
+      "run.json": "428e4e548f271eff118f8a86f909db945fa5f244a9500db8a2bdcd97a2dfa4e2",
+      "attempt.json": "311e5da476d81cc18330762bcec34cdfda4c38f7975a65fa668ff8f2976c785a",
+      "jobs.json": "0c4858ffa14076862871e47341b1c258ae59b24e765c66417f98d8b3810e23b5",
+      "artifact.json": "f7d082243240a5bed911f3003a0fa880738afb06c7b544f6df78d5af5beef106",
+      "artifacts.json": "8e725fe86992476b2fa52e6ba30b63623e3dc69b522b586e868fa38b848e56bd",
+      "branch.json": "42a49b5498c12804aa4c122751f3487d268cebbdb09e7dee785d70a412fc45fb",
+      "compare.json": "6678302f29ea625624f3053a59ae363d82f09fc382e21895416f0b193c691302"
+    },
+    "projection": "Only metadata fields consumed by verify_metadata; raw terminal run status/conclusion retained. Positive scenarios explicitly change status to in_progress and conclusion to null."
+  }
+}

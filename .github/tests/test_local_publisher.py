@@ -8,7 +8,7 @@ class LocalPublisherTests(unittest.TestCase):
   script="import sys,json;sys.path.insert(0,sys.argv[1]);import policy;from verify_artifact import Policy;print(json.dumps({'schema':policy.POLICY.transport_schema,'recipe':policy.POLICY.recipe_ref,'default':Policy.__dataclass_fields__['transport_schema'].default}))"
   actual=json.loads(subprocess.check_output([sys.executable,'-I','-c',script,str(ROOT/'.github/image-publisher')]))
   self.assertEqual(actual,dict(schema=2,recipe='cryptolabsza/ipmi-monitor'+'/.github/workflows/ci-image-build-recipe.yml@'+BR,default=1))
-  origin=json.loads((ROOT/'.github/image-publisher/local_artifacts/origin.json').read_text())
+  origin=json.loads((ROOT/'.github/image-publisher/publisher-origin.json').read_text())
   for name,digest in origin['files'].items():self.assertEqual(hashlib.sha256((ROOT/'.github/image-publisher'/name).read_bytes()).hexdigest(),digest)
  def test_public_package_registry_tags_and_promotion_code_are_unchanged(self):
   for name in ('transport.py','image_publisher.py','image_promotion.py','bootstrap_tools.py','tools.json'):
