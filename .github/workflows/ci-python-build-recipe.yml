@@ -1,0 +1,66 @@
+name: Public CPU build recipe
+'on':
+  workflow_call:
+    outputs:
+      artifact_id:
+        description: Uploaded artifact ID
+        value: ${{ jobs.build.outputs.artifact_id }}
+      artifact_digest:
+        description: GitHub upload artifact SHA256
+        value: ${{ jobs.build.outputs.artifact_digest }}
+permissions:
+  contents: read
+jobs:
+  build:
+    if: >
+      github.repository_id == '1109244855' && (((github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && github.ref_protected == true && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.id == 1109244855 && (github.base_ref
+      == 'dev' || github.base_ref == 'main')))
+    runs-on:
+      group: ci-build-public-ephemeral
+      labels:
+      - ci-linux-cpu-v1-r1109244855
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout exact source
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      with:
+        ref: ${{ github.sha }}
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Set up managed Python
+      uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      with:
+        python-version: '3.12'
+    - name: Verify public admission and source contracts
+      run: |
+        python -m pip install --quiet PyYAML==6.0.3
+        python -m unittest discover -s .github/tests -p 'test_ci_public_route.py' -v
+    - name: Install build tools
+      run: pip install build twine
+    - name: Get version
+      id: get_version
+      run: |
+        VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Version: $VERSION"
+    - name: Build package
+      run: python -m build
+    - name: Checksum built Python distributions
+      run: |
+        cd "dist"
+        sha256sum *.whl *.tar.gz > SHA256SUMS
+    - name: Upload built Python distributions
+      id: upload
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: cpu-python-${{ github.run_id }}-${{ github.run_attempt }}
+        path: dist/*
+        if-no-files-found: error
+        retention-days: 7
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      artifact_digest: ${{ steps.upload.outputs.artifact-digest }}

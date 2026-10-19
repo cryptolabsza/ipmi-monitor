@@ -1,135 +1,43 @@
 name: Build and Push Docker Image
-
-on:
-  push:
-    branches: [ main, master, develop, dev ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master, develop, dev ]
-  workflow_dispatch:
-    inputs:
-      tag_override:
-        description: 'Override tag (e.g., beta, rc1)'
-        required: false
-        default: ''
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-
 jobs:
   build:
-    runs-on: [self-hosted, linux]
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-build-recipe.yml@07fb5683850468b8ca1782b9ed73544c38e0f59d
     permissions:
       contents: read
+  publish-build:
+    if: github.event_name != 'pull_request'
+    needs:
+    - build
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-publish-recipe.yml@3ebfad9db5c2a0734d34142d8bcc39faef0373c8
+    permissions:
+      contents: read
+      actions: read
       packages: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.CR_PAT || secrets.GITHUB_TOKEN }}
-
-      - name: Determine version info
-        id: version
-        run: |
-          # Get version from tag or generate from branch
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${{ github.ref_name }}"
-            CHANNEL="stable"
-          elif [[ "${{ github.ref }}" == refs/heads/main ]] || [[ "${{ github.ref }}" == refs/heads/master ]]; then
-            VERSION="latest"
-            CHANNEL="stable"
-          elif [[ "${{ github.ref }}" == refs/heads/develop ]] || [[ "${{ github.ref }}" == refs/heads/dev ]]; then
-            VERSION="dev"
-            CHANNEL="development"
-          else
-            VERSION="${{ github.ref_name }}"
-            CHANNEL="feature"
-          fi
-          
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
-          echo "📦 Building: $VERSION ($CHANNEL channel)"
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            # For version tags (v1.6.0): create v1.6.0, 1.6.0, 1.6, latest
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=raw,value=stable,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            
-            # For main branch: just 'main' tag (latest only from version tags)
-            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
-            
-            # For develop/dev branch: 'dev' and 'develop' tags
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' }}
-            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev' }}
-            
-            # For PRs: pr-{number}
-            type=ref,event=pr
-            
-            # SHA for all builds (for debugging)
-            type=sha,prefix=sha-
-            
-            # Manual override tag
-            type=raw,value=${{ github.event.inputs.tag_override }},enable=${{ github.event.inputs.tag_override != '' }}
-
-      - name: Get build info
-        id: build_info
-        run: |
-          echo "git_commit=${{ github.sha }}" >> $GITHUB_OUTPUT
-          echo "git_branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          echo "build_time=$(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_OUTPUT
-          # Read actual semver from pyproject.toml
-          APP_VERSION=$(grep -m1 '^version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=${APP_VERSION}" >> $GITHUB_OUTPUT
-          echo "📌 App version: ${APP_VERSION}"
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max,ignore-error=true
-          build-args: |
-            GIT_COMMIT=${{ steps.build_info.outputs.git_commit }}
-            GIT_BRANCH=${{ steps.build_info.outputs.git_branch }}
-            BUILD_TIME=${{ steps.build_info.outputs.build_time }}
-            APP_VERSION=${{ steps.build_info.outputs.version }}
-
-      - name: Summary
-        run: |
-          echo "## 🐳 Docker Build Complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Channel:** ${{ steps.version.outputs.channel }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Platforms:** linux/amd64" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Tags pushed:" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+    with:
+      producer_run_id: ${{ github.run_id }}
+      producer_attempt: ${{ github.run_attempt }}
+      artifact_id: ${{ needs.build.outputs.artifact_id }}
+'on':
+  push:
+    branches:
+    - main
+    - master
+    - develop
+    - dev
+    tags:
+    - v*
+  pull_request:
+    branches:
+    - dev
+    - main
+  workflow_dispatch:
+    inputs:
+      tag_override:
+        description: Override tag (e.g., beta, rc1)
+        required: false
+        default: ''
+permissions:
+  contents: read

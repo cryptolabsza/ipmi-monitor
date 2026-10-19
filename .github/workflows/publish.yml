@@ -1,53 +1,50 @@
 name: Publish to PyPI
-
-on:
+jobs:
+  cpu-build:
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
+    permissions:
+      contents: read
+  publish:
+    needs: cpu-build
+    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pypi-publish-recipe.yml@4be51343189670485e05a35e3e8ba9ff4ffe9d30
+    permissions:
+      actions: read
+      contents: read
+    with:
+      producer_run_id: ${{ inputs.producer_run_id || (needs.cpu-build.result == 'success' && github.run_id) || '' }}
+      producer_attempt: ${{ inputs.producer_attempt || (needs.cpu-build.result == 'success' && github.run_attempt) || '' }}
+      artifact_id: ${{ inputs.artifact_id || needs.cpu-build.outputs.artifact_id || '' }}
+    secrets:
+      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+permissions:
+  contents: read
+'on':
   release:
-    types: [published]
+    types:
+    - published
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (must match pyproject.toml)'
+        description: Version to publish (must match pyproject.toml)
         required: false
-
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install build tools
-        run: pip install build twine
-
-      - name: Get version
-        id: get_version
-        run: |
-          VERSION=$(grep 'version = ' pyproject.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION"
-
-      - name: Build package
-        run: python -m build
-
-      - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: python -m twine upload dist/* --skip-existing
-
-      - name: Summary
-        run: |
-          VERSION=${{ steps.get_version.outputs.version }}
-          echo "## 📦 Published ipmi-monitor $VERSION to PyPI" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Install with:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "pipx install ipmi-monitor==$VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+      producer_run_id:
+        description: Existing verified producer producer run id, or leave all three blank
+        required: false
+        type: string
+      producer_attempt:
+        description: Existing verified producer producer attempt, or leave all three blank
+        required: false
+        type: string
+      artifact_id:
+        description: Existing verified producer artifact id, or leave all three blank
+        required: false
+        type: string
+  push:
+    branches:
+    - dev
+    - main
+  pull_request:
+    branches:
+    - dev
+    - main

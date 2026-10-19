@@ -1,50 +1,43 @@
 name: Deploy Documentation to GitHub Pages
-
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-  workflow_dispatch:
-
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-# Allow only one concurrent deployment
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
-
 jobs:
   build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs
-          destination: ./_site
-          
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pages-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
+    permissions:
+      contents: read
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    runs-on:
+    - self-hosted
+    - ci-authority-held-r1109244855
     needs: build
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
+    - name: Setup Pages
+      uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    if: github.event_name != 'pull_request'
+'on':
+  push:
+    branches:
+    - dev
+    - main
+    paths:
+    - docs/**
+  workflow_dispatch: null
+  pull_request:
+    branches:
+    - dev
+    - main

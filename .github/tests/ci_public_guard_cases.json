@@ -1,0 +1,314 @@
+[
+  {
+    "name": "push protected dev",
+    "allowed": true,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "push unprotected dev",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": false,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "workflow_dispatch protected dev",
+    "allowed": true,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "workflow_dispatch unprotected dev",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": false,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "same repository PR to dev",
+    "allowed": true,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request",
+      "github.ref": "refs/pull/1/merge",
+      "github.ref_protected": false,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "fork PR to dev",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request",
+      "github.ref": "refs/pull/1/merge",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244856,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "push protected main",
+    "allowed": true,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/main",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "push unprotected main",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/main",
+      "github.ref_protected": false,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "workflow_dispatch protected main",
+    "allowed": true,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/heads/main",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "workflow_dispatch unprotected main",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/heads/main",
+      "github.ref_protected": false,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "same repository PR to main",
+    "allowed": true,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request",
+      "github.ref": "refs/pull/1/merge",
+      "github.ref_protected": false,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "main"
+    }
+  },
+  {
+    "name": "fork PR to main",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request",
+      "github.ref": "refs/pull/1/merge",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244856,
+      "github.base_ref": "main"
+    }
+  },
+  {
+    "name": "denied event pull_request_target",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request_target",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied event repository_dispatch",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "repository_dispatch",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied event workflow_run",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_run",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied event schedule",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "schedule",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied event delete",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "delete",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied ref push refs/heads/arbitrary",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/arbitrary",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied ref workflow_dispatch refs/heads/arbitrary",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/heads/arbitrary",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied ref push refs/tags/main",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/tags/main",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied ref workflow_dispatch refs/tags/main",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/tags/main",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied ref push refs/heads/main-malicious",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/main-malicious",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "denied ref workflow_dispatch refs/heads/main-malicious",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "workflow_dispatch",
+      "github.ref": "refs/heads/main-malicious",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "wrong repository",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244856",
+      "github.event_name": "push",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "dev"
+    }
+  },
+  {
+    "name": "PR to wrong base",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": 1109244855,
+      "github.base_ref": "arbitrary"
+    }
+  },
+  {
+    "name": "deleted fork head repository",
+    "allowed": false,
+    "github": {
+      "github.repository_id": "1109244855",
+      "github.event_name": "pull_request",
+      "github.ref": "refs/heads/dev",
+      "github.ref_protected": true,
+      "github.event.pull_request.head.repo.id": null,
+      "github.base_ref": "dev"
+    }
+  }
+]
