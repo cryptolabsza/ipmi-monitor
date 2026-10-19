@@ -2,7 +2,7 @@
 import hashlib,json,subprocess,sys,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
-BR='07fb5683850468b8ca1782b9ed73544c38e0f59d'
+BR='7a8e38d6a61a10337e4f71f6219f67d03f9b2aa1'
 class LocalPublisherTests(unittest.TestCase):
  def test_real_policy_and_shared_v2_dispatch_with_legacy_default_retained(self):
   script="import sys,json;sys.path.insert(0,sys.argv[1]);import policy;from verify_artifact import Policy;print(json.dumps({'schema':policy.POLICY.transport_schema,'recipe':policy.POLICY.recipe_ref,'default':Policy.__dataclass_fields__['transport_schema'].default}))"
