@@ -4,14 +4,14 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 jobs:
   build:
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-build-recipe.yml@07fb5683850468b8ca1782b9ed73544c38e0f59d
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-build-recipe.yml@7a8e38d6a61a10337e4f71f6219f67d03f9b2aa1
     permissions:
       contents: read
   publish-build:
     if: github.event_name != 'pull_request'
     needs:
     - build
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-publish-recipe.yml@3ebfad9db5c2a0734d34142d8bcc39faef0373c8
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-image-publish-recipe.yml@3957a0f9e846a899442e9df7e498280d269f7e29
     permissions:
       contents: read
       actions: read
