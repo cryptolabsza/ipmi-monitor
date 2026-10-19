@@ -340,9 +340,9 @@ def pr_artifact_disposition(terminal,snapshot,*,api):
     except Exception:return 'pending'
 
 # Admission retries are pre-body only; one absolute deadline spans fresh sockets.
-PUT_WAIT_SECONDS=180
 PUT_RETRY_SECONDS=5
 PUT_IO_SECONDS=1800
+PUT_WAIT_SECONDS=PUT_IO_SECONDS
 
 def _wire_line(connection,stream,deadline):
     line=bytearray()
