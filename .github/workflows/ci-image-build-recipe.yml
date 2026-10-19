@@ -36,7 +36,7 @@ jobs:
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: cryptolabsza/ipmi-monitor
-        ref: 96d0bf5584e4df5a87d971bf2fe6e08f9bc0c8d0
+        ref: bdf25d6e695aa332678ba5953b49c5d245014357
         persist-credentials: false
         fetch-depth: 1
         path: .local-image-producer
@@ -149,7 +149,7 @@ jobs:
     - name: Verify immutable local producer bytes
       run: |
         echo 'd3f8760b98e546e5b93e76af4fb9596af21333663170dabc2a41942f7e4f269e  .local-image-producer/.github/image-publisher/local_handoff.py' | sha256sum --check -
-        echo 'ebc03d2cfb813919cdc863df3b29e94a5f2bfb801ef3afbeb60aed114944da89  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact.py' | sha256sum --check -
+        echo 'd3a0f0ce8482e12404ad0fc8c9228100d863fcab28b986ec3c0b1c165e48cefb  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact.py' | sha256sum --check -
         echo 'ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7  .local-image-producer/.github/image-publisher/local_artifacts/local_artifact_routes.py' | sha256sum --check -
         echo '8992c0f2c0a29d5d1697a2f2fade9dbc5e03539505cec63ad1608c2026a49623  .local-image-producer/.github/image-publisher/local_artifacts/verify_artifact.py' | sha256sum --check -
     - name: Upload fixed image bundle to local store
