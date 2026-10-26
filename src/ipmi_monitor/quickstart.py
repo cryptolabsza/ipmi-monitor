@@ -1,3 +1,4 @@
+# TRACEWEAVER: file-role=ipmi-monitor-scoped-source; req=REQ-IPMI-MON-01; trace=TRACE-IPMI-MON-01; ver=VER-IPMI-MON-01
 """
 IPMI Monitor QuickStart - One command Docker deployment
 
@@ -1707,6 +1708,7 @@ def _populate_server_manager(
         console.print(f"[green]✓[/green] Added {added} servers to Server Manager")
 
 
+# TRACEWEAVER: entrypoint=activate_ai_license; req=REQ-IPMI-MON-01,REQ-IPMI-MON-02; trace=TRACE-IPMI-MON-01,TRACE-IPMI-MON-02; ver=VER-IPMI-MON-01,VER-IPMI-MON-02
 def activate_ai_license(license_key: str):
     """Activate AI license in IPMI Monitor database.
     
@@ -1736,11 +1738,13 @@ def activate_ai_license(license_key: str):
 import sqlite3
 import requests
 import sys
+import os
+import json
 
 license_key = {repr(license_key)}
 # Validate directly with WordPress CryptoLabs API
 wordpress_url = "https://www.cryptolabs.co.za"
-db_path = "/app/data/ipmi_events.db"
+db_path = os.path.join(os.environ.get("DATA_DIR", "/app/data"), "ipmi_events.db")
 
 try:
     # Validate with WordPress CryptoLabs API
@@ -1752,7 +1756,20 @@ try:
     )
     validation = response.json()
     
-    if validation.get("valid"):
+    features = validation.get("features")
+    allowance = validation.get("max_servers")
+    verified = (response.ok and validation.get("valid") is True
+        and isinstance(validation.get("tier"), str) and bool(validation["tier"])
+        and type(allowance) is int and allowance >= -1
+        and type(validation.get("user_id")) is int and validation["user_id"] > 0
+        and isinstance(validation.get("email"), str) and "@" in validation["email"]
+        and isinstance(features, (dict, list)))
+    if verified:
+        if isinstance(features, dict):
+            features = [name for name, value in features.items() if value is True]
+        if not all(isinstance(name, str) for name in features):
+            raise ValueError("Malformed entitlement features")
+        tier = {{"starter": "standard", "professional": "pro"}}.get(validation["tier"], validation["tier"])
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
         
@@ -1767,14 +1784,15 @@ try:
                     subscription_valid = 1,
                     subscription_tier = ?,
                     max_servers = ?,
+                    features = ?,
                     sync_enabled = 1
                 WHERE id = ?
-            """, (license_key, validation.get("tier", "standard"), validation.get("max_servers", 50), existing[0]))
+            """, (license_key, tier, allowance, json.dumps(features), existing[0]))
         else:
             c.execute("""
-                INSERT INTO cloud_sync (license_key, subscription_valid, subscription_tier, max_servers, sync_enabled)
-                VALUES (?, 1, ?, ?, 1)
-            """, (license_key, validation.get("tier", "standard"), validation.get("max_servers", 50)))
+                INSERT INTO cloud_sync (license_key, subscription_valid, subscription_tier, max_servers, features, sync_enabled)
+                VALUES (?, 1, ?, ?, ?, 1)
+            """, (license_key, tier, allowance, json.dumps(features)))
         
         conn.commit()
         conn.close()
@@ -1790,9 +1808,11 @@ except Exception as e:
             capture_output=True, text=True, timeout=30
         )
         
-        if "ACTIVATED" in result.stderr:
+        activation_receipt = next((line for line in result.stderr.splitlines()
+                                   if line.startswith("ACTIVATED:")), None)
+        if result.returncode == 0 and activation_receipt:
             # Parse tier info from output
-            parts = result.stderr.strip().split(":")
+            parts = activation_receipt.split(":")
             if len(parts) >= 2:
                 info = parts[1]
                 console.print(f"[green]✓[/green] AI license activated ({info})")

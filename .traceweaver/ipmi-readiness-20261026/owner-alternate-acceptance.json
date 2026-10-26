@@ -1,0 +1,10 @@
+{
+  "utc": "2026-10-26T18:17:44.796126+00:00",
+  "direct_user_answer": "Approve the comment-only exception",
+  "source": "Current explicit structured user answer to call_aa0410a16aff4184928aa8a5d7ee08b4",
+  "approved_proposal": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/unsupported-anchor-alternate-proposed.json",
+  "proposal_sha256": "63e6d64c91b23a7f9e4816db1975299a5f3838a421549e4308eb3e918f4378bc",
+  "scope": "Enumerated24 files, exact alternate comment placements, paired source/matrix proof, named static-HTML omission; all business behavior/publication/deployment gates preserved",
+  "prior_ambiguous_To_all": "Not treated as approval; this explicit answer supplies approval",
+  "LTX_answer": "Unlocked; LTX profile is connected"
+}

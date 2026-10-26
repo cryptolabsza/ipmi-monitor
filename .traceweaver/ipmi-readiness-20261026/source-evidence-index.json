@@ -1,0 +1,193 @@
+{
+  "recorded_at": "2026-10-26T17:50:15.911151+00:00",
+  "portable_boundary": "Original retained evidence lives in local release archive; archive retention/publication is separate. Hashes permit identity checks; existence is not acceptance.",
+  "evidence": [
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/backend/red-real-module.log",
+      "exists": true,
+      "sha256": "c2e39027944956736c494bd3d34779cb9d711133a33767ae9817181955f74880"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/backend/review-cycle-red.log",
+      "exists": true,
+      "sha256": "2423d6bab7cbb0af75fdaf5b2eb3e67c5e566392482b633eb4ab9ed72948bdd9"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/backend/subscription-active-red.log",
+      "exists": true,
+      "sha256": "450fde2ef3802981642666fdfd22a0be8552c300a782228a07183239bbe9d213"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/backend/verification.json",
+      "exists": true,
+      "sha256": "164928e3ccbe10033b025e59e55b9fa39e188e05d7d4b3c54325346988d9bc50"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/buttons-red.log",
+      "exists": true,
+      "sha256": "5fad9523ff8c23a1f51500048563927d22c49c3f011fcc5a7a136d6855ca6c48"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/persistence-red.json",
+      "exists": true,
+      "sha256": "c0bff180798612c99839904482bc20a21347330c5825c9d591c76a48dd0f0d4c"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/red.log",
+      "exists": true,
+      "sha256": "e767b969b4197fdcfd7060c20f5f49358d3f3a5d01c70ae97f4d290357bbd9e5"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/root-final-image.json",
+      "exists": true,
+      "sha256": "79884eec64a09096d7772634830393348ded09b9e27b91477901db2fb478dc14"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/root-full-final.json",
+      "exists": true,
+      "sha256": "6f8966fecbd12fd49b3b65c55531c46195b98dd6ef8e8206d85f7350685c11df"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/status-wording-result.json",
+      "exists": true,
+      "sha256": "022d8cae2c639cd7d4270ee615b49bf03e690313b6e455d8fa9dbc6d26c9730e"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/verification-result.json",
+      "exists": true,
+      "sha256": "834d6a3277be5d5f11cdb57b7b6fff02d5e8406562d378e0af236540f10e84d3"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/owner-decision.json",
+      "exists": true,
+      "sha256": "28328b7cb2ecca10ebd2de3173241c74e07e5611b42f6214ee11ce906d61c930"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/platform/review-cycle-red/platform-reproduction.log",
+      "exists": true,
+      "sha256": "0886837368176d077904fe801492092ec21dd5f092612c8a4cad011bf1d13f8b"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/platform/signup-trial-red.log",
+      "exists": true,
+      "sha256": "cbfefc1c38cebbb0c1b61bf157542de8a90b7a499c61ead4371cea67689eb4d2"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/review/final-monitor-backend-closure.json",
+      "exists": true,
+      "sha256": "d88c3905c934db6514c08e2df6562857e975aeeb1766c276a23fb1ddef723c17"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/local-acceptance.json",
+      "exists": true,
+      "sha256": "f1794f90620ef538f04f0233935c9e9611fe4eb8e343ac62d4864170844446a6"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/acceptance.json",
+      "exists": true,
+      "sha256": "b93fd4bc7c0602826037102e796e1d4fc9f1ac2bb334730974ccd6e7db33245b"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/build/new-route-red/subscription-revisions.log",
+      "exists": true,
+      "sha256": "3a61dc85f0a1fcd8377977a49ecbd307676240908bff5a05e4cab8f304027220"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/build/red/subscription-renewals.log",
+      "exists": true,
+      "sha256": "8acd319ee73339180d2ec65a78d2e245c54a242a38916971f68efc2f12299de7"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/build/red/test-ipmi-callback-allowlist.log",
+      "exists": true,
+      "sha256": "94d4bd279993ab5e876e7b23154077c96f3af885f79a9b26ee5f0030ec16b65f"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/owner-decision.json",
+      "exists": true,
+      "sha256": "a25c3686c6d05d3b19b3d453b8ed0b71aba2ea7a625550f51f4f18ad7e65d78c"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/repaired-source.json",
+      "exists": true,
+      "sha256": "a35cb7491e0a4f9ac7fcf19bd41be785188ff4f246310b4d3261841ecb0af685"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/review/closure.json",
+      "exists": true,
+      "sha256": "60a8ce84c462df9aa1ea3591da9b0ad7bc09f16c442e51c2cf80d9179ee158ae"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/review/repro-logs/stale-status-repro.log",
+      "exists": true,
+      "sha256": "f57a37eeb0a163999c06c1a2f5c3998a37bc9fa5879c3a8a7f86bc2d44a15215"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/provider-revisions/root-verification/final-result.json",
+      "exists": true,
+      "sha256": "07a2aa181336c8a1a4dfcbbf8cf27833fd45ff72f8c3c9f6fb292066de7d4698"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-publication-plan.json",
+      "exists": true,
+      "sha256": "0b5217a91cfd7e063fc02da41f24336c7deedc50ca201eb8ba60af51c37f91c4"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-review-closure.json",
+      "exists": true,
+      "sha256": "e7af5153361b4bd05d3ee2e25fcf163703657ea42954f30a26f43acdee40b27b"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/owner-scoped-acceptance.json",
+      "exists": true,
+      "sha256": "7ed48539b2e6af57dd05f9285cb9538e31a76694046e3204997b5e263480c64a"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/prepared/scoped-authority-amendment-proposed.md",
+      "exists": true,
+      "sha256": "3c5b13ccf6d68d175ad5c9d3f530dfd06edc5aef325bd680a657b1c3704ab69e"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/repair-plan.json",
+      "exists": true,
+      "sha256": "b47d53a89fb7bce00fdde9f80609155c125fdbfa700de6aae448df705dfd561f"
+    }
+  ],
+  "current_trace_evidence": [
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/owner-alternate-acceptance.json",
+      "sha256": "a87b1f252bbff01b6d0054cb7546e6b49456023bb91047cd15a47790b06d5d57",
+      "exists": true
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/unsupported-anchor-alternate-proposed.json",
+      "sha256": "63e6d64c91b23a7f9e4816db1975299a5f3838a421549e4308eb3e918f4378bc",
+      "exists": true
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/independent-doc-review.json",
+      "sha256": "c68c5352b59bc63860470187f82d99a0c5f71be75befccd5ce27da1f17c701b7",
+      "exists": true
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/root-supported-mechanical-closure.json",
+      "sha256": "202e23cf276e6122a519c7054fe32be1f38447e97b2c2db929e18a5b2c84c330",
+      "exists": true
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/final-source-equivalence-proof.json",
+      "sha256": "a6babdc1697e21ad2033cd70bcb565b73fb033d3e35699dc0a0c6b74795ee2db",
+      "exists": true
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/alternate-operation-proof.json",
+      "sha256": "6a3538e21fcde87ddc51f59295ec8dbc04aed2aa955d1ec70d2633f529e9b126",
+      "exists": true
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/alternate-template-render-proof.json",
+      "sha256": "2b3d3b5dbf908ab94155e139a429adb351b1416b206a856d5abaee6b6df7acf7",
+      "exists": true
+    }
+  ]
+}
