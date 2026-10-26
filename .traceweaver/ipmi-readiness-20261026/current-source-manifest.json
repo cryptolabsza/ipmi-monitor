@@ -1,0 +1,146 @@
+{
+  "record_type": "current_scoped_source_manifest",
+  "recorded_at": "2026-10-26T18:21:39.521849+00:00",
+  "repository": "cryptolabsza/ipmi-monitor",
+  "scope": "Original owner-accepted source scope plus approved inert trace navigation only; no version/business change.",
+  "files": [
+    {
+      "repository": "monitor",
+      "path": "Dockerfile",
+      "accepted_sha256": "66d9885878fefcb28b59844892f4d5b62e67f8ac4e14824f4442663cc19d886e",
+      "current_sha256": "ea81f33f90e8926baf1a36bf06616dd579c055bf6c31cccfbef14094bc3e7004",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "manual approved alternate token/render/instruction equality",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "src/ipmi_monitor/app.py",
+      "accepted_sha256": "766675d2ceee87ccbf59fed95d1f3770e5cd803323613fdc82603118e691fd4f",
+      "current_sha256": "61c0514979de49e8e1da8b63b473a89b4efeac2184ac11da33bcb8df5a302c8c",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "src/ipmi_monitor/quickstart.py",
+      "accepted_sha256": "4d419b85c42d81ef1e2309bcb47966d394a22e494ba2880f76a3a39b26c86475",
+      "current_sha256": "7cedb92e5c07bffa187778538d789e2a8d27209748d8e5ba856e028675817c9e",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "src/ipmi_monitor/templates/docker-compose.yml.j2",
+      "accepted_sha256": "33d29185f44598089822021fe1072c76b6f52a7d5aa237ce8e31da042be10343",
+      "current_sha256": "10c88b755f32838c943e1b0018b51f15a40191f20b13631a940a43fd39bdf34a",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "manual approved alternate token/render/instruction equality",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "src/ipmi_monitor/templates/settings.html",
+      "accepted_sha256": "741940beb6995e808e9f5158a26c2199fa913ba0aa3ec53aada7bb5806c7ea32",
+      "current_sha256": "5a4141922a1fedeb3ee86e4619bd048edbb6c423bbe5e6c750e1237743d7eaa0",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "manual approved alternate token/render/instruction equality",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "tests/test_account_link_security.py",
+      "accepted_sha256": "3fa08c112db337668980397af3cd7deebae0db8c81dc4bfcfd28a07f001bdeef",
+      "current_sha256": "783e65c22853e79fce01b756126ac3e128441f6d197813424c9ff217f923baec",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "tests/test_auth.py",
+      "accepted_sha256": "bab03d829d90f598900d9b0c5a6cb534874384cb5bfe8d8eefaa2b2259c0868e",
+      "current_sha256": "446251e59073bf68f4cca1ce355a2980a3110d4cd3a25a8a3fdee10ec124fd04",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "tests/test_cloud_inventory_payload.py",
+      "accepted_sha256": "5b08248d38be26acb904933a81a2b4df83092604b55615f6bf53aaced5f4dddf",
+      "current_sha256": "218266092c361b67dda06d992bcea7e22a9a8a99e8147dfcfc9f8eb2c330835b",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "tests/test_runtime_entrypoint.py",
+      "accepted_sha256": "fe572e70efeac12fe400d06dd119e2c345e9936acb9716b5e11cc184b2ad15ca",
+      "current_sha256": "4a3914fc2e2dcae8c6076ec2d5d0e80bba6a6a9778d5cb46c1ae7c18ea955674",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    },
+    {
+      "repository": "monitor",
+      "path": "tests/test_settings_ai_controls.py",
+      "accepted_sha256": "289919a83519bb74d1633fe7a46cdd524c1802bb094af3ad8d927527449cff92",
+      "current_sha256": "ed1f563dfe2f6a8c0e2b488c4b976c6cb321fb8c024e87dbf460214d83363a60",
+      "changed": true,
+      "exact_inverse_to_accepted_hash": true,
+      "mode": 420,
+      "mode_preserved": true,
+      "method": "supported helper AST/syntax/comment inverse",
+      "omission": false
+    }
+  ],
+  "accepted_source_manifest": ".traceweaver/ipmi-readiness-20261026/reviewed-source-manifest.json",
+  "original_business_review": [
+    "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/verification-result.json",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/root-full-final.json",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/root-final-image.json",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/monitor/status-wording-result.json",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/implementation/review/final-monitor-backend-closure.json"
+  ],
+  "mechanical_equivalence": {
+    "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-inputs/final-source-equivalence-proof.json",
+    "sha256": "a6babdc1697e21ad2033cd70bcb565b73fb033d3e35699dc0a0c6b74795ee2db"
+  },
+  "exception": {
+    "path": ".traceweaver/ipmi-readiness-20261026/owner-alternate-acceptance.json",
+    "sha256": "a87b1f252bbff01b6d0054cb7546e6b49456023bb91047cd15a47790b06d5d57",
+    "proposal_sha256": "63e6d64c91b23a7f9e4816db1975299a5f3838a421549e4308eb3e918f4378bc"
+  },
+  "target_validation": "Held; existing eight validation result boundaries and predeployment triggers remain."
+}

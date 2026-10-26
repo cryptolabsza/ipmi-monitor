@@ -1,0 +1,77 @@
+{
+  "intent_contract_id": "IPMI-SCOPED-20261026-MONITOR-IC",
+  "contract_status": "owner_approved_source_scope_mapping_independently_reviewed",
+  "contract_type": "scoped_source_publication_amendment",
+  "created_at": "2026-10-26T17:50:15.911151+00:00",
+  "owner": "Hannes Zietsman / release root",
+  "baseline_id": "IPMI-SCOPED-20261026-MONITOR",
+  "requirements_source": "requirements.md",
+  "requirements_hash_sha256": "621078feea33f0498eecb3a1a9aaea6b3b630739f3edf92ac3c138bcd713e93c",
+  "scope": [
+    "REQ-IPMI-MON-01",
+    "REQ-IPMI-MON-02",
+    "REQ-IPMI-MON-03"
+  ],
+  "owner_approval_record": ".traceweaver/ipmi-readiness-20261026/owner-scoped-acceptance.json",
+  "approval_record_sha256": "7ed48539b2e6af57dd05f9285cb9538e31a76694046e3204997b5e263480c64a",
+  "authority_review_source": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-review-closure.json",
+  "mapping_review_status": "Accepted by independent-doc-review.json SHA256 c68c5352b59bc63860470187f82d99a0c5f71be75befccd5ce27da1f17c701b7; source-anchor and publication gates remain separate",
+  "accepted_boundary": "Protected feature PR to dev only, subject to exact current publication and merge capsules. Existing main/deploy authorization retains all target prerequisites.",
+  "source_manifest": ".traceweaver/ipmi-readiness-20261026/reviewed-source-manifest.json",
+  "target": {
+    "remote": "git@github.com:cryptolabsza/ipmi-monitor.git",
+    "base": "dev",
+    "head": "fix/commercial-readiness-20261026",
+    "expected_starting_ref": "c10d16f0298b1a142412da2c144160ff4f0d093f"
+  },
+  "approved_requirements": [
+    {
+      "id": "REQ-IPMI-MON-01",
+      "statement": "preserve persistent monitor data/site identity under image recreation while respecting explicit DATA_DIR; retain isolated image/volume proof and target backup/site identity gate. Source: repair-plan step 1.",
+      "authority_status": "owner_approved_source_scope",
+      "verification_id": "VER-IPMI-MON-01",
+      "validation_id": "VAL-IPMI-MON-01",
+      "validation_result": "docs/validation/ipmi-readiness-20261026-mon-01.md",
+      "validation_question": "Target backup, volume/DATA_DIR readback, stable site identity before and after approved recreation; exact immutable monitor artifact and rollback route required."
+    },
+    {
+      "id": "REQ-IPMI-MON-02",
+      "statement": "admin/session/target-bound one-use SSO state, verified identity/allowance and truthful settings outcomes; retain actual Flask/rendered controls/independent reproduction evidence, hold real SSO acceptance. Source: repair-plan step 1 and owner SSO preference.",
+      "authority_status": "owner_approved_source_scope",
+      "verification_id": "VER-IPMI-MON-02",
+      "validation_id": "VAL-IPMI-MON-02",
+      "validation_result": "docs/validation/ipmi-readiness-20261026-mon-02.md",
+      "validation_question": "Authorized real target admin SSO, identity/allowance and Test/Disconnect/Sync browser acceptance after target connectivity and approved deployment."
+    },
+    {
+      "id": "REQ-IPMI-MON-03",
+      "statement": "site identity, observed timestamps and tombstones preserve the active/history producer contract. Source: repair-plan step 4.",
+      "authority_status": "owner_approved_source_scope",
+      "verification_id": "VER-IPMI-MON-03",
+      "validation_id": "VAL-IPMI-MON-03",
+      "validation_result": "docs/validation/ipmi-readiness-20261026-mon-03.md",
+      "validation_question": "Two authorized sites demonstrate stable identities, observed times, active/tombstone/history isolation after target deployment."
+    }
+  ],
+  "held_claims": [
+    "No approved site deploy/rollback broker proven by repo source",
+    "main/sha image tags do not update latest/stable",
+    "LTX SSH management route still timed out in latest retained target receipt",
+    "Live volume/site_id/collector/SSO/two-site acceptance pending"
+  ],
+  "publication_override": false,
+  "capsule_issued": false,
+  "version_change_authorized_on_feature_or_dev": false,
+  "baseline_hash_sha256": "621078feea33f0498eecb3a1a9aaea6b3b630739f3edf92ac3c138bcd713e93c",
+  "baseline_source": "requirements.md",
+  "baseline_status": "owner_approved_scoped_source_authority",
+  "traceweaver_mode": "advisory",
+  "source_trace_status": {
+    "supported_extension_scanner": "pass; rerun on final source scope retained by root",
+    "unsupported_formats": "Owner-approved alternate manual equivalence proof passed for23comment writes; one explicitly approved static HTML omission remains byte-identical. No unsupported scanner coverage claimed.",
+    "mechanical_equivalence_sha256": "a6babdc1697e21ad2033cd70bcb565b73fb033d3e35699dc0a0c6b74795ee2db",
+    "current_source_manifest": ".traceweaver/ipmi-readiness-20261026/current-source-manifest.json",
+    "exception_receipt": ".traceweaver/ipmi-readiness-20261026/owner-alternate-acceptance.json",
+    "root_mechanical_closure": "Pending final root checks; no publication capsule issued."
+  }
+}
