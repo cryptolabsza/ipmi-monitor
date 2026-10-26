@@ -1,3 +1,5 @@
+# TRACEWEAVER: file-role=ipmi-monitor-verification; req=REQ-IPMI-MON-02; trace=TRACE-IPMI-MON-02; ver=VER-IPMI-MON-02
+# TRACEWEAVER: verifies=VER-IPMI-MON-02; req=REQ-IPMI-MON-02; trace=TRACE-IPMI-MON-02
 """
 Tests for authentication and authorisation.
 
@@ -178,6 +180,33 @@ class TestViewRequired:
 # ===== Proxy authentication =====
 
 class TestProxyAuth:
+
+    @pytest.fixture(autouse=True)
+    def explicit_trusted_proxy(self, monkeypatch):
+        import ipmi_monitor.app as runtime
+        monkeypatch.setenv('TRUSTED_PROXY_IPS', '127.0.0.1')
+        monkeypatch.setattr(runtime, 'TRUSTED_PROXY_IPS', {'127.0.0.1'}, raising=False)
+
+    def test_untrusted_socket_peer_cannot_spoof_fleet_or_forwarded_source(self, app_fixture):
+        client, app, db, models = app_fixture
+        response = client.post('/api/servers/add', json={
+            'bmc_ip': '192.0.2.90', 'server_name': 'must-not-exist',
+        }, headers={
+            'X-Fleet-Authenticated': 'true', 'X-Fleet-Auth-User': 'spoofed-admin',
+            'X-Fleet-Auth-Role': 'admin', 'X-Fleet-Auth-Token': 'unverified-token',
+            'X-Forwarded-For': '127.0.0.1', 'Accept': 'application/json',
+        }, environ_overrides={'REMOTE_ADDR': '198.51.100.90'})
+        assert response.status_code == 401
+        with app.app_context():
+            assert models['Server'].query.filter_by(bmc_ip='192.0.2.90').first() is None
+
+    def test_trusted_proxy_uses_socket_peer_despite_external_forwarded_client(self, app_fixture):
+        client, app, db, models = app_fixture
+        response = client.get('/api/servers', headers={
+            'X-Fleet-Authenticated': 'true', 'X-Fleet-Auth-User': 'proxyuser',
+            'X-Fleet-Auth-Role': 'admin', 'X-Forwarded-For': '198.51.100.91',
+        }, environ_overrides={'REMOTE_ADDR': '127.0.0.1'})
+        assert response.status_code == 200
 
     def test_proxy_auth_admin(self, app_fixture):
         client, app, db, models = app_fixture

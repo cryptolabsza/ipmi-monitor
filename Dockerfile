@@ -1,3 +1,4 @@
+# TRACEWEAVER: file-role=ipmi-monitor-scoped-source; req=REQ-IPMI-MON-01; trace=TRACE-IPMI-MON-01; ver=VER-IPMI-MON-01
 FROM python:3.11-slim
 
 # Install ipmitool, openssh-client, sshpass, and iputils-ping (for connectivity checks)
@@ -20,6 +21,8 @@ RUN pip install --no-cache-dir .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
+# The root container must write into the volume mounted by setup/Compose.
+ENV DATA_DIR=/app/data
 
 # Build arguments for version info (placed AFTER COPY to bust cache on every build)
 ARG GIT_COMMIT=unknown
