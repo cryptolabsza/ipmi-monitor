@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{# TRACEWEAVER: file-role=ipmi-monitor-scoped-source; req=REQ-IPMI-MON-02; trace=TRACE-IPMI-MON-02; ver=VER-IPMI-MON-02 #}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -235,6 +235,16 @@
             line-height: 1.5;
         }
         
+        #alertBox {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(900px, calc(100% - 32px));
+            box-sizing: border-box;
+            z-index: 3000;
+        }
+
         .alert {
             padding: 15px 20px;
             border-radius: 8px;
@@ -405,7 +415,7 @@
             </div>
         </header>
         
-        <div id="alertBox" class="alert"></div>
+        <div id="alertBox" class="alert" role="status" aria-live="polite" aria-atomic="true"></div>
         
         <div class="tabs">
             <button class="tab active" onclick="showTab('manage')">🖥️ Manage Servers</button>
@@ -1810,15 +1820,15 @@
                         </div>
                     </div>
                     <div style="text-align: center;">
-                        <a href="#" onclick="startFreeTrial(); return false;" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 16px 32px; font-size: 1.1rem; text-decoration: none; display: inline-block; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 214, 143, 0.3); cursor: pointer;">
-                            Start Free Trial →
+                        <a href="#" onclick="loginWithCryptoLabs(); return false;" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 16px 32px; font-size: 1.1rem; text-decoration: none; display: inline-block; border-radius: 12px; box-shadow: 0 8px 25px rgba(0, 214, 143, 0.3); cursor: pointer;">
+                            🔐 Connect with CryptoLabs
                         </a>
                         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 10px;">
                             Then $100/month for 50 servers (+$15 per 10 extra)
                         </p>
                         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
-                            <button onclick="loginWithCryptoLabs()" class="btn btn-secondary" style="font-size: 0.95rem;">
-                                🔐 Already have an account? Sign In
+                            <button onclick="startFreeTrial()" class="btn btn-secondary" style="font-size: 0.95rem;">
+                                New account? Start Free Trial
                             </button>
                         </div>
                     </div>
@@ -1837,7 +1847,7 @@
                         </div>
                         <div class="server-badges">
                             <span id="aiServerCount" class="status-badge" style="display: none;">0/50</span>
-                            <span id="aiSyncStatus" class="status-badge status-badge-success">✅ Syncing</span>
+                            <span id="aiSyncStatus" class="status-badge status-badge-success">✅ Sync enabled</span>
                         </div>
                     </div>
                     <!-- Server limit warning banner -->
@@ -1860,7 +1870,7 @@
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <span style="font-size: 1.2rem;">🔗</span>
                                 <div>
-                                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Linked to CryptoLabs account:</div>
+                                    <div id="linkedAccountStatus" style="font-size: 0.85rem; color: var(--text-secondary);">Linked CryptoLabs account:</div>
                                     <div style="font-weight: 600;" id="linkedAccountEmail">-</div>
                                 </div>
                             </div>
@@ -2076,8 +2086,6 @@
         // CryptoLabs Configuration
         const CRYPTOLABS_URL = 'https://cryptolabs.co.za';
         const CRYPTOLABS_TRIAL_URL = `${CRYPTOLABS_URL}/ipmi-ai-trial/`;
-        const CRYPTOLABS_SSO_URL = CRYPTOLABS_URL;
-        const CRYPTOLABS_OAUTH_URL = `${CRYPTOLABS_SSO_URL}/?clai_ipmi_oauth=1`;
         
         // Show/hide AI settings panel
         function showAiSettings() {
@@ -2103,7 +2111,7 @@
                 
                 document.getElementById('aiTierDisplay').textContent = tier;
                 document.getElementById('aiStatusMessage').textContent = `Connected to CryptoLabs AI`;
-                document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Syncing' : '⏸️ Paused';
+                document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Sync enabled' : '⏸️ Paused';
                 document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
                 
                 // Fetch current server count to compare with limit
@@ -2139,6 +2147,8 @@
                 if (config.linked_account && config.linked_account.wp_email) {
                     linkedSection.style.display = 'block';
                     document.getElementById('linkedAccountEmail').textContent = config.linked_account.wp_email;
+                    document.getElementById('linkedAccountStatus').textContent = config.linked_account_status === 'verified'
+                        ? 'Verified CryptoLabs account:' : 'Previously linked account (sign in to verify):';
                 } else {
                     linkedSection.style.display = 'none';
                 }
@@ -2147,36 +2157,26 @@
                 if (config.last_sync) {
                     document.getElementById('aiLastSyncCard').style.display = 'block';
                     document.getElementById('aiLastSyncTime').textContent = new Date(config.last_sync).toLocaleString();
-                    document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status || 'Success';
+                    document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status || 'Status unavailable';
                 }
             }
         }
         
-        // Redirect to CryptoLabs signup page with return URL
+        // Signup uses the same local session-bound link flow as existing-account SSO.
         function startFreeTrial() {
-            // Build the redirect URL back to this IPMI Monitor's OAuth callback
-            const redirectUri = encodeURIComponent(window.location.origin + apiUrl('/api/ai/oauth-callback'));
-            const ipmiHost = encodeURIComponent(window.location.host);
-            const signupUrl = `https://www.cryptolabs.co.za/ipmi_signup/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
-            
-            // Open in new tab so they can return easily
-            window.open(signupUrl, '_blank');
+            loginWithCryptoLabs('signup');
         }
         
         // SSO Login with CryptoLabs (after they've signed up via the trial page)
-        function loginWithCryptoLabs() {
+        async function loginWithCryptoLabs(mode = 'signin') {
             // Calculate popup position
             const width = 550, height = 650;
             const left = (screen.width - width) / 2;
             const top = (screen.height - height) / 2;
             
-            // Build OAuth URL with redirect back to this page
-            const redirectUri = `${window.location.origin}/api/ai/oauth-callback`;
-            const oauthUrl = `${CRYPTOLABS_OAUTH_URL}?redirect_uri=${encodeURIComponent(redirectUri)}&state=${Date.now()}`;
-            
-            // Open popup
+            // Open immediately during the click; obtain link authority from the server.
             const popup = window.open(
-                oauthUrl,
+                'about:blank',
                 'CryptoLabs Login',
                 `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
             );
@@ -2188,34 +2188,36 @@
             
             // Listen for message from popup
             const messageHandler = async (event) => {
-                // Verify origin - accept from our own domain (callback page) or cryptolabs
-                const trustedOrigins = [window.location.origin, 'cryptolabs.co.za'];
-                const isAllowed = trustedOrigins.some(o => event.origin.includes(o));
-                if (!isAllowed) {
+                if (event.origin !== window.location.origin || event.source !== popup) {
                     return;
                 }
                 
                 // Check for our auth message
-                if (event.data && event.data.type === 'cryptolabs_ipmi_auth') {
+                if (event.data && event.data.type === 'cryptolabs_ipmi_auth' && event.data.success === true) {
                     window.removeEventListener('message', messageHandler);
                     
-                    const { api_key, token, subscription, user_email, wp_user_id } = event.data;
-                    const keyToUse = api_key || token;
-                    
-                    if (keyToUse) {
-                        // Auto-fill and save - the backend will link accounts
-                        document.getElementById('aiLicenseKey').value = keyToUse;
-                        document.getElementById('aiSyncEnabled').checked = true;
-                        await saveAiConfig();
-                        
-                        showAlert(`✅ Connected to CryptoLabs AI as ${user_email}!`, 'success');
-                    }
+                    await loadAiConfig();
+                    showAlert('Connected to CryptoLabs AI.', 'success');
                     
                     popup.close();
                 }
             };
             
             window.addEventListener('message', messageHandler);
+            try {
+                const response = await fetch(apiUrl('/api/ai/oauth-start'), {
+                    method: 'POST', credentials: 'same-origin',
+                    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({mode})
+                });
+                const result = await response.json();
+                if (!response.ok || !result.authorization_url) throw new Error(result.error || 'Unable to start sign in.');
+                popup.location = result.authorization_url;
+            } catch (error) {
+                window.removeEventListener('message', messageHandler);
+                popup.close();
+                showAlert(error.message || 'Unable to start sign in.', 'error');
+                return;
+            }
             
             // Poll for popup close
             const pollTimer = setInterval(() => {
@@ -2263,7 +2265,10 @@
                 
                 if (response.ok) {
                     showAlert('Disconnected from CryptoLabs AI', 'success');
-                    loadAiConfig();
+                    await loadAiConfig();
+                } else {
+                    const data = await response.json().catch(() => ({}));
+                    showAlert(data.error || `Disconnect failed (HTTP ${response.status}). Please sign in again or retry.`, 'error');
                 }
             } catch (e) {
                 showAlert('Error: ' + e.message, 'error');
@@ -2272,30 +2277,17 @@
         
         // Test AI connection
         async function testAiConnection() {
-            // Check if connected via config (don't rely on hidden field since key is masked)
-            try {
-                const configResponse = await fetch(apiUrl('/api/ai/config'));
-                const config = await configResponse.json();
-                
-                if (!config || !config.license_key) {
-                    showAlert('Not connected. Click "Sign In" to connect to CryptoLabs AI.', 'error');
-                    return;
-                }
-            } catch (e) {
-                showAlert('Failed to check connection status', 'error');
-                return;
-            }
-            
             try {
                 const response = await fetch(apiUrl('/api/ai/test'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ license_key: licenseKey })
+                    // The authenticated backend tests its stored credential.
+                    body: JSON.stringify({})
                 });
                 
                 const data = await response.json();
                 
-                if (data.valid) {
+                if (response.ok && data.valid) {
                     showAlert(`✅ Connection successful! Tier: ${data.tier}, Max servers: ${data.max_servers}`, 'success');
                 } else {
                     showAlert(`❌ Connection failed: ${data.error || 'Invalid API key'}`, 'error');
@@ -2370,10 +2362,10 @@
                 const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' });
                 const data = await response.json();
                 
-                if (data.success) {
+                if (response.ok && data.success) {
                     showAlert('Sync completed: ' + data.message, 'success');
                 } else {
-                    showAlert('Sync failed: ' + data.message, 'error');
+                    showAlert('Sync failed: ' + (data.error || data.message || `HTTP ${response.status}`), 'error');
                 }
                 
                 loadAiConfig();
@@ -5283,57 +5275,13 @@
             }
         }
         
-        // Check for OAuth callback parameters in URL
+        // Old bookmarked callbacks must restart the server-bound SSO flow.
         async function handleOAuthCallback() {
             const urlParams = new URLSearchParams(window.location.search);
-            const apiKey = urlParams.get('api_key');
-            const userEmail = urlParams.get('user_email');
-            const subscription = urlParams.get('subscription');
-            const wpUserId = urlParams.get('wp_user_id');
-            
-            if (apiKey) {
-                console.log('OAuth callback detected on settings page, processing...');
-                
-                try {
-                    // Save the API key to the backend
-                    const response = await fetch(apiUrl('/api/ai/config'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'same-origin',
-                        body: JSON.stringify({
-                            license_key: apiKey,
-                            sync_enabled: true
-                        })
-                    });
-                    
-                    if (response.ok) {
-                        // Clean up the URL (remove the callback parameters)
-                        const cleanUrl = window.location.origin + window.location.pathname;
-                        window.history.replaceState({}, document.title, cleanUrl);
-                        
-                        // Show success message
-                        const email = userEmail ? decodeURIComponent(userEmail) : 'CryptoLabs';
-                        showAlert(`✅ Connected to CryptoLabs AI as ${email}!`, 'success');
-                        
-                        // Trigger initial sync
-                        fetch(apiUrl('/api/ai/sync'), { 
-                            method: 'POST',
-                            credentials: 'same-origin'
-                        }).catch(e => console.log('Sync started in background'));
-                        
-                        // Switch to AI tab and reload config
-                        showTab('ai');
-                        await loadAiConfig();
-                        
-                        console.log('OAuth callback processed successfully');
-                    } else {
-                        console.error('Failed to save API key:', await response.text());
-                        showAlert('Failed to activate AI features. Please try again.', 'error');
-                    }
-                } catch (e) {
-                    console.error('OAuth callback processing error:', e);
-                    showAlert('Error activating AI features: ' + e.message, 'error');
-                }
+            if (urlParams.has('api_key')) {
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+                showAlert('This account link has expired. Use Connect with CryptoLabs to sign in again.', 'error');
             }
         }
         

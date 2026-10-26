@@ -1,0 +1,73 @@
+{
+  "recorded_at": "2026-10-26T17:50:15.911151+00:00",
+  "scope": "Exact owner-accepted business source before navigation comments; remains historical reviewed identity.",
+  "repository": "cryptolabsza/ipmi-monitor",
+  "files": [
+    {
+      "path": "Dockerfile",
+      "sha256": "66d9885878fefcb28b59844892f4d5b62e67f8ac4e14824f4442663cc19d886e",
+      "retained_accepted_sha256": "66d9885878fefcb28b59844892f4d5b62e67f8ac4e14824f4442663cc19d886e",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "src/ipmi_monitor/app.py",
+      "sha256": "766675d2ceee87ccbf59fed95d1f3770e5cd803323613fdc82603118e691fd4f",
+      "retained_accepted_sha256": "766675d2ceee87ccbf59fed95d1f3770e5cd803323613fdc82603118e691fd4f",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "src/ipmi_monitor/quickstart.py",
+      "sha256": "4d419b85c42d81ef1e2309bcb47966d394a22e494ba2880f76a3a39b26c86475",
+      "retained_accepted_sha256": "4d419b85c42d81ef1e2309bcb47966d394a22e494ba2880f76a3a39b26c86475",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "src/ipmi_monitor/templates/docker-compose.yml.j2",
+      "sha256": "33d29185f44598089822021fe1072c76b6f52a7d5aa237ce8e31da042be10343",
+      "retained_accepted_sha256": "33d29185f44598089822021fe1072c76b6f52a7d5aa237ce8e31da042be10343",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "src/ipmi_monitor/templates/settings.html",
+      "sha256": "741940beb6995e808e9f5158a26c2199fa913ba0aa3ec53aada7bb5806c7ea32",
+      "retained_accepted_sha256": "741940beb6995e808e9f5158a26c2199fa913ba0aa3ec53aada7bb5806c7ea32",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "tests/test_account_link_security.py",
+      "sha256": "3fa08c112db337668980397af3cd7deebae0db8c81dc4bfcfd28a07f001bdeef",
+      "retained_accepted_sha256": "3fa08c112db337668980397af3cd7deebae0db8c81dc4bfcfd28a07f001bdeef",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "tests/test_auth.py",
+      "sha256": "bab03d829d90f598900d9b0c5a6cb534874384cb5bfe8d8eefaa2b2259c0868e",
+      "retained_accepted_sha256": "bab03d829d90f598900d9b0c5a6cb534874384cb5bfe8d8eefaa2b2259c0868e",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "tests/test_cloud_inventory_payload.py",
+      "sha256": "5b08248d38be26acb904933a81a2b4df83092604b55615f6bf53aaced5f4dddf",
+      "retained_accepted_sha256": "5b08248d38be26acb904933a81a2b4df83092604b55615f6bf53aaced5f4dddf",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "tests/test_runtime_entrypoint.py",
+      "sha256": "fe572e70efeac12fe400d06dd119e2c345e9936acb9716b5e11cc184b2ad15ca",
+      "retained_accepted_sha256": "fe572e70efeac12fe400d06dd119e2c345e9936acb9716b5e11cc184b2ad15ca",
+      "matches_retained_identity": true
+    },
+    {
+      "path": "tests/test_settings_ai_controls.py",
+      "sha256": "289919a83519bb74d1633fe7a46cdd524c1802bb094af3ad8d927527449cff92",
+      "retained_accepted_sha256": "289919a83519bb74d1633fe7a46cdd524c1802bb094af3ad8d927527449cff92",
+      "matches_retained_identity": true
+    }
+  ],
+  "scope_summary": [
+    "Persistent /app/data and explicit override compatibility",
+    "Admin/session/target-bound single-use SSO state and verified identity/allowance",
+    "Fleet proxy identity, Settings Test/Disconnect/Sync outcomes",
+    "Stable site identity, observed timestamps and tombstone producer semantics"
+  ]
+}

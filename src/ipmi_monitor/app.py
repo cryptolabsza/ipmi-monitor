@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# TRACEWEAVER: file-role=ipmi-monitor-scoped-source; req=REQ-IPMI-MON-01; trace=TRACE-IPMI-MON-01; ver=VER-IPMI-MON-01
 """
 IPMI/BMC Event Monitor
 A Flask-based dashboard for monitoring IPMI SEL logs across all servers
@@ -25,6 +26,8 @@ import hmac
 import ipaddress
 import hashlib
 import base64
+import secrets
+from urllib.parse import urlencode, urlsplit
 from io import StringIO
 import requests
 import urllib3
@@ -710,6 +713,17 @@ PROXY_AUTH_HEADER_USER = 'X-Fleet-Auth-User'
 PROXY_AUTH_HEADER_ROLE = 'X-Fleet-Auth-Role'
 PROXY_AUTH_HEADER_TOKEN = 'X-Fleet-Auth-Token'
 PROXY_AUTH_HEADER_FLAG = 'X-Fleet-Authenticated'
+TRUSTED_PROXY_IPS = {
+    address.strip() for address in os.environ.get('TRUSTED_PROXY_IPS', '127.0.0.1').split(',')
+    if address.strip()
+}
+
+
+def is_trusted_proxy_request():
+    """Trust the configured socket peer, never the forwarded client address."""
+    original = request.environ.get('werkzeug.proxy_fix.orig', {})
+    peer = original.get('REMOTE_ADDR', request.environ.get('REMOTE_ADDR'))
+    return peer in TRUSTED_PROXY_IPS
 
 def is_proxy_authenticated():
     """
@@ -721,7 +735,7 @@ def is_proxy_authenticated():
     """
     # Check if the proxy auth flag is set
     auth_flag = request.headers.get(PROXY_AUTH_HEADER_FLAG)
-    if auth_flag == 'true':
+    if auth_flag == 'true' and is_trusted_proxy_request():
         username = request.headers.get(PROXY_AUTH_HEADER_USER)
         proxy_role = request.headers.get(PROXY_AUTH_HEADER_ROLE, 'readonly')
         
@@ -754,7 +768,7 @@ def check_auth_with_proxy():
 
 def is_running_behind_proxy():
     """Check if we're running behind the fleet proxy."""
-    return request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true'
+    return is_trusted_proxy_request() and request.headers.get(PROXY_AUTH_HEADER_FLAG) == 'true'
 
 def admin_required(f):
     """Decorator to require admin login for a route"""
@@ -2415,6 +2429,15 @@ class AdminConfig(db.Model):
 
 # ============== Cloud Sync (AI Features) ==============
 
+class OAuthLinkState(db.Model):
+    """Short-lived link authority, consumed by one atomic database DELETE."""
+    state_digest = db.Column(db.String(64), primary_key=True)
+    username = db.Column(db.String(50), nullable=False)
+    session_digest = db.Column(db.String(64), nullable=False)
+    callback_url = db.Column(db.String(512), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False, index=True)
+
+
 class CloudSync(db.Model):
     """Configuration for CryptoLabs AI cloud sync"""
     id = db.Column(db.Integer, primary_key=True)
@@ -3523,10 +3546,14 @@ def sync_to_cloud(initial_sync=False):
             
             # Generate instance fingerprint
             instance_id, fingerprint_data = generate_instance_fingerprint()
+            site_id, _site_name = get_or_create_site_id()
+            active_servers = {(s.bmc_ip, s.server_name) for s in servers
+                              if s.enabled and s.status not in ('deprecated', 'retired')}
             
             payload = {
                 # Instance identification (always sent)
                 'instance_id': instance_id,
+                'site_id': site_id,
                 'fingerprint': fingerprint_data,
                 'app_version': get_version_string(),
                 'sync_type': 'initial' if is_first_sync else 'regular',
@@ -3551,7 +3578,9 @@ def sync_to_cloud(initial_sync=False):
                     'timestamp': e.event_date.isoformat() if e.event_date else None,
                     'type': e.sensor_type,
                     'description': e.event_description,
-                    'severity': e.severity
+                    'severity': e.severity,
+                    # Keep original clock evidence for receiver-side quarantine.
+                    'raw_entry': e.raw_entry,
                 } for e in events],
                 'sensors': [{
                     'server_name': s.server_name,
@@ -3559,8 +3588,9 @@ def sync_to_cloud(initial_sync=False):
                     'type': s.sensor_type,
                     'value': s.value,
                     'unit': s.unit,
-                    'status': s.status
-                } for s in sensors],
+                    'status': s.status,
+                    'collected_at': s.collected_at.isoformat() if s.collected_at else None,
+                } for s in sensors if (s.bmc_ip, s.server_name) in active_servers],
                 'inventory': [{
                     'server_name': inv.server_name,
                     'bmc_ip': inv.bmc_ip,
@@ -4476,31 +4506,82 @@ def fetch_ai_results():
 
 
 def validate_license_key(license_key):
-    """Validate license key with AI service"""
+    """Read authoritative identity and entitlements from the configured TLS service."""
     try:
         config = CloudSync.get_config()
+        endpoint = urlsplit(config.AI_SERVICE_URL)
+        if endpoint.scheme != 'https' or not endpoint.hostname or endpoint.username or endpoint.password:
+            return {'valid': False}
         response = requests.post(
-            f"{config.AI_SERVICE_URL}/api/v1/validate",
+            f"{config.AI_SERVICE_URL.rstrip('/')}/api/v1/validate",
             json={'license_key': license_key},
-            timeout=10
+            timeout=10,
+            verify=True,
         )
         
         if response.ok:
             result = response.json()
-            # Normalize tier name to current naming convention
-            tier = normalize_tier_name(result.get('tier', 'free'))
+            if not isinstance(result, dict) or result.get('valid') is not True:
+                return {'valid': False}
+            tier = normalize_tier_name(result.get('tier'))
+            allowance = result.get('max_servers')
+            user_id = result.get('user_id')
+            features = result.get('features')
+            email = result.get('email')
+            customer_id = result.get('customer_id')
+            if (tier not in SUBSCRIPTION_TIERS or not result.get('tier') or
+                    type(allowance) is not int or allowance < -1 or
+                    type(user_id) is not int or user_id <= 0 or
+                    not isinstance(email, str) or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email) or
+                    not isinstance(customer_id, str) or not customer_id or
+                    not isinstance(features, list) or
+                    not all(isinstance(feature, str) for feature in features)):
+                return {'valid': False}
             return {
-                'valid': result.get('valid', False),
+                'valid': True,
                 'tier': tier,
-                'max_servers': result.get('max_servers') or get_tier_max_servers(tier),
-                'features': result.get('features', []),
-                'email': result.get('email'),
-                'customer_id': result.get('customer_id')
+                'max_servers': allowance,
+                'features': features,
+                'email': email,
+                'user_id': user_id,
+                'customer_id': customer_id,
             }
     except Exception as e:
         app.logger.error(f"License validation failed: {e}")
     
     return {'valid': False}
+
+
+def apply_license_validation(config, validation):
+    """A failed/unavailable verification must not leave stale paid access enabled."""
+    config.subscription_valid = validation.get('valid') is True
+    config.features = json.dumps(validation.get('features', []) if config.subscription_valid else [])
+    if config.subscription_valid:
+        config.max_servers = validation['max_servers']
+        config.subscription_tier = validation['tier']
+
+
+def record_verified_linked_account(license_key, validation):
+    """Persist display identity with the credential transaction, including proxy-only users."""
+    linked_at = datetime.utcnow()
+    values = {
+        'email': validation['email'], 'user_id': str(validation['user_id']),
+        'customer_id': validation['customer_id'], 'linked_at': linked_at.isoformat(),
+        'key_digest': hashlib.sha256(license_key.encode()).hexdigest(),
+    }
+    for field, value in values.items():
+        key = 'ai_link_' + field
+        setting = SystemSettings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = value
+        else:
+            db.session.add(SystemSettings(key=key, value=value))
+    # Keep the existing local-user association when there is one; never create an admin.
+    user = User.query.filter_by(username=session.get('username')).first()
+    if user:
+        user.wp_user_id = validation['user_id']
+        user.wp_email = validation['email']
+        user.wp_linked_at = linked_at
 
 
 # ============== Default Alert Rules ==============
@@ -7640,15 +7721,10 @@ def sync_timer():
                     # Refresh license info to get updated max_servers from WordPress
                     try:
                         validation = validate_license_key(config.license_key)
-                        if validation.get('valid'):
-                            updated_max = validation.get('max_servers', config.max_servers)
-                            updated_tier = validation.get('tier', config.subscription_tier)
-                            if updated_max != config.max_servers or updated_tier != config.subscription_tier:
-                                print(f"[Sync Timer] License info updated: tier={updated_tier}, max_servers={updated_max}", flush=True)
-                                config.max_servers = updated_max
-                                config.subscription_tier = updated_tier
-                                db.session.commit()
+                        apply_license_validation(config, validation)
+                        db.session.commit()
                     except Exception as lic_err:
+                        db.session.rollback()
                         print(f"[Sync Timer] License refresh error (non-critical): {lic_err}", flush=True)
                     
                     print(f"[Sync Timer] Starting sync to AI service...", flush=True)
@@ -16443,6 +16519,7 @@ def logout():
     session.pop('username', None)
     session.pop('user_role', None)
     session.pop('auth_via', None)
+    session.pop('oauth_link_session', None)
     
     # If authenticated via fleet proxy, redirect to fleet logout
     if auth_via == 'fleet_proxy' or is_running_behind_proxy():
@@ -16768,7 +16845,10 @@ def api_ai_status():
     """Get AI cloud sync status"""
     try:
         config = CloudSync.get_config()
-        server_count = Server.query.count()
+        server_count = Server.query.filter(
+            Server.enabled.is_(True),
+            db.or_(Server.status.is_(None), Server.status.notin_(['deprecated', 'retired']))
+        ).count()
         
         # Normalize tier name to current naming convention
         tier = normalize_tier_name(config.subscription_tier)
@@ -16783,7 +16863,7 @@ def api_ai_status():
             'last_sync_status': config.last_sync_status,
             'last_sync_message': config.last_sync_message,
             'server_count': server_count,
-            'max_servers': config.max_servers if config.max_servers else get_tier_max_servers(tier),
+            'max_servers': config.max_servers if config.max_servers is not None else get_tier_max_servers(tier),
             'has_license': bool(config.license_key),
             # Enable streaming for real-time progress updates (pondering, thinking, etc.)
             'stream_enabled': config.sync_enabled and config.subscription_valid and tier not in ['free', None]
@@ -16793,6 +16873,7 @@ def api_ai_status():
 
 
 @app.route('/api/ai/embed-config')
+@admin_required
 def api_ai_embed_config():
     """Get AI embed configuration for iframe-based tabs.
     Returns embed URLs for AI tabs if configured to use embeds."""
@@ -16859,10 +16940,22 @@ def api_get_ai_config():
     """Get AI cloud configuration including linked WordPress account"""
     config = CloudSync.get_config()
     result = config.to_dict()
+    result['linked_account_status'] = 'unlinked'
+
+    digest = SystemSettings.get('ai_link_key_digest')
+    if config.license_key and digest == hashlib.sha256(config.license_key.encode()).hexdigest():
+        result['linked_account'] = {
+            'wp_email': SystemSettings.get('ai_link_email'),
+            'wp_user_id': int(SystemSettings.get('ai_link_user_id')),
+            'customer_id': SystemSettings.get('ai_link_customer_id'),
+            'linked_at': SystemSettings.get('ai_link_linked_at'),
+        }
+        result['linked_account_status'] = 'verified'
+        return jsonify(result)
     
     # Add linked WordPress account info for current user
     current_username = session.get('username')
-    if current_username:
+    if current_username and config.license_key and digest is None:
         user = User.query.filter_by(username=current_username).first()
         if user and user.wp_email:
             result['linked_account'] = {
@@ -16870,6 +16963,7 @@ def api_get_ai_config():
                 'wp_user_id': user.wp_user_id,
                 'linked_at': user.wp_linked_at.isoformat() if user.wp_linked_at else None
             }
+            result['linked_account_status'] = 'legacy'
     
     return jsonify(result)
 
@@ -16891,23 +16985,8 @@ def api_update_ai_config():
                 
                 if validation['valid']:
                     config.license_key = data['license_key']
-                    config.subscription_tier = validation.get('tier', 'standard')
-                    config.subscription_valid = True
-                    config.max_servers = validation.get('max_servers', 50)
-                    config.features = json.dumps(validation.get('features', []))
-                    
-                    # Auto-link WordPress account from validation response
-                    # The AI service returns the email from WordPress, so we always have it
-                    validated_email = validation.get('email') or data.get('user_email')
-                    if validated_email:
-                        current_username = session.get('username')
-                        if current_username:
-                            user = User.query.filter_by(username=current_username).first()
-                            if user and not user.wp_email:
-                                user.wp_email = validated_email
-                                user.wp_user_id = int(data['wp_user_id']) if data.get('wp_user_id') else user.wp_user_id
-                                user.wp_linked_at = datetime.utcnow()
-                                app.logger.info(f"Auto-linked WordPress email '{validated_email}' to user '{current_username}' from license validation")
+                    apply_license_validation(config, validation)
+                    record_verified_linked_account(data['license_key'], validation)
                 else:
                     return jsonify({'error': 'Invalid license key'}), 400
             else:
@@ -16917,6 +16996,14 @@ def api_update_ai_config():
                 config.subscription_valid = False
                 config.max_servers = 3
                 config.features = json.dumps([])
+                # Keep an empty marker so old per-user links cannot reappear after disconnect.
+                for field in ('email', 'user_id', 'customer_id', 'linked_at', 'key_digest'):
+                    key = 'ai_link_' + field
+                    setting = SystemSettings.query.filter_by(key=key).first()
+                    if setting:
+                        setting.value = ''
+                    else:
+                        db.session.add(SystemSettings(key=key, value=''))
                 
                 # Also clear WordPress account linking for current user
                 current_username = session.get('username')
@@ -16929,17 +17016,6 @@ def api_update_ai_config():
                         user.wp_linked_at = None
                 
                 app.logger.info('AI disconnected - license key and WordPress account cleared')
-        
-        # Explicit WordPress account link from SSO popup (overrides any existing link)
-        if 'user_email' in data and data['user_email']:
-            current_username = session.get('username')
-            if current_username:
-                user = User.query.filter_by(username=current_username).first()
-                if user:
-                    user.wp_email = data['user_email']
-                    user.wp_user_id = int(data['wp_user_id']) if data.get('wp_user_id') else user.wp_user_id
-                    user.wp_linked_at = datetime.utcnow()
-                    app.logger.info(f"Linked local user '{current_username}' to WordPress account '{data['user_email']}' (ID: {data.get('wp_user_id')})")
         
         # Update sync enabled
         if 'sync_enabled' in data:
@@ -16982,153 +17058,109 @@ def api_trigger_sync():
     return jsonify(result)
 
 
+OAUTH_STATE_TTL_SECONDS = 300
+
+
+def oauth_monitor_url(path):
+    """Use the deployment's configured mount, not an arbitrary forwarded prefix."""
+    prefix = (APPLICATION_ROOT or app.config.get('APPLICATION_ROOT') or '').rstrip('/')
+    return request.host_url.rstrip('/') + prefix + path
+
+
+def oauth_response(body, status=200):
+    response = make_response(body, status)
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    return response
+
+
+@app.route('/api/ai/oauth-start', methods=['POST'])
+@admin_required
+def api_oauth_start():
+    """Start SSO with server-persisted state bound to this local admin session."""
+    mode = (request.get_json(silent=True) or {}).get('mode', 'signin')
+    if mode not in ('signin', 'signup'):
+        return oauth_response(jsonify({'error': 'Invalid account link mode'}), 400)
+    binding = session.get('oauth_link_session')
+    if not binding:
+        binding = session['oauth_link_session'] = secrets.token_urlsafe(32)
+    state = secrets.token_urlsafe(32)
+    callback = oauth_monitor_url('/api/ai/oauth-callback')
+    now = datetime.utcnow()
+    OAuthLinkState.query.filter(OAuthLinkState.expires_at <= now).delete(synchronize_session=False)
+    db.session.add(OAuthLinkState(
+        state_digest=hashlib.sha256(state.encode()).hexdigest(),
+        session_digest=hashlib.sha256(binding.encode()).hexdigest(),
+        username=session['username'], callback_url=callback,
+        expires_at=now + timedelta(seconds=OAUTH_STATE_TTL_SECONDS),
+    ))
+    db.session.commit()
+    if mode == 'signup':
+        base = 'https://www.cryptolabs.co.za/ipmi_signup/'
+        params = {'redirect_uri': callback, 'state': state, 'ipmi_host': request.host}
+    else:
+        base = 'https://www.cryptolabs.co.za/'
+        params = {'clai_ipmi_oauth': '1', 'redirect_uri': callback, 'state': state}
+    return oauth_response(jsonify({'authorization_url': base + '?' + urlencode(params)}))
+
+
 @app.route('/api/ai/oauth-callback')
 def api_oauth_callback():
-    """
-    OAuth callback endpoint for CryptoLabs SSO.
-    
-    Receives:
-    - api_key: The API key from CryptoLabs
-    - subscription: User's subscription tier
-    - user_email: User's email
-    - user_name: User's display name
-    - wp_user_id: WordPress user ID (for account linking)
-    - state: For CSRF protection
-    
-    Automatically configures AI features and links accounts.
-    If user is not logged in, redirects to login first.
-    """
-    # Check if user is logged in - if not, redirect to login with return URL
-    if 'username' not in session:
-        # Build the full callback URL with all parameters to return to after login
-        callback_url = request.url
-        login_url = url_for('login', next=callback_url)
-        return redirect(login_url)
-    
-    api_key = request.args.get('api_key')
-    subscription = request.args.get('subscription', 'free')
-    user_email = request.args.get('user_email', '')
-    wp_user_id = request.args.get('wp_user_id')
+    """Consume link authority before verifying a credential; never trust query identity."""
+    # Do not route credential-filled callback URLs through a login `next` parameter.
+    is_proxy_authenticated()
+    if not is_admin() or not session.get('username'):
+        return oauth_response(jsonify({'error': 'Sign in as a local administrator and restart account linking.'}), 401)
     state = request.args.get('state', '')
-    
-    if not api_key:
-        return render_template_string('''
-            <!DOCTYPE html>
-            <html>
-            <head><title>Authentication Failed</title></head>
-            <body style="font-family: sans-serif; text-align: center; padding: 50px;">
-                <h1 style="color: #ff4757;">❌ Authentication Failed</h1>
-                <p>No API key was received. Please try again.</p>
-                <button onclick="window.close()">Close</button>
-            </body>
-            </html>
-        '''), 400
-    
-    # Auto-configure AI settings
+    binding = session.get('oauth_link_session', '')
+    if not state or len(state) > 256 or not binding:
+        return oauth_response(jsonify({'error': 'Account link state is missing. Restart account linking.'}), 400)
+    callback = oauth_monitor_url('/api/ai/oauth-callback')
+    consumed = OAuthLinkState.query.filter_by(
+        state_digest=hashlib.sha256(state.encode()).hexdigest(),
+        session_digest=hashlib.sha256(binding.encode()).hexdigest(),
+        username=session['username'], callback_url=callback,
+    ).filter(OAuthLinkState.expires_at > datetime.utcnow()).delete(synchronize_session=False)
+    db.session.commit()  # Atomic DELETE wins once even with concurrent requests/workers.
+    if consumed != 1:
+        return oauth_response(jsonify({'error': 'Account link expired or already used. Restart account linking.'}), 400)
+    api_key = request.args.get('api_key', '')
+    if not api_key or len(api_key) > 128:
+        return oauth_response(jsonify({'error': 'No valid API key received. Restart account linking.'}), 400)
+    validation = validate_license_key(api_key)
+    if not validation.get('valid'):
+        return oauth_response(jsonify({'error': 'Account verification failed. Restart account linking.'}), 400)
     try:
         config = CloudSync.get_config()
         config.license_key = api_key
         config.sync_enabled = True
-        # Normalize tier name and store
-        normalized_tier = normalize_tier_name(subscription)
-        config.subscription_tier = normalized_tier
-        config.subscription_valid = True
-        config.max_servers = get_tier_max_servers(normalized_tier)
-        
-        # Link the current IPMI Monitor admin to the WordPress account
-        current_username = session.get('username')
-        if current_username and user_email:
-            user = User.query.filter_by(username=current_username).first()
-            if user:
-                user.wp_user_id = int(wp_user_id) if wp_user_id else None
-                user.wp_email = user_email
-                user.wp_linked_at = datetime.utcnow()
-                app.logger.info(f"Linked local user '{current_username}' to WordPress account '{user_email}' (ID: {wp_user_id})")
-        
+        apply_license_validation(config, validation)
+        record_verified_linked_account(api_key, validation)
         db.session.commit()
-        
-        app.logger.info(f"OAuth callback: Configured AI with key from {user_email}, tier: {subscription}")
-        
-        # Trigger initial sync in background to send all historical data (30 days)
-        try:
-            app.logger.info("Triggering initial sync after OAuth activation (30 days of data)...")
-            sync_result = sync_to_cloud(initial_sync=True)
-            app.logger.info(f"Initial sync result: {sync_result}")
-        except Exception as sync_error:
-            app.logger.error(f"Initial sync failed (non-fatal): {sync_error}")
-        
-        # Return success page that posts message to parent window
-        return render_template_string('''
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Authentication Successful</title>
-                <style>
-                    body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                        background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
-                        color: #e8e8f0;
-                        text-align: center;
-                        padding: 50px 20px;
-                        min-height: 100vh;
-                        margin: 0;
-                    }
-                    .success-icon { font-size: 4rem; margin-bottom: 20px; }
-                    h1 { color: #00d68f; }
-                    p { color: #8888a0; }
-                    .close-btn {
-                        background: #4a9eff;
-                        color: white;
-                        border: none;
-                        padding: 12px 24px;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-size: 1rem;
-                        margin-top: 20px;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="success-icon">✅</div>
-                <h1>Authentication Successful!</h1>
-                <p>Connected to CryptoLabs AI as <strong>{{ user_email }}</strong></p>
-                <p>Subscription: <strong>{{ subscription|upper }}</strong></p>
-                <p>This window will close automatically...</p>
-                <button class="close-btn" onclick="goToSettings()">Go to Settings</button>
-                <script>
-                    function goToSettings() {
-                        window.location.href = '/settings#ai-features';
-                    }
-                    
-                    // Check if opened as popup (has opener) or new tab
-                    if (window.opener) {
-                        // Popup mode: Send message to parent window
-                        window.opener.postMessage({
-                            type: 'cryptolabs_ipmi_auth',
-                            api_key: '{{ api_key }}',
-                            subscription: '{{ subscription }}',
-                            user_email: '{{ user_email }}',
-                            user_name: '{{ user_name }}'
-                        }, window.location.origin);
-                        
-                        // Auto-close after 2 seconds
-                        setTimeout(() => window.close(), 2000);
-                    } else {
-                        // New tab mode: Redirect back to settings after delay
-                        document.querySelector('p:last-of-type').textContent = 'Redirecting to Settings...';
-                        setTimeout(() => {
-                            window.location.href = '/settings#ai-features';
-                        }, 2000);
-                    }
-                </script>
-            </body>
-            </html>
-        ''', api_key=api_key, subscription=subscription, user_email=user_email, 
-           user_name=request.args.get('user_name', ''))
-        
-    except Exception as e:
-        app.logger.error(f"OAuth callback error: {e}")
-        return jsonify({'error': str(e)}), 500
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Verified account link could not be saved')
+        return oauth_response(jsonify({'error': 'Account link could not be saved. Restart account linking.'}), 500)
+    try:
+        sync_to_cloud(initial_sync=True)
+    except Exception:
+        app.logger.warning('Initial linked-account sync failed; periodic sync will retry')
+    settings_url = oauth_monitor_url('/settings') + '#ai'
+    origin_parts = urlsplit(callback)
+    origin = origin_parts.scheme + '://' + origin_parts.netloc
+    return oauth_response(render_template_string('''
+        <!doctype html><html><head><title>Account connected</title></head>
+        <body><h1>Account connected</h1><p>{{ email }}</p>
+        <p><a href="{{ settings_url }}">Return to AI settings</a></p>
+        <script>
+          const settingsUrl = {{ settings_url|tojson }};
+          history.replaceState(null, '', settingsUrl);
+          if (window.opener) {
+            window.opener.postMessage({type: 'cryptolabs_ipmi_auth', success: true}, {{ origin|tojson }});
+            setTimeout(() => window.close(), 500);
+          } else { window.location.replace(settingsUrl); }
+        </script></body></html>
+    ''', email=validation['email'], settings_url=settings_url, origin=origin))
 
 
 @app.route('/api/ai/test', methods=['POST'])
@@ -20381,6 +20413,8 @@ def init_db():
                         app.logger.info("Database tables already exist")
                         # Run migrations for new columns/tables
                         _run_migrations(inspector)
+                        # Add only the bounded nonce store on existing installations.
+                        OAuthLinkState.__table__.create(bind=db.engine, checkfirst=True)
                     
                     # Initialize default alert rules
                     initialize_default_alerts()
@@ -20539,6 +20573,7 @@ def auto_load_servers_config():
 _background_started = False
 
 
+# TRACEWEAVER: entrypoint=create_app; req=REQ-IPMI-MON-01,REQ-IPMI-MON-02,REQ-IPMI-MON-03; trace=TRACE-IPMI-MON-01,TRACE-IPMI-MON-02,TRACE-IPMI-MON-03; ver=VER-IPMI-MON-01,VER-IPMI-MON-02,VER-IPMI-MON-03
 def create_app(config_dir=None):
     """
     Factory function for creating the Flask app.

@@ -1,0 +1,21 @@
+{
+  "recorded_at_utc": "2026-10-26T17:46:07.375440+00:00",
+  "owner_answers": {
+    "publication_scope": "Accept scoped release record",
+    "LTX": "I\u2019ll connect/check the LTX VPN",
+    "latest_network_message": "openvpn to ltx shoudl be open"
+  },
+  "approved_scope": "Accept the corrected scoped IPMI amendment and its eight candidate requirements, owner-source references, exact manifests and retained verification/review mapping as the bounded current authority for protected feature-to-dev source integration in ipmi-monitor, ipmi-monitor-ai and cryptolabs-ai-platform. Keep the listed runtime, migration, account-linking, provider, financial and CMS acceptance lanes deferred and held, with the release root responsible for recording each next verification trigger. Complete the required per-repository authority/trace inputs and exact publication gates without recertifying unrelated baselines. Existing merge/deploy authorization remains in force, but this acceptance does not waive any target prerequisite: WordPress main merge remains held until its pre-deployment gates pass or an existing approved independent deployment hold is proved; backend apply remains held for migration-safe cutover/rollback, restored-data rehearsal and correct recipe admission.",
+  "approved_files": [
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/authority-publication-plan.json",
+      "sha256": "0b5217a91cfd7e063fc02da41f24336c7deedc50ca201eb8ba60af51c37f91c4"
+    },
+    {
+      "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/release/prepared/scoped-authority-amendment-proposed.md",
+      "sha256": "3c5b13ccf6d68d175ad5c9d3f530dfd06edc5aef325bd680a657b1c3704ab69e"
+    }
+  ],
+  "authorization": "Current direct human acceptance; no invented approval ID/backdated evidence. Existing main/deploy authorization retained with listed prerequisites.",
+  "publication_status": "Authority inputs and exact gates being prepared; no capsule or Git publication yet."
+}
