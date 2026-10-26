@@ -5,7 +5,7 @@
   "project": "ipmi-monitor",
   "project_file": "pyproject.toml",
   "workflow_path": ".github/workflows/publish.yml",
-  "build_ref": "cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87",
+  "build_ref": "cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@a034e480f77032f3f9afdb079363dea23e48c87a",
   "build_group_id": 11,
   "mirror_github": false,
   "verifier_sha256": "54bd08ddf7e59e755c0f21b3413699459cb837d152ff4b57716660f2ff71c7c3"
