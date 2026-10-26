@@ -6,7 +6,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pages-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pages-build-recipe.yml@a034e480f77032f3f9afdb079363dea23e48c87a
     permissions:
       contents: read
   deploy:

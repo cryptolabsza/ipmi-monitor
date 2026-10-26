@@ -1,13 +1,13 @@
 name: Publish to PyPI
 jobs:
   cpu-build:
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@65be759f062cb0b4fa0191379c1bbe2bbb8e0e87
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-python-build-recipe.yml@a034e480f77032f3f9afdb079363dea23e48c87a
     permissions:
       contents: read
   publish:
     needs: cpu-build
     if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
-    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pypi-publish-recipe.yml@4be51343189670485e05a35e3e8ba9ff4ffe9d30
+    uses: cryptolabsza/ipmi-monitor/.github/workflows/ci-pypi-publish-recipe.yml@e3fc7a3e396045a92e458f3214e75f6b8c313a27
     permissions:
       actions: read
       contents: read

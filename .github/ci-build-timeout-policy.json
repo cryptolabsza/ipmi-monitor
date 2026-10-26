@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "authority": "Direct owner instruction, 2026-10-25: all build CI should have 120 minute cap",
+  "supersedes": "Earlier build/test/scan job timeout limits only; historical migration and review receipts remain unchanged",
+  "timeout_minutes": 120,
+  "repository": "cryptolabsza/ipmi-monitor",
+  "repository_id": 1109244855,
+  "source_head": "ad91839069faee120fda200b686020a47c68b970",
+  "recipe_commit": "a034e480f77032f3f9afdb079363dea23e48c87a",
+  "recipe_sha256": {
+    ".github/workflows/ci-build-recipe.yml": "bcf04a7240c838a68f41f7f5ff6916bd33a1668df3ccc68624315379f91e454a",
+    ".github/workflows/ci-image-build-recipe.yml": "d432a26fcf067fb304673ad8366c0f7c185a6953d2eac89851503f6736f87abe",
+    ".github/workflows/ci-pages-build-recipe.yml": "2801367c5a78a235643c9820a2d1ec82ce1bde246fe3f7f82835e3603d926b94",
+    ".github/workflows/ci-python-build-recipe.yml": "ccf40f43da5bc5c7dd5c40b73962151760c133f40853c04f73c4ae835774926e"
+  },
+  "publication_status": "Local proposal only; protected main route requires owner policy exception",
+  "publisher_recipe_commit": "e3fc7a3e396045a92e458f3214e75f6b8c313a27",
+  "publisher_helpers": [
+    {
+      "old": "a547075f580657f11d6ee03ea6faa0a171947834",
+      "new": "2cb6726b3497755ec60fbbb5938d054e36787968"
+    },
+    {
+      "old": "ab6416e43d95e60e4011869a876d89f1d4f276b5",
+      "new": "14cf17ebbcad6d8bee1d74929469b264c7cc1df3"
+    }
+  ],
+  "branch_role": "CI-only main feature proposal; no application release or version bump"
+}

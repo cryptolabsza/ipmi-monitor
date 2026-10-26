@@ -52,7 +52,7 @@ class PublicBuildRouteTest(unittest.TestCase):
                 self.assertEqual(job['runs-on'], {'group': 'ci-build-public-ephemeral', 'labels': ['ci-linux-cpu-v1-r' + str(SPEC['repository_id'])]})
                 self.assertEqual(data['permissions'], {'contents': 'read'})
                 self.assertEqual(job['permissions'], {'contents': 'read'})
-                self.assertEqual(job['timeout-minutes'], 45)
+                self.assertEqual(job['timeout-minutes'], 120)
                 for forbidden in ('secrets:', 'secrets.', ': write', 'inputs.', 'pull_request_target',
                                   'repository_dispatch', '--privileged', '--network host', '--volume', '--mount', '--device', 'continue-on-error'):
                     self.assertNotIn(forbidden, source)
