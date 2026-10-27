@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{# TRACEWEAVER: file-role=ipmi-account-pairing-template; req=REQ-PAIR-001,REQ-PAIR-004,REQ-PAIR-005,REQ-PAIR-006; trace=TRACE-PAIR-001,TRACE-PAIR-004,TRACE-PAIR-005,TRACE-PAIR-006; ver=VER-PAIR-001,VER-PAIR-004,VER-PAIR-005,VER-PAIR-006 #}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2637,7 +2637,7 @@
     
     <script>
         // Base path for API calls (supports reverse proxy subpath like /ipmi/)
-        const BASE_PATH = '{{ base_path }}';
+        const BASE_PATH = '{{ base_path }}'.replace(/\/+$/, '');
         const API_BASE = BASE_PATH;
         
         // Helper function to build API URLs
@@ -3800,14 +3800,7 @@
         // ============== End Real-Time SSE ==============
         
         function startFreeTrial() {
-            // Build the redirect URL back to this IPMI Monitor's OAuth callback
-            const redirectUri = encodeURIComponent(window.location.origin + apiUrl('/api/ai/oauth-callback'));
-            const ipmiHost = encodeURIComponent(window.location.host);
-            // Go directly to signup page (not landing page) for fewer clicks
-            const signupUrl = `https://www.cryptolabs.co.za/ipmi_signup/?redirect_uri=${redirectUri}&ipmi_host=${ipmiHost}`;
-            
-            // Open in same window so they can return easily
-            window.open(signupUrl, '_blank');
+            window.location.assign(apiUrl('/settings') + '?pair=1#ai');
         }
         
         // Iframe offer timeout - fall back to packaged offer if iframe doesn't load in 5 seconds

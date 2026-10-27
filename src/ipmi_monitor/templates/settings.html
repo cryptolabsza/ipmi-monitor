@@ -1,4 +1,4 @@
-{# TRACEWEAVER: file-role=ipmi-monitor-scoped-source; req=REQ-IPMI-MON-02; trace=TRACE-IPMI-MON-02; ver=VER-IPMI-MON-02 #}<!DOCTYPE html>
+{# TRACEWEAVER: file-role=ipmi-account-pairing-template; req=REQ-PAIR-001,REQ-PAIR-004,REQ-PAIR-005,REQ-PAIR-006; trace=TRACE-PAIR-001,TRACE-PAIR-004,TRACE-PAIR-005,TRACE-PAIR-006; ver=VER-PAIR-001,VER-PAIR-004,VER-PAIR-005,VER-PAIR-006 #}{# TRACEWEAVER: file-role=ipmi-monitor-scoped-source; req=REQ-IPMI-MON-02; trace=TRACE-IPMI-MON-02; ver=VER-IPMI-MON-02 #}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2031,7 +2031,7 @@
     
     <script>
         // Base path for API calls (supports reverse proxy subpath like /ipmi/)
-        const BASE_PATH = '{{ base_path }}';
+        const BASE_PATH = '{{ base_path }}'.replace(/\/+$/, '');
         function apiUrl(path) {
             if (!path.startsWith('/')) path = '/' + path;
             return BASE_PATH + path;
@@ -2069,7 +2069,8 @@
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             
-            event.target.classList.add('active');
+            const tabButton = document.querySelector(`.tab[onclick*="showTab('${tabId}')"]`);
+            if (tabButton) tabButton.classList.add('active');
             document.getElementById(tabId).classList.add('active');
             
             if (tabId === 'manage') { loadManagedServers(); loadBulkServerList(); }
@@ -2167,73 +2168,85 @@
             loginWithCryptoLabs('signup');
         }
         
-        // SSO Login with CryptoLabs (after they've signed up via the trial page)
+        // One outbound flow for sign in and signup; only the backend sees credentials.
         async function loginWithCryptoLabs(mode = 'signin') {
-            // Calculate popup position
-            const width = 550, height = 650;
-            const left = (screen.width - width) / 2;
-            const top = (screen.height - height) / 2;
-            
-            // Open immediately during the click; obtain link authority from the server.
-            const popup = window.open(
-                'about:blank',
-                'CryptoLabs Login',
-                `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
-            );
-            
-            if (!popup) {
-                showAlert('Popup blocked! Please allow popups for this site.', 'error');
-                return;
-            }
-            
-            // Listen for message from popup
-            const messageHandler = async (event) => {
-                if (event.origin !== window.location.origin || event.source !== popup) {
-                    return;
-                }
-                
-                // Check for our auth message
-                if (event.data && event.data.type === 'cryptolabs_ipmi_auth' && event.data.success === true) {
-                    window.removeEventListener('message', messageHandler);
-                    
-                    await loadAiConfig();
-                    showAlert('Connected to CryptoLabs AI.', 'success');
-                    
-                    popup.close();
-                }
-            };
-            
-            window.addEventListener('message', messageHandler);
-            try {
-                const response = await fetch(apiUrl('/api/ai/oauth-start'), {
+            if (document.getElementById('accountPairDialog')) return;
+            const dialog = document.createElement('dialog');
+            dialog.id = 'accountPairDialog';
+            dialog.style.cssText = 'max-width:480px;width:calc(100vw - 32px);max-height:calc(100dvh - 32px);overflow:auto;margin:auto;box-sizing:border-box;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;padding:24px;';
+            dialog.innerHTML = '<h2>Connect CryptoLabs</h2><p>Open CryptoLabs on this or another device. Sign in or create an account, enter the matching code, then approve.</p>' +
+                '<p><strong id="pairCode" style="font-size:1.5rem;letter-spacing:2px;"></strong></p>' +
+                '<p><a id="pairVerify" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Open CryptoLabs</a></p>' +
+                '<p id="pairStatus" role="status">Starting secure connection…</p>' +
+                '<p style="font-size:.85rem;">Your account key covers your account. Disconnect removes this local connection only. Your existing plan and limits govern service access. Do not approve codes you did not request.</p>' +
+                '<div style="display:flex;gap:12px;flex-wrap:wrap;"><button type="button" id="pairConfirm" class="btn btn-primary" disabled>Connect this account</button>' +
+                '<button type="button" id="pairCancel" class="btn btn-secondary">Cancel</button></div>';
+            document.body.appendChild(dialog);
+            dialog.showModal();
+            const status = dialog.querySelector('#pairStatus');
+            const confirmButton = dialog.querySelector('#pairConfirm');
+            let attempt = null, csrfToken = null, timer = null, expiryTimer = null, closed = false;
+            const call = async (action, payload) => {
+                const response = await fetch(apiUrl('/api/account-link/' + action), {
                     method: 'POST', credentials: 'same-origin',
-                    headers: {'Content-Type': 'application/json'}, body: JSON.stringify({mode})
+                    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+                    body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                if (!response.ok || !result.authorization_url) throw new Error(result.error || 'Unable to start sign in.');
-                popup.location = result.authorization_url;
-            } catch (error) {
-                window.removeEventListener('message', messageHandler);
-                popup.close();
-                showAlert(error.message || 'Unable to start sign in.', 'error');
-                return;
-            }
-            
-            // Poll for popup close
-            const pollTimer = setInterval(() => {
-                if (popup.closed) {
-                    clearInterval(pollTimer);
-                    window.removeEventListener('message', messageHandler);
-                    setTimeout(loadAiConfig, 500);
+                if (!response.ok) throw new Error(result.error || 'Connection unavailable. Please restart.');
+                return result;
+            };
+            const close = async () => {
+                if (closed) return;
+                closed = true;
+                clearTimeout(timer); clearTimeout(expiryTimer);
+                if (attempt) {
+                    try { await call('cancel', {attempt_id: attempt}); } catch (_) {}
                 }
-            }, 500);
-            
-            // Timeout after 5 minutes
-            setTimeout(() => {
-                clearInterval(pollTimer);
-                window.removeEventListener('message', messageHandler);
-                if (!popup.closed) popup.close();
-            }, 300000);
+                dialog.close(); dialog.remove();
+            };
+            dialog.querySelector('#pairCancel').onclick = close;
+            dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+            confirmButton.onclick = async () => {
+                confirmButton.disabled = true;
+                try {
+                    const result = await call('commit', {attempt_id: attempt, confirm: true});
+                    attempt = null;
+                    await close();
+                    await loadAiConfig();
+                    showAlert('Connected as ' + result.account.email + '. Sync preferences were preserved.', 'success');
+                } catch (error) { status.textContent = error.message; }
+            };
+            const poll = async () => {
+                if (closed || !attempt) return;
+                try {
+                    const result = await call('status', {attempt_id: attempt});
+                    if (closed) return;
+                    if (result.status === 'awaiting_confirmation') {
+                        status.textContent = 'Selected account: ' + result.account.email + '. Service: ' + result.service_status +
+                            (result.can_commit ? '. Confirm to connect.' : '. Existing connection preserved. Resolve service access before replacing it.');
+                        confirmButton.disabled = !result.can_commit;
+                    } else {
+                        timer = setTimeout(poll, Math.max(5, result.interval || 5) * 1000);
+                    }
+                } catch (error) { if (!closed) status.textContent = error.message + ' Cancel and restart when ready.'; }
+            };
+            try {
+                const configResponse = await fetch(apiUrl('/api/account-link/config'), {credentials: 'same-origin'});
+                const config = await configResponse.json();
+                if (!configResponse.ok || !config.csrf_token) throw new Error('Sign in as a local administrator to connect.');
+                csrfToken = config.csrf_token;
+                const result = await call('start', {});
+                if (closed) return;
+                attempt = result.attempt_id;
+                dialog.querySelector('#pairCode').textContent = result.user_code;
+                dialog.querySelector('#pairVerify').href = result.verification_uri;
+                status.textContent = 'Compare this code on CryptoLabs before approving. It expires in five minutes.';
+                timer = setTimeout(poll, Math.max(5, result.interval) * 1000);
+                expiryTimer = setTimeout(() => { status.textContent = 'Code expired. Cancel and start again.'; confirmButton.disabled = true; clearTimeout(timer); }, result.expires_in * 1000);
+            } catch (error) {
+                status.textContent = error.message || 'Unable to start connection. Cancel and try again.';
+            }
         }
         
         // Toggle API key visibility
@@ -5287,6 +5300,10 @@
         
         // Initialize
         handleOAuthCallback();  // Process any callback parameters first
+        if (new URLSearchParams(window.location.search).get('pair') === '1') {
+            showTab('ai');
+            loginWithCryptoLabs();
+        }
         loadServers();
         loadManagedServers();
         loadSshKeys();  // Load SSH keys for Add New Server dropdown

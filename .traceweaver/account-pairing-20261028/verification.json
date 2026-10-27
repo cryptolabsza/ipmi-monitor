@@ -1,0 +1,25 @@
+{
+  "baseline_id": "PAIR-20261028-01",
+  "source_status": "locally_verified_independently_reviewed_feature_scope",
+  "results": {
+    "full suite": "242PASS",
+    "pointer browser": "Trusted input\u2192actual commit200\u2192verified-account readback; synthetic loopback only",
+    "producer": "Actual WordPress emitted JSON consumed and byte-compared"
+  },
+  "commands": [
+    "python3 -m pytest -q",
+    "python3 -m pytest -q tests/test_account_pairing.py tests/test_account_link_security.py tests/test_settings_ai_controls.py tests/test_auth.py"
+  ],
+  "review_outcome": "No unresolved current product findings after initial review repair batches; exact evidence retained by root. Runtime approval remains separate.",
+  "source_limits": [
+    "Local/component/contract checks and synthetic browser do not establish installed/public signup, billing/inference or Fleet acceptance",
+    "Raw producer/spec JSON fixtures use explicit generated-data provenance mapping; no inline scanner coverage claimed",
+    "Jinja/PHP/nginx use explicit syntax/comment equivalence and executable checks; no unsupported scanner coverage claimed"
+  ],
+  "publication_route": "Owner-requested normal feature PR to dev; release/main and installed acceptance keep their required gates",
+  "source_evidence": {
+    "requirement_sha256": "9b80ccd96837cae1dd63723fa10ce8390dc4305fcc9e65f303a4868a917dc922",
+    "protocol_sha256": "abd8b95925c92e7a70f6bdd5f0f7d2bcb2e5cbdcf822699397c5e130d6b3aa70",
+    "producer_sha256": "d58a17f90c33e935b4307b5816e462d0445ee984b72e1d03948dfa3cd9d9404d"
+  }
+}

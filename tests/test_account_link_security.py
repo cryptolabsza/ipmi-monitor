@@ -263,43 +263,50 @@ def test_rejected_validation_cannot_be_reported_as_active(app_fixture, login_as,
         assert runtime.CloudSync.get_config().subscription_valid is False
 
 
-@pytest.mark.parametrize('origin,source,expected_reload', [
-    ('https://localhost.evil.test', 'popup', 0),
-    ('https://localhost', 'other', 0),
-    ('https://localhost', 'popup', 1),
-])
-def test_settings_popup_uses_exact_origin_source_and_server_owned_status(origin, source, expected_reload):
-    """Execute actual template JavaScript in Node; browser/popup boundaries are simulated."""
+@pytest.mark.parametrize('mode', ['signin', 'signup', 'unsolicited_message'])
+def test_settings_pairing_uses_server_status_and_never_browser_credentials(mode):
+    """Retain the browser credential boundary after retiring popup-message SSO."""
     template = (Path(__file__).parents[1] / 'src/ipmi_monitor/templates/settings.html').read_text()
     script = template[template.index('function loginWithCryptoLabs('):template.index('// Toggle API key visibility')]
-    # Both existing sync and repaired async function declarations can execute in this harness.
     if template[template.index('function loginWithCryptoLabs(') - 6:].startswith('async '):
         script = 'async ' + script
     harness = '''
-let handler, saves = 0, reloads = 0;
-const popup = { closed: false, close() {} };
-const window = { location: { origin: 'https://localhost', host: 'localhost' },
-  open: () => popup, addEventListener: (name, fn) => { handler = fn; }, removeEventListener() {} };
-const screen = { width: 1280, height: 800 };
-const document = { getElementById: () => ({ value: '', checked: false }) };
-const CRYPTOLABS_OAUTH_URL = 'https://www.cryptolabs.co.za/?clai_ipmi_oauth=1';
+let handler, saves = 0, reloads = 0; const requests=[], urls=[];
+const elements={}; const element=(id)=>elements[id] ||= {disabled:id==='#pairConfirm',textContent:'',href:''};
+const dialog={style:{},querySelector:element,showModal(){},close(){},remove(){},addEventListener(){}};
+const document={getElementById:()=>null,createElement:()=>dialog,body:{appendChild(){}}};
+const window={location:{origin:'https://localhost',host:'localhost'},open:(url)=>urls.push(url),
+ addEventListener:(name,fn)=>{handler=fn},removeEventListener(){}};
 const apiUrl = (path) => '/ipmi' + path;
-const fetch = async () => ({ok: true, json: async () => ({authorization_url: CRYPTOLABS_OAUTH_URL})});
+const fetch=async(url,options={})=>{
+ requests.push({url,method:options.method||'GET',headers:options.headers,body:options.body&&JSON.parse(options.body)});
+ return {ok:true,json:async()=>url.endsWith('/config')?{csrf_token:'browser-csrf'}:
+ {status:'pending',attempt_id:'local-attempt',user_code:'01-ABCD-EFGH',
+ verification_uri:'https://www.cryptolabs.co.za/?clai_pair=1',interval:5,expires_in:300}};
+};
 const showAlert = () => {}, saveAiConfig = async () => { saves++; }, loadAiConfig = async () => { reloads++; };
 const setTimeout = () => 0, setInterval = () => 0, clearInterval = () => {};
 '''
     invocation = f'''
 (async () => {{
-  await loginWithCryptoLabs();
-  if (!handler) throw new Error('No popup message listener');
-  await handler({{origin: {json.dumps(origin)}, source: {'popup' if source == 'popup' else '{}'},
-    data: {{type: 'cryptolabs_ipmi_auth', success: true, api_key: 'untrusted-browser-key'}}}});
-  console.log(JSON.stringify({{saves, reloads}}));
+  await loginWithCryptoLabs({json.dumps(mode)});
+  if(handler)await handler({{origin:'https://localhost.evil.test',source:{{}},
+    data:{{type:'cryptolabs_ipmi_auth',success:true,api_key:'untrusted-browser-key'}}}});
+  console.log(JSON.stringify({{saves,reloads,requests,urls,elements}}));
 }})().catch(error => {{ console.error(error); process.exit(1); }});
 '''
     result = subprocess.run(['node', '-e', harness + script + invocation],
                             text=True, capture_output=True, check=True)
-    assert json.loads(result.stdout) == {'saves': 0, 'reloads': expected_reload}
+    observed = json.loads(result.stdout)
+    assert observed['saves'] == observed['reloads'] == 0
+    assert observed['urls'] == []
+    assert [(r['url'], r['method']) for r in observed['requests']] == [
+        ('/ipmi/api/account-link/config', 'GET'), ('/ipmi/api/account-link/start', 'POST')]
+    assert observed['requests'][1]['body'] == {}
+    assert observed['requests'][1]['headers']['X-CSRF-Token'] == 'browser-csrf'
+    assert observed['elements']['#pairCode']['textContent'] == '01-ABCD-EFGH'
+    assert observed['elements']['#pairConfirm']['disabled'] is True
+    assert 'untrusted-browser-key' not in json.dumps(observed)
 
 
 def test_settings_url_cannot_bypass_session_bound_sso():

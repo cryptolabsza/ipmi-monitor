@@ -1,0 +1,334 @@
+{
+  "schema": "cryptolabs-pairing-contract/1",
+  "status": "ARCHITECTURE_CONTRACT_FOR_APPROVED_SCOPE_ROOT_FREEZE_REQUIRED",
+  "baseline": "PAIR-20261028-01",
+  "date": "2026-10-28",
+  "requirement_ids": [
+    "REQ-PAIR-001",
+    "REQ-PAIR-002",
+    "REQ-PAIR-003",
+    "REQ-PAIR-004",
+    "REQ-PAIR-005",
+    "REQ-PAIR-006"
+  ],
+  "constants": {
+    "protocol_version": 1,
+    "ttl_seconds": 300,
+    "poll_interval_seconds": 5,
+    "device_code_random_bytes": 32,
+    "user_code_random_bits": 40,
+    "attempt_slots": 512,
+    "slot_allocation_attempts": 32,
+    "cas_retries": 3,
+    "max_json_bytes": 2048,
+    "max_label_chars": 80,
+    "client_ids": [
+      "cryptolabs-ipmi-monitor",
+      "cryptolabs-dc-controller"
+    ],
+    "user_code_alphabet": "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+  },
+  "transport": {
+    "origin": "https://www.cryptolabs.co.za",
+    "rest_prefix": "/wp-json/cryptolabs/v1",
+    "verification_uri": "https://www.cryptolabs.co.za/?clai_pair=1",
+    "rules": [
+      "HTTPS certificate verification required; fixed origin/endpoints, no client-supplied URL and no credential-bearing redirect following.",
+      "Cache-Control: no-store; Referrer-Policy: no-referrer on all pairing replies/pages. No third-party assets on verification/consent page.",
+      "Never put device codes/account keys in URLs, browser JSON/HTML/storage, postMessage, logs or exception text. Only start/status backend responses may carry the stated secrets.",
+      "No permissive CORS/browser token exchange. Reject malformed/extra credential fields, duplicate parameters, arrays for scalars and unsupported client IDs.",
+      "Do not treat public client_id, installation_id or display label as verified software/domain identity."
+    ]
+  },
+  "endpoints": {
+    "start": {
+      "method": "POST",
+      "path": "/pairing/start",
+      "auth": "Anonymous backend request, issuance limits mandatory; not account authorization.",
+      "body": {
+        "client_id": "cryptolabs-ipmi-monitor",
+        "installation_id": "client-persisted random UUIDv4",
+        "installation_name": "My monitor"
+      },
+      "response_status": 201,
+      "response": {
+        "protocol_version": 1,
+        "device_code": "<43-character base64url 32 random bytes; BACKEND ONLY>",
+        "user_code": "<two base32 slot characters + eight random base32 characters, displayed XX-XXXX-XXXX>",
+        "verification_uri": "https://www.cryptolabs.co.za/?clai_pair=1",
+        "expires_in": 300,
+        "interval": 5
+      },
+      "notes": [
+        "Create only a pending record; no account key or user is looked up.",
+        "Do not accept redirect_uri, callback, arbitrary scope, account_id or requested credential type."
+      ]
+    },
+    "status": {
+      "method": "POST",
+      "path": "/pairing/status",
+      "auth": "Authorization: Bearer <device_code>; never cookie authentication as substitute.",
+      "body": {
+        "client_id": "cryptolabs-ipmi-monitor",
+        "user_code": "XX-XXXX-XXXX"
+      },
+      "pending": {
+        "http": 400,
+        "body": {
+          "error": "authorization_pending",
+          "interval": 5
+        }
+      },
+      "success": {
+        "http": 200,
+        "body": {
+          "protocol_version": 1,
+          "status": "complete",
+          "client_id": "cryptolabs-ipmi-monitor",
+          "installation_id": "<same UUID>",
+          "account": {
+            "id": 123,
+            "email": "customer@example.test",
+            "display_name": "Customer"
+          },
+          "credential": {
+            "type": "legacy_ipmi_api_key",
+            "api_key": "<existing account credential; BACKEND ONLY>",
+            "scope": "account_wide"
+          },
+          "service_intent": "ipmi",
+          "authorization": "existing_service_validation_required"
+        }
+      },
+      "notes": [
+        "For cryptolabs-dc-controller service_intent is watchdog; Overview alerts are not enabled. service_intent is metadata, not an enforceable key scope.",
+        "Return only these fields. Never return JWT/admin flags, provider SSO/signing keys, litellm_api_key, dc_overview_instances or serialized validation/account objects.",
+        "The account id/email derive from approved WP user and current server data; never caller fields. Recheck user existence/email verification before delivery.",
+        "A valid identity/key is not a new paid entitlement. Current service validation remains authoritative."
+      ]
+    },
+    "consent_surface": {
+      "method": "GET",
+      "path": "/?clai_pair=1",
+      "behavior": "Render fixed verification surface; require login for code lookup/consent. GET never approves, denies or redeems. Login return is the fixed same-origin surface with no secret/code query. User enters visible code; existing signup pages open separately without a deployment callback. After signup/verification, return to surface and re-enter code; expired attempt restarts from local app.",
+      "lookup": "Nonce-protected same-origin POST to fixed surface, action=review, user_code. Match full code HMAC, not slot alone. Show escaped unverified installation label, canonical product, chosen account, exact matching code and account-wide credential warning."
+    },
+    "approve": {
+      "method": "POST",
+      "path": "/pairing/approve",
+      "auth": "Current logged-in WP cookie + valid wp_rest nonce + independent consent nonce bound to full user-code digest and current WP user. No anonymous or application-password consent.",
+      "body": {
+        "user_code": "XX-XXXX-XXXX",
+        "decision": "approve",
+        "consent_nonce": "<nonce from reviewed consent form>"
+      },
+      "response": {
+        "http": 200,
+        "body": {
+          "status": "approved"
+        }
+      },
+      "notes": [
+        "decision is approve or deny; deny returns status denied and terminalizes attempt.",
+        "Only pending -> approved/denied CAS. Reject missing/invalid nonce, user mismatch, unverified email, unknown code, expiration or prior decision. GET and account signup cannot approve.",
+        "Ensure existing product credential can be reused through existing issuer; no rotation, trial start, subscription mutation or account creation from this endpoint.",
+        "A logged-in user who enters an unsolicited attacker code can still approve attacker hardware: show explicit context; not phishing resistant."
+      ]
+    }
+  },
+  "errors": {
+    "invalid_request": {
+      "http": 400,
+      "meaning": "Malformed bounded input; no mutation/credential."
+    },
+    "invalid_grant": {
+      "http": 400,
+      "meaning": "Unknown/mismatched code/client/secret, already consumed or superseded slot; generic no account disclosure."
+    },
+    "expired_token": {
+      "http": 400,
+      "meaning": "Matched legitimate attempt expired; no credential."
+    },
+    "authorization_pending": {
+      "http": 400,
+      "meaning": "Valid backend request, not yet approved."
+    },
+    "slow_down": {
+      "http": 400,
+      "meaning": "Poll too early; increase interval by 5 seconds for remaining attempt; atomic next_poll update."
+    },
+    "access_denied": {
+      "http": 400,
+      "meaning": "Explicit denial; local attempt ends."
+    },
+    "authentication_required": {
+      "http": 401,
+      "meaning": "Consent needs authenticated website session."
+    },
+    "invalid_consent": {
+      "http": 403,
+      "meaning": "Cookie/nonce/user/code consent invalid."
+    },
+    "email_verification_required": {
+      "http": 403,
+      "meaning": "Use existing verification flow; no email policy bypass."
+    },
+    "account_setup_required": {
+      "http": 409,
+      "meaning": "Existing issuer/provisioning cannot supply supported credential; direct user to existing signup/account page, no arbitrary creation policy."
+    },
+    "temporarily_unavailable": {
+      "http": 503,
+      "meaning": "Persistence/query/issuer failure or exhausted CAS; preserve old link, never deliver credential on uncertain consumption."
+    },
+    "rate_limited": {
+      "http": 429,
+      "meaning": "Retry-After provided; capacity or rate limiter exhausted."
+    }
+  },
+  "storage": {
+    "table": "Existing wp_options only; no new runtime file/table/billing migration.",
+    "namespace": "clai_pair_v1_",
+    "attempt_key": "clai_pair_v1_a_<decimal slot 0..511>",
+    "row_limit": 512,
+    "autoload": "no",
+    "value": {
+      "expires_at": "integer UTC epoch from DB time",
+      "version": 1,
+      "revision": "monotonic integer each transition",
+      "state": "pending|approved|denied|consumed",
+      "user_code_digest": "HMAC-SHA256(full normalized user code, domain-separated wp_salt('auth'))",
+      "device_digest": "SHA256(device_code)",
+      "client_id": "fixed enum",
+      "installation_id": "UUIDv4",
+      "installation_name": "bounded plain text",
+      "approved_user_id": "null until approval",
+      "poll_interval": 5,
+      "next_poll_at": "epoch"
+    },
+    "reads": "Read private namespace with prepared direct SQL every time. Never get_option/get_transient/object cache for attempt or limiter authority. No secrets in these rows. Domain-separated existing WP salt, no new external secret store.",
+    "allocation": "Choose random slot; INSERT IGNORE nonautoload if absent, otherwise select expired row and atomically replace with exact-old-value CAS. Retry at most32 slots, then429. Reject full normalized code on digest mismatch even if same slot. Old device secrets cannot redeem a reused slot.",
+    "cas_sql": "UPDATE <wpdb options> SET option_value=%s WHERE option_name=%s AND BINARY option_value=BINARY %s",
+    "expiry": "Every approval/poll/consume CAS additionally checks captured expires_at > database UNIX_TIMESTAMP(); allocation replacement checks captured expiry <= DB time. Never extend 300s TTL on review/login/poll.",
+    "transition": "pending->approved/denied; approved->consumed; pending->pending only to update poll timing. Full exact-value CAS plus revision prevents concurrent overwrite; affected_rows must equal1. No successful replay after consumed. Never read-then-delete via transients.",
+    "delivery": "Resolve/validate existing credential and user server-side, then win approved->consumed CAS immediately before constructing secret response. Only winner may output. Lost response/crash after consume yields no replay: restart new pairing. Database errors/reconnect-uncertain results fail closed; never infer success from a reread of consumed.",
+    "cleanup": "Fixed512 slots cap pending+terminal storage. Reuse expired slots by CAS; optional bounded32-row expiry cleanup never deletes a changed/live row. No full-table scan or unbounded request-time cleanup.",
+    "limiter": "Fixed nonautoload rows with same direct SQL CAS, keyed by route + bucket slot. Global minute bucket per route;256 hashed caller buckets per route keep cardinality fixed. Use only REMOTE_ADDR (no X-Forwarded-For/CF headers) for anonymous start/status; authenticated WP user ID for approval. HMAC caller then map to256; collisions share a limit (safe false throttling). DB epoch minute resets count via CAS; 3 retries then503. Start global60/min and caller6/min; status global600/min and caller120/min plus per-attempt 5s; consent/review global300/min and caller30/min. Salt-derived hashing hides addresses. Reverse-proxy peers may share quota: no runtime trust-header change in this increment.",
+    "dependencies": "WordPress options unique option_name index and atomic single-statement SQL semantics. Real MariaDB multi-connection test must prove CAS, expiration, allocation and limiter limits. No transaction session/GET_LOCK dependency."
+  },
+  "credential_source": {
+    "wp_class": "CLAI_IPMI_SSO in existing includes/class-ipmi-sso.php",
+    "reuse": [
+      "get_or_create_ipmi_api_key($user_id) for existing legacy credential semantics",
+      "is_user_email_verified($user_id) for existing verification policy",
+      "get_userdata($user_id) for authoritative identity"
+    ],
+    "narrow_fix": "clai_get_account() delegates to CLAI_Database::get_account() and returns an object, while existing helper indexes an array. Normalize object/array only in existing key lookup, handle absent api_key safely, and test existing meta key, null, object and array paths. Never reinterpret encrypted litellm_key as api_key.",
+    "issuance": "Prefer existing clai_ipmi_api_key. Ordinary signup already provisions it. Existing helper may issue its normal first key if absent; preserve that behavior only. Never call generate_api_key (rotation), start trial or payment handlers from pairing. Do not add a new credential type/lifetime/refresh policy.",
+    "account_key_limit": "Current key is account-wide and shared across products. Visible consent must say so. Local disconnect clears local link only, not central/per-install revocation."
+  },
+  "local_adapter": {
+    "routes": {
+      "start": "POST /api/account-link/start",
+      "status": "POST /api/account-link/status",
+      "commit": "POST /api/account-link/commit",
+      "cancel": "POST /api/account-link/cancel",
+      "config": "GET /api/account-link/config"
+    },
+    "authentication": "All local endpoints require current live administrator and existing CSRF/origin protections. Do not accept proxy/client supplied admin identity without existing verified trust boundary.",
+    "start": "Create backend-persisted random local attempt_id; bind initiating local user, hash of session binding, installation_id, client_id, monotonic generation/current local configuration fingerprint and expiry <=central300s. Keep device secret only in protected server storage; never Flask signed cookie. Browser receives attempt_id,user_code,verification_uri,expires_in,interval only. Start/new attempt supersedes old local attempt atomically.",
+    "status": "Browser sends attempt_id only; backend reads binding and checks current user/session/admin/expiry then polls central service. Browser cannot send device_code,api_key,account identity or service URL. One local worker claims poll operation by CAS before network; completion CAS must recheck original generation/session/config. Cancel/logout/supersede wins over any late response.",
+    "staging": "Central success becomes protected backend stage after validation; browser receives only account id/email/display_name, service availability and requires_confirmation. Preserve old credentials/config until explicit local commit for replacement. Clear staged secrets on expiry/cancel/session loss.",
+    "commit": "Browser POST attempt_id + confirm=true only. Recheck live admin/session, exact attempt generation, unchanged current link/config fingerprint, expiry and staged validation; atomic one-use local transition+configuration transaction. If filesystem-based proxy storage cannot transact multiple files, serialize existing atomic writer with compare-current-state and failure-safe replacement; test crashes and concurrent cancel/commit. No key/browser account hints accepted.",
+    "cancel": "CAS terminalize current bound local attempt; wipe pending/staged secret; preserve saved valid link. Central attempt expires naturally; no new revoke semantics.",
+    "success": "Show connected account identity, not passwordless local login; preserve sync choices and worker tokens. Initial successful enablement follows existing explicitly approved product setting semantics; do not silently re-enable disabled sync.",
+    "csrf": "GET /api/account-link/config requires current live administrator and returns only {csrf_token:<32 random bytes base64url>}, Cache-Control:no-store. Reuse per-session pair_csrf; rotate on session/login identity reset. It may live in the existing signed session cookie because it is a browser CSRF nonce, not a device/account credential. Every local POST requires X-CSRF-Token with constant-time match. If Origin is present it must exactly match the accepted local serving origin including scheme/port; reject Sec-Fetch-Site:cross-site and disallow cross-origin config reads/CORS. Missing Origin does not bypass the mandatory CSRF token. config creates no attempt and returns no device/account key. Existing proxy protections may back this exact API.",
+    "browser_contract": {
+      "start_request": {},
+      "start_response": {
+        "status": "pending",
+        "attempt_id": "<opaque local random id>",
+        "user_code": "XX-XXXX-XXXX",
+        "verification_uri": "https://www.cryptolabs.co.za/?clai_pair=1",
+        "expires_in": 300,
+        "interval": 5
+      },
+      "status_request": {
+        "attempt_id": "<local id>"
+      },
+      "pending_response": {
+        "status": "pending",
+        "interval": 5
+      },
+      "staged_response": {
+        "status": "awaiting_confirmation",
+        "account": {
+          "id": 123,
+          "email": "customer@example.test",
+          "display_name": "Customer"
+        },
+        "service_status": "available|unavailable|not_entitled|unknown",
+        "requires_confirmation": true,
+        "can_commit": true
+      },
+      "blocked_replacement": "Same staged response but can_commit=false with reason=service_validation_failed when replacing an existing different credential that the new candidate cannot validate; previous configuration retained.",
+      "commit_request": {
+        "attempt_id": "<local id>",
+        "confirm": true
+      },
+      "commit_response": {
+        "status": "linked",
+        "account": {
+          "id": 123,
+          "email": "customer@example.test",
+          "display_name": "Customer"
+        },
+        "service_status": "available|unavailable|not_entitled|unknown"
+      },
+      "cancel_request": {
+        "attempt_id": "<local id>"
+      },
+      "cancel_response": {
+        "status": "cancelled"
+      }
+    }
+  },
+  "staged_validation": {
+    "all": "The fixed-origin verified-TLS central redemption is the authoritative account/key binding. Strictly validate exact schema/client/installation, positive integer WP account.id, bounded plausible email and supported credential type. These identity fields never come from browser or get overwritten by service hints. A failed/malformed central result cannot stage a link. Never serialize full downstream validation response.",
+    "identity": "A new unlinked installation may link a strictly verified central identity even when its paid service is unavailable/not entitled. Persist key + trusted WP identity only after local confirmation, with subscription_valid=false and no enabled paid features unless independently validated. Link status and service status are separate. Preserve local sync choices; no background sync is started just because identity linked. Do not fabricate legacy service customer_id: leave it absent/empty until supplied by a valid service reply, using a narrow identity-only persistence helper rather than pretending the legacy validation helper succeeded.",
+    "ipmi_service": "Keep validate_license_key unchanged for legacy paths. In the new pairing-specific validator, call existing configured TLS AI /api/v1/validate for current service permission. If reply has valid=true and meets every existing tier/max_servers/features/email/customer_id contract except user_id is absent, call fixed WP POST /ipmi/validate with Authorization Bearer candidate key; require valid=true, exact matching positive user_id and normalized email from central exchange. Only then fill missing user_id from this independent WP response and apply current AI service tier/features/quota. Present mismatching or malformed user_id is a failure, not an omission. Any other missing AI field or either validation error means service_status unavailable/not_entitled/unknown, no paid grant. A complete AI identity also must match central WP account.id/email. Never copy litellm_api_key or dc_overview_instances from WP validation.",
+    "existing_link": "Do not replace an existing different saved credential/configuration with a candidate that fails service validation. Stage trusted identity and indicate can_commit=false; preserve existing paid flags/settings unchanged. For same-key re-link, record identity only with explicit confirmation and preserve existing configuration; do not newly set paid-valid on validation failure. This does not choose a new outage policy: existing ongoing service validation behavior remains.",
+    "proxy": "Verify central identity/schema and optionally corroborate via existing fixed WP validation; preserve hosted Watchdog entitlement/enrollment authority. Do not infer paid readiness from watchdog_verified; that flag remains link-completion only. Detect explicit WATCHDOG_API_KEY precedence conflicts before commit and return configuration_conflict, retaining environment/files/worker tokens. No customer/worker reparenting.",
+    "standalone": "IPMI works without proxy. DCO/Watchdog controller uses existing proxy shared credential path where installed; document supported standalone controller adapter availability rather than claiming unimplemented paths work."
+  },
+  "test_contract": {
+    "php_handler": "Exercise actual route registration/start/status/review/approve handlers with synthetic WP request/cookie/nonce boundaries. Include emitted page body and exact JSON; no source-string-only proof.",
+    "persistence": "Two independent PHP/mysqli connections/processes execute the real production direct-SQL helpers against disposable MariaDB/InnoDB options table. Barrier concurrent approves, redeems, stale polling vs approval/cancel, slot reuse and rate counters; one secret reply only, no lost state, no over-limit successful reservations. Fault injection after consumed yields no retry secret.",
+    "clients": "Actual Flask handlers/admin/session store and existing credential/config writers. Shared same JSON fixture contract used by all products. Verify session switch/logout/config change after outbound response, stage mismatch, independent WP identity, missing-only-legacy-user_id case, and atomic preservation on every failure.",
+    "regression": "Reuse IPMI auth/settings security, Proxy auth/admin, DCO token preservation/enrollment and package artifact tests. No Watchdog agent token rotation or billing/retention changes.",
+    "browser": "Owner-admin representative local-only deployment, no provider VPN/inbound route: login/new signup, email verification/restart, matching-code consent, local account confirmation, enabled service checks. Live installed validation remains held until actual accepted Fleet/client and central release."
+  },
+  "blockers_only": [
+    "Real options-table SQL/CAS behavior must pass independent database concurrency tests before gate closure; mocked storage alone is insufficient.",
+    "An explicit environment key conflict must be resolved through customer-controlled configuration before replacement; detect and preserve rather than mutate implicitly.",
+    "Production/Fleet/paid acceptance remains outside source-contract completion.",
+    "AI validation missing required fields holds service-ready/paid acceptance only; strictly verified WP identity linking for an unlinked installation remains available without the unrelated backend rollout."
+  ],
+  "source_basis": {
+    "wordpress_inspected_revision": "5c470f638b26979e1b554f9c25043a28a0857122",
+    "monitor_inspected_revision": "44d8f5507e3c834b495fa77f213cb20f147a76d3",
+    "note": "Source reads are baseline facts only. Builders use their new approved worktrees and bind exact candidate revisions to results."
+  },
+  "handler_seams": {
+    "class": "CLAI_IPMI_SSO",
+    "registration": "register_routes() registers pairing_start, pairing_status, pairing_approve; init() registers render_pairing_page on template_redirect for exact clai_pair=1.",
+    "methods": {
+      "start": "public static pairing_start(WP_REST_Request $request)",
+      "status": "public static pairing_status(WP_REST_Request $request)",
+      "approve": "public static pairing_approve(WP_REST_Request $request)",
+      "page": "public static render_pairing_page()",
+      "permission": "public static pairing_consent_permission(WP_REST_Request $request)"
+    },
+    "persistence": "Private production helpers pairing_store_read($slot), pairing_store_cas($slot,$old,$new,$expiry_mode), pairing_store_allocate($record), pairing_rate_allow($route,$caller). Test public handlers with real wpdb connection; reflection may invoke pure/private storage helpers only in SQL boundary tests. No fake atomics in concurrency tests."
+  }
+}
