@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{# TRACEWEAVER: file-role=ipmi-account-pairing-template; req=REQ-PAIR-001,REQ-PAIR-004,REQ-PAIR-005,REQ-PAIR-006; trace=TRACE-PAIR-001,TRACE-PAIR-004,TRACE-PAIR-005,TRACE-PAIR-006; ver=VER-PAIR-001,VER-PAIR-004,VER-PAIR-005,VER-PAIR-006 #}<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -573,7 +573,7 @@
     
     <script>
         // Base path for API calls (supports reverse proxy subpath like /ipmi/)
-        const BASE_PATH = '{{ base_path }}';
+        const BASE_PATH = '{{ base_path }}'.replace(/\/+$/, '');
         function apiUrl(path) {
             if (!path.startsWith('/')) path = '/' + path;
             return BASE_PATH + path;
@@ -935,25 +935,9 @@ storage-server,192.168.1.102,,,,false`
             setTimeout(() => container.innerHTML = '', 5000);
         }
         
-        // CryptoLabs SSO
+        // Establish local administration before starting account pairing.
         function loginWithCryptoLabs() {
-            const width = 550, height = 650;
-            const left = (screen.width - width) / 2;
-            const top = (screen.height - height) / 2;
-            
-            const popup = window.open(
-                'https://cryptolabs.co.za/?clai_ipmi_oauth=1&redirect_uri=' + encodeURIComponent(window.location.origin + '/api/ai/oauth-callback'),
-                'CryptoLabs Login',
-                `width=${width},height=${height},left=${left},top=${top}`
-            );
-            
-            window.addEventListener('message', (event) => {
-                if (event.data && event.data.type === 'cryptolabs_ipmi_auth') {
-                    document.getElementById('aiApiKey').value = event.data.api_key;
-                    showAlert(`Connected to CryptoLabs as ${event.data.user_email}`, 'success');
-                    popup.close();
-                }
-            });
+            showAlert('Finish local administrator setup first. You can connect CryptoLabs securely in AI settings afterwards.', 'info');
         }
         
         // Complete setup
@@ -977,7 +961,7 @@ storage-server,192.168.1.102,,,,false`
             };
             
             try {
-                const response = await fetch(apiUrl('/api/setup/complete', {
+                const response = await fetch(apiUrl('/api/setup/complete'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(setupData)
@@ -986,8 +970,8 @@ storage-server,192.168.1.102,,,,false`
                 const result = await response.json();
                 
                 if (response.ok && result.status === 'success') {
-                    showAlert('Setup complete! Redirecting to dashboard...', 'success');
-                    setTimeout(() => window.location.href = '/', 2000);
+                    showAlert('Local setup complete. Opening AI settings to connect your account…', 'success');
+                    setTimeout(() => window.location.href = apiUrl('/settings') + '?pair=1#ai', 1000);
                 } else {
                     showAlert(result.error || 'Setup failed', 'error');
                 }

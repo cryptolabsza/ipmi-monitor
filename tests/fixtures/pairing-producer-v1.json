@@ -1,0 +1,125 @@
+{
+    "schema": "cryptolabs-pairing-producer-fixture/1",
+    "source": "Actual CLAI_IPMI_SSO pairing_status handler; synthetic issuer only",
+    "issuer_input": {
+        "user_id": 123,
+        "email": "customer@example.test",
+        "display_name": "Customer",
+        "api_key": "sk-ipmi-FAKE"
+    },
+    "installation_id": "b039929d-2dd5-4ac9-9188-486d381bdac9",
+    "responses": {
+        "pending_response": {
+            "http": 400,
+            "body": {
+                "error": "authorization_pending",
+                "interval": 5
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "slow_down": {
+            "http": 400,
+            "body": {
+                "error": "slow_down",
+                "interval": 10
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "invalid_grant": {
+            "http": 400,
+            "body": {
+                "error": "invalid_grant"
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "success_response": {
+            "http": 200,
+            "body": {
+                "protocol_version": 1,
+                "status": "complete",
+                "client_id": "cryptolabs-ipmi-monitor",
+                "installation_id": "b039929d-2dd5-4ac9-9188-486d381bdac9",
+                "account": {
+                    "id": 123,
+                    "email": "customer@example.test",
+                    "display_name": "Customer"
+                },
+                "credential": {
+                    "type": "legacy_ipmi_api_key",
+                    "api_key": "sk-ipmi-FAKE",
+                    "scope": "account_wide"
+                },
+                "service_intent": "ipmi",
+                "authorization": "existing_service_validation_required"
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "controller_success_response": {
+            "http": 200,
+            "body": {
+                "protocol_version": 1,
+                "status": "complete",
+                "client_id": "cryptolabs-dc-controller",
+                "installation_id": "b039929d-2dd5-4ac9-9188-486d381bdac9",
+                "account": {
+                    "id": 123,
+                    "email": "customer@example.test",
+                    "display_name": "Customer"
+                },
+                "credential": {
+                    "type": "legacy_ipmi_api_key",
+                    "api_key": "sk-ipmi-FAKE",
+                    "scope": "account_wide"
+                },
+                "service_intent": "watchdog",
+                "authorization": "existing_service_validation_required"
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "access_denied": {
+            "http": 400,
+            "body": {
+                "error": "access_denied"
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "expired_token": {
+            "http": 400,
+            "body": {
+                "error": "expired_token"
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        },
+        "temporarily_unavailable": {
+            "http": 503,
+            "body": {
+                "error": "temporarily_unavailable"
+            },
+            "headers": {
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer"
+            }
+        }
+    }
+}
