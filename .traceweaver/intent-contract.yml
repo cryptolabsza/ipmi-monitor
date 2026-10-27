@@ -73,5 +73,13 @@
     "current_source_manifest": ".traceweaver/ipmi-readiness-20261026/current-source-manifest.json",
     "exception_receipt": ".traceweaver/ipmi-readiness-20261026/owner-alternate-acceptance.json",
     "root_mechanical_closure": "Pending final root checks; no publication capsule issued."
+  },
+  "account_pairing_scope": {
+    "baseline_id": "PAIR-20261028-01",
+    "baseline_hash_sha256": "9b80ccd96837cae1dd63723fa10ce8390dc4305fcc9e65f303a4868a917dc922",
+    "authority": ".traceweaver/account-pairing-20261028/authority.json",
+    "contract": ".traceweaver/account-pairing-20261028/contract.json",
+    "status": "owner_approved_scope_quality_ready",
+    "runtime_acceptance": "held"
   }
 }

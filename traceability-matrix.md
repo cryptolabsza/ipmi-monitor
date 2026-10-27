@@ -19,6 +19,12 @@ This section maps only the exact accepted IPMI delta; file-level sets describe t
 | TRACE-IPMI-MON-03 | REQ-IPMI-MON-03 | `tests/test_cloud_inventory_payload.py` | VER-IPMI-MON-03 | VAL-IPMI-MON-03; target validation held | Independently reviewed scoped source authority |
 | TRACE-IPMI-MON-01, TRACE-IPMI-MON-02 | REQ-IPMI-MON-01, REQ-IPMI-MON-02 | `tests/test_runtime_entrypoint.py` | VER-IPMI-MON-01, VER-IPMI-MON-02 | VAL-IPMI-MON-01, VAL-IPMI-MON-02; target validation held | Independently reviewed scoped source authority |
 | TRACE-IPMI-MON-02 | REQ-IPMI-MON-02 | `tests/test_settings_ai_controls.py` | VER-IPMI-MON-02 | VAL-IPMI-MON-02; target validation held | Independently reviewed scoped source authority |
+| TRACE-PAIR-001 | REQ-PAIR-001 | src/ipmi_monitor/app.py; src/ipmi_monitor/account_link.py; src/ipmi_monitor/templates/settings.html; src/ipmi_monitor/templates/setup.html; src/ipmi_monitor/templates/dashboard.html; tests/test_account_pairing.py | VER-PAIR-001 | VAL-PAIR-001 | Owner-approved source authority; reviewed scope |
+| TRACE-PAIR-002 | REQ-PAIR-002 | src/ipmi_monitor/app.py; src/ipmi_monitor/account_link.py; src/ipmi_monitor/templates/settings.html; src/ipmi_monitor/templates/setup.html; src/ipmi_monitor/templates/dashboard.html; tests/test_account_pairing.py | VER-PAIR-002 | VAL-PAIR-002 | Owner-approved source authority; reviewed scope |
+| TRACE-PAIR-003 | REQ-PAIR-003 | src/ipmi_monitor/app.py; src/ipmi_monitor/account_link.py; src/ipmi_monitor/templates/settings.html; src/ipmi_monitor/templates/setup.html; src/ipmi_monitor/templates/dashboard.html; tests/test_account_pairing.py | VER-PAIR-003 | VAL-PAIR-003 | Owner-approved source authority; reviewed scope |
+| TRACE-PAIR-004 | REQ-PAIR-004 | src/ipmi_monitor/app.py; src/ipmi_monitor/account_link.py; src/ipmi_monitor/templates/settings.html; src/ipmi_monitor/templates/setup.html; src/ipmi_monitor/templates/dashboard.html; tests/test_account_pairing.py | VER-PAIR-004 | VAL-PAIR-004 | Owner-approved source authority; reviewed scope |
+| TRACE-PAIR-005 | REQ-PAIR-005 | src/ipmi_monitor/app.py; src/ipmi_monitor/account_link.py; src/ipmi_monitor/templates/settings.html; src/ipmi_monitor/templates/setup.html; src/ipmi_monitor/templates/dashboard.html; tests/test_account_pairing.py | VER-PAIR-005 | VAL-PAIR-005 | Owner-approved source authority; reviewed scope |
+| TRACE-PAIR-006 | REQ-PAIR-006 | src/ipmi_monitor/app.py; src/ipmi_monitor/account_link.py; src/ipmi_monitor/templates/settings.html; src/ipmi_monitor/templates/setup.html; src/ipmi_monitor/templates/dashboard.html; tests/test_account_pairing.py | VER-PAIR-006 | VAL-PAIR-006 | Owner-approved source authority; reviewed scope |
 
 ### Scoped verification and validation evidence
 
@@ -33,6 +39,9 @@ This section maps only the exact accepted IPMI delta; file-level sets describe t
 
 | Artifact Path | Requirement | Trace | Verification | Anchor Type | Role |
 | --- | --- | --- | --- | --- | --- |
+| src/ipmi_monitor/templates/settings.html | REQ-PAIR-001; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | file-role | owner-approved Jinja byte0 comment alternate; unsupported scanner format |
+| src/ipmi_monitor/templates/setup.html | REQ-PAIR-001; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | file-role | owner-approved Jinja byte0 comment alternate; unsupported scanner format |
+| src/ipmi_monitor/templates/dashboard.html | REQ-PAIR-001; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | file-role | owner-approved Jinja byte0 comment alternate; unsupported scanner format |
 | src/ipmi_monitor/app.py | REQ-IPMI-MON-01 | TRACE-IPMI-MON-01 | VER-IPMI-MON-01 | file-role | ipmi-monitor-scoped-source |
 | src/ipmi_monitor/quickstart.py | REQ-IPMI-MON-01 | TRACE-IPMI-MON-01 | VER-IPMI-MON-01 | file-role | ipmi-monitor-scoped-source |
 | src/ipmi_monitor/quickstart.py | REQ-IPMI-MON-01; REQ-IPMI-MON-02 | TRACE-IPMI-MON-01; TRACE-IPMI-MON-02 | VER-IPMI-MON-01; VER-IPMI-MON-02 | entrypoint | ipmi-monitor-scoped-source |
@@ -46,8 +55,24 @@ This section maps only the exact accepted IPMI delta; file-level sets describe t
 | Dockerfile | REQ-IPMI-MON-01 | TRACE-IPMI-MON-01 | VER-IPMI-MON-01 | file-role | owner-approved unsupported alternate scoped-source |
 | src/ipmi_monitor/templates/docker-compose.yml.j2 | REQ-IPMI-MON-01 | TRACE-IPMI-MON-01 | VER-IPMI-MON-01 | file-role | owner-approved unsupported alternate scoped-source |
 | src/ipmi_monitor/templates/settings.html | REQ-IPMI-MON-02 | TRACE-IPMI-MON-02 | VER-IPMI-MON-02 | file-role | owner-approved unsupported alternate scoped-source |
+| src/ipmi_monitor/account_link.py | REQ-PAIR-004 | TRACE-PAIR-004 | VER-PAIR-004 | file-role | ipmi-account-pairing |
+| src/ipmi_monitor/account_link.py | REQ-PAIR-004 | TRACE-PAIR-004 | VER-PAIR-004 | entrypoint | ipmi-account-pairing |
+| tests/test_account_pairing.py | REQ-PAIR-004 | TRACE-PAIR-004 | VER-PAIR-004 | verifies | ipmi-account-pairing-verification |
 
 
 ### Owner-approved unsupported-format trace route
 
 Exact helper-route exception: `.traceweaver/ipmi-readiness-20261026/owner-alternate-acceptance.json`; approved proposal SHA256 `63e6d64c91b23a7f9e4816db1975299a5f3838a421549e4308eb3e918f4378bc`. Current source identities and exact accepted-source inverse proof: `.traceweaver/ipmi-readiness-20261026/current-source-manifest.json`. Supported-extension scanners remain scoped; PHP/Jinja/Docker/static HTML coverage uses the accepted manual proof or individually named omission, not an unsupported scanner-pass claim. All full requirement/target/provider/payment/CMS and main-deployment prerequisites remain held.
+
+## Account pairing acceptance boundary
+
+The TRACE-PAIR rows identify owner-approved and quality-reviewed source implementation scope only. Verification is in progress. Central MariaDB/cookie/consent, required CI, independent final review and actual installed Fleet/public-service/paid acceptance remain held until their separate evidence exists. These authority labels do not close any requirement or runtime outcome.
+
+## Generated pairing fixture provenance
+
+These are generated raw data copies within the approved verification scope. Inline trace fields would change the canonical producer/specification artifact. The external mapping is the supported generated-file exception, not a claim of inline source coverage. Exact producer bytes are emitted by the actual WordPress handler under synthetic credentials and compared by consumer tests. No API body, assertion or scanner rule changes. Source implementation and installed acceptance remain separately gated.
+
+| Artifact Path | Requirement | Trace | Verification | Anchor Type | Provenance / acceptance |
+| --- | --- | --- | --- | --- | --- |
+| tests/fixtures/pairing-producer-v1.json | REQ-PAIR-001; REQ-PAIR-003; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-003; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-003; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | Exception | Generated data approved for exact-byte provenance mapping; SHA256 d58a17f90c33e935b4307b5816e462d0445ee984b72e1d03948dfa3cd9d9404d; regenerate and drift-check from wordpress/actual-producer-fixture.json |
+| tests/fixtures/pairing-wire-v1.json | REQ-PAIR-001; REQ-PAIR-003; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-003; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-003; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | Exception | Generated data approved for exact-byte provenance mapping; SHA256 8ccd5db5c28c55da4e9118c7f913e45532e3213007b8e98a4af214f4bb20d652; regenerate and drift-check from fixtures/pairing-wire-v1.json |

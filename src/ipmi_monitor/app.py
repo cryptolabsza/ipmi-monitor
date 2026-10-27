@@ -16407,6 +16407,7 @@ def login():
         user = verify_user_password(username, password)
         if user:
             # Clear failed attempt counter on success
+            reset_account_link_session()
             record_successful_login(client_ip)
             log_security_event('LOGIN_SUCCESS', client_ip, username)
             
@@ -16514,6 +16515,7 @@ def logout():
     """Logout user"""
     # Check if user was authenticated via fleet proxy
     auth_via = session.get('auth_via')
+    reset_account_link_session()
     
     session.pop('logged_in', None)
     session.pop('username', None)
@@ -17056,6 +17058,11 @@ def api_trigger_sync():
     """Manually trigger AI cloud sync - any logged-in user can trigger"""
     result = sync_to_cloud()
     return jsonify(result)
+
+
+from .account_link import register_account_link
+import sys as _pairing_sys
+register_account_link(_pairing_sys.modules[__name__])
 
 
 OAUTH_STATE_TTL_SECONDS = 300
@@ -20415,6 +20422,7 @@ def init_db():
                         _run_migrations(inspector)
                         # Add only the bounded nonce store on existing installations.
                         OAuthLinkState.__table__.create(bind=db.engine, checkfirst=True)
+                        AccountLinkAttempt.__table__.create(bind=db.engine, checkfirst=True)
                     
                     # Initialize default alert rules
                     initialize_default_alerts()

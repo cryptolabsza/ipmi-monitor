@@ -1,0 +1,185 @@
+{
+  "schema": "cryptolabs-pairing-wire-fixture/1",
+  "basis": "Specification-derived RED fixture; producer-emitted comparison required before final GREEN acceptance.",
+  "contract_sha256": "abd8b95925c92e7a70f6bdd5f0f7d2bcb2e5cbdcf822699397c5e130d6b3aa70",
+  "installation_id": "b039929d-2dd5-4ac9-9188-486d381bdac9",
+  "transport": {
+    "origin": "https://www.cryptolabs.co.za",
+    "rest_prefix": "/wp-json/cryptolabs/v1",
+    "verification_uri": "https://www.cryptolabs.co.za/?clai_pair=1",
+    "rules": [
+      "HTTPS certificate verification required; fixed origin/endpoints, no client-supplied URL and no credential-bearing redirect following.",
+      "Cache-Control: no-store; Referrer-Policy: no-referrer on all pairing replies/pages. No third-party assets on verification/consent page.",
+      "Never put device codes/account keys in URLs, browser JSON/HTML/storage, postMessage, logs or exception text. Only start/status backend responses may carry the stated secrets.",
+      "No permissive CORS/browser token exchange. Reject malformed/extra credential fields, duplicate parameters, arrays for scalars and unsupported client IDs.",
+      "Do not treat public client_id, installation_id or display label as verified software/domain identity."
+    ]
+  },
+  "local_routes": {
+    "start": "POST /api/account-link/start",
+    "status": "POST /api/account-link/status",
+    "commit": "POST /api/account-link/commit",
+    "cancel": "POST /api/account-link/cancel",
+    "config": "GET /api/account-link/config"
+  },
+  "start_request": {
+    "client_id": "cryptolabs-ipmi-monitor",
+    "installation_id": "b039929d-2dd5-4ac9-9188-486d381bdac9",
+    "installation_name": "Isolated monitor"
+  },
+  "start_response": {
+    "protocol_version": 1,
+    "device_code": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "user_code": "01-ABCD-EFGH",
+    "verification_uri": "https://www.cryptolabs.co.za/?clai_pair=1",
+    "expires_in": 300,
+    "interval": 5
+  },
+  "success_response": {
+    "protocol_version": 1,
+    "status": "complete",
+    "client_id": "cryptolabs-ipmi-monitor",
+    "installation_id": "b039929d-2dd5-4ac9-9188-486d381bdac9",
+    "account": {
+      "id": 123,
+      "email": "customer@example.test",
+      "display_name": "Customer"
+    },
+    "credential": {
+      "type": "legacy_ipmi_api_key",
+      "api_key": "sk-ipmi-FAKE",
+      "scope": "account_wide"
+    },
+    "service_intent": "ipmi",
+    "authorization": "existing_service_validation_required"
+  },
+  "pending_response": {
+    "http": 400,
+    "body": {
+      "error": "authorization_pending",
+      "interval": 5
+    }
+  },
+  "errors": {
+    "invalid_request": {
+      "http": 400,
+      "meaning": "Malformed bounded input; no mutation/credential."
+    },
+    "invalid_grant": {
+      "http": 400,
+      "meaning": "Unknown/mismatched code/client/secret, already consumed or superseded slot; generic no account disclosure."
+    },
+    "expired_token": {
+      "http": 400,
+      "meaning": "Matched legitimate attempt expired; no credential."
+    },
+    "authorization_pending": {
+      "http": 400,
+      "meaning": "Valid backend request, not yet approved."
+    },
+    "slow_down": {
+      "http": 400,
+      "meaning": "Poll too early; increase interval by 5 seconds for remaining attempt; atomic next_poll update."
+    },
+    "access_denied": {
+      "http": 400,
+      "meaning": "Explicit denial; local attempt ends."
+    },
+    "authentication_required": {
+      "http": 401,
+      "meaning": "Consent needs authenticated website session."
+    },
+    "invalid_consent": {
+      "http": 403,
+      "meaning": "Cookie/nonce/user/code consent invalid."
+    },
+    "email_verification_required": {
+      "http": 403,
+      "meaning": "Use existing verification flow; no email policy bypass."
+    },
+    "account_setup_required": {
+      "http": 409,
+      "meaning": "Existing issuer/provisioning cannot supply supported credential; direct user to existing signup/account page, no arbitrary creation policy."
+    },
+    "temporarily_unavailable": {
+      "http": 503,
+      "meaning": "Persistence/query/issuer failure or exhausted CAS; preserve old link, never deliver credential on uncertain consumption."
+    },
+    "rate_limited": {
+      "http": 429,
+      "meaning": "Retry-After provided; capacity or rate limiter exhausted."
+    }
+  },
+  "local_browser": {
+    "start_request": {},
+    "start_response": {
+      "status": "pending",
+      "attempt_id": "<opaque local random id>",
+      "user_code": "XX-XXXX-XXXX",
+      "verification_uri": "https://www.cryptolabs.co.za/?clai_pair=1",
+      "expires_in": 300,
+      "interval": 5
+    },
+    "status_request": {
+      "attempt_id": "<local id>"
+    },
+    "pending_response": {
+      "status": "pending",
+      "interval": 5
+    },
+    "staged_response": {
+      "status": "awaiting_confirmation",
+      "account": {
+        "id": 123,
+        "email": "customer@example.test",
+        "display_name": "Customer"
+      },
+      "service_status": "available|unavailable|not_entitled|unknown",
+      "requires_confirmation": true,
+      "can_commit": true
+    },
+    "blocked_replacement": "Same staged response but can_commit=false with reason=service_validation_failed when replacing an existing different credential that the new candidate cannot validate; previous configuration retained.",
+    "commit_request": {
+      "attempt_id": "<local id>",
+      "confirm": true
+    },
+    "commit_response": {
+      "status": "linked",
+      "account": {
+        "id": 123,
+        "email": "customer@example.test",
+        "display_name": "Customer"
+      },
+      "service_status": "available|unavailable|not_entitled|unknown"
+    },
+    "cancel_request": {
+      "attempt_id": "<local id>"
+    },
+    "cancel_response": {
+      "status": "cancelled"
+    }
+  },
+  "ai_validation": {
+    "valid": true,
+    "tier": "standard",
+    "max_servers": 125,
+    "features": [
+      "chat",
+      "summary"
+    ],
+    "email": "customer@example.test",
+    "customer_id": "customer-123",
+    "user_id": 123
+  },
+  "wp_validation": {
+    "valid": true,
+    "user_id": 123,
+    "email": "customer@example.test",
+    "litellm_api_key": "SYNTHETIC-NEVER-COPY-PROVIDER-KEY",
+    "dc_overview_instances": [
+      {
+        "private": "SYNTHETIC-NEVER-COPY-INSTANCE"
+      }
+    ]
+  }
+}
