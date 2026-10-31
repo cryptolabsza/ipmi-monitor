@@ -1794,34 +1794,33 @@
                     
                     <!-- Fallback offer (packaged with container, shown if iframe fails) -->
                     <div id="aiOfferFallback" style="padding: 30px;">
-                        <h3 style="margin: 0 0 15px 0; font-size: 1.3rem;">🚀 Start Your Free Trial</h3>
+                        <h3 style="margin: 0 0 15px 0; font-size: 1.3rem;">Connect CryptoLabs AI</h3>
                         
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">
                             Create an account and verify your email to access IPMI Monitor AI features.
                         </p>
                         
                         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                            <p style="margin: 0 0 10px 0; font-weight: 600;">✨ Free Trial includes:</p>
+                            <p style="margin: 0 0 10px 0; font-weight: 600;">AI features available with an eligible plan:</p>
                             <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
-                                <li>1 month of full AI features</li>
-                                <li>1 million AI tokens</li>
-                                <li>Up to 50 servers with AI monitoring</li>
                                 <li>AI summaries, tasks & predictions</li>
+                                <li>Server insights and maintenance recommendations</li>
+                                <li>Review current plans and eligibility on CryptoLabs</li>
                             </ul>
                         </div>
                         
                         <div style="background: linear-gradient(135deg, rgba(74, 158, 255, 0.1), rgba(168, 85, 247, 0.1)); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--border-color);">
                             <p style="margin: 0 0 10px 0; font-weight: 600;">📋 How to get started:</p>
                             <ol style="margin: 0; padding-left: 20px; color: var(--text-secondary);">
-                                <li style="margin-bottom: 5px;">Click "Start Free Trial" below</li>
+                                <li style="margin-bottom: 5px;">Open account setup below</li>
                                 <li style="margin-bottom: 5px;">Create account or sign in</li>
-                                <li>You'll be redirected back automatically with AI enabled!</li>
+                                <li>Approve the matching code, then confirm the account in Settings</li>
                             </ol>
                         </div>
                         
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
                             <a id="startTrialBtn" href="#" onclick="startFreeTrial()" class="ai-upgrade-btn" style="display: inline-block; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; cursor: pointer;">
-                                🚀 Start Free Trial / Sign In →
+                                Create an account / Sign in →
                             </a>
                         </div>
                         
@@ -3800,7 +3799,7 @@
         // ============== End Real-Time SSE ==============
         
         function startFreeTrial() {
-            window.location.assign(apiUrl('/settings') + '?pair=1#ai');
+            window.location.assign(apiUrl('/settings') + '?pair=1&mode=signup#ai');
         }
         
         // Iframe offer timeout - fall back to packaged offer if iframe doesn't load in 5 seconds

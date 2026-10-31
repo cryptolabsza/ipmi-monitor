@@ -53,3 +53,8 @@ Verification: `VER-PAIR-005`; validation: `VAL-PAIR-005`. See scoped authority a
 The implementation shall preserve existing working links and legacy clients, keep the current pinned WordPress package/publisher boundary, and deliver installed product updates through accepted DC Overview Fleet Management. Deployment and paid-service acceptance shall remain held until observed in the intended environment.
 
 Verification: `VER-PAIR-006`; validation: `VAL-PAIR-006`. See scoped authority and protocol for executable acceptance boundaries.
+
+
+## Owner-approved branded linking and offer repair — 31 October 2026
+
+Direct owner response: “Approve repair and rollout”. Exact reviewed revision3 plan SHA256 `38923fa994f3735f2c1c62b2cc1c0f87894892240c924ee0927128ddc4453d8f` and receipt are retained in `.traceweaver/link-ux-20261031/`. This is an approved interpretation of REQ-PAIR-001, REQ-PAIR-002, REQ-PAIR-003, REQ-PAIR-004, REQ-PAIR-005, REQ-PAIR-006, REQ-IPMI-MON-02, not a replacement for the existing contract. The plan preserves v1 transport, explicit consent/local confirmation, original expiry, bounded persistent CAS, existing account keys/entitlements and legacy clients. It authorizes safe branded continuation, readable truthful dialog states, approved paid-offer displays, protected releases, the two named CMS pages and accepted Fleet rollout after checks. Unproved trial funding/seed/expiry holds production trial changes and new or altered 1M promises; unchanged trial blocks are explicitly not reverified. No customer grants, purchases, model calls, VPN or inbound callbacks are authorized. Source verification does not imply installed, trial-delivery or billing acceptance.

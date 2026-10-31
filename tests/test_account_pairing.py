@@ -502,6 +502,15 @@ const window={location,open:(u)=>urls.push(u)};
     assert all('redirect_uri' not in url and 'oauth-callback' not in url for url in urls)
 
 
+@pytest.mark.parametrize('page', ['settings', 'dashboard', 'setup'])
+def test_account_entry_does_not_advertise_retired_month_or_price(page):
+    """Approved neutral CTA lane avoids renewing an unverified trial promise."""
+    template = (Path(__file__).parents[1] / 'src/ipmi_monitor/templates' / (page + '.html')).read_text()
+    for retired in ['1 MONTH FREE TRIAL', '1 month of full AI features', 'Start Your Free Month',
+                    '$100/month for 50 servers']:
+        assert retired not in template
+
+
 def test_setup_cannot_receive_a_browser_credential_before_local_admin_exists():
     template = (Path(__file__).parents[1] / 'src/ipmi_monitor/templates/setup.html').read_text()
     start_at = template.index('function loginWithCryptoLabs()')

@@ -107,3 +107,32 @@ eval(input.prefix + input.controls);
             {'label': '✅ Sync enabled', 'result': 'Status unavailable'},
         ]
         assert '>✅ Sync enabled</span>' in response.get_data(as_text=True)
+
+
+def test_saved_account_remains_visible_when_paid_service_is_unavailable(app_fixture, login_as):
+    client, _, _, _ = app_fixture
+    login_as(client)
+    parser = Scripts(); parser.feed(client.get('/settings').get_data(as_text=True))
+    script = '\n'.join(parser.text)
+    ui = script[script.index('async function updateAiUI(config)'):script.index('// Signup uses')]
+    harness = r'''
+const elements={};
+const document={getElementById:id=>elements[id]||=( {style:{},textContent:''} )};
+const apiUrl=path=>'/ipmi'+path;
+const fetch=async()=>({ok:true,json:async()=>({servers:[]})});
+'''
+    invocation = r'''
+(async()=>{
+ await updateAiUI({license_key:'***stored',subscription_valid:false,sync_enabled:false,
+  linked_account_status:'verified',linked_account:{wp_user_id:71,wp_email:'saved@example.test'}});
+ console.log(JSON.stringify(elements));
+})().catch(error=>{console.error(error);process.exit(1);});
+'''
+    result = subprocess.run(['node', '-e', harness + ui + invocation],
+                            text=True, capture_output=True, check=True)
+    observed = json.loads(result.stdout)
+    assert observed['aiConnectedSection']['style']['display'] == 'block'
+    assert observed['linkedAccountSection']['style']['display'] == 'block'
+    assert observed['linkedAccountEmail']['textContent'] == 'saved@example.test'
+    assert 'unavailable' in observed['aiStatusMessage']['textContent'].lower()
+    assert observed['aiTrialBanner']['style']['display'] == 'none'
