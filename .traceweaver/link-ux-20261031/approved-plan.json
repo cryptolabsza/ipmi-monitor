@@ -1,0 +1,369 @@
+{
+  "status": "PROPOSED_FOR_OWNER_APPROVAL_NOT_IMPLEMENTATION_AUTHORITY",
+  "date": "2026-10-31",
+  "title": "Restore branded account linking and harmonize approved IPMI offers",
+  "goal": "A customer can start sign-in or signup from IPMI Monitor, use the existing branded central signup/login flow, return to matching-code consent, and explicitly connect locally through a readable dialog. Both supplied public pages present the same approved offers.",
+  "current_customer_boundary": "Owner reports LTX is already linked. Preserve its connection, stored identity, credentials, site data and settings. Do not restart, unlink, relink, grant credits or run purchases against existing owner/customer accounts.",
+  "evidence": {
+    "wordpress": {
+      "repository": "cryptolabs-ai-platform",
+      "installed_reference": "117a70d18205f4d43492db5ef1c49dd4f7f6bf71",
+      "installed_reference_version": "1.30.1",
+      "cached_main": "f3ceb89607fdd52181df611747e52c4578cf9aa5",
+      "cached_main_version": "1.31.1",
+      "primary_dirty_head": "a7098e11fd750bf84d9e15e594638b91d8a0f435",
+      "freshness": "Cached/source identities only. Recheck remote main/dev, deployed package manifest and page revisions before any implementation/publication."
+    },
+    "client": {
+      "repository": "ipmi-monitor",
+      "deployed_reference": "a5cfd4ea0d6e43c6346f641693fcb6eef449433b",
+      "version": "1.3.1 (parent-confirmed deployed label131; exact Git identity retained; fresh release identity still required before rollout)",
+      "diagnostic_cases": 6,
+      "scope": "Six exact-release JavaScript synthetic cases plus offline browser geometry reproduction. The 1280x800 and375x812 viewports each measured13px overlap between verification-anchor box and both code/status text boxes; disabled button retained blue/pointer styling. This is synthetic box geometry, not customer screenshot pixels or real save-failure proof. Exact surrounding app and external font loading were not reproduced."
+    },
+    "inputs": [
+      "wordpress-diagnosis/findings.json",
+      "wordpress-diagnosis/pricing-trace.json",
+      "client-diagnosis/findings.json",
+      "client-diagnosis/source-manifest.json",
+      "client-diagnosis/offline-state-results.json",
+      "client-diagnosis/browser-fixture/geometry-proof.json",
+      "client-diagnosis/browser-fixture/geometry-findings.html",
+      "live-pages/audit.json",
+      "live-pages/features-text.txt",
+      "live-pages/signup-text.txt"
+    ],
+    "commercial_authority": [
+      {
+        "path": "../implementation/commercial-clarification.json",
+        "sha256": "b134de4d1f70f5f9b6743c11d0d0c720b946a84eeb83f458649e5a87f40b9566",
+        "settled": "Retain paid 10 servers / 100K monthly; SRE 10M once on first eligible signup; preserve other approved eligibility/terms."
+      },
+      {
+        "path": "../implementation/pricing-owner-response.json",
+        "sha256": "354f30b231b6ffc9d6f3b4144780e401eb13fb1c069489f74c6caeae2ec3a5ae",
+        "settled": "Keep 500-server package incentive; do not implement smooth curve. Recommend eligible 500 capacity where cheaper; no automatic purchase substitution."
+      }
+    ],
+    "trial_basis": [
+      "../implementation/platform/handoff.json (future 14-day trial repair; existing expiries untouched)",
+      "../provider-revisions/acceptance.json (14-day trial confirmation)",
+      "../implementation/public-copy/source-map.json (local unpublished drafts, not the actual feature-page CMS body)"
+    ],
+    "live_page_audit": "Read-only anonymous browser audit2026-10-31T05:27:58.224611+00:00 observed14d/50servers/1M on both supplied pages and stale signup60–499 range$283–$1048. No form submitted or account changed. Audit screenshot command did not complete: no new visual QA claim. User-supplied screenshots remain baseline; any separately retained signup screenshot must be named/captioned signup-only, never asserted as feature-page proof."
+  },
+  "requirements": {
+    "baseline": "PAIR-20261028-01; existing requirement IDs only, no new IDs invented in this proposal",
+    "anchors": {
+      "REQ-PAIR-001": "Outbound HTTPS; no VPN/inbound callback/per-deployment admission prerequisite.",
+      "REQ-PAIR-002": "Signed-in nonce-protected matching-code consent; signup/open/payment return cannot approve.",
+      "REQ-PAIR-003": "300-second expiry; bounded issuance/guesses/polling; atomic one-time redemption; device secrets backend-only.",
+      "REQ-PAIR-004": "Initiating local admin/session binding; staged identity; deliberate local commit; preservation; identity and paid service distinct.",
+      "REQ-PAIR-005": "Existing product credentials and allowlisted identity/status only; no new entitlement/quota/host authority.",
+      "REQ-PAIR-006": "Legacy links/clients preserved, pinned publisher, accepted DC Overview Fleet updates; target acceptance observed.",
+      "REQ-IPMI-MON-02": "Truthful settings outcomes and verified identity/allowance.",
+      "REQ-IPMI-PLAT-03": "Existing scoped platform SSO integration; source scope is not automatic production/financial acceptance."
+    },
+    "contract_files": [
+      ".traceweaver/account-pairing-20261028/contract.json",
+      ".traceweaver/account-pairing-20261028/existing-key-only-decision.json"
+    ],
+    "amendment": "After approval, record this UX/central-continuation interpretation and the conditional publication boundary in both affected repositories before code. Preserve the existing-key-only decision: pairing must never create/rotate a key or initiate a trial."
+  },
+  "architecture": {
+    "reuse": "Use CLAI_IPMI_SSO existing handlers and the actual lowercase [ipmi_signup]/[ipmi_trial] and [dc_watchdog]/[dc_watchdog_signup] renderers. Reuse their branded form/card/CSS components. Do not create a replacement authentication system, standalone catalog or callback transport.",
+    "entry": "Keep protocol_version=1 and verification_uri=https://www.cryptolabs.co.za/?clai_pair=1 byte-for-byte. New-client begin POST is sessionless and creates only a bounded navigation handoff ticket;303 to a fixed central sessionless landing GET, then same-origin attach completes the selected session-bound continuation. Product comes solely from the matched pending pairing row and routes to existing /ipmi_signup/ or /dc-watchdog-signup/ pairing mode. Legacy no-code GET remains neutral branded code-entry/sign-in/signup for both products. Preserve legacy root review POST through the same handler. Never place user_code, key or device secret in a URL or redirect a code body to another host.",
+    "branded_rendering": "Replace the bare standalone emitter with a pairing mode of the existing shortcode/card presentation. Reuse first-party styles/branding in a bounded shell on the pairing route. Preserve no-store, no-referrer, frame-ancestors and form-action restrictions and no third-party assets; do not render unrestricted theme analytics, external assets, API-key boxes or legacy authorize links in pairing mode. Ordinary signup pages keep normal product rendering. Prefer scoped existing CSS/functions, no new runtime file unless package review proves necessary.",
+    "login": "Resolve the installed configured front-end login page and its real return mechanism read-only. Use that existing form on a fixed same-origin return path; where no configured branded login is usable, embed core wp_login_form in the existing branded shortcode container, retaining WordPress authentication/nonce/error handling. Do not write a password verifier. Verify failed login, logout/session switch and email verification return as part of the same repair.",
+    "mode": "No new JSON fields or protocol version. /api/account-link/start accepts exactly {}; central /pairing/start retains exactly client_id, installation_id, installation_name. New browser navigation contract: the user-activated Open CryptoLabs form posts application/x-www-form-urlencoded with exactly action=begin, user_code=<already displayed normalized code>, mode=signin|signup to the already validated fixed verification_uri, in a new tab with noopener. No device_code, account key, email/account identifier, callback, client-supplied product, scope or return URL. Bound body to2048bytes; reject extra/duplicate/array fields and invalid modes. mode selects an existing branded form only and has no authorization effect. This additive browser presentation contract is explicitly added to the existing contract document and exercised against old/new releases; backend v1 stays unchanged. Old central code may ignore begin and show its existing login/code form, so central is deployed first and manual code entry remains the visible compatibility/cross-device fallback.",
+    "continuation": {
+      "owner": "Small helpers in class-ipmi-sso.php, consumed by existing IPMI/DC signup renderers; separate from legacy link_context().",
+      "legacy_separation": "Keep legacy link_context redirect_uri/state/ipmi_host singleton unchanged for legacy requests. All pairing-mode rendering AND registration/trial AJAX/email callback branches must select the explicit continuation handle and must not read, write, clear or fall through to clai_ipmi_host,clai_ipmi_redirect,clai_ipmi_link_context or remote redirect_uri/state. Pairing never enters DC api_key-in-redirect branches.",
+      "storage": "After atomic handoff attach, reuse existing server-side PHP session for navigation only: clai_pair_continuations map, maximum8live records, independent32-byte random handle per tab, no silent eviction. Fields version,user_code,code_digest,client_id,expires_at,session_binding_digest,expected_user_id,csrf_digest,state. No device code or account key. The original pairing CAS row remains sole approval/redemption authority. Bounded handoff rows are navigation-only and cannot authorize account setup.",
+      "creation": "Normal new client submits displayed user_code automatically in the user-activated fixed-origin form POST. This bootstrap is untrusted navigation, never consent. Validate raw flat fields before PHP duplicate collapsing,2048-byte limit, normalized pending code digest/client/original expiry and existing bounded anonymous issuance/review controls. Use the sessionless handoff below. Subsequent session navigation mutations require the selected continuation and fresh per-session CSRF. Manual entry is only the legacy/cross-device fallback. No bootstrap/landing/attach/login/review/return operation writes approval, key, account, trial or entitlement. Failures remain generic.",
+      "navigation": "Carry only clai_pair_continue=<opaque handle> and fixed pairing-mode marker in fixed central signup/login/return URLs and hidden form fields. All destinations are constructed from the fixed central routes; reject arbitrary return URLs, duplicate/array parameters and mismatched product hints. This handle alone cannot authenticate, approve, reveal credentials or resume on another session.",
+      "ttl": "Continuation expires no later than original pairing expires_at (300 seconds from issuance). Authentication, polling, verification and navigation never extend it. If signup/email takes longer, complete ordinary signup and explain that a fresh code must be started at the installation; do not silently restart or auto-approve.",
+      "binding": "Bind handle and CSRF secret to server-side session random secret, retained safely through session-ID regeneration. Bind the expected account after explicit signup/sign-in; reject a different account after binding and require fresh review. On return re-read the exact pending row, digest, client and expiry; do not trust session metadata as authorization. Refresh consent nonce for current WordPress user/session. Lost session or another browser verifies email normally but cannot resume the prior attempt; return to branded code entry.",
+      "email": "Verification may carry the opaque central handle only if bound to the same session; existing verification token policy remains unchanged. The callback completes existing verification, then offers/returns to pending review only when session/account/TTL match. It never approves. Normal verification works without a handle.",
+      "parallel_tabs": "Every form and return selects its own random handle. Never use a last-attempt or global return fallback. Two tabs can navigate independently; original central CAS determines the winner if the same attempt is reviewed twice.",
+      "replay_cancel": "Replays cannot approve or redeem without live row, cookie and current nonce; expired/consumed/denied rows render terminal instructions. Explicit central cancel invalidates only this navigation handle with session CSRF; an authenticated Deny uses the existing atomic pairing deny POST. Local Cancel remains the existing local cancel route and preserves saved config; no new central cancellation endpoint. A late central approval after local cancellation cannot commit locally.",
+      "consent": "After login/setup, render account email, product, unverified installation label, matching code and account-wide credential warning. Require explicit Approve/Deny with existing cookie and WP REST/code-bound nonces. Then local dialog still requires Connect this account. No login/signup/payment-success parameter, GET or continuation return approves anything.",
+      "cookie_safe_handoff": {
+        "source_seams": "Add narrowly scoped CLAI_IPMI_SSO helpers is_pairing_sessionless_request(), pairing_validate_attach_request(), pairing_begin_handoff(), pairing_handoff_allocate/read/consume(), render_pairing_handoff_bridge(), pairing_attach_handoff(), pairing_navigation_context(). Before every unconditional PHP session initializer in IPMI Signup, DC shortcode and general gateway/bootstrap, use a conservative raw request classifier for the owned pairing request family. Begin, landing AND attach candidates are excluded from all automatic session_start paths, including invalid/unsupported method, media type, headers, query, body, duplicate/array fields or ticket shape; classification must not require a request to pass attach validation first. Inspect actual installed hook order/other initializers and register the guard before any can start a session. A pairing-addressed malformed request stays owned/rejected and never falls through to generic signup initialization. Only the trusted attach handler may explicitly open a session after all preconditions pass. Normal nonpairing legacy requests retain existing initialization behavior.",
+        "begin": "POST /?clai_pair=1 with exactly action=begin,user_code,mode. Begin, landing and every attach candidate remain sessionless during all automatic initialization: no session_start, PHP session read/write or Set-Cookie, even if SameSite omits an old central cookie. Never weaken SameSite/global cookie policy. Validate raw fixed route/query before handling; conservative candidate exclusion also covers malformed requests rejected later. Real hook-order and response-header tests must prove no Signup/DC/general bootstrap or other initializer starts a session/emits Set-Cookie before trusted attach acceptance; repair only that narrow initialization conflict if detected.",
+        "ticket": "Reuse existing wp_options prepared direct-SQL/read/CAS helpers with a distinct bounded navigation namespace clai_pair_nav_v1_<slot0..511>, nonautoload. No new table or migration. Fixed512slots, at most32 random allocation probes, reuse only expired rows by exact-value CAS, then429 if full. Ticket format decimal-slot + dot +32-byte random base64url token; store SHA256 token digest. Record version=1,revision,state=pending|consumed,original expires_at,original code digest,user_code,client_id,mode. The displayed user_code is navigation data only; never store device secrets/account keys or account identity. Verify original attempt digest/state/deadline again at attach. TTL never exceeds original attempt expiry. This is not another approval store.",
+        "rate": "Reuse existing bounded anonymous start limiter and DB clock for begin/handoff allocations, including REMOTE_ADDR rather than forwarding headers; retries cannot mint unbounded rows or extend TTL. Reuse existing finite CAS retry bound. Do not introduce unbounded transients/scan cleanup.",
+        "landing": "303 Location is exactly the fixed central /?clai_pair=1&clai_pair_handoff=<opaque ticket>; no code/product/account/returnURL in Location. Landing GET is no-store/no-referrer, sessionless and Set-Cookie-free. Because Strict cookies can also be omitted on a cross-site redirect chain, this GET must NOT start a replacement session. It renders a tiny first-party no-third-party bridge containing ticket and an explicit Continue fallback. The bridge makes a same-origin POST to the fixed attach action after the document is central-origin. An existing Lax or Strict cookie is then eligible; a truly absent cookie can safely start a new session on this request.",
+        "attach": "Trusted handler ordering: (1) while still sessionless, validate exact fixed central path/query, raw POST method, application/json media type, <=2048-byte raw body, exactly bounded flat action=attach and ticket fields, no duplicate/array/extra fields, exact central Origin, Sec-Fetch-Site same-origin, and ticket syntax; reject any failed precondition with no Set-Cookie, no PHP session initialization/read/write, no continuation-map/approval mutation and no fallback. Raw classification/validation occurs before PHP parameter collapse and before any initializer. (2) Only an accepted first-party attach may start/reuse the cookie-only strict-mode PHP session, rejecting URL session identifiers; prove the existing Lax/Strict cookie remains in use. (3) Read/validate ticket and original pending row/digest/deadline, check session-map capacity, then atomically CAS ticket pending->consumed. Only the winner inserts its per-tab continuation, promptly closes the session, and returns the fixed central relative path. The bridge replaces location; fallback button invokes this same JSON request; no-script users get manual code entry. Origin/ticket never authorize account setup or consent. No CORS or arbitrary return path.",
+        "replay_failure": "Consumed/unknown/expired tickets cannot attach again. Concurrent ticket consumers have one winner; a lost response after consume requires manual code re-entry or a new user-initiated begin within the original deadline, never replayed authority. Original attempt remains pending until explicit consent. Expired slots are bounded CAS-reused; failures never delete/change live rows. Ticket loss is harmless navigation loss, not account compromise.",
+        "session_lifecycle": "Use Secure,HttpOnly,cookie-only sessions and strict-mode fixation rejection where supported; preserve current SameSite. Rotate PHP session ID at successful authentication while retaining only the explicitly selected valid continuation plus unrelated legacy contexts in the same session; do not copy all old pairing contexts across logout/account switches. Invalidate pairing handles on logout/account mismatch and require fresh review. Do not destroy another tabs legacy data. Limit8live per-session handles without eviction; use only short ordinary session write sections, no global issuer lock. Unexpected session loss fails closed.",
+        "proof": "Real WordPress init stack, not only handler mocks: an established central Lax/Strict session older than default-Lax grace plus absent-cookie case; two different installation origins sequential/concurrent and an existing legacy signup tab. Assert begin and landing never start PHP sessions/emit Set-Cookie. For attach candidates test cross-site/missing/wrong Origin or Sec-Fetch-Site, unsupported method, wrong/missing media type, invalid fixed route/query, malformed/duplicate/array/oversized body and malformed ticket. Each rejected variant must emit no Set-Cookie, create/read/write no PHP session or continuation map, mutate no approval, and never reach generic initialization. Valid same-origin attach must reuse the old cookie and preserve other continuation tabs/legacy context. Retain real MariaDB single-consumer CAS, original TTL and replay tests. Cookies and init order require actual browser/integration proof."
+      },
+      "explicit_setup_contract": {
+        "fields": "Pairing-mode existing signup/activation form submits its existing required fields and nonce plus clai_pair_continue=<handle>,clai_pair_csrf=<per-session token>,clai_pair_setup=1 only after the user clicks the labelled existing Create account/start trial or Activate trial action. The begin/login/review/return/consent forms do not submit setup=1 and cannot call activation. Existing AJAX handler authenticates/CSRF-checks the selected session context first, derives product from its live row, and binds expected account before invoking existing setup authority.",
+        "fail_closed": "Any explicit pairing marker, handle or setup field selects this branch even if invalid/expired/missing. Invalid, expired, consumed or wrong-session/account handle returns a terminal setup/continuation error, never legacy fallback or empty-host eligibility success. Recheck immediately before writes; preserve existing verification policy. Email callback can complete independently authorized email verification, but a bad/stale pairing handle cannot trigger trial activation, legacy redirect or legacy-host attribution; show explicit restart/setup instructions.",
+        "eligibility": "Use existing approved account/product eligibility only after proving that exact hostless product setup is authorized for this path. Do not call check_ipmi_instance(\"\") as a bypass, substitute installation_name/UUID as a hostname, clear another tabs legacy host, or infer trial eligibility from paired client identity. If existing rules cannot support this without new eligibility policy, hold explicit trial setup for that path; existing-account sign-in/linking still works. No new credit or eligibility rule is selected by this plan.",
+        "verification": "Bind any verification navigation handle to intended new user/session; on callback look it up explicitly, never recover singleton legacy context. Valid eligible explicit setup may complete its existing approved activation once; verification alone with no valid setup intent cannot become an outbound-pairing grant trigger. Ordinary nonpairing verification retains existing behavior.",
+        "tests": "Preload legacy hostA context, submit pairing signup forB, and assert A context is neither consumed nor mutated; repeat no legacy context, mixedIPMI/DC tabs, absent/malformed/expired handle, account switch and replay. Verify no bootstrap/login/return/consent grants, key output or callbacks. Separately prove eligible explicit setup, once-only grant and failure behavior with real handlers and synthetic accounts."
+      }
+    },
+    "client": "Replace the verification anchor with an accessible user-activated fixed-origin form POST that automatically carries displayed code and allowlisted signin/signup intent; retain copy-code/manual fallback. Scoped dialog spacing, line height, inline-flex verification action, long-text wrapping, backdrop, accessible title/status, keyboard/focus and distinct disabled styling. State model: starting, waiting, ready, saving, saved, denied, expired, recoverable transport failure, authentication/session failure and blocked replacement. Disable exactly when server authority says so. One commit in flight. On ambiguous timeout read current saved config/identity and reconcile; never automatically repeat a one-use commit. Retry polling only within live attempt, server interval and existing error contract. Render saved identity independently from service availability; preserve existing paid flags and sync choices.",
+    "offers": "Reuse get_plans(), get_pricing_display(), calculate_pricing()/professional and full-price helpers. Extract a small read-only presenter inside existing signup/subscriptions code if needed; render the same presenter through existing shortcode attributes on both pages. No anonymous quote() call, provider request, table migration or checkout side effect. Show USD/month and launch eligibility explicitly; apply discount once and inspect live campaign configuration before promising a launch price."
+  },
+  "commercial_terms": {
+    "free": "Unlimited local hardware monitoring; no AI. Never call 10 servers/100K monthly a free plan.",
+    "ipmi_trial": "Already approved: 14 days, up to 50 servers, advertised 1M tokens, existing eligibility. Future setup only; preserve all recorded prior expiries and balances. Delivery is not proved merely by catalog fields.",
+    "sre": "10M once on first eligible SRE signup, never monthly IPMI allowance. Preserve existing SRE issuer/default-disabled gates.",
+    "table_columns": [
+      "servers",
+      "monthly_tokens",
+      "launch50_usd_per_month",
+      "list_usd_per_month"
+    ],
+    "table": [
+      [
+        10,
+        100000,
+        "75.00",
+        "150.00"
+      ],
+      [
+        25,
+        250000,
+        "150.00",
+        "300.00"
+      ],
+      [
+        50,
+        1000000,
+        "260.00",
+        "520.00"
+      ],
+      [
+        100,
+        1500000,
+        "372.50",
+        "745.00"
+      ],
+      [
+        250,
+        3000000,
+        "710.00",
+        "1420.00"
+      ],
+      [
+        499,
+        5490000,
+        "1270.25",
+        "2540.50"
+      ],
+      [
+        500,
+        10000000,
+        "975.00",
+        "1950.00"
+      ]
+    ],
+    "boundary_check": "367 custom launch $973.25; 368 custom $975.50; 500 package $975.00. Recommend explicitly purchasing 500 capacity for 368–499 needs, without changing custom calculation or silently choosing/purchasing a quantity.",
+    "trial_gap": "Installed IPMI activate_trial writes +1 month/cap50/no grant; approved unpublished repair writes +14 days/cap50/no grant. Account start_free_trial grants 1M with two-month token expiry but does not check grant return or set tier/cap. Generic auto_create_account can seed configured credits (source default2M) and product custom email verification does not explicitly fire its user_email_verified hook. These are different paths, not proof that IPMI delivered 1M.",
+    "bounded_trial_work": "Trace the existing eligible once-only account/provisioning path with synthetic integration first. Port approved 14-day future-expiry and catalog cap50 changes only. Include narrow future explicit trial-setup wiring/error handling to the existing authorized grant path only if authoritative eligibility, duplicate prevention, token expiry and generic-seed coexistence are established; pairing never invokes it. Do not silently combine activate_trial and start_free_trial: their had_trial ordering and token semantics differ.",
+    "precise_policy_hold": "If existing authority/configuration does not establish whether the IPMI1M is additional to, replaces, or is already represented by generic configured seed credits, and whether its existing two-month token expiry is intentional, that exact credit-composition/expiry choice must be resolved before changing production grant behavior or claiming trial delivery. No new amount, retrocredit, manual customer grant, current-balance repair, provider purchase or model change is included. Apply publication_hold_rule: hold new/altered public1M promises as well as grant/delivery changes; independently safe lanes continue under the same conditional approval.",
+    "publication_hold_rule": "Unresolved IPMI funding/seed/expiry/once-only provisioning evidence holds production trial-provisioning changes, trial-delivery claims, and any NEW or ALTERED public promise of1M trial tokens. Independently verified branded linking/dialog, paid monthly pricing and SRE one-time frequency corrections may proceed. For each existing trial block, preserve exact before-captured bytes during this lane, with an explicit release/evidence qualification that the retained block was not reverified; or omit a newly proposed offer section entirely. Do not publish a rewritten/re-rendered1M promise as if it were an independently accepted result. Existing unchanged wording is not a newly verified delivery assertion. If shortcode refactoring would alter/re-emit that block, retain its old rendering branch byte-for-byte or hold that dependent change until evidence closes. No replacement amount or new business policy is invented."
+  },
+  "steps": [
+    {
+      "number": 1,
+      "action": "Refresh evidence, isolate source and record the approved scope",
+      "files": [
+        "Both repositories: requirements.md, traceability-matrix.md, .traceweaver/intent-contract.yml, .traceweaver/account-pairing-20261028/contract.json (presentation/continuation addendum only)",
+        "Bounded new .traceweaver/link-ux-20261031/{owner-approval,scope,verification,release-evidence}.json or repository-required equivalent",
+        "Evidence under artifacts/ipmi-readiness-20261026/link-ux-20261031/"
+      ],
+      "checks": [
+        "Read-only GitHub gh/SSH/ls-remote preflight and current protected branch/release identities.",
+        "Read installed plugin manifest and Fleet client identity; inspect actual CMS page IDs/revisions and configured login/campaign without changing accounts.",
+        "Fresh feature worktrees from current dev with release reconciliation; do not modify dirty primary a7098e or bulk-ship dirty commercial WIP4f81fcf.",
+        "Record file-level selections from approved WIP, dependency review and baseline tests before changes."
+      ],
+      "risk": "Cached main and installed reference can diverge; reconcile exact source before porting only approved hunks."
+    },
+    {
+      "number": 2,
+      "action": "Prove regressions before implementation and freeze bounded continuation semantics",
+      "files": [
+        "tests/plugin-db/pairing-scenarios.php",
+        "plugin/cryptolabs-ai-gateway/tests/test-ipmi-callback-allowlist.php",
+        "plugin/cryptolabs-ai-gateway/tests/test-email-verify-token-hash.php",
+        "ipmi-monitor/tests/test_account_link_security.py",
+        "ipmi-monitor/tests/test_account_pairing.py",
+        "ipmi-monitor/tests/test_settings_ai_controls.py"
+      ],
+      "checks": [
+        "RED actual emitted central page and signup callbacks lose branded continuation; RED future trial duration/catalog and stale offer values as applicable against fresh baseline.",
+        "Extend existing real extracted-JS harness for disabled/waiting/saving/recovery/identity-only behavior; do not duplicate a broad mock framework.",
+        "Reuse actual producer-v1 fixtures and real Flask handlers; browser layout assertions supplement synthetic DOM execution.",
+        "Retain required existing security/credential preservation assertions and payment tests; no arbitrary test-count target.",
+        "RED real WordPress session initialization/cross-site Lax and Strict handoff race; real CAS ticket one-consume tests; stale/legacy-context isolation through AJAX and verification, not just renderer."
+      ],
+      "risk": "A source-string assertion or self-constructed fixture is insufficient evidence for rendered signup/auth/database behavior."
+    },
+    {
+      "number": 3,
+      "action": "Restore branded central sign-in/signup and safe return to consent",
+      "files": [
+        "plugin/cryptolabs-ai-gateway/includes/class-ipmi-sso.php",
+        "plugin/cryptolabs-ai-gateway/includes/class-ipmi-signup.php",
+        "plugin/cryptolabs-ai-gateway/includes/class-dc-watchdog-shortcode.php",
+        "plugin/cryptolabs-ai-gateway/cryptolabs-ai-gateway.php (narrow early guard/order integration across session initializers for begin/landing/attach candidates; no new runtime file)"
+      ],
+      "checks": [
+        "Normal new-client form POST automatically carries pending code through signup/login without re-entry; legacy GET/manual code remains functional for IPMI and DC. Anonymous and signed-in journeys; existing/new/keyless account; explicit product setup; same-browser verification and different-browser fallback; expired code; wrong product/account; parallel tabs; duplicate/array input; CSRF; replay; Deny/Cancel.",
+        "Assert no key box, device secret, API key, legacy callback or third-party asset in pairing output.",
+        "Preserve fixed v1 JSON envelopes, CAS single redemption, read-only key lookup and old-client compatibility.",
+        "AUTH-P2-01: prove conservative sessionless exclusion across Signup/DC/general bootstrap for begin, landing and every attach candidate; validate raw fixed route/query, method, media/size/flat fields, Origin/Sec-Fetch and ticket shape before explicit session_start. Rejected malformed/header/body variants produce no Set-Cookie/PHP session/map/approval mutation. Valid same-origin attach reuses aged Lax/Strict cookies, preserves other tabs/legacy context and then consumes the bounded CAS ticket within original expiry.",
+        "AUTH-P2-02: handle-aware registration/activation/verification rejects invalid/expired context without fallback; no legacy host attribution or empty-host bypass; explicit eligibility gate remains."
+      ],
+      "risk": "Existing shortcode output can expose account keys or legacy redirects; pairing mode must explicitly exclude those branches."
+    },
+    {
+      "number": 4,
+      "action": "Repair client dialog and truthful connection state",
+      "files": [
+        "ipmi-monitor/src/ipmi_monitor/templates/settings.html",
+        "ipmi-monitor/src/ipmi_monitor/templates/dashboard.html (stale offer/entry wording only)",
+        "ipmi-monitor/src/ipmi_monitor/templates/setup.html (stale offer/entry wording only)"
+      ],
+      "checks": [
+        "Waiting button visibly disabled; no commit while pending; server can_commit controls readiness; saving shown immediately; one request per commit; timers cannot overwrite terminal result.",
+        "Poll/backoff/retry behavior retains TTL and status authority; ambiguous save reconciles read-only without automatic retry.",
+        "Linked identity with unavailable service remains visibly linked; different invalid replacement preserves working link; mounted /ipmi path remains functional."
+      ],
+      "risk": "No account_link.py or app.py protocol change is planned. If a missing read-only status projection is unavoidable, stop for focused contract review within approved objective before changing its exact response; do not fabricate success."
+    },
+    {
+      "number": 5,
+      "action": "Unify approved offers and verify future trial setup",
+      "files": [
+        "plugin/cryptolabs-ai-gateway/includes/class-ipmi-signup.php",
+        "plugin/cryptolabs-ai-gateway/includes/class-paypal-subscriptions.php (read-only display/catalog and existing future trial path only)",
+        "plugin/cryptolabs-ai-gateway/includes/class-account-dashboard.php (existing presenter consistency only)",
+        "plugin/cryptolabs-ai-gateway/includes/class-dc-watchdog-shortcode.php (shared approved trial wording/setup only)",
+        "plugin/cryptolabs-ai-gateway/cryptolabs-ai-gateway.php (conditional existing verification/provisioning hook integration only)",
+        "plugin/cryptolabs-ai-gateway/includes/class-database.php (read-only trace; source changes excluded unless required existing approved grant-path repair is independently reviewed)",
+        "Existing trial/pricing cases in plugin/cryptolabs-ai-gateway/tests/test-ipmi-callback-allowlist.php",
+        "Minimal new plugin/cryptolabs-ai-gateway/tests/test-ipmi-offer-presentation.php only if no existing emitter coverage can be extended",
+        "tests/plugin-db/pairing-scenarios.php and existing payment-control fixtures for synthetic once-only/no-grant assertions"
+      ],
+      "checks": [
+        "Exact canonical table, 367/368/499/500 boundary, coupon enabled/disabled, 14-day future trial/cap50; no change to old expiry/balance.",
+        "Exercise real signup -> verification -> account row -> existing eligible grant -> reported entitlement with isolated synthetic accounts/provider boundary, including double-submit, repeat verification and failed grant; pairing itself writes no credits.",
+        "Keep provider quantity revisions/renewals default OFF; do not import unpublished helpers or migrations.",
+        "Hold trial-delivery claim and production provisioning change if exact seed/expiry policy remains unresolved.",
+        "COMM-01: unresolved funding/seed/expiry/provisioning holds new/altered public1M promise and production grant/delivery assertions. Preserve existing trial block bytes with explicit not-reverified evidence qualification, or omit a new section; independently safe paid-price/link UX lane proceeds."
+      ],
+      "risk": "14-day service access and two-month token expiry are separate existing semantics; never infer one from the other."
+    },
+    {
+      "number": 6,
+      "action": "Prepare and conditionally publish the two actual CMS bodies; keep unresolved trial promises outside the accepted lane",
+      "files": [
+        "CMS existing page at https://www.cryptolabs.co.za/ipmi-monitor-ai-features-page/ (ID/revision captured before write)",
+        "CMS existing page at https://www.cryptolabs.co.za/ipmi_signup/ (ID/revision captured before write)",
+        "artifacts/ipmi-readiness-20261026/link-ux-20261031/cms/{features-before,features-proposed,signup-before,signup-proposed}.html",
+        "artifacts/ipmi-readiness-20261026/link-ux-20261031/cms/{source-map,publication-readback}.json"
+      ],
+      "checks": [
+        "Preserve page IDs, slugs, unrelated body content and actual [ipmi_signup] shortcode execution; never publish literal uppercase unregistered [IPMI_signup].",
+        "Use prepared Oct26 drafts as copy reference only; they target a different product slug.",
+        "Replace stale $100/50-server/one-month/free10/SRE-monthly claims where present; public prices include currency, monthly/one-off basis and applicable campaign.",
+        "Backup revision and exact body before each write; optimistic revision check; purge only necessary cache then read both public pages back.",
+        "Before CMS publication compare trial blocks byte-for-byte with captured before bodies. If trial delivery is unresolved, retain those exact blocks and report not reverified, or omit any newly proposed trial section. Do not change/renew the1M promise through a new canonical presenter until its delivery evidence gate passes."
+      ],
+      "risk": "Plugin deployment cannot update CMS bodies; live markup/revisions and current campaign must be verified separately."
+    },
+    {
+      "number": 7,
+      "action": "Review, validate and package exact candidate artifacts",
+      "files": [
+        "scripts/plugin/package-plugin.py (existing allowlist verification; no new runtime files planned)",
+        "plugin/cryptolabs-ai-gateway/cryptolabs-ai-gateway.php (existing loader verification)",
+        "Both repositories: CHANGELOG.md and existing version metadata only at protected release stage",
+        "Existing docs/configuration/setup documentation bounded to changed linking and offer descriptions",
+        "Existing CI recipes/workflows are reused, not broadened"
+      ],
+      "checks": [
+        "PHP8.3 lint plus bash tests/plugin-php/run-in-docker.sh; bash tests/plugin-db/run-in-docker.sh using isolated MariaDB11.4 and genuine multi-connection CAS tests.",
+        "Client targeted pytest tests/test_account_link_security.py tests/test_account_pairing.py tests/test_settings_ai_controls.py, relevant lint/type checks; full required release regression lanes at release.",
+        "Independent security/correctness/contract review and traceability gate; preserve all required CI, disposable-runner and publication boundaries.",
+        "Two browser QA passes: candidate before and after review fixes, actual WordPress shortcode/auth against synthetic data; desktop and narrow mobile, light/dark where supported, long content, keyboard/focus/Escape, zoom200%, slow/error states.",
+        "Verify manifest/hashes and unchanged pinned publisher; reviewed staged release mirror is source truth, not outdated batch.txt assumptions."
+      ],
+      "risk": "Mocked unit tests cannot prove SQL races, browser layout, live WordPress shortcode execution or target Fleet acceptance."
+    },
+    {
+      "number": 8,
+      "action": "Conditional protected releases, CMS publication and Fleet verification under the same approval",
+      "files": [
+        "Both repositories protected feature -> dev PRs then dev -> actual protected main/Main release PRs",
+        "Existing release metadata/tag artifacts and pinned WordPress staged package",
+        "Accepted DC Overview Fleet Management rollout record for the exact IPMI artifact",
+        "artifacts/ipmi-readiness-20261026/link-ux-20261031/release/ evidence and rollback manifest"
+      ],
+      "checks": [
+        "Fresh required CI/reviews and exact artifact/source identity before merge; no direct protected-branch commits. Patch version only in release-to-main change, derive next version from fresh history, tag exact released commit.",
+        "Deploy central backward-compatible presentation first, read package/version/health; verify old client and current client v1; then client through accepted Fleet only.",
+        "Publish CMS only against checked current revisions, after matching shortcode/presenter is installed; verify external pages and links.",
+        "Back up target configuration/site data and preserve link identity before Fleet update; use normal accepted update route, never unlink/restart pairing for LTX.",
+        "Use a designated synthetic/isolated installation and account for end-to-end signup/login/consent/local-connect acceptance. On existing LTX do only read-only linked identity, status and retained configuration verification; no purchase/token grant/paid API workload.",
+        "Verify actual installed version/digest, health, page rendering and downstream Fleet update result; distinguish observed acceptance from local evidence.",
+        "Lane-specific release gate: unresolved trial integration does not block independently verified central/client UX and paid-copy publication, but holds production provisioning and any new/altered public1M promise. Record unchanged retained trial blocks as not reverified; never claim all offers accepted."
+      ],
+      "risk": "A failed guard holds only the dependent publication/acceptance lane. Diagnose without unsafe CI bypass, host administration workaround or automatic account mutation."
+    }
+  ],
+  "dependency_boundary": {
+    "new_services": "None. Existing WordPress session/auth, PHP8.3, MariaDB11.4, client Flask/test tooling, existing package/publisher and accepted Fleet management only.",
+    "new_tables": "None. Navigation handoff uses fixed512nonautoload rows in existing wp_options with existing prepared SQL/CAS and expiry semantics; no schema migration. This bounded state is explicitly reviewed/tested, not hidden inside ordinary session allocation.",
+    "new_runtime_files": "Not planned; reuse existing classes. Any unavoidable small asset/helper must be itemized in existing loader/package manifest before review, with no hidden transitive WIP import.",
+    "provider": "No PayPal plan/quantity/purchase, provider revision activation, new model or real token spend. Read-only campaign/eligibility configuration may be inspected without printing secrets.",
+    "shared_products": "DC shortcode route compatibility included. Do not change DC/Proxy backend protocol, controller deployments or Fleet authority; shared v1 regression fixtures remain green."
+  },
+  "one_approval": {
+    "requested_scope": "Approve this bounded source/tests/docs/authority-addendum repair, conditional future-trial integration only where existing authority proves semantics, protected PR/release sequence, exact two CMS updates, and accepted Fleet IPMI rollout plus verification. This proposal itself authorizes none of those actions until the owner approves.",
+    "guards": "Approval permits carrying the whole sequence through without repeated generic confirmation when scope and gates remain satisfied. It does not waive protected branch reviews, required CI, release capsules where required, verified artifacts, backups, target health, existing grant eligibility or CMS revision checks. Lane-specific holds in publication_hold_rule apply within this one approval; ordinary engineering review/test steps do not trigger repeated generic permission requests.",
+    "stop_only_for": "A material new business/grant policy, protocol/schema/credential change outside this plan, failed required guard without a safe authorized repair, conflicting current source/authority, or different destructive customer operation. Present the precise new decision and prepared evidence, not a repeated broad approval question.",
+    "not_included": [
+      "Disconnecting/relinking/restarting LTX pairing",
+      "Manual or retrospective customer credits; changing current balance/expiry",
+      "Payments or provider subscriptions/quantity revisions",
+      "New callback allowlists, VPN, postMessage credentials, global credential fallbacks",
+      "Bulk publication of dirty commercial WIP or provider renewals/revisions helpers",
+      "Changing shared CI runtime/admission/runner groups; host SSH workaround",
+      "Claiming signup tokens or paid AI acceptance without actual eligible-path evidence"
+    ]
+  },
+  "rollback": {
+    "central": "Retain previous reviewed immutable package/digest and health baseline. Restore through the same pinned publisher if central health or compatibility fails; no database rollback/migration is expected. Old verification URI and v1 remain valid in both directions.",
+    "cms": "Restore exact backed-up page body by page ID/revision under the existing CMS update mechanism; preserve URL and unrelated edits, avoid blindly overwriting a newer concurrent revision.",
+    "client": "Use accepted Fleet rollback to last healthy exact image while retaining existing volume, site identity, configuration and stored link. Read back identity/status after rollback.",
+    "continuations": "Session navigation and bounded handoff tickets can be abandoned safely; both expire by the original deadline. Rollback code ignores the additive namespace and old clients retain v1. No grant rollback/customer unlink; never reuse a consumed ticket."
+  },
+  "success": "Accepted UX/paid-copy lane: branded sign-in/signup preserves pending code through normal navigation; central matching-code consent and local confirmation remain explicit; readable dialog saves verified identity and reports service separately; old clients/links preserved; approved paid monthly prices and separate SRE frequency are consistent on both pages; reviewed package and intended Fleet version observed healthy. Trial lane accepted only after authorized eligibility/funding/expiry/once-only delivery evidence. Until then no production trial repair or new/altered1M public promise ships; existing exact trial blocks may remain with explicit not-reverified release qualification. Do not claim all-offer or trial-delivery acceptance. LTX/current balances remain untouched.",
+  "execution_provenance": {
+    "requested_model": "gpt-6-astra high per parent dispatch",
+    "served_model_attested": false,
+    "scope": "Read-only source inspection and three proposal/report artifacts only; no implementation, tests of product behavior, network, account, Git or runtime mutations by this subagent."
+  },
+  "revision": 3,
+  "revision_review": {
+    "previous_json_sha256": "28904366c942b2e78c7fca19e333fcaa6a31d009355efaf7c517a2f8019ea015",
+    "previous_html_sha256": "456927b85a638ecd9946b5f6cbe6326597c0de102333d66270becf04c687ce7e",
+    "addressed_findings": [
+      "AUTH-P2-01-R2 (ordering closure of AUTH-P2-01 only)"
+    ],
+    "reviews": {
+      "independent-security/revision2-review.json": "c81e878b2f8c9943aa54d9a375194c70355a8b2de1a5d4d6b85f3aff52795cb6"
+    },
+    "status": "Targeted ordering clarification only; AUTH-P2-02 and commercial revision2 closure unchanged. Exact prior artifacts preserved in revision2/; prior review hashes remain in revision1/revision2 archives."
+  }
+}

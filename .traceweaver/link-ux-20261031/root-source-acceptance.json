@@ -1,0 +1,41 @@
+{
+  "status": "SOURCE_REVIEW_PASSED_PR_PREPARATION_ALLOWED_TARGET_HELD",
+  "utc": "2026-10-31T08:50:12.183013+00:00",
+  "authority_plan_sha256": "38923fa994f3735f2c1c62b2cc1c0f87894892240c924ee0927128ddc4453d8f",
+  "baseline": "f807c4ff941c600f1f4f2c3061de8fd2f8132f14",
+  "source_hashes": {
+    "src/ipmi_monitor/templates/settings.html": "03f539d07dfe02a2f5232fe02408cbe3393787b6d4151aece78814658de89153",
+    "src/ipmi_monitor/templates/dashboard.html": "9432ec6876b6086f6566acab20d3a121fe6be3b1012bb89fd3335e98889b7c77",
+    "src/ipmi_monitor/templates/setup.html": "f156459fc117f25a689f5935fc6c013a71258f5ca7260a4fb5c7af36bd789a7d",
+    "tests/test_account_link_security.py": "f2ed8598bf1269263fc9d492bcb29fc08d1561040ce6b14312d25e515fa870a4",
+    "tests/test_account_pairing.py": "dc35f6ff1cf39ab7619fdeea804c9a05f106e5d54cab0a89431dc40846266f60",
+    "tests/test_settings_ai_controls.py": "7b4d9773a4260ae492bdd1a9f9e205f8f6af230670ef4331845cd61f18817be0"
+  },
+  "verification": {
+    "focused": "97passed, original81retained",
+    "full_regression": "258passed",
+    "source_scan": "3Pythonverificationfiles0findings;HTMLnotcovered",
+    "browser": "2batches/45finalgeometrycases;rootinspecteddesktop+phone;CSS/markupunchangedaftertimingrepair"
+  },
+  "reviews": {
+    "correctness": "client/independent-source-review-repair1.json noopenfindings",
+    "adversarial": "client/independent-adversarial-review.json nofindings,97focused+10independentJSraces"
+  },
+  "trace": "client/root-source-trace.json;unchangedowner-approvedexact-pathJinjaanchors",
+  "original_id_format": "StockcapsuleBLOCKEDonly4originalMON02namingfindings;approvedIDsretained/manualmappingdefinition/root-precode-go.json. No checkerPASSclaim.",
+  "publication_boundary": "FeaturePRintoDev allowed underdirectApprove repair and rollout. Centralbackward-compatibledeploymentMUSTprecedeclientFleetactivation. No sourceversionbump infeature.",
+  "held": [
+    "requiredCI",
+    "protectedrelease+immutableartifact",
+    "central+CMS+Fleetobservations",
+    "newtrialfunding/provisioning",
+    "liveAI/billingacceptance"
+  ],
+  "not_performed": [
+    "customeraccountchanges",
+    "modelcalls",
+    "payments",
+    "Fleetupdate",
+    "CMSwrites"
+  ]
+}
