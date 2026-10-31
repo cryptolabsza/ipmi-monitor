@@ -1,0 +1,58 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "id": "branded-link-offers-20261031",
+  "frozen": true,
+  "revision": 1,
+  "risk": "L3",
+  "authority": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/link-ux-20261031/owner-approval.json",
+  "authority_plan_sha256": "38923fa994f3735f2c1c62b2cc1c0f87894892240c924ee0927128ddc4453d8f",
+  "baseline": {
+    "wordpress": "f659d9e8362103810dede2ae16938561effd7fcc",
+    "ipmi": "f807c4ff941c600f1f4f2c3061de8fd2f8132f14"
+  },
+  "streams": {
+    "wordpress": {
+      "path": "/Users/hanneszietsman/CrypotAI/ai-platform-link-ux-20261031",
+      "owner": "auth-continuation worker"
+    },
+    "offers": {
+      "path": "/Users/hanneszietsman/CrypotAI/ai-platform-offers-20261031",
+      "owner": "read-only pricing presenter worker"
+    },
+    "client": {
+      "path": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-link-ux-20261031",
+      "owner": "client dialog worker"
+    }
+  },
+  "controls": [
+    "Owner-approved revision3 exact contract; no new protocol/grant/provider scope",
+    "Precode reviewed executable RED and validation capsule per stream before production GO",
+    "Existing REQ-PAIR-001..006 and REQ-IPMI-MON-02/REQ-IPMI-PLAT-03; no invented authority",
+    "Independent Sol correctness and Astra auth/adversarial final review, targeted follow-up for actual defects",
+    "At most two batched visual QA rounds, no unbounded polish",
+    "Full required CI/release lanes, protected feature-dev-main, exact immutable publisher and Fleet route",
+    "Trial funding unresolved holds production grant and altered 1M promises only; byte-identical retained trial blocks",
+    "LTX existing link/balances preserved; no model call/payment/quota change"
+  ],
+  "reviewer_role_cap": 2,
+  "planned_source_review_rounds": 2,
+  "repair_policy": "Repair actionable in-scope failures, reuse targeted review; material authority change returns to owner",
+  "process_budget": {
+    "estimated_delivery_hours": 24,
+    "estimated_process_hours": 4,
+    "target_process_fraction": 0.25,
+    "ceiling_process_to_delivery": 1,
+    "note": "Planning/review artifacts reused; actual execution intervals recorded, no claim of measured totals yet"
+  },
+  "model_routing": {
+    "implementation": "gpt-6.1-sol high",
+    "adversarial": "gpt-6-astra high",
+    "served_model_attested": false
+  },
+  "high_risk_controls": {
+    "rollback": "Retain prior immutable WP package, CMS page bodies/revisions and client Fleet image/config; no DB restore or unlink. Tickets expire original deadline.",
+    "owner_decision": "Approve repair and rollout; exact revision3. Publication conditional on existing gates, no repeated generic approval."
+  },
+  "utc": "2026-10-31T08:04:07.874753+00:00",
+  "canonical_profile_hash": "d09cd66fd47ceb9b4dbad54fe94e70e9e8180f27e2659fc64a1f47bef2e5dbae"
+}

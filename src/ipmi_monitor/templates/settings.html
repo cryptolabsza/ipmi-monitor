@@ -172,6 +172,62 @@
         .btn-primary:hover {
             background: #3a8eef;
         }
+
+        .account-pair-dialog {
+            width: min(480px, calc(100vw - 32px));
+            max-height: calc(100dvh - 32px);
+            overflow: auto;
+            margin: auto;
+            padding: 24px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        .account-pair-dialog::backdrop { background: rgba(0, 0, 0, .65); }
+        .account-pair-dialog .pair-layout { display: grid; gap: 16px; min-width: 0; }
+        .account-pair-dialog h2 { margin: 0; font-size: 1.4rem; line-height: 1.25; }
+        .account-pair-dialog p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+        .account-pair-dialog form { margin: 0; }
+        .account-pair-dialog .pair-code {
+            display: block;
+            padding: 12px;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            font-size: clamp(1.1rem, 5vw, 1.5rem);
+            line-height: 1.4;
+            letter-spacing: .08em;
+        }
+        .account-pair-dialog .pair-note { font-size: .875rem; }
+        .account-pair-dialog .pair-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+        .account-pair-dialog .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            max-width: 100%;
+            white-space: normal;
+            font-size: 1rem;
+            line-height: 1.3;
+            transition: none;
+        }
+        .account-pair-dialog .btn:disabled,
+        .account-pair-dialog .btn:disabled:hover {
+            background: var(--bg-primary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            cursor: not-allowed;
+        }
+        .account-pair-dialog .btn-primary:enabled { background: #1d4ed8; color: #fff; }
+        [data-theme="light"] .account-pair-dialog .btn:disabled { color: #526075; }
+        .account-pair-dialog .btn:focus-visible {
+            outline: 2px solid var(--accent-blue);
+            outline-offset: 3px;
+        }
+        #linkedAccountSection > div { flex-wrap: wrap; gap: 12px; }
+        #linkedAccountSection > div > div { min-width: 0; }
+        #linkedAccountEmail { overflow-wrap: anywhere; }
         
         .btn-secondary {
             background: var(--bg-secondary);
@@ -1812,10 +1868,10 @@
                         </p>
                         <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                             <span style="background: rgba(0, 214, 143, 0.2); color: var(--accent-green); padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 0.9rem;">
-                                🎁 1 MONTH FREE TRIAL
+                                Connect your CryptoLabs account
                             </span>
                             <span style="color: var(--text-secondary); font-size: 0.9rem;">
-                                No credit card required
+                                Your plan governs AI service access
                             </span>
                         </div>
                     </div>
@@ -1824,11 +1880,11 @@
                             🔐 Connect with CryptoLabs
                         </a>
                         <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 10px;">
-                            Then $100/month for 50 servers (+$15 per 10 extra)
+                            Review current plans and eligibility on CryptoLabs.
                         </p>
                         <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
                             <button onclick="startFreeTrial()" class="btn btn-secondary" style="font-size: 0.95rem;">
-                                New account? Start Free Trial
+                                New account? Create an account
                             </button>
                         </div>
                     </div>
@@ -2011,7 +2067,7 @@
                         <strong>Ready to let AI handle your server monitoring?</strong>
                     </p>
                     <a href="#" onclick="startFreeTrial(); return false;" class="btn" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%); color: white; font-weight: 700; padding: 14px 28px; font-size: 1rem; text-decoration: none; display: inline-block; border-radius: 10px; cursor: pointer;">
-                        🎁 Start Your Free Month →
+                        Create a CryptoLabs account →
                     </a>
                 </div>
             </div>
@@ -2099,7 +2155,9 @@
         
         // Update AI UI based on connection status
         async function updateAiUI(config) {
-            const isConnected = config && config.subscription_valid && config.license_key;
+            const hasIdentity = Boolean(config && config.license_key && config.linked_account && config.linked_account.wp_email);
+            const serviceAvailable = Boolean(config && config.subscription_valid && config.license_key);
+            const isConnected = hasIdentity || serviceAvailable;
             
             // Show/hide appropriate sections
             document.getElementById('aiTrialBanner').style.display = isConnected ? 'none' : 'block';
@@ -2107,37 +2165,42 @@
             document.getElementById('aiTrialCTA').style.display = isConnected ? 'none' : 'block';
             
             if (isConnected) {
-                const tier = (config.subscription_tier || 'FREE').toUpperCase();
-                const maxServers = config.max_servers || 5;  // Free tier defaults to 5
+                const tier = serviceAvailable ? (config.subscription_tier || 'Unknown').toUpperCase() : 'SERVICE UNAVAILABLE';
+                const maxServers = Number.isInteger(config.max_servers) ? config.max_servers : 0;
                 
                 document.getElementById('aiTierDisplay').textContent = tier;
-                document.getElementById('aiStatusMessage').textContent = `Connected to CryptoLabs AI`;
+                document.getElementById('aiStatusMessage').textContent = serviceAvailable
+                    ? 'Connected to CryptoLabs AI' : 'Account linked. AI service is unavailable; check your plan or try again later.';
                 document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Sync enabled' : '⏸️ Paused';
                 document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
                 
-                // Fetch current server count to compare with limit
+                document.getElementById('aiServerCount').style.display = 'none';
+                document.getElementById('aiServerLimitWarning').style.display = 'none';
+                // Compare allowance only when the service has verified it.
                 try {
-                    const serversResp = await fetch(apiUrl('/api/servers'));
-                    const serversData = await serversResp.json();
-                    const currentServerCount = serversData.servers?.length || serversData.length || 0;
+                    if (serviceAvailable) {
+                        const serversResp = await fetch(apiUrl('/api/servers'));
+                        const serversData = await serversResp.json();
+                        const currentServerCount = serversData.servers?.length || serversData.length || 0;
                     
-                    // Show server count badge
-                    const countBadge = document.getElementById('aiServerCount');
-                    countBadge.style.display = 'inline-flex';
-                    countBadge.textContent = `${currentServerCount}/${maxServers}`;
+                        // Show server count badge
+                        const countBadge = document.getElementById('aiServerCount');
+                        countBadge.style.display = 'inline-flex';
+                        countBadge.textContent = maxServers < 0 ? `${currentServerCount} / Unlimited` : `${currentServerCount}/${maxServers}`;
                     
-                    // Check if limit exceeded
-                    const limitWarning = document.getElementById('aiServerLimitWarning');
-                    if (currentServerCount > maxServers) {
-                        countBadge.style.background = 'var(--accent-red)';
-                        countBadge.style.color = 'white';
-                        limitWarning.style.display = 'block';
-                        document.getElementById('aiLimitMessage').textContent = `Server limit exceeded: ${currentServerCount}/${maxServers}`;
-                        document.getElementById('aiMaxServersText').textContent = maxServers;
-                    } else {
-                        countBadge.style.background = 'var(--accent-green)';
-                        countBadge.style.color = 'white';
-                        limitWarning.style.display = 'none';
+                        // Check if limit exceeded
+                        const limitWarning = document.getElementById('aiServerLimitWarning');
+                        if (maxServers >= 0 && currentServerCount > maxServers) {
+                            countBadge.style.background = 'var(--accent-red)';
+                            countBadge.style.color = 'white';
+                            limitWarning.style.display = 'block';
+                            document.getElementById('aiLimitMessage').textContent = `Server limit exceeded: ${currentServerCount}/${maxServers}`;
+                            document.getElementById('aiMaxServersText').textContent = maxServers;
+                        } else {
+                            countBadge.style.background = 'var(--accent-green)';
+                            countBadge.style.color = 'white';
+                            limitWarning.style.display = 'none';
+                        }
                     }
                 } catch (e) {
                     console.error('Failed to fetch server count:', e);
@@ -2159,7 +2222,12 @@
                     document.getElementById('aiLastSyncCard').style.display = 'block';
                     document.getElementById('aiLastSyncTime').textContent = new Date(config.last_sync).toLocaleString();
                     document.getElementById('aiLastSyncResult').textContent = config.last_sync_message || config.last_sync_status || 'Status unavailable';
+                } else {
+                    document.getElementById('aiLastSyncCard').style.display = 'none';
                 }
+            } else {
+                document.getElementById('linkedAccountSection').style.display = 'none';
+                document.getElementById('aiLastSyncCard').style.display = 'none';
             }
         }
         
@@ -2173,79 +2241,196 @@
             if (document.getElementById('accountPairDialog')) return;
             const dialog = document.createElement('dialog');
             dialog.id = 'accountPairDialog';
-            dialog.style.cssText = 'max-width:480px;width:calc(100vw - 32px);max-height:calc(100dvh - 32px);overflow:auto;margin:auto;box-sizing:border-box;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:12px;padding:24px;';
-            dialog.innerHTML = '<h2>Connect CryptoLabs</h2><p>Open CryptoLabs on this or another device. Sign in or create an account, enter the matching code, then approve.</p>' +
-                '<p><strong id="pairCode" style="font-size:1.5rem;letter-spacing:2px;"></strong></p>' +
-                '<p><a id="pairVerify" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">Open CryptoLabs</a></p>' +
-                '<p id="pairStatus" role="status">Starting secure connection…</p>' +
-                '<p style="font-size:.85rem;">Your account key covers your account. Disconnect removes this local connection only. Your existing plan and limits govern service access. Do not approve codes you did not request.</p>' +
-                '<div style="display:flex;gap:12px;flex-wrap:wrap;"><button type="button" id="pairConfirm" class="btn btn-primary" disabled>Connect this account</button>' +
-                '<button type="button" id="pairCancel" class="btn btn-secondary">Cancel</button></div>';
+            dialog.className = 'account-pair-dialog';
+            dialog.setAttribute('aria-labelledby', 'pairTitle');
+            dialog.innerHTML = '<div class="pair-layout"><h2 id="pairTitle">Connect CryptoLabs</h2>' +
+                '<p>Open CryptoLabs to sign in or create an account. Compare the matching code and approve there, then confirm here.</p>' +
+                '<p><strong id="pairCode" class="pair-code">Preparing code…</strong></p>' +
+                '<form id="pairHandoff" method="post" target="_blank" rel="noopener noreferrer">' +
+                '<input type="hidden" name="action" value="begin">' +
+                '<input type="hidden" id="pairUserCode" name="user_code">' +
+                '<input type="hidden" id="pairMode" name="mode">' +
+                '<button type="submit" id="pairVerify" class="btn btn-secondary" disabled>Open CryptoLabs</button></form>' +
+                '<p id="pairStatus" role="status" aria-live="polite">Starting secure connection…</p>' +
+                '<p class="pair-note">Using another device? Open https://www.cryptolabs.co.za/?clai_pair=1 and enter this code manually. The code expires in five minutes.</p>' +
+                '<p class="pair-note">Your account key covers your account. Disconnect removes this local connection only. Your existing plan and limits govern service access. Do not approve codes you did not request.</p>' +
+                '<div class="pair-actions"><button type="button" id="pairConfirm" class="btn btn-primary" disabled>Waiting for approval</button>' +
+                '<button type="button" id="pairCancel" class="btn btn-secondary">Cancel</button></div></div>';
             document.body.appendChild(dialog);
             dialog.showModal();
             const status = dialog.querySelector('#pairStatus');
             const confirmButton = dialog.querySelector('#pairConfirm');
+            const openButton = dialog.querySelector('#pairVerify');
+            const cancelButton = dialog.querySelector('#pairCancel');
+            const handoff = dialog.querySelector('#pairHandoff');
             let attempt = null, csrfToken = null, timer = null, expiryTimer = null, closed = false;
+            let phase = 'starting', selectedAccount = null, deadline = 0, interval = 5, failures = 0;
+            const clearTimers = () => { clearTimeout(timer); clearTimeout(expiryTimer); };
+            const terminal = (message) => {
+                phase = 'terminal'; clearTimers();
+                confirmButton.disabled = true;
+                confirmButton.textContent = 'Connection stopped';
+                openButton.disabled = true;
+                status.textContent = message;
+                cancelButton.disabled = false;
+                cancelButton.textContent = 'Close';
+            };
+            const request = async (path, options = {}) => {
+                const controller = typeof AbortController === 'function' ? new AbortController() : null;
+                const timeout = controller ? setTimeout(() => controller.abort(), 15000) : null;
+                try {
+                    const response = await fetch(apiUrl(path), {
+                        credentials: 'same-origin', ...options, ...(controller ? {signal: controller.signal} : {})
+                    });
+                    return {response, result: await response.json()};
+                } finally { if (timeout) clearTimeout(timeout); }
+            };
             const call = async (action, payload) => {
-                const response = await fetch(apiUrl('/api/account-link/' + action), {
-                    method: 'POST', credentials: 'same-origin',
-                    headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+                const {response, result} = await request('/api/account-link/' + action, {
+                    method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
                     body: JSON.stringify(payload)
                 });
-                const result = await response.json();
-                if (!response.ok) throw new Error(result.error || 'Connection unavailable. Please restart.');
+                if (!response.ok) {
+                    const error = new Error('Connection request failed.');
+                    error.code = result.error; error.status = response.status;
+                    throw error;
+                }
                 return result;
             };
             const close = async () => {
-                if (closed) return;
+                if (closed || phase === 'saving' || phase === 'reconciling') return;
                 closed = true;
-                clearTimeout(timer); clearTimeout(expiryTimer);
+                phase = 'closed'; clearTimers();
+                dialog.close(); dialog.remove();
                 if (attempt) {
                     try { await call('cancel', {attempt_id: attempt}); } catch (_) {}
                 }
-                dialog.close(); dialog.remove();
             };
-            dialog.querySelector('#pairCancel').onclick = close;
+            cancelButton.onclick = close;
             dialog.addEventListener('cancel', (event) => { event.preventDefault(); close(); });
+            handoff.onsubmit = (event) => {
+                if (closed || openButton.disabled || Date.now() >= deadline) {
+                    event.preventDefault();
+                    if (!closed && phase !== 'saving' && phase !== 'reconciling') terminal('Code expired. Close this dialog and start again.');
+                }
+            };
             confirmButton.onclick = async () => {
+                if (closed || phase !== 'ready' || confirmButton.disabled || !attempt) return;
+                if (Date.now() >= deadline) { terminal('Code expired. Close this dialog and start again.'); return; }
+                phase = 'saving'; clearTimers();
                 confirmButton.disabled = true;
+                confirmButton.textContent = 'Saving…';
+                openButton.disabled = true;
+                cancelButton.disabled = true;
+                status.textContent = 'Saving this account on this installation…';
                 try {
                     const result = await call('commit', {attempt_id: attempt, confirm: true});
+                    if (result.status !== 'linked' || !result.account || result.account.id !== selectedAccount.id ||
+                            result.account.email !== selectedAccount.email) throw new Error('Unconfirmed save response.');
                     attempt = null;
+                    phase = 'linked';
                     await close();
                     await loadAiConfig();
                     showAlert('Connected as ' + result.account.email + '. Sync preferences were preserved.', 'success');
-                } catch (error) { status.textContent = error.message; }
+                } catch (_) {
+                    // The server may have saved before the response was lost. Never replay commit.
+                    phase = 'reconciling';
+                    confirmButton.textContent = 'Checking saved account…';
+                    status.textContent = 'Save response interrupted. Checking the saved account…';
+                    try {
+                        const {response, result: config} = await request('/api/ai/config');
+                        const saved = config.linked_account;
+                        const matches = response.ok && config.linked_account_status === 'verified' && saved &&
+                            saved.wp_user_id === selectedAccount.id && saved.wp_email === selectedAccount.email;
+                        terminal(matches
+                            ? 'Account is linked as ' + saved.wp_email + '. The save response was interrupted; check service status in Settings.'
+                            : 'Could not confirm the saved account. Check Settings before starting another connection. Your previous connection may still be saved.');
+                        if (matches) loadAiConfig().catch(() => {});
+                    } catch (_) {
+                        terminal('Could not confirm the saved account. Check Settings when the connection returns before starting another connection.');
+                    }
+                }
+            };
+            const schedulePoll = (delay) => {
+                if (closed || phase !== 'pending' || Date.now() >= deadline) return;
+                const wait = Math.max(5, Math.min(300, delay));
+                if (Date.now() + wait * 1000 < deadline) timer = setTimeout(poll, wait * 1000);
             };
             const poll = async () => {
-                if (closed || !attempt) return;
+                if (closed || phase !== 'pending' || !attempt || Date.now() >= deadline) return;
                 try {
                     const result = await call('status', {attempt_id: attempt});
-                    if (closed) return;
+                    if (closed || phase !== 'pending') return;
+                    if (Date.now() >= deadline) { terminal('Code expired. Close this dialog and start again.'); return; }
+                    failures = 0;
                     if (result.status === 'awaiting_confirmation') {
+                        if (!result.account || typeof result.account.email !== 'string' || !Number.isInteger(result.account.id)) {
+                            terminal('Account details could not be verified. Close this dialog and start again.'); return;
+                        }
+                        selectedAccount = result.account;
+                        phase = result.can_commit === true ? 'ready' : 'blocked';
                         status.textContent = 'Selected account: ' + result.account.email + '. Service: ' + result.service_status +
-                            (result.can_commit ? '. Confirm to connect.' : '. Existing connection preserved. Resolve service access before replacing it.');
-                        confirmButton.disabled = !result.can_commit;
+                            (phase === 'ready' ? '. Confirm to connect.' : '. Existing connection preserved. Resolve service access before replacing it.');
+                        confirmButton.disabled = phase !== 'ready';
+                        confirmButton.textContent = phase === 'ready' ? 'Connect this account' : 'Existing connection preserved';
+                    } else if (result.status === 'pending') {
+                        interval = Number.isFinite(result.interval) ? Math.max(5, Math.min(300, result.interval)) : interval;
+                        status.textContent = 'Waiting for approval on CryptoLabs. Compare the matching code before approving.';
+                        schedulePoll(interval);
                     } else {
-                        timer = setTimeout(poll, Math.max(5, result.interval || 5) * 1000);
+                        terminal('Connection could not be verified. Your existing connection is preserved. Close this dialog and start again.');
                     }
-                } catch (error) { if (!closed) status.textContent = error.message + ' Cancel and restart when ready.'; }
+                } catch (error) {
+                    if (closed || phase !== 'pending') return;
+                    if (Date.now() >= deadline || error.code === 'expired_token') {
+                        terminal('Code expired. Close this dialog and start again.');
+                    } else if (error.code === 'access_denied') {
+                        terminal('Connection was denied. Your existing connection is preserved.');
+                    } else if (error.status && error.status < 500 && error.status !== 429) {
+                        terminal('Connection stopped. Sign in locally and check Settings before starting again. Your existing connection is preserved.');
+                    } else if (++failures <= 3) {
+                        status.textContent = 'Connection interrupted. Retrying the approval check; the original code expiry still applies.';
+                        schedulePoll(Math.max(interval, Math.min(30, interval * 2 ** failures)));
+                    } else {
+                        terminal('Approval could not be checked. Your existing connection is preserved. Close this dialog and try again when online.');
+                    }
+                }
             };
             try {
-                const configResponse = await fetch(apiUrl('/api/account-link/config'), {credentials: 'same-origin'});
-                const config = await configResponse.json();
+                const {response: configResponse, result: config} = await request('/api/account-link/config');
+                if (closed) return;
                 if (!configResponse.ok || !config.csrf_token) throw new Error('Sign in as a local administrator to connect.');
                 csrfToken = config.csrf_token;
+                const startedAt = Date.now();
                 const result = await call('start', {});
-                if (closed) return;
+                if (closed) {
+                    if (result.attempt_id) { try { await call('cancel', {attempt_id: result.attempt_id}); } catch (_) {} }
+                    return;
+                }
+                if (result.verification_uri !== 'https://www.cryptolabs.co.za/?clai_pair=1' ||
+                        typeof result.attempt_id !== 'string' || !/^[0-9A-HJKMNP-TV-Z]{2}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(result.user_code) ||
+                        !Number.isFinite(result.expires_in) || result.expires_in <= 0 || result.expires_in > 300) {
+                    terminal('Secure connection details could not be verified. Close this dialog and start again.'); return;
+                }
                 attempt = result.attempt_id;
+                // Response transit must never extend the original attempt window.
+                deadline = startedAt + result.expires_in * 1000;
+                if (Date.now() >= deadline) { terminal('Code expired. Close this dialog and start again.'); return; }
+                interval = Number.isFinite(result.interval) ? Math.max(5, Math.min(300, result.interval)) : 5;
                 dialog.querySelector('#pairCode').textContent = result.user_code;
-                dialog.querySelector('#pairVerify').href = result.verification_uri;
-                status.textContent = 'Compare this code on CryptoLabs before approving. It expires in five minutes.';
-                timer = setTimeout(poll, Math.max(5, result.interval) * 1000);
-                expiryTimer = setTimeout(() => { status.textContent = 'Code expired. Cancel and start again.'; confirmButton.disabled = true; clearTimeout(timer); }, result.expires_in * 1000);
+                handoff.setAttribute('action', result.verification_uri);
+                dialog.querySelector('#pairUserCode').value = result.user_code;
+                dialog.querySelector('#pairMode').value = mode === 'signup' ? 'signup' : 'signin';
+                openButton.disabled = false;
+                openButton.focus();
+                phase = 'pending';
+                status.textContent = 'Ready. Open CryptoLabs to continue. Compare this code before approving.';
+                schedulePoll(interval);
+                expiryTimer = setTimeout(() => {
+                    if (!closed && !['saving', 'reconciling', 'linked', 'terminal'].includes(phase)) terminal('Code expired. Close this dialog and start again.');
+                }, Math.max(0, deadline - Date.now()));
             } catch (error) {
-                status.textContent = error.message || 'Unable to start connection. Cancel and try again.';
+                if (!closed) terminal('Unable to start connection. Sign in as a local administrator, then close this dialog and try again.');
             }
         }
         
@@ -5302,7 +5487,7 @@
         handleOAuthCallback();  // Process any callback parameters first
         if (new URLSearchParams(window.location.search).get('pair') === '1') {
             showTab('ai');
-            loginWithCryptoLabs();
+            loginWithCryptoLabs(new URLSearchParams(window.location.search).get('mode') === 'signup' ? 'signup' : 'signin');
         }
         loadServers();
         loadManagedServers();

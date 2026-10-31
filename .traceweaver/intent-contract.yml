@@ -83,3 +83,12 @@
     "runtime_acceptance": "held"
   }
 }
+
+# Mechanical projection of direct owner-approved revision3; original baseline retained.
+link_ux_20261031:
+  authority: .traceweaver/link-ux-20261031/owner-approval.json
+  plan: .traceweaver/link-ux-20261031/approved-plan.json
+  plan_sha256: 38923fa994f3735f2c1c62b2cc1c0f87894892240c924ee0927128ddc4453d8f
+  status: local_source_review_passed_ci_and_target_held
+  requirements: [REQ-PAIR-001, REQ-PAIR-002, REQ-PAIR-003, REQ-PAIR-004, REQ-PAIR-005, REQ-PAIR-006, REQ-IPMI-MON-02]
+  held: trial_delivery_and_new_promises_live_ai_billing_and_unobserved_target_acceptance

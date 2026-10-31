@@ -1,0 +1,11 @@
+{
+  "status": "DIRECT_OWNER_APPROVED",
+  "utc": "2026-10-31T07:57:33.772863+00:00",
+  "owner_message": "Approve repair and rollout",
+  "source": "Direct user response to combined repair approval question call_b9c80ea600be4876a88a7ccd2088e79f",
+  "plan_json_sha256": "38923fa994f3735f2c1c62b2cc1c0f87894892240c924ee0927128ddc4453d8f",
+  "plan_html_sha256": "4a5c6344595f2c063bb3af21b786ba7cac9cb816e93b3f98ff0a848d64d16066",
+  "plan": "plan-proposed.html",
+  "scope": "Branded signup/SSO continuation; dialog states/layout; approved offer consistency; isolated source/tests/review/protected releases; two CMS updates; Fleet rollout after gates",
+  "guards": "All frozen plan conditions and scoped trial/provisioning holds remain; no generic reapproval within approved scope"
+}

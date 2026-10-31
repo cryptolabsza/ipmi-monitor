@@ -76,3 +76,12 @@ These are generated raw data copies within the approved verification scope. Inli
 | --- | --- | --- | --- | --- | --- |
 | tests/fixtures/pairing-producer-v1.json | REQ-PAIR-001; REQ-PAIR-003; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-003; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-003; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | Exception | Generated data approved for exact-byte provenance mapping; SHA256 d58a17f90c33e935b4307b5816e462d0445ee984b72e1d03948dfa3cd9d9404d; regenerate and drift-check from wordpress/actual-producer-fixture.json |
 | tests/fixtures/pairing-wire-v1.json | REQ-PAIR-001; REQ-PAIR-003; REQ-PAIR-004; REQ-PAIR-005; REQ-PAIR-006 | TRACE-PAIR-001; TRACE-PAIR-003; TRACE-PAIR-004; TRACE-PAIR-005; TRACE-PAIR-006 | VER-PAIR-001; VER-PAIR-003; VER-PAIR-004; VER-PAIR-005; VER-PAIR-006 | Exception | Generated data approved for exact-byte provenance mapping; SHA256 8ccd5db5c28c55da4e9118c7f913e45532e3213007b8e98a4af214f4bb20d652; regenerate and drift-check from fixtures/pairing-wire-v1.json |
+
+
+## Branded linking and offer repair evidence — 31 October 2026
+
+The direct owner-approved revision3 plan and original requirement IDs are projected in `.traceweaver/link-ux-20261031/authority-projection.json`. Existing TRACE-PAIR rows remain open for installed acceptance. Precode V&V and subsequent source/release/target evidence are recorded separately; no requirement closure is asserted. Independent paid-copy/linking progress does not accept trial delivery or billing.
+
+### Current client source evidence (31 October)
+
+Existing TRACE-PAIR-001..006 / TRACE-IPMI-MON-02: workspace `link-ux-20261031/client/root-source-trace.json` binds exact candidate templates/tests to precode RED,97focused and258full passing cases, two existing browser batches and independent correctness repair review. The three unchanged Jinja premise anchors use the already approved exact-path alternate; the stock scanner checks only three Python tests and reports zero findings, with no HTML coverage claim. `docs/validation/branded-link-ux-20261031.md` defines intended-use acceptance. Final adversarial source review passed with no findings (97 focused tests and10independent JS race cases). Protected CI and observed central/Fleet/target acceptance remain open; this is not requirement closure.
