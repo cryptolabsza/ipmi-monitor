@@ -1,0 +1,37 @@
+{
+  "reviewer": "adversarial",
+  "round": 2,
+  "findings": [],
+  "resolved_findings": [
+    {
+      "severity": "P2",
+      "title": "Fresh summary failure inserts upstream error-page CSS into the dashboard",
+      "status": "fixed and independently verified",
+      "line": 4580,
+      "fix": "reportText(data.error) preserves error message literally inside trusted paragraph."
+    }
+  ],
+  "hashes_start_and_end": {
+    "src/ipmi_monitor/templates/dashboard.html": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+    "tests/test_dashboard_ai_reports.py": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2"
+  },
+  "checks": {
+    "focused_command": "IPMI_AICSS_EVIDENCE_DIR=<final>/focused PYTHONDONTWRITEBYTECODE=1 /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q -p no:cacheprovider tests/test_dashboard_ai_reports.py",
+    "focused_output": "4 passed, 45 warnings in 3.71s",
+    "focused_cases": 36,
+    "harness_errors": 0,
+    "resource_probes": 0,
+    "independent_reproduction_command": "PYTHONDONTWRITEBYTECODE=1 /private/tmp/ipmi-report-css-20261102-venv/bin/python /Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/review/adversarial/final/error_probe.py",
+    "independent_reproduction_output": "problems=[], resource_probes=[], errors=[]; before and after: Space Grotesk, color rgb(232,232,240), maxWidth none, width/containerWidth 1440. Entire upstream HTML error retained literally.",
+    "no_unrelated_changes_proof": "Reversing exactly the one-line source repair reconstructs prior reviewed source SHA b2cd2c9179c46d54f12c05a4dbc10ea32d2594b15c8cbbe0f7a707be7c1e2a52. Reversing exactly the ninth-case insertion plus case-count adjustment reconstructs prior reviewed test SHA 407f1c0cbc72ea01fd94f4d7a0062c21f60d225acae8f38f964319fcc48ac6af."
+  },
+  "residual_risks": [
+    "Review limited to report HTML/text/style boundary and the targeted error-path repair; no global dashboard sanitizer certification or target acceptance.",
+    "Other unrelated renderers and stored chat history are outside this review."
+  ],
+  "testing_gaps": [
+    "Final full suite not rerun by this reviewer; focused browser evidence and independent error reproduction completed."
+  ],
+  "prior_review_retained": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/review/adversarial/review.json",
+  "source_or_test_edits": false
+}

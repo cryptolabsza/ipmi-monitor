@@ -1,0 +1,14 @@
+{
+  "status": "qualified_exact_path_manual_source_proof",
+  "path": "src/ipmi_monitor/templates/dashboard.html",
+  "candidate_sha256": "b2cd2c9179c46d54f12c05a4dbc10ea32d2594b15c8cbbe0f7a707be7c1e2a52",
+  "source_base": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "req_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "ver_id": "VER-AICSS-001",
+  "anchor": "// TRACEWEAVER: entrypoint=ai_report_rendering; req=REQ-AICSS-001; trace=TRACE-AICSS-001; ver=VER-AICSS-001",
+  "anchor_present": true,
+  "scope": "Cached/fresh legacy boundary, structuredsummary/task/prediction renderers in exact Jinja template; full rendered JS syntax parsed by Node and actual report handlers executed in Chromium",
+  "scanner_limitation": "Stock code-anchor helper does not support .html behavior scanning; no HTML scanner PASS claimed. Python verification helper pass is separate.",
+  "independent_source_review": "pending root-assigned reviewers"
+}

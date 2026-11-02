@@ -1,0 +1,100 @@
+{
+  "work_item_id": "IPMI-AICSS-20261102",
+  "status": "ROOT_ADOPTED_OWNER_APPROVED_SCOPE_RED_DEFINITION_ONLY_BEFORE_PRODUCTION_GO",
+  "mode": "Implementation Gate Mode after additive authority projection review",
+  "baseline": {
+    "source_ref": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+    "release_ref": "be4c364fac868c1370adbbe352a65e2b32491a09",
+    "files": {
+      "requirements.md": "101aca82dd1251064de7025fc72d0360768e58e8b519e6409d5a9a4ef4cd360e",
+      "traceability-matrix.md": "8024bab7cd37714ea884a6560fff8d5010f18c6825054e8e498a998360288f63",
+      ".traceweaver/intent-contract.yml": "cd4634145eb60842a1135316cc1fc3e226f854b52944aee4498f94440f58db3d",
+      "src/ipmi_monitor/templates/dashboard.html": "9432ec6876b6086f6566acab20d3a121fe6be3b1012bb89fd3335e98889b7c77"
+    }
+  },
+  "authority": {
+    "source": "Direct owner messages retained by root conversation",
+    "quotes": [
+      "Ok good we need fix thar css issue",
+      "Merge and deploy"
+    ],
+    "context": "Earlier diagnosed and proposed isolation of BOTH cached and fresh AI report HTML; quotes supplied to this reviewer by root, not independently recovered conversation transcript.",
+    "decision": "Proceed with literal repair preparation and RED; production GO after reviewed RED/capsule. No repeat generic permission required.",
+    "new_requirement_id": "REQ-AICSS-001",
+    "statement": "When displaying cached or freshly returned AI reports, IPMI Monitor shall prevent report-supplied HTML, CSS, and structured text fields from changing the existing dashboard theme, typography, or page layout, while retaining readable report text and basic formatting.",
+    "trace_id": "TRACE-AICSS-001",
+    "verification_id": "VER-AICSS-001",
+    "validation_id": "VAL-AICSS-001",
+    "need_id": "NEED-AICSS-001",
+    "acceptance_procedure_id": "ATP-AICSS-001",
+    "result_id": "RESULT-AICSS-001",
+    "previous_ids": "MON/PAIR retained, not repurposed to cover AI HTML rendering"
+  },
+  "implementation_files": [
+    "src/ipmi_monitor/templates/dashboard.html"
+  ],
+  "verification_files": [
+    "tests/test_dashboard_ai_reports.py"
+  ],
+  "authority_files": [
+    "requirements.md",
+    "traceability-matrix.md",
+    ".traceweaver/intent-contract.yml",
+    ".traceweaver/ai-report-css-20261102/authority.json",
+    ".traceweaver/ai-report-css-20261102/plan.json",
+    ".traceweaver/ai-report-css-20261102/workflow-profile.json",
+    ".traceweaver/ai-report-css-20261102/vv-capsule.json",
+    "docs/validation/ai-report-css-20261102.md"
+  ],
+  "plan": [
+    "Freeze scoped source profile; append literal owner-authority projection and trace rows, retaining history.",
+    "Add one focused regression artifact using real rendered dashboard script; establish RED for cached and fresh raw HTML and structured-text paths before production mutation.",
+    "Use detached inert template and fresh allowlisted nodes for untrusted legacy HTML; route fresh summary.html through same boundary. Escape data interpolated into structured summary/task/prediction markup and enum-map dynamic classes, preserving trusted template CSS.",
+    "Rerun identical regression GREEN, inspect basic formatting/links/tables and exact original stylesheet/theme hashes; real browser proves unchanged computed body and report content.",
+    "Perform independent bounded correctness/security review; retain unsupported Jinja exact-path manual anchor proof rather than claiming HTML scanner pass. Root alone owns protected feature-dev-main release1.3.3 and existing publisher/Fleet gates."
+  ],
+  "design": {
+    "allowlist": "Native HTML text-formatting and table nodes, no original nodes or arbitrary attributes; drop active/resource/style subtrees, unwrap harmless unsupported formatting. Validate hyperlink protocol before adding href; retain safe ordinary links with noopener. No src/srcset/style/class/id/name/event handler from input.",
+    "structured": "Use existing escapeHtml with String-normalized data; all dynamic text fields, including numeric-looking metadata. Fixed enum mapping for status/priority. Do not sanitize trusted scaffold wholesale because its existing classes/styles are desired.",
+    "no_dependencies": true,
+    "unchanged": [
+      "Original dashboard style blocks/theme/body width",
+      "API response shapes",
+      "Stored reports and AI settings/keys/credits",
+      "Backend storage/model/provider code",
+      "Fleet code and recovery records",
+      "CI routes and package dependencies"
+    ],
+    "out_of_scope": [
+      "New AI/model calls",
+      "Key/funding/billing changes",
+      "Database migrations or cache clearing",
+      "Fleet repair or bypass of unresolved LTX recovery",
+      "Global site-wide sanitizer refactor"
+    ]
+  },
+  "verification": {
+    "reuse": "tests/test_settings_ai_controls.py demonstrates actual Jinja script extraction plus Node execution; reuse app_fixture/login_as. Existing Node fake DOM is insufficient to prove CSS isolation; use available real-browser tooling for the observed style regression without new production dependency.",
+    "red_payload": "<style>body { font-family: Arial, sans-serif; color: #333; max-width:900px; margin:0 auto; }</style><h2>Report retained</h2><p>Readable text</p><table><tr><td>Host 1</td></tr></table>",
+    "cases": [
+      "loadCachedAiResults with summary.content HTML",
+      "generateSummary with summary.html and summary.content",
+      "Structured summary text and status/priority cannot introduce HTML/CSS",
+      "Shared task/prediction text and priority cannot inject style",
+      "Readable legacy text/bold/list/link/table preserved; allowed links validated",
+      "No requests during inert parse/filter for resource-bearing payload; body computed style unchanged in real browser"
+    ],
+    "acceptance": "At same viewport/theme, body font/color/max-width/width match pre-insertion dashboard; report text/basic markup remains visible. Actual owner-view validation after normal target deployment; no provider call necessary."
+  },
+  "held_claims": [
+    "No RED/GREEN evidence created by architecture reviewer",
+    "No production GO issued by this proposal",
+    "No deployment, requirement closure, security certification, or scanner HTML pass claimed",
+    "LTX normal selection remains blocked while native unresolved recovery guard holds"
+  ],
+  "graphify": "No initialized graph present; no graph writes because only architecture artifacts owned. Authoritative origin/dev git blobs used directly; no graph evidence claimed.",
+  "skill_limits": "Local tw-plan references/workflow-profile-template.yml absent. Existing versioned profile and installed vv checker schema used for proposal shape; no claim packaged ce-plan delegation or checker pass.",
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-report-css-20261102",
+  "branch": "fix/ai-report-css-20261102",
+  "owner_approval": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/owner-approval.json"
+}

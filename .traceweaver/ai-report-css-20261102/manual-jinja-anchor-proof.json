@@ -1,0 +1,15 @@
+{
+  "status": "qualified_exact_path_manual_source_proof",
+  "path": "src/ipmi_monitor/templates/dashboard.html",
+  "candidate_sha256": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+  "source_base": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "req_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "ver_id": "VER-AICSS-001",
+  "anchor": "// TRACEWEAVER: entrypoint=ai_report_rendering; req=REQ-AICSS-001; trace=TRACE-AICSS-001; ver=VER-AICSS-001",
+  "anchor_present": true,
+  "scope": "Cached/fresh legacy boundary, structuredsummary/task/prediction renderers in exact Jinja template; full rendered JS syntax parsed by Node and actual report handlers executed in Chromium; upstream-summary error field escaped at the fresh-response boundary",
+  "scanner_limitation": "Stock code-anchor helper does not support .html behavior scanning; no HTML scanner PASS claimed. Python verification helper pass is separate.",
+  "independent_source_review": ".traceweaver/ai-report-css-20261102/root-source-acceptance.json",
+  "repair_cycles_used": 1
+}
