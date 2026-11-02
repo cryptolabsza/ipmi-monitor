@@ -4294,21 +4294,31 @@
             }
         }
         
+        // TRACEWEAVER: entrypoint=ai_report_rendering; req=REQ-AICSS-001; trace=TRACE-AICSS-001; ver=VER-AICSS-001
+        function reportText(value) {
+            return escapeHtml(String(value ?? ''));
+        }
+
+        function reportPriority(value) {
+            return ['low', 'medium', 'high', 'critical'].includes(value) ? value : 'medium';
+        }
+
         function renderStructuredSummary(s) {
-            const statusIcon = {healthy: '✅', warning: '⚠️', critical: '🔴'}[s.status] || '❓';
-            const statusClass = s.status || 'healthy';
+            const statusIcon = s.status === 'healthy' ? '✅' : s.status === 'warning' ? '⚠️' : s.status === 'critical' ? '🔴' : '❓';
+            const status = String(s.status || 'unknown');
+            const statusClass = s.status === 'healthy' ? 'low' : s.status === 'critical' ? 'critical' : 'medium';
             let html = '';
 
             // Fleet status header — uses ai-task-card style
-            html += `<div class="ai-task-card ${statusClass === 'healthy' ? 'low' : statusClass}">
+            html += `<div class="ai-task-card ${statusClass}">
                 <div class="ai-task-header">
-                    <span class="ai-task-title">${statusIcon} Fleet Status: ${(s.status||'unknown').charAt(0).toUpperCase() + (s.status||'').slice(1)}</span>
-                    <span class="ai-task-priority ${statusClass === 'healthy' ? 'low' : statusClass}">${(s.status||'unknown').toUpperCase()}</span>
+                    <span class="ai-task-title">${statusIcon} Fleet Status: ${reportText(status.charAt(0).toUpperCase() + status.slice(1))}</span>
+                    <span class="ai-task-priority ${statusClass}">${reportText(status.toUpperCase())}</span>
                 </div>
                 <div class="ai-task-meta">
-                    ${s.fleet_size || '?'} servers &bull; ${s.servers_healthy || 0} healthy &bull; ${s.servers_warning || 0} warning &bull; ${s.servers_critical || 0} critical &bull; ${s.event_count || 0} events in ${s.time_range_hours || 24}h
+                    ${reportText(s.fleet_size || '?')} servers &bull; ${reportText(s.servers_healthy || 0)} healthy &bull; ${reportText(s.servers_warning || 0)} warning &bull; ${reportText(s.servers_critical || 0)} critical &bull; ${reportText(s.event_count || 0)} events in ${reportText(s.time_range_hours || 24)}h
                 </div>
-                <p style="margin: 8px 0 0 0;">${s.executive_summary || ''}</p>
+                <p style="margin: 8px 0 0 0;">${reportText(s.executive_summary || '')}</p>
             </div>`;
 
             // Critical issues
@@ -4320,8 +4330,8 @@
                     </div>
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
                 s.critical_issues.forEach(i => {
-                    html += `<li style="margin-bottom: 6px;"><strong>${i.server}</strong> — ${i.component ? i.component + ': ' : ''}${i.description}`;
-                    if (i.action) html += `<br><span class="ai-task-meta">→ ${i.action}</span>`;
+                    html += `<li style="margin-bottom: 6px;"><strong>${reportText(i.server)}</strong> — ${i.component ? reportText(i.component) + ': ' : ''}${reportText(i.description)}`;
+                    if (i.action) html += `<br><span class="ai-task-meta">→ ${reportText(i.action)}</span>`;
                     html += `</li>`;
                 });
                 html += `</ul></div>`;
@@ -4336,7 +4346,7 @@
                     </div>
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
                 s.warnings.forEach(w => {
-                    html += `<li style="margin-bottom: 4px;"><strong>${w.server}</strong> — ${w.description}${w.trend ? ` <em>(${w.trend})</em>` : ''}</li>`;
+                    html += `<li style="margin-bottom: 4px;"><strong>${reportText(w.server)}</strong> — ${reportText(w.description)}${w.trend ? ` <em>(${reportText(w.trend)})</em>` : ''}</li>`;
                 });
                 html += `</ul></div>`;
             }
@@ -4344,10 +4354,10 @@
             // Recommendations
             if (s.recommendations && s.recommendations.length > 0) {
                 s.recommendations.forEach(r => {
-                    const p = r.priority || 'medium';
+                    const p = reportPriority(r.priority);
                     html += `<div class="ai-task-card ${p}">
                         <div class="ai-task-header">
-                            <span class="ai-task-title">💡 ${r.text}</span>
+                            <span class="ai-task-title">💡 ${reportText(r.text)}</span>
                             <span class="ai-task-priority ${p}">${p.toUpperCase()}</span>
                         </div>
                     </div>`;
@@ -4361,7 +4371,7 @@
                         <span class="ai-task-title">📊 Detected Patterns</span>
                     </div>
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
-                s.patterns.forEach(p => { html += `<li>${p}</li>`; });
+                s.patterns.forEach(p => { html += `<li>${reportText(p)}</li>`; });
                 html += `</ul></div>`;
             }
 
@@ -4372,16 +4382,59 @@
                         <span class="ai-task-title">✅ Positive Notes</span>
                     </div>
                     <ul style="margin: 8px 0 0 0; padding-left: 20px;">`;
-                s.positive_notes.forEach(n => { html += `<li>${n}</li>`; });
+                s.positive_notes.forEach(n => { html += `<li>${reportText(n)}</li>`; });
                 html += `</ul></div>`;
             }
 
             return html;
         }
 
+        function safeReportHtml(content) {
+            // Parse inertly: never attach input nodes or let their resource and
+            // presentation attributes enter the dashboard document.
+            const input = document.createElement('template');
+            input.innerHTML = String(content ?? '');
+            const output = document.createElement('div');
+            const allowed = new Set(['a', 'p', 'div', 'span', 'br', 'hr', 'strong', 'b',
+                'em', 'i', 'u', 's', 'del', 'small', 'sub', 'sup', 'pre', 'code',
+                'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li',
+                'dl', 'dt', 'dd', 'table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td']);
+            const dropped = new Set(['style', 'script', 'link', 'meta', 'base', 'template',
+                'noscript', 'iframe', 'object', 'embed', 'img', 'picture', 'video', 'audio',
+                'source', 'track', 'canvas', 'form', 'input', 'button', 'textarea', 'select']);
+            function copy(node, parent) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    parent.appendChild(document.createTextNode(node.textContent));
+                    return;
+                }
+                if (node.nodeType !== Node.ELEMENT_NODE ||
+                    node.namespaceURI !== 'http://www.w3.org/1999/xhtml') return;
+                const tag = node.localName;
+                if (dropped.has(tag)) return;
+                let destination = parent;
+                if (allowed.has(tag)) {
+                    destination = document.createElement(tag);
+                    if (tag === 'a' && node.hasAttribute('href')) {
+                        try {
+                            const url = new URL(node.getAttribute('href'), document.baseURI);
+                            if (url.protocol === 'http:' || url.protocol === 'https:') {
+                                destination.href = url.href;
+                                destination.target = '_blank';
+                                destination.rel = 'noopener noreferrer';
+                            }
+                        } catch (e) { /* Invalid links remain readable text. */ }
+                    }
+                    parent.appendChild(destination);
+                }
+                for (const child of node.childNodes) copy(child, destination);
+            }
+            for (const node of input.content.childNodes) copy(node, output);
+            return output.innerHTML;
+        }
+
         function formatAiContent(content) {
             // Strip markdown code blocks (```html ... ```)
-            content = content.trim();
+            content = String(content ?? '').trim();
             const codeBlockMatch = content.match(/^```(?:html|json|xml|text)?\s*\n?([\s\S]*?)\n?```$/i);
             if (codeBlockMatch) {
                 content = codeBlockMatch[1].trim();
@@ -4403,22 +4456,22 @@
             if (content.includes('<div') || content.includes('<h2') || content.includes('<p>')) {
                 // Content has HTML, just clean up any intro text before the first tag
                 // and ensure proper line breaks in plain text sections
-                return content
+                return safeReportHtml(content
                     .replace(/^([^<]+)(<)/s, (match, text, tag) => {
                         // Format intro text before first HTML tag
                         return text.replace(/\n/g, '<br>').replace(/^- /gm, '• ') + tag;
                     })
                     // Handle markdown links [text](url) in HTML content too
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color: var(--accent-blue);">$1</a>');
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>'));
             }
             
             // Plain text content - convert markdown-like syntax to HTML
-            return content
+            return safeReportHtml(content
                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                 // Handle markdown links [text](url) - convert to clickable links
-                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" style="color: var(--accent-blue);">$1</a>')
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
                 .replace(/\n/g, '<br>')
-                .replace(/^- /gm, '• ');
+                .replace(/^- /gm, '• '));
         }
         
         function renderTasks(tasks) {
@@ -4428,6 +4481,7 @@
             }
             
             document.getElementById('aiTasksContent').innerHTML = tasks.map((t, idx) => {
+                const priority = reportPriority(t.priority);
                 // Handle affected_servers - can be array or comma-separated string
                 let affectedServers = [];
                 if (t.affected_servers) {
@@ -4440,25 +4494,25 @@
                 const showExpanded = serverCount <= 5;
                 
                 return `
-                <div class="ai-task-card ${t.priority || 'medium'}">
+                <div class="ai-task-card ${priority}">
                     <div class="ai-task-header">
-                        <span class="ai-task-title">${t.title}</span>
-                        <span class="ai-task-priority ${t.priority || 'medium'}">${(t.priority || 'medium').toUpperCase()}</span>
+                        <span class="ai-task-title">${reportText(t.title)}</span>
+                        <span class="ai-task-priority ${priority}">${priority.toUpperCase()}</span>
                     </div>
                     <div class="ai-task-meta">
-                        ${t.component ? `<strong>Component:</strong> ${t.component}` : ''}
+                        ${t.component ? `<strong>Component:</strong> ${reportText(t.component)}` : ''}
                         ${serverCount > 0 ? ` | <strong>Affected:</strong> ${serverCount} server${serverCount > 1 ? 's' : ''}` : ''}
-                        ${t.server && serverCount === 0 ? `<strong>Server:</strong> ${t.server}` : ''}
+                        ${t.server && serverCount === 0 ? `<strong>Server:</strong> ${reportText(t.server)}` : ''}
                     </div>
-                    <div class="ai-task-reason">${t.reason || t.description || ''}</div>
-                    ${t.suggested_action ? `<div style="font-size: 0.85rem; color: var(--accent-green); margin-top: 6px;">💡 ${t.suggested_action}</div>` : ''}
+                    <div class="ai-task-reason">${reportText(t.reason || t.description || '')}</div>
+                    ${t.suggested_action ? `<div style="font-size: 0.85rem; color: var(--accent-green); margin-top: 6px;">💡 ${reportText(t.suggested_action)}</div>` : ''}
                     ${serverCount > 0 ? `
                         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
                             <div style="font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;" onclick="toggleAffectedServers('task-servers-${idx}')">
                                 🖥️ <strong>Affected Servers</strong> (click to ${showExpanded ? 'collapse' : 'expand'})
                             </div>
                             <div id="task-servers-${idx}" style="display: ${showExpanded ? 'block' : 'none'}; margin-top: 6px; max-height: 150px; overflow-y: auto;">
-                                ${affectedServers.map(s => `<a href="${BASE_PATH}/server/${s}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${s}</a>`).join('')}
+                                ${affectedServers.map(s => `<a href="${BASE_PATH}/server/${encodeURIComponent(String(s))}" style="display: inline-block; background: var(--bg-tertiary); padding: 2px 8px; margin: 2px; border-radius: 4px; font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none;">${reportText(s)}</a>`).join('')}
                             </div>
                         </div>
                     ` : ''}
@@ -4482,12 +4536,12 @@
             document.getElementById('aiPredictionsContent').innerHTML = predictions.map(p => `
                 <div class="ai-task-card ${p.confidence > 80 ? 'high' : p.confidence > 50 ? 'medium' : 'low'}">
                     <div class="ai-task-header">
-                        <span class="ai-task-title">⚠️ ${p.component || 'Component'} on ${p.server || 'Unknown'}</span>
-                        <span class="ai-task-priority medium">${p.confidence || 50}% confidence</span>
+                        <span class="ai-task-title">⚠️ ${reportText(p.component || 'Component')} on ${reportText(p.server || 'Unknown')}</span>
+                        <span class="ai-task-priority medium">${reportText(p.confidence || 50)}% confidence</span>
                     </div>
-                    <div class="ai-task-reason">${p.prediction || p.description || ''}</div>
-                    ${p.timeframe ? `<div style="font-size: 0.85rem;"><strong>Timeframe:</strong> ${p.timeframe} days</div>` : ''}
-                    ${p.warning_signs ? `<div style="font-size: 0.85rem; color: var(--accent-yellow);">👁️ Watch for: ${p.warning_signs}</div>` : ''}
+                    <div class="ai-task-reason">${reportText(p.prediction || p.description || '')}</div>
+                    ${p.timeframe ? `<div style="font-size: 0.85rem;"><strong>Timeframe:</strong> ${reportText(p.timeframe)} days</div>` : ''}
+                    ${p.warning_signs ? `<div style="font-size: 0.85rem; color: var(--accent-yellow);">👁️ Watch for: ${reportText(p.warning_signs)}</div>` : ''}
                 </div>
             `).join('');
         }
@@ -4520,10 +4574,10 @@
                     document.getElementById('summaryTime').textContent = 'Generated: ' + new Date().toLocaleString();
                 } else if (data.summary && (data.summary.html || data.summary.content)) {
                     // Legacy free-form HTML/markdown
-                    document.getElementById('aiSummaryContent').innerHTML = data.summary.html || formatAiContent(data.summary.content);
+                    document.getElementById('aiSummaryContent').innerHTML = formatAiContent(data.summary.html || data.summary.content);
                     document.getElementById('summaryTime').textContent = 'Generated: ' + new Date().toLocaleString();
                 } else if (data.error) {
-                    document.getElementById('aiSummaryContent').innerHTML = `<p style="color: var(--accent-red)">${data.error}</p>`;
+                    document.getElementById('aiSummaryContent').innerHTML = `<p style="color: var(--accent-red)">${reportText(data.error)}</p>`;
                 }
             } catch (e) {
                 document.getElementById('summaryOutput').style.display = 'block';

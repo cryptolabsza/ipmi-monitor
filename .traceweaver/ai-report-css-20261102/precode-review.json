@@ -1,0 +1,219 @@
+{
+  "schema_version": "aicss-precode-review/1",
+  "review_id": "AICSS-precode-review",
+  "status": "passed",
+  "decision": "PASS_PRECODE_AUTHORITY_AND_VERIFICATION_DEFINITION",
+  "reviewed_at_utc": "2026-11-02T05:14:22.078290+00:00",
+  "work_item_id": "IPMI-AICSS-20261102",
+  "requirement_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "verification_id": "VER-AICSS-001",
+  "validation_id": "VAL-AICSS-001",
+  "reviewer": "Independent architecture reviewer; did not author production or executable regression",
+  "source_baseline": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "controlled_hashes": {
+    "tests/test_dashboard_ai_reports.py": "407f1c0cbc72ea01fd94f4d7a0062c21f60d225acae8f38f964319fcc48ac6af",
+    "src/ipmi_monitor/templates/dashboard.html": "9432ec6876b6086f6566acab20d3a121fe6be3b1012bb89fd3335e98889b7c77",
+    "requirements.md": "a041bb6d0f4023ad0337dcc024440ec3955f7a33aac35efff41f1f05d850776a",
+    "traceability-matrix.md": "cbfae3446ba207ccd79febaad654cec7a4ef5a7fe129eb0f549718058d6885c4",
+    ".traceweaver/intent-contract.yml": "930640c341351e15a60ad28885f3ad0e4be6313e25c61f7efb8ad471fc4d41aa",
+    ".traceweaver/ai-report-css-20261102/authority.json": "db21176dfc773c7719c11ada09096a97df0fe50d09b496ee57c16c12db371a80",
+    ".traceweaver/ai-report-css-20261102/plan.json": "ef7a55db4585a7dd6224f26a36585b1c97924944975ae42c3eec56524819d967",
+    ".traceweaver/ai-report-css-20261102/workflow-profile.json": "22d36408caf2364c6c0944edd19a57150f6449f153d514991ace16ed7495f1ca",
+    ".traceweaver/ai-report-css-20261102/red-evidence.json": "50a279969ecb8dc835468044b2a478315577e961b4283be2c5864298eac2e13c",
+    "docs/validation/ai-report-css-20261102.md": "6cf5f5e216e689844653ba2f105aeb193cea7380ec5671cd5d5af617f41e2981",
+    ".traceweaver/ai-report-css-20261102/red-evidence-precision.json": "ef6ee9567caa5105f6b7fdd046848ad842be6d175c31556cd2c5b2a7fd6b8f4d",
+    ".traceweaver/ai-report-css-20261102/vv-capsule.json": "c8f5a25b595cf65045fd2b93f5867a1e2e83a2fc9ec8aaeb89920103e3eb6514"
+  },
+  "workflow_profile_hash": "3af3a48bfd41463052956eb3f658900680607148388c455633e977521f026a81",
+  "workflow_profile_hash_recomputed": true,
+  "dashboard_exact_HEAD": true,
+  "initial_css_sha256": "8b38274ae6f89b37bb02356fa534252edf3300db65b753b64e73e6203fc35b58",
+  "authority_review": {
+    "outcome": "passed",
+    "basis": "Owner literal diagnosed repair and merge/deploy intent supplied through root; additive requirement matches report CSS isolation and readable content only. Existing requirements/matrix/intent bytes are unchanged prefixes. New ID does not misattribute behavior to MON/PAIR.",
+    "boundary": "No independent transcript recovery claimed; source repair approval does not waive protected release or target recovery gates."
+  },
+  "verification_review": {
+    "outcome": "passed",
+    "production_code_used": "Flask app fixture renders GET /; script syntax checked by Node; unchanged loadCachedAiResults through generateSummary block and escapeHtml are extracted from real rendered script. Actual DOM and inline CSS retained. No formatter or sanitizer implementation mirrored.",
+    "covered": [
+      "cached legacy summary",
+      "fresh summary.html",
+      "fresh summary.content",
+      "cached structured summary",
+      "fresh structured summary",
+      "actual task renderer",
+      "actual prediction renderer",
+      "resource-bearing legacy HTML"
+    ],
+    "retained_value": "Assertions require h2/strong/li/td, report text/Host 1 and three safe links; structured hostile text must be literal. Full body font/color/maxWidth/width and container width are compared before/after.",
+    "independent_result": "Prior f4ab5835 test independently executed:4expectedfailures32cases0JSerrors. Current407f1c0c precision test evidence independently inspected, not reexecuted; exact four-line delta tightens only two assertions/fixtures.",
+    "independent_command": "IPMI_AICSS_EVIDENCE_DIR=<architecture>/precode-browser /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest tests/test_dashboard_ai_reports.py -q",
+    "independent_log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/architecture/precode-independent-red-rerun.log",
+    "independent_log_sha256": "c65a676c7c6d3b181d3cab81ad6fc475fea569b0d9410525c38eb0c036489025",
+    "independent_observations": [
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/architecture/precode-browser/dark-1440.json",
+        "sha256": "6880cbf76b81a70ad5808d36be021eb13fb888d8604add3e79099fa728f4bee0",
+        "case_count": 8,
+        "harness_errors": [],
+        "probe_requests": [
+          "/__report_probe_style",
+          "/__report_probe_frame",
+          "/__report_probe_image"
+        ],
+        "observed_css_failures": [
+          "cached",
+          "fresh-html",
+          "fresh-content",
+          "cached-structured",
+          "fresh-structured",
+          "tasks",
+          "predictions",
+          "resource-and-attributes"
+        ]
+      },
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/architecture/precode-browser/dark-390.json",
+        "sha256": "63f5013425a477e961fe38d29772ec64bcf3b35058a93d0dcfa79f8a6497475c",
+        "case_count": 8,
+        "harness_errors": [],
+        "probe_requests": [
+          "/__report_probe_style",
+          "/__report_probe_frame",
+          "/__report_probe_image"
+        ],
+        "observed_css_failures": [
+          "cached",
+          "fresh-html",
+          "fresh-content",
+          "cached-structured",
+          "fresh-structured",
+          "tasks",
+          "predictions",
+          "resource-and-attributes"
+        ]
+      },
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/architecture/precode-browser/light-1440.json",
+        "sha256": "8a85668fe8a5a52afa3254fcc6b24c2c5a18d52a02a4d37d51a879828886efee",
+        "case_count": 8,
+        "harness_errors": [],
+        "probe_requests": [
+          "/__report_probe_style",
+          "/__report_probe_frame",
+          "/__report_probe_image"
+        ],
+        "observed_css_failures": [
+          "cached",
+          "fresh-html",
+          "fresh-content",
+          "cached-structured",
+          "fresh-structured",
+          "tasks",
+          "predictions",
+          "resource-and-attributes"
+        ]
+      },
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/architecture/precode-browser/light-390.json",
+        "sha256": "bed6711c93c23fe4a41208e72545a3683a931ec622dfdcf339fd124da47755bc",
+        "case_count": 8,
+        "harness_errors": [],
+        "probe_requests": [
+          "/__report_probe_style",
+          "/__report_probe_frame",
+          "/__report_probe_image"
+        ],
+        "observed_css_failures": [
+          "cached",
+          "fresh-html",
+          "fresh-content",
+          "cached-structured",
+          "fresh-structured",
+          "tasks",
+          "predictions",
+          "resource-and-attributes"
+        ]
+      }
+    ],
+    "excluded_tool_failure": "Initial sandbox run could not bind loopback (PermissionError); not RED. Approved escalated rerun used same test and produced actual browser assertion failures.",
+    "baseline_suite": "Builder baseline.log records258pass53.51s; reviewed log, not independently rerun."
+  },
+  "network_isolation": "HTTP response fetch mocked; CSP denies external access/connect and Chromium DNS denies all except127.0.0.1. Only owned loopback probes allowed. No AI/model/live target calls.",
+  "findings": [],
+  "limitations": [
+    "No GREEN, security certification, runtime installation or intended-use acceptance asserted.",
+    "Browser fixture omits external fonts and unrelated startup; live UI remains required.",
+    "Task/prediction actual renderers are invoked directly; cached/fresh summary HTTP entrypoints execute through mocked responses.",
+    "Chromium executable is required via explicit environment/path; this review does not establish remote CI browser availability.",
+    "No HTML scanner pass; exact-path manual Jinja proof remains required."
+  ],
+  "capsule_handoff": {
+    "evidence_path": ".traceweaver/ai-report-css-20261102/precode-review.json",
+    "review_id": "AICSS-precode-review",
+    "review_status": "passed",
+    "root_action": "Copy this exact final passed receipt to .traceweaver/ai-report-css-20261102/precode-review.json; mark review passed, run strict capsule checker, then root may issue bounded production GO. Preserve prior needs_revision receipt externally. Final implementation/source review remains pending."
+  },
+  "production_go_issued_by_reviewer": false,
+  "publication_go": false,
+  "prior_review": {
+    "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/architecture/precode-review.json",
+    "sha256": "5b853da0fa0103debecc68130e46e182587c7b64831a79ccb6a85fcf61f140c5",
+    "status": "needs_revision",
+    "retained": true
+  },
+  "resolved_findings": [
+    {
+      "id": "AICSS-PRECODE-01",
+      "status": "closed",
+      "evidence": "Exact delta removes file: protocol from allowlist assertion and adds file:///report fixture link; required3HTTP(S)/relative/fragment links remain."
+    },
+    {
+      "id": "AICSS-PRECODE-02",
+      "status": "closed",
+      "evidence": "Exact delta asserts absence of supplied style/class/id/name only for markup=true; raw resource paragraph carries all four; structured trusted scaffolds remain exempt."
+    }
+  ],
+  "precision_review": {
+    "method": "Exact diff against preserved f4ab5835 test plus inspection of all4new Chromium observations and hash-bound RED receipt/log; no redundant rerun after previously independent32-case reproduction.",
+    "test_sha256": "407f1c0cbc72ea01fd94f4d7a0062c21f60d225acae8f38f964319fcc48ac6af",
+    "builder_log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/red-precision.log",
+    "builder_log_sha256": "0ae724a87967ea34db2a831674766cd42fdecd21606a95779a50f8857f03d7be",
+    "result": "4expectedfailures3.80s;32cases;zeroJSerrors;all resource payloads show new presentation-attribute RED",
+    "observations": [
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/red-precision-dark-1440.json",
+        "sha256": "14b4978377907d8cf121537fd3abd9a2bd1d226b364e96007a7ca874bc12c90c",
+        "cases": 8,
+        "errors": [],
+        "presentation_attribute_red": true
+      },
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/red-precision-dark-390.json",
+        "sha256": "2869e01882f995a0143207562158779621c8b8cf1f26ace135db108ed6161433",
+        "cases": 8,
+        "errors": [],
+        "presentation_attribute_red": true
+      },
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/red-precision-light-1440.json",
+        "sha256": "4810a6be389ba072ef196664b33110f57d07670c794c53858e8c2efed4d2e93c",
+        "cases": 8,
+        "errors": [],
+        "presentation_attribute_red": true
+      },
+      {
+        "path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/red-precision-light-390.json",
+        "sha256": "2f737ccc261b7e9597fd5970f14bd0703f9f3bf2483c977a324fb28a88fa7477",
+        "cases": 8,
+        "errors": [],
+        "presentation_attribute_red": true
+      }
+    ],
+    "capsule_red_reference": ".traceweaver/ai-report-css-20261102/red-evidence-precision.json",
+    "reference_verified": true,
+    "production_still_unchanged": true
+  }
+}

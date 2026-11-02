@@ -85,3 +85,18 @@ The direct owner-approved revision3 plan and original requirement IDs are projec
 ### Current client source evidence (31 October)
 
 Existing TRACE-PAIR-001..006 / TRACE-IPMI-MON-02: workspace `link-ux-20261031/client/root-source-trace.json` binds exact candidate templates/tests to precode RED,97focused and258full passing cases, two existing browser batches and independent correctness repair review. The three unchanged Jinja premise anchors use the already approved exact-path alternate; the stock scanner checks only three Python tests and reports zero findings, with no HTML coverage claim. `docs/validation/branded-link-ux-20261031.md` defines intended-use acceptance. Final adversarial source review passed with no findings (97 focused tests and10independent JS race cases). Protected CI and observed central/Fleet/target acceptance remain open; this is not requirement closure.
+
+
+## AI report CSS isolation — 2 November 2026
+
+Direct owner authority is `.traceweaver/ai-report-css-20261102/authority.json`; earlier MON/PAIR history remains unchanged. Root owns authority review, final production GO and publication.
+
+| Trace | Requirement | Implementation | Verification | Validation | Status |
+| --- | --- | --- | --- | --- | --- |
+| TRACE-AICSS-001 | REQ-AICSS-001 | `src/ipmi_monitor/templates/dashboard.html`; `.traceweaver/ai-report-css-20261102/manual-jinja-anchor-proof.json` | VER-AICSS-001; `tests/test_dashboard_ai_reports.py`; retained precode RED and `.traceweaver/ai-report-css-20261102/green-evidence.json` | VAL-AICSS-001; `docs/validation/ai-report-css-20261102.md` | Precode review/root source GO passed; 262 local tests pass; independent source review and target closure held |
+
+Code Anchor Evidence: new Python verification has exact REQ/TRACE/VER comments. Dashboard remains under the existing exact-path alternate manual Jinja proof route; no stock HTML scanner pass or new runtime enforcement is claimed. Source GREEN, final source hash, independent source review, protected CI and actual target acceptance will be added only when observed.
+
+Repair cycle1 evidence: `.traceweaver/ai-report-css-20261102/red-evidence-repair1.json` proves an independently found upstream HTML error still changed dashboard CSS before the one-line escape repair. `green-evidence-repair1.json` records all36browsercases and262tests passing afterward. Original32cases/RED/history remain retained. Followup independent source review remains pending; no acceptance or publication closure is inferred.
+
+Current scoped source decision (2 November 2026): `.traceweaver/ai-report-css-20261102/root-source-acceptance.json` records two final independent reviews with no open findings after repair1, 262 passing tests and36 browser cases. Earlier pending records are retained history. Protected CI/publication, immutable image compatibility and actual per-target validation remain separate pending gates; no requirement closure or global dashboard security certification is claimed.

@@ -58,3 +58,18 @@ Verification: `VER-PAIR-006`; validation: `VAL-PAIR-006`. See scoped authority a
 ## Owner-approved branded linking and offer repair — 31 October 2026
 
 Direct owner response: “Approve repair and rollout”. Exact reviewed revision3 plan SHA256 `38923fa994f3735f2c1c62b2cc1c0f87894892240c924ee0927128ddc4453d8f` and receipt are retained in `.traceweaver/link-ux-20261031/`. This is an approved interpretation of REQ-PAIR-001, REQ-PAIR-002, REQ-PAIR-003, REQ-PAIR-004, REQ-PAIR-005, REQ-PAIR-006, REQ-IPMI-MON-02, not a replacement for the existing contract. The plan preserves v1 transport, explicit consent/local confirmation, original expiry, bounded persistent CAS, existing account keys/entitlements and legacy clients. It authorizes safe branded continuation, readable truthful dialog states, approved paid-offer displays, protected releases, the two named CMS pages and accepted Fleet rollout after checks. Unproved trial funding/seed/expiry holds production trial changes and new or altered 1M promises; unchanged trial blocks are explicitly not reverified. No customer grants, purchases, model calls, VPN or inbound callbacks are authorized. Source verification does not imply installed, trial-delivery or billing acceptance.
+
+
+## Owner-approved AI report CSS repair — 2 November 2026
+
+Direct owner intent: “Ok good we need fix thar css issue”, following the diagnosis and proposal to isolate both cached and fresh AI report HTML; subsequently “Merge and deploy”. Transcript custody remains with release root. Authority: `.traceweaver/ai-report-css-20261102/authority.json`. This appendix records only that literal approved behavior, independently of earlier MON/PAIR authority.
+
+### REQ-AICSS-001
+
+When displaying cached or freshly returned AI reports, IPMI Monitor shall prevent report-supplied HTML, CSS, and structured text fields from changing the existing dashboard theme, typography, or page layout, while retaining readable report text and basic formatting.
+
+Need: NEED-AICSS-001. Trace: TRACE-AICSS-001. Verification: VER-AICSS-001. Validation: VAL-AICSS-001. Acceptance: ATP-AICSS-001 / RESULT-AICSS-001. Preserve original dashboard stylesheet/theme identity and report text/basic formatting. Protected release and ordinary Fleet deployment retain existing gates. Provider calls, credentials/credits, stored report clearing, database migrations, CI and Fleet recovery changes are outside scope. Source verification and per-target intended-use acceptance remain separate. Precode review/production GO remain held pending the root decision; no closure is asserted.
+
+Current source evidence after root source-only GO: `.traceweaver/ai-report-css-20261102/green-evidence.json` records identical focused RED→GREEN and 262 passing tests. The preceding precode hold records the preparation state; root subsequently passed precode review and authorized source implementation only. Independent source review, protected publication and actual target acceptance remain held.
+
+Current scoped source decision (2 November 2026): `.traceweaver/ai-report-css-20261102/root-source-acceptance.json` records two final independent reviews with no open findings after repair1, 262 passing tests and36 browser cases. Earlier pending records are retained history. Protected CI/publication, immutable image compatibility and actual per-target validation remain separate pending gates; no requirement closure or global dashboard security certification is claimed.

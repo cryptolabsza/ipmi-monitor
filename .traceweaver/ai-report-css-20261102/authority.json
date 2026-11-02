@@ -1,0 +1,18 @@
+{
+  "status": "DIRECT_OWNER_APPROVED_DIAGNOSED_REPORT_RENDERING_FIX_AND_MERGE_DEPLOY",
+  "recorded_at_utc": "2026-11-02T04:53:35.950845+00:00",
+  "owner_messages": [
+    "Ok good we need fix thar css issue",
+    "Merge and deploy"
+  ],
+  "proposal_referenced": "Previous root diagnosis and fix: saved AI report global stylesheet narrows body to900px/Arial; sanitize or contain both cached and newly generated report HTML, preserve existing theme/width.",
+  "scope": "Diagnosed client AI report content isolation; relevant tests and trace/authority records; protectedfeature-to-dev then patchmain release and verified immutable image; existingFleetonlydeployment and actualUI acceptance.",
+  "boundaries": [
+    "Preserve original theme/CSS/fonts/container width and report text/basic formatting.",
+    "No AI model calls, purchases, trial/token grants, quota/account/credential mutations, DBmigration or new full snapshot.",
+    "No unrelated backend securityC4 changes, no Fleet code repair or failed-record clearing.",
+    "Charlottefirst; LTX remainsheld ifnativeguardrefuses; do not bypass."
+  ],
+  "publication_authorization_intent": "Merge and deploy is explicit. Exactpublication/merge capsules, requiredchecks, source/artifact verification and targethealth/recovery gates still apply.",
+  "diagnosis": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/root-cause-acceptance.json"
+}
