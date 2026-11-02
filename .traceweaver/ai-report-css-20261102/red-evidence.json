@@ -1,0 +1,791 @@
+{
+  "requirement_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "verification_id": "VER-AICSS-001",
+  "method": "test",
+  "tested_ref": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "dashboard_sha256": "9432ec6876b6086f6566acab20d3a121fe6be3b1012bb89fd3335e98889b7c77",
+  "test_sha256": "f4ab58353a5d95c5bbf7b4ac4933b3c0af9156733940060ac955fa73137d8894",
+  "command": "IPMI_AICSS_EVIDENCE_DIR=/private/tmp/ipmi-aicss-red-observations /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q tests/test_dashboard_ai_reports.py",
+  "expected_result_before_repair": "Production assertions fail because saved CSS leaks and structured fields are interpreted as markup. All paths must execute without harness errors.",
+  "actual_result": "4 failed, 45 warnings in 4.07s; all32cases executed; no fixture JavaScript errors. Actual CSS body900px/Arial/#333 confirmed.",
+  "outcome": "fail",
+  "classification": "GENUINE_PRECODE_RED",
+  "external_log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/red.log",
+  "external_log_sha256": "219a63b8185054f8b9946980a33119b89f51b0d6e3df70498cf3d9e4b2c23c54",
+  "observations": [
+    {
+      "batch": "dark-1440",
+      "errors": [],
+      "probe_requests": [
+        "/__report_probe_style",
+        "/__report_probe_frame",
+        "/__report_probe_image"
+      ],
+      "cases": [
+        {
+          "name": "cached",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-html",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-content",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "cached-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "fresh-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "tasks",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "predictions",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ]
+        },
+        {
+          "name": "resource-and-attributes",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "active/resource attribute retained",
+            "unsafe link retained",
+            "active input executed",
+            "input controls class"
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "dark-390",
+      "errors": [],
+      "probe_requests": [
+        "/__report_probe_style",
+        "/__report_probe_image",
+        "/__report_probe_frame"
+      ],
+      "cases": [
+        {
+          "name": "cached",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-html",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-content",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "cached-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "fresh-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "tasks",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "predictions",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ]
+        },
+        {
+          "name": "resource-and-attributes",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "active/resource attribute retained",
+            "unsafe link retained",
+            "active input executed",
+            "input controls class"
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "light-1440",
+      "errors": [],
+      "probe_requests": [
+        "/__report_probe_style",
+        "/__report_probe_frame",
+        "/__report_probe_image"
+      ],
+      "cases": [
+        {
+          "name": "cached",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-html",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-content",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "cached-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "fresh-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "tasks",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "predictions",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "777px",
+            "containerWidth": 777
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ]
+        },
+        {
+          "name": "resource-and-attributes",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 860
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "active/resource attribute retained",
+            "unsafe link retained",
+            "active input executed",
+            "input controls class"
+          ]
+        }
+      ]
+    },
+    {
+      "batch": "light-390",
+      "errors": [],
+      "probe_requests": [
+        "/__report_probe_frame",
+        "/__report_probe_style",
+        "/__report_probe_image"
+      ],
+      "cases": [
+        {
+          "name": "cached",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-html",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "fresh-content",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "unsafe link retained"
+          ]
+        },
+        {
+          "name": "cached-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "fresh-structured",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "tasks",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally",
+            "input controls class"
+          ]
+        },
+        {
+          "name": "predictions",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(255, 0, 0)",
+            "maxWidth": "777px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ]
+        },
+        {
+          "name": "resource-and-attributes",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 342
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "active/resource attribute retained",
+            "unsafe link retained",
+            "active input executed",
+            "input controls class"
+          ]
+        }
+      ]
+    }
+  ],
+  "limits": "Isolated Flask-rendered HTML/CSS plus exact production report handlers, HTTP boundary substituted. No target deployment/provider call/live acceptance. Existing external fonts omitted in matched before/after comparisons. Harmless resource probes reach only owned loopback server; actual report probe requests are recorded."
+}

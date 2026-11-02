@@ -92,3 +92,13 @@ link_ux_20261031:
   status: local_source_review_passed_ci_and_target_held
   requirements: [REQ-PAIR-001, REQ-PAIR-002, REQ-PAIR-003, REQ-PAIR-004, REQ-PAIR-005, REQ-PAIR-006, REQ-IPMI-MON-02]
   held: trial_delivery_and_new_promises_live_ai_billing_and_unobserved_target_acceptance
+
+# Additive projection of direct owner-approved diagnosed AI report repair.
+ai_report_css_20261102:
+  authority: .traceweaver/ai-report-css-20261102/authority.json
+  plan: .traceweaver/ai-report-css-20261102/plan.json
+  workflow_profile: .traceweaver/ai-report-css-20261102/workflow-profile.json
+  vv_capsule: .traceweaver/ai-report-css-20261102/vv-capsule.json
+  requirements: [REQ-AICSS-001]
+  status: local_source_verified_two_independent_reviews_passed_repair1
+  held: publication_production_target_mutation_and_actual_target_acceptance

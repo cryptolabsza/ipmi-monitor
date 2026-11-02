@@ -1,0 +1,55 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L2",
+  "work_item_id": "IPMI-AICSS-20261102",
+  "plan_ref": ".traceweaver/ai-report-css-20261102/plan.json",
+  "requirements": [
+    {
+      "req_id": "REQ-AICSS-001",
+      "trace_id": "TRACE-AICSS-001",
+      "ver_id": "VER-AICSS-001",
+      "val_id": "VAL-AICSS-001",
+      "verification_artifact": "tests/test_dashboard_ai_reports.py",
+      "red_evidence": ".traceweaver/ai-report-css-20261102/red-evidence-precision.json",
+      "validation_artifact": "docs/validation/ai-report-css-20261102.md",
+      "matrix_row_ref": "TRACE-AICSS-001",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "AICSS-precode-review",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ai-report-css-20261102/precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "AICSS-precode-review",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ai-report-css-20261102/precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "AICSS-final-adversarial",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ai-report-css-20261102/adversarial-final-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "AICSS-final-correctness",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ai-report-css-20261102/correctness-final-review.json"
+        }
+      ]
+    }
+  ],
+  "production_go": true,
+  "publication_go": false,
+  "production_go_scope": "Source implementation only after root bounded GO; no production target activation or publication.",
+  "source_verification_evidence": ".traceweaver/ai-report-css-20261102/green-evidence-repair1.json",
+  "source_review_status": "passed_repair1_two_independent_roles",
+  "repair_red_evidence": ".traceweaver/ai-report-css-20261102/red-evidence-repair1.json",
+  "current_test_sha256": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2",
+  "current_source_sha256": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+  "repair_cycles_used": 1,
+  "historical_precode_review_note": "Original hash-bound precode review remains historical; no final source or repair followup review pass is asserted.",
+  "source_review_evidence": ".traceweaver/ai-report-css-20261102/root-source-acceptance.json"
+}

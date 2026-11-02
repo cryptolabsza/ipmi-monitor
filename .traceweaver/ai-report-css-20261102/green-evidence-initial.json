@@ -1,0 +1,74 @@
+{
+  "req_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "ver_id": "VER-AICSS-001",
+  "tested_base_ref": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "dashboard_sha256": "b2cd2c9179c46d54f12c05a4dbc10ea32d2594b15c8cbbe0f7a707be7c1e2a52",
+  "test_sha256": "407f1c0cbc72ea01fd94f4d7a0062c21f60d225acae8f38f964319fcc48ac6af",
+  "focused_command": "IPMI_AICSS_EVIDENCE_DIR=/private/tmp/ipmi-aicss-green-observations /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q tests/test_dashboard_ai_reports.py",
+  "focused_result": "4 passed,45warnings in5.67s",
+  "focused_qualification": "Initial GREEN before simplifying fixed status icon/class mapping. Final source was then exercised by the identical four tests in the full suite. No assertions changed.",
+  "full_command": "IPMI_AICSS_EVIDENCE_DIR=/private/tmp/ipmi-aicss-green-observations /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q",
+  "full_result": "262 passed,1942warnings in50.28s",
+  "baseline_result": "258passed,1933warnings in53.51s",
+  "test_count_change": 4,
+  "outcome": "pass",
+  "browser_batches": [
+    {
+      "batch": "dark-1440",
+      "case_count": 8,
+      "errors": [],
+      "resource_probes": [],
+      "dashboard_styles_unchanged": true,
+      "basic_markup_and_safe_links": "pass",
+      "raw_attribute_and_protocol_filter": "pass",
+      "structured_text_and_enum_classes": "pass"
+    },
+    {
+      "batch": "dark-390",
+      "case_count": 8,
+      "errors": [],
+      "resource_probes": [],
+      "dashboard_styles_unchanged": true,
+      "basic_markup_and_safe_links": "pass",
+      "raw_attribute_and_protocol_filter": "pass",
+      "structured_text_and_enum_classes": "pass"
+    },
+    {
+      "batch": "light-1440",
+      "case_count": 8,
+      "errors": [],
+      "resource_probes": [],
+      "dashboard_styles_unchanged": true,
+      "basic_markup_and_safe_links": "pass",
+      "raw_attribute_and_protocol_filter": "pass",
+      "structured_text_and_enum_classes": "pass"
+    },
+    {
+      "batch": "light-390",
+      "case_count": 8,
+      "errors": [],
+      "resource_probes": [],
+      "dashboard_styles_unchanged": true,
+      "basic_markup_and_safe_links": "pass",
+      "raw_attribute_and_protocol_filter": "pass",
+      "structured_text_and_enum_classes": "pass"
+    }
+  ],
+  "original_initial_stylesheet_sha256": "8b38274ae6f89b37bb02356fa534252edf3300db65b753b64e73e6203fc35b58",
+  "theme_region_exact_HEAD": true,
+  "theme_region_sha256": "4976ea920f4db615b69e643efb9e1f0b6921ecbd5ce8bac04a67fa94c439c01f",
+  "historical_theme_d95_identity_note": "The entire theme-management region is byte-identical to HEAD, preserving the historical d95a9d01 extraction identity; this record separately hashes the explicit Theme management to Version check management slice.",
+  "logs": {
+    "focused": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/green-focused.log",
+    "full": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/green-full.log",
+    "source_diff": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/source.diff"
+  },
+  "held_claims": [
+    "Independent source review pending",
+    "No unsupported HTML scanner coverage claimed",
+    "No protected CI/release/target deployment or intended-use validation",
+    "No global sanitizer/security certification; proof covers the scoped report renderers and tested resource types"
+  ],
+  "repair_cycles_used": 0
+}

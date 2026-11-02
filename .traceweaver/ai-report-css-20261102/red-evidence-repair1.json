@@ -1,0 +1,140 @@
+{
+  "classification": "GENUINE_REPAIR1_PRECODE_RED",
+  "req_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "ver_id": "VER-AICSS-001",
+  "source_sha256": "b2cd2c9179c46d54f12c05a4dbc10ea32d2594b15c8cbbe0f7a707be7c1e2a52",
+  "test_sha256": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2",
+  "command": "IPMI_AICSS_EVIDENCE_DIR=/private/tmp/ipmi-aicss-repair1-red-observations /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q tests/test_dashboard_ai_reports.py",
+  "expected_result": "Only newly added upstream-error response case fails; prior32cases remain passing; zero harness errors",
+  "actual_result": "4failed in3.48s;36cases executed; exactly4upstream-error failures; prior32pass;0harnesserrors/0resourceprobes",
+  "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/repair1-red.log",
+  "log_sha256": "bc7646776360dc73319db8a04d5536f882b2f2134926d533520500749512a61f",
+  "batches": [
+    {
+      "name": "dark-1440",
+      "case_count": 9,
+      "errors": [],
+      "probe_requests": [],
+      "failures": [
+        {
+          "name": "fresh-summary-upstream-html-error",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 900
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ],
+          "text": "AI service error: body { font-family: Arial, sans-serif; color: #333; max-width: 900px; }Service unavailable"
+        }
+      ]
+    },
+    {
+      "name": "dark-390",
+      "case_count": 9,
+      "errors": [],
+      "probe_requests": [],
+      "failures": [
+        {
+          "name": "fresh-summary-upstream-html-error",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(232, 232, 240)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ],
+          "text": "AI service error: body { font-family: Arial, sans-serif; color: #333; max-width: 900px; }Service unavailable"
+        }
+      ]
+    },
+    {
+      "name": "light-1440",
+      "case_count": 9,
+      "errors": [],
+      "probe_requests": [],
+      "failures": [
+        {
+          "name": "fresh-summary-upstream-html-error",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "1440px",
+            "containerWidth": 1440
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "900px",
+            "containerWidth": 900
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ],
+          "text": "AI service error: body { font-family: Arial, sans-serif; color: #333; max-width: 900px; }Service unavailable"
+        }
+      ]
+    },
+    {
+      "name": "light-390",
+      "case_count": 9,
+      "errors": [],
+      "probe_requests": [],
+      "failures": [
+        {
+          "name": "fresh-summary-upstream-html-error",
+          "before": {
+            "font": "\"Space Grotesk\", sans-serif",
+            "color": "rgb(26, 32, 44)",
+            "maxWidth": "none",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "after": {
+            "font": "Arial, sans-serif",
+            "color": "rgb(51, 51, 51)",
+            "maxWidth": "900px",
+            "width": "382px",
+            "containerWidth": 382
+          },
+          "problems": [
+            "dashboard CSS changed",
+            "active/resource/style node retained",
+            "structured text not retained literally"
+          ],
+          "text": "AI service error: body { font-family: Arial, sans-serif; color: #333; max-width: 900px; }Service unavailable"
+        }
+      ]
+    }
+  ],
+  "independent_observation": "Root/adversarial/error/dark-1440.json; upstream error wrapping response.text observed in app.py17672"
+}

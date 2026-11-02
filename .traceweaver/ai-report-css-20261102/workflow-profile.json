@@ -1,0 +1,69 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "id": "IPMI-AICSS-20261102",
+  "revision": 1,
+  "frozen": true,
+  "status": "ROOT_FROZEN_BEFORE_FIRST_BUILDER",
+  "risk": "L2",
+  "publication_risk": "L3 separate root release gate",
+  "authority": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/owner-approval.json",
+  "baseline": {
+    "source_ref": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+    "release_ref": "be4c364fac868c1370adbbe352a65e2b32491a09",
+    "files": {
+      "requirements.md": "101aca82dd1251064de7025fc72d0360768e58e8b519e6409d5a9a4ef4cd360e",
+      "traceability-matrix.md": "8024bab7cd37714ea884a6560fff8d5010f18c6825054e8e498a998360288f63",
+      ".traceweaver/intent-contract.yml": "cd4634145eb60842a1135316cc1fc3e226f854b52944aee4498f94440f58db3d",
+      "src/ipmi_monitor/templates/dashboard.html": "9432ec6876b6086f6566acab20d3a121fe6be3b1012bb89fd3335e98889b7c77"
+    }
+  },
+  "controls": [
+    "One executable precode RED followed by same GREEN",
+    "Real browser computed CSS and readable-report proof",
+    "No dependencies, provider calls, config/data mutations or Fleet repairs",
+    "Independent correctness/security review with targeted repair",
+    "Exact original theme stylesheet identity",
+    "Full required existing CI and protected release gates",
+    "Manual exact-path Jinja anchor proof with explicit unsupported-scanner limitation"
+  ],
+  "child_roles": [
+    "Astra architecture/adversarial",
+    "Sol sole builder/verification",
+    "fresh Sol correctness reviewer"
+  ],
+  "model_routing": {
+    "architecture_adversarial": {
+      "requested_model": "gpt-6-astra",
+      "reasoning_effort": "high"
+    },
+    "builder": {
+      "requested_model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "correctness": {
+      "requested_model": "gpt-6.1-sol",
+      "reasoning_effort": "high"
+    },
+    "served_model_attested": false
+  },
+  "reviewer_role_cap": 2,
+  "repair_cycle_cap": 2,
+  "deploy_required": true,
+  "dogfood_required": "Real existing report display on each normally deployable target",
+  "process_budget": {
+    "estimated_delivery_minutes": 90,
+    "estimated_process_minutes": 18,
+    "target_process_fraction": 0.25,
+    "ceiling_process_to_delivery": 1,
+    "actuals_owner": "Root monotonic dispatch/return ledger; estimates do not prove compliance"
+  },
+  "high_risk_controls": {
+    "rollback": "Existing immutable prior monitor release and persistent configuration/volume, normal Fleet rollback only; no database restore or link reset",
+    "owner_decision": "Owner explicitly requested diagnosed fix then merge/deploy; target deployment remains conditional on existing guard"
+  },
+  "freeze_instruction": "Root may adopt and freeze exact profile before first builder dispatch; later material controls require revision reason.",
+  "frozen_at_utc": "2026-11-02T04:59:40.984434+00:00",
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-report-css-20261102",
+  "planned_source_review_rounds": 2,
+  "canonical_profile_hash": "3af3a48bfd41463052956eb3f658900680607148388c455633e977521f026a81"
+}

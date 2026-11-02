@@ -1,0 +1,34 @@
+{
+  "status": "ROOT_SCOPED_SOURCE_ACCEPTED_PUBLICATION_CANDIDATE_TARGET_ACCEPTANCE_HELD",
+  "utc": "2026-11-02T05:31:18.166247+00:00",
+  "req_id": "REQ-AICSS-001",
+  "trace_id": "TRACE-AICSS-001",
+  "verification_id": "VER-AICSS-001",
+  "baseline": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "source_sha256": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+  "test_sha256": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2",
+  "reviews": [
+    {
+      "role": "adversarial",
+      "path": ".traceweaver/ai-report-css-20261102/adversarial-final-review.json",
+      "sha256": "6c9223b54884ca03545fd3b188adc04be327019cb1490213f321ca6469e25d1a"
+    },
+    {
+      "role": "correctness",
+      "path": ".traceweaver/ai-report-css-20261102/correctness-final-review.json",
+      "sha256": "9a857dd3ef9c1e78706e2766599f7f59e361e6255a78324b0bee3af0b188d3e7"
+    }
+  ],
+  "verification": "green-evidence-repair1.json; 262 passed, 36 real Chromium cases, error-path RED then GREEN; original stylesheet/theme unchanged",
+  "resolved_finding": "Upstream report error HTML now escaped literally; independently reproduced and fixed",
+  "repair_cycles_used": 1,
+  "repair_cycle_cap": 2,
+  "manual_jinja_proof": "Exact-path approved alternate; no stock HTML scanner claim",
+  "held": [
+    "Protected CI, release/image identity and actual target acceptance pending",
+    "LTX unresolved recovery respected",
+    "Unrelated renderers/structured-cache envelope behavior outside scope; no global security claim"
+  ],
+  "authority": "Direct owner diagnosed CSS repair + Merge and deploy",
+  "root_review": "Read runtime diff, exact one-line repair, raw full log, final browser evidence and two current-hash reviews; no new behavior in bookkeeping records."
+}

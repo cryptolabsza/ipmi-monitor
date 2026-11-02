@@ -1,0 +1,38 @@
+{
+  "reviewer": "correctness",
+  "findings": [],
+  "residual_risks": [
+    "Prior review limitations retained for unchanged code, including cached on-demand structured summary envelope mismatch and direct task/prediction renderer coverage.",
+    "Root owns final traceability evidence refresh, target acceptance and publication. No release readiness claim."
+  ],
+  "testing_gaps": [
+    "No independent full-suite repetition in round 2; inspected actual final focused/full raw logs and all four final browser JSON batches.",
+    "New fixture substitutes HTTP response but invokes exact production generateSummary. Its fetch stub reports ok=true; the handler does not branch on response.ok, so this does not bypass any production decision in the observed error path."
+  ],
+  "evidence": {
+    "status": "PASS_FINAL_REPAIR1",
+    "start_hashes": {
+      "src/ipmi_monitor/templates/dashboard.html": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+      "tests/test_dashboard_ai_reports.py": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2"
+    },
+    "end_hashes": {
+      "src/ipmi_monitor/templates/dashboard.html": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+      "tests/test_dashboard_ai_reports.py": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2"
+    },
+    "supersedes_runtime_identity": "b2cd2c9179c46d54f12c05a4dbc10ea32d2594b15c8cbbe0f7a707be7c1e2a52",
+    "runtime_delta": "dashboard.html:4580 escapes data.error with existing reportText; no other runtime delta from prior reviewed source",
+    "test_delta": "ninth fresh-summary-upstream-html-error case; expected count 8 to 9; original assertions unchanged",
+    "contract": "app.py:17672 wraps upstream response.text in data.error; generateSummary consumes response JSON without response.ok branching. Escaping retains entire error literal and trusted red paragraph style.",
+    "red": "All old 32 cases passed; only new error case failed in each batch with CSS drift/style-node retention/literal text loss.",
+    "green": "4 passed,45 warnings in3.55s;36 cases,zero errors/probes/problems",
+    "full": "262 passed,1939 warnings in48.47s",
+    "commands": [
+      "shasum -a 256 src/ipmi_monitor/templates/dashboard.html tests/test_dashboard_ai_reports.py",
+      "cat builder/repair1-source-only.diff and repair1-test-only.diff",
+      "tail -2 builder/repair1-green-focused.log and repair1-green-full.log",
+      "Python JSON assertions over builder/repair1-green-*.json:9 results each,no errors/probes/problems",
+      "git diff --check"
+    ],
+    "no_mutations": "Only own final review reports written; no product/test/Git/prod mutations"
+  }
+}

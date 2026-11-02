@@ -1,0 +1,60 @@
+{
+  "skill_name": "verification-planner",
+  "authority_status": "direct_owner_approved_literal_projection_pending_independent_review",
+  "baseline_reference": "c6aa7fba2e4cca2eb319745f2392d54e13e48026",
+  "decision": "ready",
+  "hold_conditions": [],
+  "verification_plan": {
+    "plan_id": "VER-AICSS-001",
+    "requirement_ids": [
+      "REQ-AICSS-001"
+    ],
+    "method": "test",
+    "success_criteria": [
+      "At each matched theme/viewport body font/color/max-width/width and container width remain unchanged after all cached/fresh/structured/task/prediction inputs",
+      "Readable heading/bold/list/table and three safe hyperlinks remain",
+      "No untrusted active/resource/style nodes, unsafe links, active/resource attrs or input class survives",
+      "No browser errors, active payload execution or owned report resource requests",
+      "Original stylesheet/theme unchanged",
+      "Fresh-summary upstream HTML error response is displayed literally without changing dashboard CSS"
+    ],
+    "target_environment": "Python Flask test fixture, Node26 full rendered-script parser, installed Chromium151 dedicated headless shell with task-owned profile and loopback fixture; external network disabled",
+    "tested_ref_required": true,
+    "owner": "Sole builder; root owns decisions",
+    "status": "repair1_source_GREEN_followup_review_pending"
+  },
+  "verification_cross_reference_matrix": [
+    {
+      "requirement_id": "REQ-AICSS-001",
+      "method": "test",
+      "procedure_ref": "ATP-AICSS-001",
+      "expected_result": "Identical focused test fails baseline and passes repaired candidate; existing258suite remains green; originalCSS/theme unchanged",
+      "evidence_required": [
+        "red-evidence.json",
+        "GREEN result",
+        "independent source review",
+        "source identity"
+      ],
+      "harness_equivalence": "Isolated Flask-rendered HTML/CSS plus exact production report handlers, HTTP boundary substituted. No target deployment/provider call/live acceptance. Existing external fonts omitted in matched before/after comparisons. Harmless resource probes reach only owned loopback server; actual report probe requests are recorded."
+    }
+  ],
+  "execution_record_template": {
+    "execution_id": "VER-AICSS-001",
+    "procedure_or_command": "IPMI_AICSS_EVIDENCE_DIR=/private/tmp/ipmi-aicss-red-observations /private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q tests/test_dashboard_ai_reports.py",
+    "tested_ref": "candidate exact source hash required",
+    "requirement_id": "REQ-AICSS-001",
+    "method": "test",
+    "setup": "Task-owned temp venv, existing installed headless Chromium",
+    "expected_result": "All4browserbatches pass all8paths; existing258suite remains passing",
+    "actual_result": "Template only: actual completed source run is green-evidence.json, no validation implied",
+    "outcome": "blocked",
+    "evidence_path": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-readiness-20261026/layout-regression-20261101/repair-20261102/builder/green.log",
+    "deviations": []
+  },
+  "test_value_review": {
+    "existing_coverage": "Settings real-Jinja/Node extraction pattern and shared app_fixture/login helpers reused; existing suite had no AI report DOM/CSS behavior coverage",
+    "realistic_failure": "Observed saved report global body stylesheet changes font/color/page width; fresh html bypass and structured input share same presentation authority",
+    "minimum_addition": "One parametrized browser regression,4batches/8paths each; Node parsing integrated; no runtime dependency or CI change",
+    "removed_or_weakened_tests": 0
+  }
+}
