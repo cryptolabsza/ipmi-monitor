@@ -1,0 +1,206 @@
+FFFFF                                                                    [100%]
+=================================== FAILURES ===================================
+____ test_accepted_clear_poll_reservation_loss_retains_uncertain_ownership _____
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor....p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-9594/test_accepted_clear_poll_reser0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cb73e10>
+
+    def test_accepted_clear_poll_reservation_loss_retains_uncertain_ownership(qualified_site, monkeypatch):
+        (client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+        original, calls = runtime.subprocess.run, []
+    
+        def boundary(argv, **kwargs):
+            if 'raw' in argv:
+                values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+                if values[:2] == [10, 71]:
+                    calls.append(values[-1])
+                    return SimpleNamespace(returncode=0, stdout='00', stderr='') if values[-1] == 170 else SimpleNamespace(returncode=1, stdout='', stderr='rsp=0xc5')
+            return original(argv, **kwargs)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', boundary)
+        headers, data = intent(client)
+        response = client.post(f'/api/server/{BMC}/clear_sel', json=data, headers=headers)
+        assert calls == [170, 0]
+>       assert response.get_json()['state'] == 'outcome-unknown'
+E       AssertionError: assert 'failed' == 'outcome-unknown'
+E         
+E         - outcome-unknown
+E         + failed
+
+tests/test_sel_management.py:657: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-03 18:19:42,915] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-03 18:19:42,915] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+__ test_revocation_during_final_device_identity_io_prevents_dispatch[enable] ___
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor....p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-9594/test_revocation_during_final_d0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cde5ba0>
+action = 'enable'
+
+    @pytest.mark.parametrize('action', ['enable', 'clear', 'clock'])
+    def test_revocation_during_final_device_identity_io_prevents_dispatch(qualified_site, monkeypatch, action):
+        (client, app, db, models, runtime, commands), state, _registry = qualified_site
+        original, guids = runtime.subprocess.run, 0
+    
+        def boundary(argv, **kwargs):
+            nonlocal guids
+            if 'raw' in argv:
+                values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+                if values[:2] == [6, 55]:
+                    guids += 1
+                    if guids == (3 if action == 'clear' else 2):
+                        with app.app_context():
+                            models['Server'].query.filter_by(bmc_ip=BMC).update({'enabled': False})
+                            db.session.commit()
+            return original(argv, **kwargs)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', boundary)
+        headers, data = intent(client)
+        route = '/clear_sel' if action == 'clear' else '/sel/' + action
+        response = client.post(f'/api/server/{BMC}' + route, json=data, headers=headers)
+>       assert response.get_json()['state'] == 'failed'
+E       AssertionError: assert 'outcome-unknown' == 'failed'
+E         
+E         - failed
+E         + outcome-unknown
+
+tests/test_sel_management.py:686: AssertionError
+___ test_revocation_during_final_device_identity_io_prevents_dispatch[clear] ___
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor....p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-9594/test_revocation_during_final_d1/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cf85fd0>
+action = 'clear'
+
+    @pytest.mark.parametrize('action', ['enable', 'clear', 'clock'])
+    def test_revocation_during_final_device_identity_io_prevents_dispatch(qualified_site, monkeypatch, action):
+        (client, app, db, models, runtime, commands), state, _registry = qualified_site
+        original, guids = runtime.subprocess.run, 0
+    
+        def boundary(argv, **kwargs):
+            nonlocal guids
+            if 'raw' in argv:
+                values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+                if values[:2] == [6, 55]:
+                    guids += 1
+                    if guids == (3 if action == 'clear' else 2):
+                        with app.app_context():
+                            models['Server'].query.filter_by(bmc_ip=BMC).update({'enabled': False})
+                            db.session.commit()
+            return original(argv, **kwargs)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', boundary)
+        headers, data = intent(client)
+        route = '/clear_sel' if action == 'clear' else '/sel/' + action
+        response = client.post(f'/api/server/{BMC}' + route, json=data, headers=headers)
+>       assert response.get_json()['state'] == 'failed'
+E       AssertionError: assert 'outcome-unknown' == 'failed'
+E         
+E         - failed
+E         + outcome-unknown
+
+tests/test_sel_management.py:686: AssertionError
+___ test_revocation_during_final_device_identity_io_prevents_dispatch[clock] ___
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor....p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-9594/test_revocation_during_final_d2/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d24c490>
+action = 'clock'
+
+    @pytest.mark.parametrize('action', ['enable', 'clear', 'clock'])
+    def test_revocation_during_final_device_identity_io_prevents_dispatch(qualified_site, monkeypatch, action):
+        (client, app, db, models, runtime, commands), state, _registry = qualified_site
+        original, guids = runtime.subprocess.run, 0
+    
+        def boundary(argv, **kwargs):
+            nonlocal guids
+            if 'raw' in argv:
+                values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+                if values[:2] == [6, 55]:
+                    guids += 1
+                    if guids == (3 if action == 'clear' else 2):
+                        with app.app_context():
+                            models['Server'].query.filter_by(bmc_ip=BMC).update({'enabled': False})
+                            db.session.commit()
+            return original(argv, **kwargs)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', boundary)
+        headers, data = intent(client)
+        route = '/clear_sel' if action == 'clear' else '/sel/' + action
+        response = client.post(f'/api/server/{BMC}' + route, json=data, headers=headers)
+>       assert response.get_json()['state'] == 'failed'
+E       AssertionError: assert 'outcome-unknown' == 'failed'
+E         
+E         - failed
+E         + outcome-unknown
+
+tests/test_sel_management.py:686: AssertionError
+______ test_auxiliary_firmware_changes_exact_identity_and_revokes_consent ______
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor....p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-9594/test_auxiliary_firmware_change0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d24d370>
+
+    def test_auxiliary_firmware_changes_exact_identity_and_revokes_consent(qualified_site, monkeypatch):
+        from ipmi_monitor.sel_management import qualified
+        (client, app, db, _models, runtime, _commands), _state, _registry = qualified_site
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            adapter = runtime.sel_manager.adapter(target)
+            original = adapter.raw
+            prefix = bytes.fromhex('2001020151005701000100')
+            adapter.raw = lambda netfn, cmd: prefix + bytes.fromhex('01020304') if (netfn,cmd) == (6,1) else original(netfn,cmd)
+            first = runtime.sel_manager.identify(target, adapter)
+            target.auto_clear = target.auto_clock = True
+            target.consent_fingerprint = __import__('ipmi_monitor.sel_management', fromlist=['digest']).digest(first)
+            db.session.commit()
+            adapter.raw = lambda netfn, cmd: prefix + bytes.fromhex('09080706') if (netfn,cmd) == (6,1) else original(netfn,cmd)
+            second = runtime.sel_manager.identify(target, adapter)
+>           assert first != second
+E           AssertionError: assert {'manufacturer': '570100', 'product': '0100', 'firmware': '0201', 'guid': '000102030405060708090a0b0c0d0e0f', ...} != {'manufacturer': '570100', 'product': '0100', 'firmware': '0201', 'guid': '000102030405060708090a0b0c0d0e0f', ...}
+
+tests/test_sel_management.py:707: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_accepted_clear_poll_reservation_loss_retains_uncertain_ownership
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 91 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:4296: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore[call-arg, no-any-return, no-untyped-call]  # noqa: E501
+
+tests/test_sel_management.py::test_accepted_clear_poll_reservation_loss_retains_uncertain_ownership
+tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[enable]
+tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[clear]
+tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[clock]
+tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py::test_accepted_clear_poll_reservation_loss_retains_uncertain_ownership
+tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[enable]
+tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[clear]
+tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[clock]
+tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_accepted_clear_poll_reservation_loss_retains_uncertain_ownership
+FAILED tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[enable]
+FAILED tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[clear]
+FAILED tests/test_sel_management.py::test_revocation_during_final_device_identity_io_prevents_dispatch[clock]
+FAILED tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent
+5 failed, 53 deselected, 102 warnings in 1.91s

@@ -1,0 +1,147 @@
+...............................................................          [100%]
+=============================== warnings summary ===============================
+src/ipmi_monitor/app.py:3295
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:3295: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:4296: 38 warnings
+tests/test_health.py: 54 warnings
+tests/test_api_servers.py: 155 warnings
+tests/test_auth.py: 150 warnings
+tests/test_retention_cleanup.py: 23 warnings
+tests/test_collection_workers.py: 7 warnings
+tests/test_admin_command_audit.py: 27 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:4296: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore[call-arg, no-any-return, no-untyped-call]  # noqa: E501
+
+tests/test_health.py::TestHealthEndpoint::test_health_returns_json
+tests/test_health.py::TestHealthEndpoint::test_health_db_check
+tests/test_health.py::TestHealthEndpoint::test_health_collector_not_running
+tests/test_health.py::TestHealthEndpoint::test_health_external_collector_is_healthy
+tests/test_health.py::TestHealthEndpoint::test_health_collector_running
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:16286: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'timestamp': datetime.utcnow().isoformat(),
+
+tests/test_health.py::TestMetricsEndpoint::test_metrics_returns_prometheus_format
+tests/test_health.py::TestMetricsEndpoint::test_metrics_no_auth_required
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:11624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+
+tests/test_health.py::TestMetricsEndpoint::test_metrics_returns_prometheus_format
+tests/test_health.py::TestMetricsEndpoint::test_metrics_no_auth_required
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:11625: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff_1h = datetime.utcnow() - timedelta(hours=1)
+
+tests/test_api_servers.py::TestListServers::test_list_servers_empty
+tests/test_api_servers.py::TestListServers::test_list_servers_returns_seeded
+tests/test_api_servers.py::TestListServers::test_list_servers_readonly_allowed
+tests/test_auth.py::TestViewRequired::test_view_required_allows_logged_in
+tests/test_auth.py::TestViewRequired::test_view_required_allows_anonymous_when_enabled
+tests/test_auth.py::TestProxyAuth::test_trusted_proxy_uses_socket_peer_despite_external_forwarded_client
+tests/test_auth.py::TestProxyAuth::test_proxy_auth_admin
+tests/test_auth.py::TestProxyAuth::test_proxy_auth_readonly
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:9304: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+
+tests/test_api_servers.py::TestDeprecateServer::test_deprecate_server_success
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:2005: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.deprecated_at = datetime.utcnow()
+
+tests/test_auth.py: 12 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:94: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_auth.py: 12 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:157: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp = datetime.utcnow().isoformat()
+
+tests/test_auth.py::TestLogin::test_login_json_success
+tests/test_auth.py::TestLogin::test_login_sets_session
+tests/test_auth.py::TestRateLimiting::test_successful_login_resets_counter
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:16424: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.last_login = datetime.utcnow()
+
+tests/test_auth.py::TestLogin::test_login_invalid_credentials
+tests/test_auth.py::TestLogin::test_login_nonexistent_user
+tests/test_auth.py::TestRateLimiting::test_rate_limit_after_max_attempts
+tests/test_auth.py::TestRateLimiting::test_rate_limit_after_max_attempts
+tests/test_auth.py::TestRateLimiting::test_rate_limit_after_max_attempts
+tests/test_auth.py::TestRateLimiting::test_successful_login_resets_counter
+tests/test_auth.py::TestRateLimiting::test_successful_login_resets_counter
+tests/test_auth.py::TestRateLimiting::test_successful_login_resets_counter
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:116: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_committed_cleanup_batches_allow_independent_reader_and_writer
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:82: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_cleanup_entrypoint_releases_event_batch_before_sensor_scan
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:132: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_cleanup_entrypoint_releases_event_batch_before_sensor_scan
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6953: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_cleanup_rotates_bounded_batches_across_all_retention_targets
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:176: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_failed_batch_rolls_back_only_that_batch
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:231: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_cleanup_honours_shutdown_before_starting_another_batch
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:276: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_cleanup_honours_an_expired_run_deadline
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:305: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_retention_cleanup.py:335: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+tests/test_retention_cleanup.py::test_ssh_log_retention_uses_the_same_bounded_batch_contract
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py:1192: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_two_ssh_commands_same_server_succeed
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_two_ssh_commands_same_server_succeed
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestIPMICommandAuditUniqueness::test_two_ipmi_commands_same_server_succeed
+tests/test_admin_command_audit.py::TestIPMICommandAuditUniqueness::test_two_ipmi_commands_same_server_succeed
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:11157: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    'timestamp': datetime.utcnow().isoformat() + 'Z',
+
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_two_ssh_commands_same_server_succeed
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_two_ssh_commands_same_server_succeed
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+tests/test_admin_command_audit.py::TestSSHCommandAuditUniqueness::test_many_ssh_commands_same_server
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:11265: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    event_date=datetime.utcnow(),
+
+tests/test_admin_command_audit.py::TestIPMICommandAuditUniqueness::test_two_ipmi_commands_same_server_succeed
+tests/test_admin_command_audit.py::TestIPMICommandAuditUniqueness::test_two_ipmi_commands_same_server_succeed
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:11211: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    event_date=datetime.utcnow(),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+63 passed, 543 warnings in 16.86s

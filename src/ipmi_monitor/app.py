@@ -1056,22 +1056,21 @@ class RedfishClient:
             elif not isinstance(sensor_type, str):
                 sensor_type = str(sensor_type) if sensor_type else 'Unknown'
             
-            # Parse timestamp
-            if created:
-                try:
-                    # Handle various Redfish date formats
-                    if 'T' in created:
-                        created = created.replace('Z', '+00:00')
-                        if '.' in created:
-                            event_date = datetime.fromisoformat(created.split('.')[0])
-                        else:
-                            event_date = datetime.fromisoformat(created.split('+')[0])
-                    else:
-                        event_date = datetime.utcnow()
-                except Exception:
-                    event_date = datetime.utcnow()
-            else:
-                event_date = datetime.utcnow()
+            # Native text remains evidence; offsets are converted only once.
+            native_timestamp = created
+            time_quality = 'unknown'
+            event_date = datetime(1970, 1, 1)
+            try:
+                from datetime import timezone
+                parsed = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                if parsed.tzinfo:
+                    event_date = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+                    time_quality = 'native-offset'
+                else:
+                    event_date = parsed
+                    time_quality = 'native-unverified'
+            except (ValueError, TypeError):
+                pass
             
             # Map severity (case-insensitive to handle vendor variations)
             severity_map = {
@@ -1085,6 +1084,8 @@ class RedfishClient:
             return {
                 'sel_id': str(event_id),
                 'event_date': event_date,
+                'native_timestamp': native_timestamp,
+                'time_quality': time_quality,
                 'sensor_type': sensor_type,
                 'event_description': message,
                 'severity': mapped_severity,
@@ -1216,49 +1217,10 @@ class RedfishClient:
             return power_data, voltages
     
     def clear_sel(self):
-        """Clear SEL via Redfish"""
-        try:
-            managers_uri = self.get_managers_uri()
-            if not managers_uri:
-                return False
-            
-            managers = self._get(managers_uri)
-            if not managers or 'Members' not in managers:
-                return False
-            
-            manager_uri = managers['Members'][0].get('@odata.id')
-            manager = self._get(manager_uri)
-            
-            if not manager or 'LogServices' not in manager:
-                return False
-            
-            log_services_uri = manager['LogServices'].get('@odata.id')
-            log_services = self._get(log_services_uri)
-            
-            for member in log_services.get('Members', []):
-                log_uri = member.get('@odata.id', '')
-                if 'SEL' in log_uri.upper() or 'LOG' in log_uri.upper():
-                    log_service = self._get(log_uri)
-                    if log_service:
-                        # Try ClearLog action
-                        actions = log_service.get('Actions', {})
-                        clear_action = actions.get('#LogService.ClearLog', {})
-                        clear_target = clear_action.get('target')
-                        
-                        if clear_target:
-                            resp = self.session.post(
-                                f"{self.base_url}{clear_target}",
-                                json={},
-                                timeout=30
-                            )
-                            return resp.status_code in [200, 202, 204]
-                    break
-            
-            return False
-        except Exception as e:
-            app.logger.error(f"Redfish clear SEL failed for {self.host}: {e}")
-            return False
-    
+        """Redfish mutations are unavailable; use the qualified guarded SEL service."""
+        return False
+
+
     def get_system_info(self):
         """Get system info (Manufacturer, Model, BIOS) directly from /redfish/v1/Systems/1"""
         try:
@@ -2049,8 +2011,14 @@ class IPMIEvent(db.Model):
     raw_entry = db.Column(db.Text)
     collected_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    sel_target_id = db.Column(db.String(80))
+    sel_generation = db.Column(db.Integer)
+    record_digest = db.Column(db.String(64))
+    native_timestamp = db.Column(db.Text)
+    time_quality = db.Column(db.String(32))
+
     __table_args__ = (
-        db.UniqueConstraint('bmc_ip', 'sel_id', name='unique_event'),
+        db.UniqueConstraint('sel_target_id', 'sel_generation', 'sel_id', 'record_digest', name='unique_sel_evidence'),
     )
 
 class ServerStatus(db.Model):
@@ -3581,6 +3549,9 @@ def sync_to_cloud(initial_sync=False):
                     'severity': e.severity,
                     # Keep original clock evidence for receiver-side quarantine.
                     'raw_entry': e.raw_entry,
+            'native_timestamp': e.native_timestamp,
+            'time_quality': e.time_quality or 'legacy-unverified',
+            'collected_at': e.collected_at.isoformat() if e.collected_at else None,
                 } for e in events],
                 'sensors': [{
                     'server_name': s.server_name,
@@ -4012,7 +3983,7 @@ def investigate_dark_recovery(bmc_ip, server_name, downtime_start, downtime_end)
             
             if power_events:
                 investigation['findings'].append(f'{len(power_events)} power-related events in SEL')
-                investigation['power_events'] = [{'time': e.event_date.isoformat(), 
+                investigation['power_events'] = [{'time': (e.event_date.isoformat() if e.event_date and e.time_quality != 'unknown' else None),
                                                    'desc': e.event_description} for e in power_events[:5]]
                 
                 if any('ac lost' in e.event_description.lower() for e in power_events):
@@ -5807,7 +5778,7 @@ def parse_sel_line(line, bmc_ip, server_name):
                 else:
                     event_date = datetime.strptime(f"{date_str} {time_str}", "%m/%d/%Y %H:%M:%S")
             except ValueError:
-                event_date = datetime.utcnow()
+                event_date = datetime(1970, 1, 1)
             
             # Extract sensor type, ID and number
             # Pattern: "Memory #0x53" or "CPU Temp" or "Fan1 #0x30"
@@ -5911,7 +5882,9 @@ def parse_sel_line(line, bmc_ip, server_name):
                 event_direction=event_direction,
                 event_data=event_data,  # This now stores the DIMM location
                 severity=severity,
-                raw_entry=line
+                raw_entry=line,
+                native_timestamp=f'{date_str} {time_str}',
+                time_quality='unknown' if event_date.year == 1970 else 'native-unverified'
             )
     except Exception as e:
         app.logger.error(f"Failed to parse SEL line: {line} - {e}")
@@ -6064,7 +6037,9 @@ def collect_sel_redfish(bmc_ip, server_name):
                 sensor_type=evt.get('sensor_type', 'System'),
                 event_description=evt.get('event_description', ''),
                 severity=evt.get('severity', 'info'),
-                raw_entry=evt.get('raw_entry', '')
+                raw_entry=evt.get('raw_entry', ''),
+                native_timestamp=evt.get('native_timestamp'),
+                time_quality=evt.get('time_quality', 'unknown')
             )
             events.append(event)
         
@@ -6221,7 +6196,7 @@ def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
         event_type = data.get('Event Type', '')
         
         # Parse timestamp - format: "11/30/25 11/30/25" (date repeated)
-        event_date = datetime.utcnow()
+        event_date = datetime(1970, 1, 1)
         if timestamp:
             try:
                 date_part = timestamp.split()[0]
@@ -6318,7 +6293,9 @@ def parse_verbose_sel_record(record_lines, bmc_ip, server_name):
             event_direction='Asserted' if 'assertion' in event_direction.lower() and 'deassertion' not in event_direction.lower() else 'Deasserted' if 'deassertion' in event_direction.lower() else '',
             event_data=event_data_decoded,  # Store decoded info
             severity=severity,
-            raw_entry='|'.join(record_lines)
+            raw_entry='|'.join(record_lines),
+            native_timestamp=timestamp,
+            time_quality='unknown' if event_date.year == 1970 else 'native-date-only'
         )
     except Exception as e:
         app.logger.error(f"Failed to parse verbose SEL record: {e}")
@@ -6379,6 +6356,14 @@ def decode_dimm_from_event_data(event_data_hex):
 
 def collect_ipmi_sel(bmc_ip, server_name):
     """Collect SEL from a single server - tries Redfish first (faster), falls back to IPMI"""
+
+    # Observe identity/reset evidence before the producer creates/deduplicates rows.
+    with app.app_context():
+        try:
+            sel_manager.observe(bmc_ip)
+        except Exception:
+            db.session.rollback()
+            app.logger.warning('SEL identity observation unavailable; preserving raw evidence')
     
     # Try Redfish first - much faster for high-latency connections
     if should_use_redfish(bmc_ip):
@@ -6786,10 +6771,7 @@ def collect_all_events():
                         new_events = 0
                         for event in events:
                             # Check if event already exists
-                            existing = IPMIEvent.query.filter_by(
-                                bmc_ip=event.bmc_ip, 
-                                sel_id=event.sel_id
-                            ).first()
+                            existing = _existing_sel_event(event)
                             
                             if not existing:
                                 db.session.add(event)
@@ -6797,6 +6779,7 @@ def collect_all_events():
                         
                         db.session.commit()
                         update_server_status(bmc_ip, server_name)
+                        sel_manager.tick(bmc_ip)
                         if new_events > 0:
                             app.logger.info(f"Collected {new_events} new events from {server_name} ({len(events)} total)")
                         
@@ -6955,8 +6938,10 @@ def cleanup_old_data(
             deadline = time.monotonic() + CLEANUP_MAX_SECONDS
         cutoff = now - timedelta(days=DATA_RETENTION_DAYS)
         sensor_cutoff = now - timedelta(days=7)
+        if session_factory is None:
+            sel_manager.cleanup_archives(cutoff)
         cleanup_targets = (
-            ('events', IPMIEvent, IPMIEvent.event_date, cutoff),
+            ('events', IPMIEvent, IPMIEvent.collected_at, cutoff),
             ('sensors', SensorReading, SensorReading.collected_at, sensor_cutoff),
             ('power', PowerReading, PowerReading.collected_at, sensor_cutoff),
             ('alerts', AlertHistory, AlertHistory.fired_at, cutoff),
@@ -7101,6 +7086,8 @@ def collection_worker(worker_id):
                         if events:
                             with app.app_context():
                                 save_events_to_db(bmc_ip, server_name, events)
+                        with app.app_context():
+                            sel_manager.tick(bmc_ip)
                         # Also check for GPU Xid errors via SSH (after SEL collection)
                         with app.app_context():
                             check_ssh_xid_errors(bmc_ip, server_name)
@@ -7225,7 +7212,8 @@ def check_ssh_xid_errors(bmc_ip, server_name):
                     
                     existing = IPMIEvent.query.filter(
                         IPMIEvent.bmc_ip == bmc_ip,
-                        IPMIEvent.sel_id == xid_sel_id
+                        IPMIEvent.sel_id == xid_sel_id,
+                        *_sel_identity_filter(bmc_ip)
                     ).first()
                     
                     if not existing:
@@ -7570,71 +7558,55 @@ def _send_sel_event_alert(bmc_ip, server_name, event_obj):
     )
 
 
-def save_events_to_db(bmc_ip, server_name, events):
-    """Save collected events to database"""
+def _sel_identity_filter(bmc_ip):
+    target = sel_manager.target(bmc_ip)
+    return (IPMIEvent.sel_target_id == target.id, IPMIEvent.sel_generation == target.generation)
+
+
+def _existing_sel_event(event):
     try:
-        new_events = 0
-        events_to_alert = []  # Track new critical/warning events for alerts
-        
-        for event in events:
-            # Events from collect_ipmi_sel are already IPMIEvent objects
-            if hasattr(event, 'bmc_ip'):
-                # It's an IPMIEvent object
-                existing = IPMIEvent.query.filter_by(
-                    bmc_ip=event.bmc_ip,
-                    sel_id=event.sel_id
-                ).first()
-                
-                if not existing:
-                    db.session.add(event)
-                    new_events += 1
-                    # Track for alert
-                    if event.severity in ('critical', 'warning'):
-                        events_to_alert.append(event)
+        sel_manager.target(event.bmc_ip)
+    except SELUnavailable:
+        pass
+    sel_manager.event_identity(event)
+    return IPMIEvent.query.filter_by(sel_target_id=event.sel_target_id,
+        sel_generation=event.sel_generation, sel_id=event.sel_id,
+        record_digest=event.record_digest).first()
+
+
+# TRACEWEAVER: entrypoint=save_events_to_db; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
+def save_events_to_db(bmc_ip, server_name, events):
+    """Save every producer through the same raw/generation identity contract."""
+    try:
+        new_events = []
+        for value in events:
+            if isinstance(value, IPMIEvent):
+                event = value
             else:
-                # It's a dict
-                existing = IPMIEvent.query.filter_by(
-                    bmc_ip=bmc_ip,
-                    record_id=event.get('record_id')
-                ).first()
-                
-                if not existing:
-                    new_event = IPMIEvent(
-                        bmc_ip=bmc_ip,
-                        server_name=server_name,
-                        record_id=event.get('record_id'),
-                        event_type=event.get('event_type', 'Unknown'),
-                        sensor_type=event.get('sensor_type', 'Unknown'),
-                        sensor_name=event.get('sensor_name', 'Unknown'),
-                        event_data=event.get('event_data', ''),
-                        event_description=event.get('event_description', ''),
-                        event_date=event.get('event_date'),
-                        severity=event.get('severity', 'info')
-                    )
-                    db.session.add(new_event)
-                    new_events += 1
-                    # Track for alert
-                    if event.get('severity') in ('critical', 'warning'):
-                        events_to_alert.append(event)
-        
+                event = IPMIEvent(bmc_ip=bmc_ip, server_name=server_name,
+                    sel_id=str(value.get('sel_id', value.get('record_id', 'unknown'))),
+                    event_date=value.get('event_date') or datetime(1970, 1, 1),
+                    sensor_type=value.get('sensor_type', 'Unknown'),
+                    event_description=value.get('event_description', ''),
+                    severity=value.get('severity', 'info'),
+                    raw_entry=value.get('raw_entry') or json.dumps(value, sort_keys=True, default=str),
+                    native_timestamp=value.get('native_timestamp'),
+                    time_quality=value.get('time_quality', 'unknown'))
+            if not _existing_sel_event(event):
+                db.session.add(event)
+                new_events.append(event)
         db.session.commit()
-        
-        # Update server status/stats
         update_server_status(bmc_ip, server_name)
-        
-        if new_events > 0:
-            app.logger.info(f"Saved {new_events} new events from {server_name}")
-        
-        # Send alerts for critical/warning events (CryptoLabs Alert System v1.1.0+)
-        for event_obj in events_to_alert:
-            try:
-                _send_sel_event_alert(bmc_ip, server_name, event_obj)
-            except Exception as e:
-                app.logger.debug(f"Alert send failed: {e}")
-        
-    except Exception as e:
+        for event in new_events:
+            if event.severity in ('critical', 'warning'):
+                try:
+                    _send_sel_event_alert(bmc_ip, server_name, event)
+                except Exception:
+                    app.logger.debug('SEL alert delivery unavailable')
+    except Exception:
         db.session.rollback()
-        app.logger.error(f"Error saving events for {bmc_ip}: {e}")
+        app.logger.error('SEL event storage unavailable; evidence not acknowledged')
+
 
 def collection_scheduler():
     """Scheduler thread that queues collection jobs at intervals"""
@@ -9383,8 +9355,8 @@ def api_events():
             'bmc_ip': e.bmc_ip,
             'server_name': e.server_name,
             'sel_id': e.sel_id,
-            'event_date': e.event_date.isoformat(),
-            'timestamp': e.event_date.isoformat(),  # Alias for frontend
+            'event_date': (e.event_date.isoformat() if e.event_date and e.time_quality != 'unknown' else None),
+            'timestamp': (e.event_date.isoformat() if e.event_date and e.time_quality != 'unknown' else None),  # Alias for frontend
             'sensor_type': e.sensor_type,
             'event_description': e.event_description,
             'description': e.event_description,  # Alias for frontend
@@ -9591,14 +9563,13 @@ def api_trigger_collection():
                 events = collect_ipmi_sel(bmc_ip, server_name)
                 for event in events:
                     # Check if event already exists
-                    existing = IPMIEvent.query.filter_by(
-                        bmc_ip=bmc_ip, sel_id=event.sel_id
-                    ).first()
+                    existing = _existing_sel_event(event)
                     if not existing:
                         db.session.add(event)
                 db.session.commit()
                 # Update server status
                 update_server_status(bmc_ip, server_name)
+                sel_manager.tick(bmc_ip)
                 app.logger.info(f"Collected {len(events)} events from {bmc_ip}")
         threading.Thread(target=collect_single, daemon=True).start()
         return jsonify({'status': f'Collection started for {bmc_ip}'})
@@ -9732,54 +9703,26 @@ def api_server_events(bmc_ip):
         result.append({
             'id': e.id,
             'sel_id': e.sel_id,
-            'event_date': e.event_date.isoformat(),
-            'timestamp': e.event_date.isoformat(),  # Alias for frontend
+            'event_date': (e.event_date.isoformat() if e.event_date and e.time_quality != 'unknown' else None),
+            'timestamp': (e.event_date.isoformat() if e.event_date and e.time_quality != 'unknown' else None),  # Alias for frontend
             'sensor_type': display_sensor_type,
             'sensor_id': e.sensor_id,
             'event_description': display_description,
             'description': display_description,  # Alias for frontend
             'severity': e.severity,
-            'raw_entry': e.raw_entry
+            'raw_entry': e.raw_entry,
+            'native_timestamp': e.native_timestamp,
+            'time_quality': e.time_quality or 'legacy-unverified',
+            'collected_at': e.collected_at.isoformat() if e.collected_at else None
         })
     
     return jsonify(result)
 
 @app.route('/api/server/<bmc_ip>/clear_sel', methods=['POST'])
-@write_required
-@require_valid_bmc_ip
+# TRACEWEAVER: entrypoint=api_clear_sel; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
 def api_clear_sel(bmc_ip):
-    """Clear SEL log on a specific BMC - Requires write access"""
-    try:
-        password = get_ipmi_password(bmc_ip)
-        result = subprocess.run(
-            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-             '-U', IPMI_USER, '-P', password, 'sel', 'clear'],
-            capture_output=True, text=True, timeout=30
-        )
-        
-        if result.returncode == 0:
-            # Also clear from local database
-            IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
-            db.session.commit()
-            
-            # Update server status
-            server_name = SERVERS.get(bmc_ip, bmc_ip)
-            update_server_status(bmc_ip, server_name)
-            
-            return jsonify({
-                'status': 'success',
-                'message': f'SEL cleared for {bmc_ip}',
-                'output': result.stdout.strip()
-            })
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': f'Failed to clear SEL: {result.stderr}'
-            }), 500
-    except subprocess.TimeoutExpired:
-        return jsonify({'status': 'error', 'message': 'Timeout clearing SEL'}), 500
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    """Archive then clear only with qualified hardware and current admin intent."""
+    return sel_manager.action_request(bmc_ip, 'clear')
 
 
 # ============== Power Management API ==============
@@ -11137,6 +11080,10 @@ def api_execute_command(bmc_ip):
     
     cmd_type = data.get('type', 'ipmi')
     command = data.get('command', '')
+    from .sel_management import scoped_custom_command
+    if cmd_type == 'ipmi' and isinstance(command, str) and scoped_custom_command(command):
+        return jsonify({'error': 'guarded_sel_action_required',
+                        'message': 'Use the SEL health controls for backed-up clearing, logging and native clock actions.'}), 409
     timeout = min(data.get('timeout', 30), 120)  # Max 2 minutes
     
     if not command:
@@ -11559,43 +11506,9 @@ def api_get_sol_output(bmc_ip):
 
 
 @app.route('/api/clear_all_sel', methods=['POST'])
-@write_required
 def api_clear_all_sel():
-    """Clear SEL logs on all BMCs - Requires write access"""
-    results = {'success': [], 'failed': []}
-    
-    # Get servers from database - include NULL status for backward compat
-    servers = Server.query.filter(
-        Server.enabled == True,
-        db.or_(Server.status == 'active', Server.status.is_(None))
-    ).all()
-    
-    for server in servers:
-        bmc_ip = server.bmc_ip
-        try:
-            user, password = get_ipmi_credentials(bmc_ip)
-            result = subprocess.run(
-                ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-                 '-U', user, '-P', password, 'sel', 'clear'],
-                capture_output=True, text=True, timeout=30
-            )
-            
-            if result.returncode == 0:
-                IPMIEvent.query.filter_by(bmc_ip=bmc_ip).delete()
-                results['success'].append(bmc_ip)
-            else:
-                results['failed'].append({'bmc_ip': bmc_ip, 'error': result.stderr})
-        except Exception as e:
-            results['failed'].append({'bmc_ip': bmc_ip, 'error': str(e)})
-    
-    db.session.commit()
-    
-    return jsonify({
-        'status': 'completed',
-        'cleared': len(results['success']),
-        'failed': len(results['failed']),
-        'details': results
-    })
+    """Every target follows the same archive-before-clear service."""
+    return sel_manager.clear_all_request()
 
 @app.route('/api/server/<bmc_ip>/clear_db_events', methods=['POST'])
 @write_required
@@ -13419,7 +13332,8 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                             # Check if we already logged this (using unique constraint)
                                             recent_event = IPMIEvent.query.filter(
                                                 IPMIEvent.bmc_ip == bmc_ip,
-                                                IPMIEvent.sel_id == xid_sel_id
+                                                IPMIEvent.sel_id == xid_sel_id,
+                        *_sel_identity_filter(bmc_ip)
                                             ).first()
                                             
                                             if not recent_event:
@@ -13877,7 +13791,8 @@ def collect_server_inventory(bmc_ip, server_name, ipmi_user, ipmi_pass, server_i
                                     
                                     existing = IPMIEvent.query.filter(
                                         IPMIEvent.bmc_ip == bmc_ip,
-                                        IPMIEvent.sel_id == xid_sel_id
+                                        IPMIEvent.sel_id == xid_sel_id,
+                        *_sel_identity_filter(bmc_ip)
                                     ).first()
                                     
                                     if not existing:
@@ -18787,6 +18702,9 @@ def api_server_xid_errors(server_id):
             'pci_address': e.sensor_id,
             'severity': e.severity,
             'raw_entry': e.raw_entry,
+            'native_timestamp': e.native_timestamp,
+            'time_quality': e.time_quality or 'legacy-unverified',
+            'collected_at': e.collected_at.isoformat() if e.collected_at else None,
             'timestamp': e.collected_at.isoformat() if e.collected_at else None
         } for e in xid_events],
         'recent_xid_errors': raw_xid,
@@ -20459,8 +20377,16 @@ def init_db():
             except:
                 pass
 
+# Register the scoped SEL service before database initialization.
+from .sel_management import SELUnavailable, register_sel_management
+import sys as _sel_sys
+sel_manager = register_sel_management(_sel_sys.modules[__name__])
+
 # Initialize on import (for gunicorn)
 init_db()
+# A failed evidence migration must prevent serving destructive actions.
+with app.app_context():
+    sel_manager.migrate()
 
 
 def auto_load_ssh_keys():

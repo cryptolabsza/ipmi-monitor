@@ -1,0 +1,253 @@
+FFFFFFFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+________ test_unobserved_health_is_unknown_and_automation_defaults_off _________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+
+    def test_unobserved_health_is_unknown_and_automation_defaults_off(sel_site):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        response = client.get(f"/api/server/{BMC}/sel/health")
+>       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+
+tests/test_sel_management.py:53: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-03 17:37:08,762] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-03 17:37:08,762] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+_ test_bmc_clear_never_deletes_saved_history[/api/server/192.0.2.40/clear_sel] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+path = '/api/server/192.0.2.40/clear_sel'
+
+    @pytest.mark.parametrize("path", [f"/api/server/{BMC}/clear_sel", "/api/clear_all_sel"])
+    def test_bmc_clear_never_deletes_saved_history(sel_site, path):
+        """A bodyless request currently erases history; guarded rejection must preserve it."""
+        client, app, _db, models, _runtime, _commands = sel_site
+        response = client.post(path, json={})
+        with app.app_context():
+>           assert models["IPMIEvent"].query.filter_by(bmc_ip=BMC).count() == 1, response.get_json()
+E           AssertionError: {'message': 'SEL cleared for 192.0.2.40', 'output': 'Clearing SEL.', 'status': 'success'}
+E           assert 0 == 1
+E            +  where 0 = count()
+E            +    where count = <flask_sqlalchemy.query.Query object at 0x10f4af6a0>.count
+E            +      where <flask_sqlalchemy.query.Query object at 0x10f4af6a0> = filter_by(bmc_ip='192.0.2.40')
+E            +        where filter_by = <flask_sqlalchemy.query.Query object at 0x10f4aed00>.filter_by
+E            +          where <flask_sqlalchemy.query.Query object at 0x10f4aed00> = <class 'ipmi_monitor.app.IPMIEvent'>.query
+
+tests/test_sel_management.py:71: AssertionError
+________ test_bmc_clear_never_deletes_saved_history[/api/clear_all_sel] ________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 30})])
+path = '/api/clear_all_sel'
+
+    @pytest.mark.parametrize("path", [f"/api/server/{BMC}/clear_sel", "/api/clear_all_sel"])
+    def test_bmc_clear_never_deletes_saved_history(sel_site, path):
+        """A bodyless request currently erases history; guarded rejection must preserve it."""
+        client, app, _db, models, _runtime, _commands = sel_site
+        response = client.post(path, json={})
+        with app.app_context():
+>           assert models["IPMIEvent"].query.filter_by(bmc_ip=BMC).count() == 1, response.get_json()
+E           AssertionError: {'cleared': 1, 'details': {'failed': [], 'success': ['192.0.2.40']}, 'failed': 0, 'status': 'completed'}
+E           assert 0 == 1
+E            +  where 0 = count()
+E            +    where count = <flask_sqlalchemy.query.Query object at 0x10f4aef10>.count
+E            +      where <flask_sqlalchemy.query.Query object at 0x10f4aef10> = filter_by(bmc_ip='192.0.2.40')
+E            +        where filter_by = <flask_sqlalchemy.query.Query object at 0x10f4aedb0>.filter_by
+E            +          where <flask_sqlalchemy.query.Query object at 0x10f4aedb0> = <class 'ipmi_monitor.app.IPMIEvent'>.query
+
+tests/test_sel_management.py:71: AssertionError
+_ test_readwrite_cannot_dispatch_sel_mutation[/api/server/192.0.2.40/clear_sel] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+login_as = <function _login_as at 0x10af80880>
+path = '/api/server/192.0.2.40/clear_sel'
+
+    @pytest.mark.parametrize("path", [f"/api/server/{BMC}/clear_sel", "/api/clear_all_sel"])
+    def test_readwrite_cannot_dispatch_sel_mutation(sel_site, login_as, path):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        login_as(client, "readwrite")
+        response = client.post(path, json={})
+>       assert response.status_code == 403
+E       assert 200 == 403
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:79: AssertionError
+_______ test_readwrite_cannot_dispatch_sel_mutation[/api/clear_all_sel] ________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 30})])
+login_as = <function _login_as at 0x10af80880>, path = '/api/clear_all_sel'
+
+    @pytest.mark.parametrize("path", [f"/api/server/{BMC}/clear_sel", "/api/clear_all_sel"])
+    def test_readwrite_cannot_dispatch_sel_mutation(sel_site, login_as, path):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        login_as(client, "readwrite")
+        response = client.post(path, json={})
+>       assert response.status_code == 403
+E       assert 200 == 403
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:79: AssertionError
+_____ test_admin_clear_requires_session_intent_and_exact_origin[headers0] ______
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+headers = {}
+
+    @pytest.mark.parametrize("headers", [{}, {"Origin": "https://attacker.invalid"}])
+    def test_admin_clear_requires_session_intent_and_exact_origin(sel_site, headers):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        response = client.post(f"/api/server/{BMC}/clear_sel", json={}, headers=headers)
+>       assert response.status_code == 403
+E       assert 200 == 403
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:87: AssertionError
+_____ test_admin_clear_requires_session_intent_and_exact_origin[headers1] ______
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+headers = {'Origin': 'https://attacker.invalid'}
+
+    @pytest.mark.parametrize("headers", [{}, {"Origin": "https://attacker.invalid"}])
+    def test_admin_clear_requires_session_intent_and_exact_origin(sel_site, headers):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        response = client.post(f"/api/server/{BMC}/clear_sel", json={}, headers=headers)
+>       assert response.status_code == 403
+E       assert 200 == 403
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:87: AssertionError
+________ test_unknown_configured_target_is_rejected_before_credentials _________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...['ipmitool', '-I', 'lanplus', '-H', '192.0.2.250', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f646990>
+
+    def test_unknown_configured_target_is_rejected_before_credentials(sel_site, monkeypatch):
+        client, _app, _db, _models, runtime, commands = sel_site
+        lookups = []
+        monkeypatch.setattr(runtime, "get_ipmi_password", lambda ip: lookups.append(ip) or "synthetic-test-secret")
+        response = client.post("/api/server/192.0.2.250/clear_sel", json={})
+>       assert response.status_code in (403, 404)  # CSRF may reject before target lookup.
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 200 in (403, 404)
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:96: AssertionError
+___________ test_raw_record_reuse_survives_real_parse_save_pipeline ____________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+
+    def test_raw_record_reuse_survives_real_parse_save_pipeline(sel_site):
+        """A later generation can reuse both record ID and native timestamp."""
+        _client, app, _db, models, runtime, _commands = sel_site
+        with app.app_context():
+            line = "0001 | 11/03/2026 | 12:00:00 | System Event | New generation evidence | Asserted"
+            runtime.save_events_to_db(BMC, "sel-contract-host", [runtime.parse_sel_line(line, BMC, "sel-contract-host")])
+            runtime.save_events_to_db(BMC, "sel-contract-host", [runtime.parse_sel_line(line, BMC, "sel-contract-host")])
+            events = models["IPMIEvent"].query.filter_by(bmc_ip=BMC).all()
+>           assert len(events) == 2
+E           assert 1 == 2
+E            +  where 1 = len([<IPMIEvent 1>])
+
+tests/test_sel_management.py:109: AssertionError
+_________ test_newly_collected_bad_native_date_does_not_expire_history _________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+
+    def test_newly_collected_bad_native_date_does_not_expire_history(sel_site):
+        _client, app, db, models, runtime, _commands = sel_site
+        now = datetime.utcnow()
+        with app.app_context():
+            event = runtime.parse_sel_line(
+                "0002 | 01/01/2000 | 00:00:00 | System Event | Clock uninitialized evidence | Asserted",
+                BMC, "sel-contract-host",
+            )
+            event.collected_at = now
+            runtime.save_events_to_db(BMC, "sel-contract-host", [event])
+            summary = runtime.cleanup_old_data(now=now)
+            assert not summary["events"]["failed"]
+            db.session.expire_all()
+>           assert models["IPMIEvent"].query.filter_by(bmc_ip=BMC, sel_id="0002").count() == 1
+E           AssertionError: assert 0 == 1
+E            +  where 0 = count()
+E            +    where count = <flask_sqlalchemy.query.Query object at 0x10f61c9f0>.count
+E            +      where <flask_sqlalchemy.query.Query object at 0x10f61c9f0> = filter_by(bmc_ip='192.0.2.40', sel_id='0002')
+E            +        where filter_by = <flask_sqlalchemy.query.Query object at 0x10f61d390>.filter_by
+E            +          where <flask_sqlalchemy.query.Query object at 0x10f61d390> = <class 'ipmi_monitor.app.IPMIEvent'>.query
+
+tests/test_sel_management.py:128: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[IPMI Monitor] Data cleanup: Deleted 1 expired events
+__________________ test_policy_update_requires_session_intent __________________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+
+    def test_policy_update_requires_session_intent(sel_site):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        response = client.post(f"/api/server/{BMC}/sel/policy", json={"automatic_clear": True})
+>       assert response.status_code == 403
+E       assert 404 == 403
+E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+
+tests/test_sel_management.py:134: AssertionError
+_____________ test_native_clock_action_is_guarded_before_dispatch ______________
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'Server': <class 'ipmi_monitor.a...(['ipmitool', '-I', 'lanplus', '-H', '192.0.2.40', '-U', ...], {'capture_output': True, 'text': True, 'timeout': 10})])
+
+    def test_native_clock_action_is_guarded_before_dispatch(sel_site):
+        client, _app, _db, _models, _runtime, commands = sel_site
+        response = client.post(f"/api/server/{BMC}/sel/clock", json={})
+>       assert response.status_code == 403
+E       assert 404 == 403
+E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code
+
+tests/test_sel_management.py:141: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_unobserved_health_is_unknown_and_automation_defaults_off
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:3295: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 146 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:4296: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore[call-arg, no-any-return, no-untyped-call]  # noqa: E501
+
+tests/test_sel_management.py: 20 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6695: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py: 20 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6699: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+tests/test_sel_management.py::test_newly_collected_bad_native_date_does_not_expire_history
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/test_sel_management.py:117: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_unobserved_health_is_unknown_and_automation_defaults_off
+FAILED tests/test_sel_management.py::test_bmc_clear_never_deletes_saved_history[/api/server/192.0.2.40/clear_sel]
+FAILED tests/test_sel_management.py::test_bmc_clear_never_deletes_saved_history[/api/clear_all_sel]
+FAILED tests/test_sel_management.py::test_readwrite_cannot_dispatch_sel_mutation[/api/server/192.0.2.40/clear_sel]
+FAILED tests/test_sel_management.py::test_readwrite_cannot_dispatch_sel_mutation[/api/clear_all_sel]
+FAILED tests/test_sel_management.py::test_admin_clear_requires_session_intent_and_exact_origin[headers0]
+FAILED tests/test_sel_management.py::test_admin_clear_requires_session_intent_and_exact_origin[headers1]
+FAILED tests/test_sel_management.py::test_unknown_configured_target_is_rejected_before_credentials
+FAILED tests/test_sel_management.py::test_raw_record_reuse_survives_real_parse_save_pipeline
+FAILED tests/test_sel_management.py::test_newly_collected_bad_native_date_does_not_expire_history
+FAILED tests/test_sel_management.py::test_policy_update_requires_session_intent
+FAILED tests/test_sel_management.py::test_native_clock_action_is_guarded_before_dispatch
+12 failed, 188 warnings in 2.82s

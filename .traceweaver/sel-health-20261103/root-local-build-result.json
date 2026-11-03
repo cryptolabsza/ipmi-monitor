@@ -1,0 +1,120 @@
+{
+  "schema": "ipmi-sel-local-build-result/1",
+  "date": "2026-11-03T16:35:03.501117+00:00",
+  "status": "local_source_verified_and_build_available",
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103",
+  "branch": "feat/sel-health-clock-20261103",
+  "baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "behavior_digest": "ba3ad8da1d31dc00ff3b6786846f4de48c28b4209734008afe3a4ae7fcb47bec",
+  "source_hashes": {
+    "src/ipmi_monitor/app.py": "af9d0739f58c9edf563b03d3ba4bdf46d0bfc9cf82ba35a1834410236ca588aa",
+    "src/ipmi_monitor/sel_management.py": "75258025fd802ca55970d10fa15de514a8b42921b5c2c72d944f8587197a59cb",
+    "tests/test_sel_management.py": "6ca68541f0864644d72adb606614a6e6de478b5ecc766b73b5d9fbfc320feeda",
+    "tests/test_retention_cleanup.py": "9a6ddb29126ceee118730415900f0fbd1740c0837addc5afc81bad3522c561cd",
+    "templates/dashboard.html": "0a063639be1d58b0cb6364c47155dba7c8f7b2d09a312e758f24a8544e849a0a",
+    "templates/server_detail.html": "6b8081e18a49f0762a039402fda617df66b6b28b858923028150ea1f51f1790c",
+    "src/ipmi_monitor/templates/dashboard.html": "db8d51e766fe5e5944b344858e9f1c65a96bbf7839be3a9ddd3d4e575ac633b7",
+    "src/ipmi_monitor/templates/server_detail.html": "02a04b5c0279a02f45639173c3497c19b56a6205dc83f3a8915925b9507edc5f"
+  },
+  "authority": ".traceweaver/sel-health-20261103/owner-approval.json",
+  "implemented": [
+    "BMC capacity/logging/native-clock warnings by machine",
+    "admin identity-bound default-off clear and clock policies",
+    "complete durable raw backup before same-reservation BMC clear",
+    "independent audit/operation recovery/generation identity/retention",
+    "qualified logging enable and trusted native-time correction with offset restoration",
+    "shared UI text safety and correct direct/prefixed API URLs"
+  ],
+  "verification": {
+    "baseline": "63 relevant existing tests before code; 12 expected behavioral RED gaps",
+    "full_suite": "333 passed,71.18s; existing assertions preserved",
+    "late_test_strengthening": "Aux firmware test strengthened after full suite; root included exact final case in20-case check",
+    "root_independent_security": "20 passed in4.71s on final snapshot",
+    "astra": "19 independent targeted cases; scoped repair review passed",
+    "fresh_sol_browser": "16 complete-page cases across2template trees,2pages,2roles,2path modes passed",
+    "installed_image": {
+      "status": "PASS",
+      "python": "3.11.18",
+      "architecture": "x86_64",
+      "installed_package": "/usr/local/lib/python3.11/site-packages/ipmi_monitor",
+      "behavior": [
+        "admin health/token",
+        "default-off independent policies",
+        "empty qualification denies mutation",
+        "intent rejected before commands",
+        "both actual templates render",
+        "bad native date retained by trusted collection time"
+      ],
+      "device_or_network_commands": 0,
+      "installed_sha256": {
+        "app.py": "af9d0739f58c9edf563b03d3ba4bdf46d0bfc9cf82ba35a1834410236ca588aa",
+        "sel_management.py": "75258025fd802ca55970d10fa15de514a8b42921b5c2c72d944f8587197a59cb",
+        "templates/dashboard.html": "db8d51e766fe5e5944b344858e9f1c65a96bbf7839be3a9ddd3d4e575ac633b7",
+        "templates/server_detail.html": "02a04b5c0279a02f45639173c3497c19b56a6205dc83f3a8915925b9507edc5f"
+      }
+    },
+    "package_payload": "Wheel and sdist module/templates SHA256 match reviewed source",
+    "traceability": "Python scoped scannerPASS0; HTML helper-authored bodies/matrix mechanically matched separately",
+    "html_trace_checks": [
+      {
+        "target": "templates/dashboard.html",
+        "status": "paired_helper_body_matches_matrix; valid_HTML_wrapper",
+        "scanner_limit": "stock scanner does not cover HTML"
+      },
+      {
+        "target": "templates/server_detail.html",
+        "status": "paired_helper_body_matches_matrix; valid_HTML_wrapper",
+        "scanner_limit": "stock scanner does not cover HTML"
+      },
+      {
+        "target": "src/ipmi_monitor/templates/dashboard.html",
+        "status": "paired_helper_body_matches_matrix; valid_HTML_wrapper",
+        "scanner_limit": "stock scanner does not cover HTML"
+      },
+      {
+        "target": "src/ipmi_monitor/templates/server_detail.html",
+        "status": "paired_helper_body_matches_matrix; valid_HTML_wrapper",
+        "scanner_limit": "stock scanner does not cover HTML"
+      }
+    ],
+    "test_coverage_changes": "Added focused SEL regressions; no tests removed or skips/assertion weakening. Retention fixtures now set trusted collected_at; retained batching/concurrency assertions. No comparable full-baseline speedup claim."
+  },
+  "builds": {
+    "docker_tag": "ipmi-monitor:sel-health-20261103",
+    "platform": "linux/amd64",
+    "image_identity": "\"sha256:ec3caff1290fe1bed3912721dad68a7fef3a1359f890632afc4cc4279411e802\" \"linux\" \"amd64\" {\"org.cryptolabs.local-source-tree-sha256\":\"17f91c2ed48f50610d404e80efc8f41d12825bfe06d1419d6f7282c72b2bfeaf\"}",
+    "source_tree_sha256": "17f91c2ed48f50610d404e80efc8f41d12825bfe06d1419d6f7282c72b2bfeaf",
+    "python_artifacts": {
+      "ipmi_monitor-1.2.0-py3-none-any.whl": {
+        "bytes": 1631529,
+        "sha256": "f2783898207e02f4d44cdbe017793f715bd9f740d84e829f9b7ff4520f937d3a"
+      },
+      "ipmi_monitor-1.2.0.tar.gz": {
+        "bytes": 1680679,
+        "sha256": "8fefca3cae2dff66fc146848b1c290c109d16a00d902e034f82fb0458e2bdb5f"
+      }
+    },
+    "version": "1.2.0 unchanged per feature policy",
+    "build_contexts": "Docker/Python final contexts separated; all242 Docker-context files checked against manifest"
+  },
+  "held": [
+    "Exact BMC device/firmware/action qualification and actual canary; shipped registry remains empty/default-deny",
+    "Deployed Fleet authentication and representative intended-use acceptance",
+    "Publication/commit/push/PR/merge/release/deploy and live BMC changes not performed or authorized by this local build task"
+  ],
+  "limits": [
+    "Linuxamd64 image ran locally under DockerDesktop emulation; no native target fleet claim.",
+    "Host kernel read reports UNSYNC in local DockerVM; clock correction correctly remains unauthorized there.",
+    "Unrelated promotion iframe callback error under browser dead outbound proxy retained in validator report; no broad UI/security certification.",
+    "Requested native model routes recorded; independent runtime model identity attestation unavailable."
+  ],
+  "evidence": [
+    "findings/sel-builder-repair1.html",
+    "findings/astra-code-repair1.json",
+    "findings/independent-validation-repair1.json",
+    "artifacts/repair1-full-suite.log",
+    "artifacts/root-final-security-check.log",
+    "artifacts/installed-image-smoke-final.log",
+    "artifacts/package-verification-final.json"
+  ]
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "target": "src/ipmi_monitor/templates/dashboard.html",
+    "entrypoint": "renderEventsList",
+    "body_unchanged": "TRACEWEAVER: entrypoint=renderEventsList; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005",
+    "matrix_pair_authored_by_helper": true,
+    "format_only": "# -> HTML comment",
+    "root_instruction": "root followup 2026-11-03 narrow comment formatter compatibility correction"
+  },
+  {
+    "target": "templates/dashboard.html",
+    "entrypoint": "renderEventsList",
+    "body_unchanged": "TRACEWEAVER: entrypoint=renderEventsList; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005",
+    "matrix_pair_authored_by_helper": true,
+    "format_only": "# -> HTML comment",
+    "root_instruction": "root followup 2026-11-03 narrow comment formatter compatibility correction"
+  },
+  {
+    "target": "src/ipmi_monitor/templates/server_detail.html",
+    "entrypoint": "renderTable",
+    "body_unchanged": "TRACEWEAVER: entrypoint=renderTable; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005",
+    "matrix_pair_authored_by_helper": true,
+    "format_only": "# -> HTML comment",
+    "root_instruction": "root followup 2026-11-03 narrow comment formatter compatibility correction"
+  },
+  {
+    "target": "templates/server_detail.html",
+    "entrypoint": "renderTable",
+    "body_unchanged": "TRACEWEAVER: entrypoint=renderTable; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005",
+    "matrix_pair_authored_by_helper": true,
+    "format_only": "# -> HTML comment",
+    "root_instruction": "root followup 2026-11-03 narrow comment formatter compatibility correction"
+  }
+]

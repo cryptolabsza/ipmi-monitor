@@ -1,0 +1,27 @@
+{
+  "id": "OWNER-SEL-PUBLISH-20261103",
+  "owner": "Hannes Zietsman",
+  "literal_request": "Comment and push. Then test and merge",
+  "interpretation": "Commit and push the completed reviewed feature, create its feature-to-dev PR, test required checks, and merge into dev only once gates pass. This follows the workspace feature-to-dev policy and current feature worktree.",
+  "repo": "cryptolabsza/ipmi-monitor",
+  "remote": "git@github.com:cryptolabsza/ipmi-monitor.git",
+  "head": "feat/sel-health-clock-20261103",
+  "base": "dev",
+  "source_baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "behavior_digest": "ba3ad8da1d31dc00ff3b6786846f4de48c28b4209734008afe3a4ae7fcb47bec",
+  "allowed": [
+    "stage",
+    "commit",
+    "push",
+    "pr_create",
+    "test",
+    "merge_after_required_checks"
+  ],
+  "scope": "Protected feature-to-dev source integration only. Separate publication/merge capsules bind exact trees/PR/check identities.",
+  "continues_to_hold": [
+    "main release/version bump/tag",
+    "live BMC actions and exact hardware qualification",
+    "production deployment and real Fleet/operator acceptance"
+  ],
+  "date": "2026-11-03T17:22:59.656947+00:00"
+}

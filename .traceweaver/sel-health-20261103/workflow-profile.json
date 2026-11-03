@@ -1,0 +1,62 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "task_id": "WORK-SEL-20261103",
+  "profile_revision": 1,
+  "profile_status": "planned",
+  "risk": "L3",
+  "selection_rationale": "Persistent BMC deletion and native-clock writes with security-sensitive authorization and archive integrity.",
+  "process_budget": {
+    "target_total_effort_percent": 20,
+    "hard_ceiling_total_effort_percent": 50,
+    "target_process_to_delivery_ratio_percent": 25,
+    "hard_ceiling_process_to_delivery_ratio_percent": 100,
+    "estimated_delivery_minutes": 140,
+    "estimated_process_target_minutes": 35,
+    "estimated_process_ceiling_minutes": 140
+  },
+  "selected_controls": [
+    "approved-plan-and-scoped-authority",
+    "lean-test-first",
+    "full-vv-capsule",
+    "focused-security-review",
+    "fresh-independent-validation",
+    "local-package-build",
+    "hardware-qualification-held"
+  ],
+  "child_roles": {
+    "builder": {
+      "model": "gpt-6.1-sol",
+      "maximum_timebox_minutes": 100
+    },
+    "verifier": {
+      "model": "gpt-6.1-sol",
+      "maximum_timebox_minutes": 12
+    },
+    "reviewer": {
+      "model": "gpt-6-astra",
+      "maximum_timebox_minutes": 12
+    },
+    "deployer": {
+      "model": "not_applicable",
+      "maximum_timebox_minutes": 0
+    },
+    "dogfooder": {
+      "model": "gpt-6.1-sol",
+      "maximum_timebox_minutes": 8
+    }
+  },
+  "model_selection": {
+    "availability": [
+      "gpt-6.1-sol",
+      "gpt-6-astra"
+    ],
+    "choice": "Sol for substantive coupled implementation and independent checks; Astra for adversarial review.",
+    "rationale": "Native tool schema accepts requested models with explicit high effort; independent runtime model attestation unavailable.",
+    "unavailable_consequence": "hold selected role; no silent substitute"
+  },
+  "reviewer_cap": 2,
+  "repair_cycle_cap": 1,
+  "requires_deploy": false,
+  "requires_chrome_dogfood": false,
+  "profile_hash": "sha256:776aac44440621a8431419960b17251abbf7983c5bd915799debff53116f9150"
+}

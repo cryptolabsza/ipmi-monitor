@@ -1,0 +1,112 @@
+{
+  "stage": "authority-and-tests-only",
+  "production_GO": false,
+  "source_revision": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "environment": {
+    "date": "2026-11-03T15:43:01.628732+00:00",
+    "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "executable": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/bin/python",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "sqlite": "3.53.3",
+    "dependencies_log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/dependencies.json",
+    "source_revision": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+    "execution_surface": "collaboration native worker; shell pytest",
+    "requested_model": "gpt-6.1-sol",
+    "requested_effort": "high",
+    "runtime_model_attestation": "unavailable; requested provenance is not independent model attestation",
+    "network": "dependency installation used permitted escalation; all test device/HTTP work substituted locally; no live BMC",
+    "setup": "uv venv --python /opt/homebrew/bin/python3 .venv; UV_CACHE_DIR=/private/tmp/ipmi-sel-uv-cache uv pip install --python .venv/bin/python -e .[dev]",
+    "setup_note": "sandbox DNS install attempt failed; authorized network escalation succeeded. Editable install regenerated three egg-info files, restored byte-for-byte from HEAD; no dependency/version/source changes."
+  },
+  "execution_records": [
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_health.py tests/test_api_servers.py tests/test_auth.py tests/test_retention_cleanup.py tests/test_collection_workers.py tests/test_admin_command_audit.py",
+      "exit_code": 0,
+      "result": "63 passed, 543 warnings in16.86s",
+      "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/baseline.log"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_sel_management.py",
+      "exit_code": 1,
+      "result": "12 failed,188 warnings in2.82s; expected behavioral RED, zero collection/setup errors",
+      "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/red.log"
+    },
+    {
+      "command": ".venv/bin/python -m pytest --collect-only -q tests/test_sel_management.py",
+      "exit_code": 0,
+      "result": "12 tests collected",
+      "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/collection.log"
+    },
+    {
+      "command": "traceweaver-check-vv-capsule --root . --capsule .traceweaver/sel-health-20261103/vv-capsule.json",
+      "exit_code": 0,
+      "result": "pass, zero structural findings; does not approve review or runtime",
+      "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/capsule-check.log"
+    },
+    {
+      "command": "traceweaver-check-vv-capsule --root . --capsule .traceweaver/sel-health-20261103/vv-capsule.json --require-review-passed",
+      "exit_code": 1,
+      "result": "expected hold:5 review-not-passed findings, one per scoped requirement",
+      "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/capsule-strict-check.log"
+    },
+    {
+      "command": ".venv/bin/python -m ruff check tests/test_sel_management.py --select E4,E7,E9,F; .venv/bin/python -m py_compile tests/test_sel_management.py",
+      "exit_code": 0,
+      "result": "focused lint/compile pass",
+      "log": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/test-lint.log"
+    }
+  ],
+  "source_unchanged": {
+    "src/ipmi_monitor/app.py": {
+      "sha256": "e3e569fc0c98e3247f525b0ed5cc54da36a8ba9334b0d532322cc23dbd7b22a8",
+      "matches_HEAD": true
+    },
+    "src/ipmi_monitor/templates/dashboard.html": {
+      "sha256": "5f4f4df6cfca50bb15df9331a493817376673b06ca1b48685867fa56dd5a1d4e",
+      "matches_HEAD": true
+    },
+    "src/ipmi_monitor/templates/server_detail.html": {
+      "sha256": "d7eac15767f10d97d4d8690f8fc43756d41e5e7da406583e264f29c3b698b1e3",
+      "matches_HEAD": true
+    },
+    "templates/dashboard.html": {
+      "sha256": "0f79b30b6b2d8b12d368823f09b5574488d1000624924266a288d3ce1c4a890e",
+      "matches_HEAD": true
+    },
+    "templates/server_detail.html": {
+      "sha256": "29e6f53b0aa5d0681998de1aa15dc2497c49690e0774c4d595adee0e526e74cb",
+      "matches_HEAD": true
+    },
+    "pyproject.toml": {
+      "sha256": "d2e1f577bca4c34fc13f057dabe5603263b6507326205ef4a7867c68414b3f16",
+      "matches_HEAD": true
+    },
+    "src/ipmi_monitor.egg-info/PKG-INFO": {
+      "sha256": "97c5b9d7478094af4578a05400895842c7a03abec2cb91dd4c93fc26e3e90f27",
+      "matches_HEAD": true
+    },
+    "src/ipmi_monitor.egg-info/SOURCES.txt": {
+      "sha256": "3138a4dc7d122bfb70b9c370599e462acf0153d5aebff387ab9c6a3135f39c2d",
+      "matches_HEAD": true
+    },
+    "src/ipmi_monitor.egg-info/requires.txt": {
+      "sha256": "2b357b805adaf26d7512a553126cc3be4602ad795676741e79f86e90f63074ec",
+      "matches_HEAD": true
+    }
+  },
+  "coverage_changes": {
+    "new_test_module": "tests/test_sel_management.py",
+    "new_cases": 12,
+    "existing_test_changes": 0,
+    "existing_tests_removed": 0,
+    "baseline_scope": "focused six modules only; no whole-suite coverage/timing comparison or speedup claim"
+  },
+  "held": [
+    "root precode doc/test review and GO",
+    "full adapter/concurrency/browser test completion and GREEN",
+    "independent source/security review",
+    "local package/container build",
+    "exact target qualification and representative acceptance",
+    "all publication/live BMC actions"
+  ]
+}
