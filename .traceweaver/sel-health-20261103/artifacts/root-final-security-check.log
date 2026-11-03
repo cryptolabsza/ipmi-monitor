@@ -1,0 +1,23 @@
+....................                                                     [100%]
+=============================== warnings summary ===============================
+::test_erase_failure_phase_keeps_correct_owner[initial_c5]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+: 227 warnings
+tests/test_sel_management.py: 21 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:4296: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore[call-arg, no-any-return, no-untyped-call]  # noqa: E501
+
+: 18 warnings
+tests/test_sel_management.py: 2 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+: 18 warnings
+tests/test_sel_management.py: 2 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+20 passed, 289 warnings in 4.71s

@@ -1,0 +1,20 @@
+.                                                                        [100%]
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 48 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py:4296: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore[call-arg, no-any-return, no-untyped-call]  # noqa: E501
+
+tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1 passed, 70 deselected, 51 warnings in 0.77s

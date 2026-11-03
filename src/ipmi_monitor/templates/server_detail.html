@@ -933,7 +933,7 @@ No data collected yet. Click "Refresh" to collect system information.
     
     <script>
         // Base path for API calls (supports reverse proxy subpath like /ipmi/)
-        const BASE_PATH = '{{ base_path }}';
+        const BASE_PATH = '{{ base_path }}'.replace(/\/+$/, '');
         function apiUrl(path) {
             if (!path.startsWith('/')) path = '/' + path;
             return BASE_PATH + path;
@@ -996,6 +996,7 @@ No data collected yet. Click "Refresh" to collect system information.
             }
         }
         
+<!-- TRACEWEAVER: entrypoint=renderTable; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005 -->
         function renderTable(events) {
             const severityFilter = document.getElementById('severityFilter').value;
             const sensorFilter = document.getElementById('sensorFilter').value.toLowerCase();
@@ -1035,13 +1036,13 @@ No data collected yet. Click "Refresh" to collect system information.
                                 <tr>
                                     <td>${date.toLocaleString()}</td>
                                     <td>
-                                        <span class="severity-badge severity-${event.severity}">
-                                            ${event.severity}
+                                        <span class="severity-badge severity-${['critical', 'warning', 'info'].includes(event.severity) ? event.severity : 'info'}">
+                                            ${['critical', 'warning', 'info'].includes(event.severity) ? event.severity : 'info'}
                                         </span>
                                     </td>
-                                    <td>${event.sensor_type}</td>
-                                    <td>${event.event_description}</td>
-                                    <td>${event.sel_id}</td>
+                                    <td>${escapeHtml(event.sensor_type)}</td>
+                                    <td>${escapeHtml(event.event_description)}</td>
+                                    <td>${escapeHtml(event.sel_id)}</td>
                                 </tr>
                             `;
                         }).join('')}
@@ -1093,37 +1094,9 @@ No data collected yet. Click "Refresh" to collect system information.
         }
         
         async function clearSel() {
-            if (!confirm('⚠️ WARNING: This will permanently clear the SEL log on the BMC!\n\nThis action cannot be undone.\n\nAre you sure you want to continue?')) {
-                return;
-            }
-            
-            if (!confirm('FINAL CONFIRMATION:\n\nClear SEL on BMC ' + bmcIp + '?')) {
-                return;
-            }
-            
-            try {
-                const btn = document.querySelector('.btn-danger');
-                btn.textContent = '⏳ Clearing...';
-                btn.disabled = true;
-                
-                const response = await fetch(apiUrl(`/api/server/${bmcIp}/clear_sel`), { method: 'POST', credentials: 'same-origin' });
-                const data = await response.json();
-                
-                btn.textContent = '⚠️ Clear BMC SEL';
-                btn.disabled = false;
-                
-                if (data.status === 'success') {
-                    alert('SEL cleared successfully!\n\n' + data.output);
-                    loadEvents();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            } catch (e) {
-                alert('Failed to clear SEL: ' + e.message);
-            }
+            document.getElementById('selHealthPanel')?.scrollIntoView({behavior: 'smooth'});
+            alert('Use Clear Backed-up BMC SEL in the Event Logging controls below. Saved history is retained.');
         }
-        
-        // ============== Power Management ==============
         
         function togglePowerMenu() {
             const menu = document.getElementById('powerMenu');
@@ -2365,6 +2338,95 @@ No data collected yet. Click "Refresh" to collect system information.
         // Call on page load
         checkSyslogsAvailable();
     </script>
+
+<script>
+(() => {
+    const base = (typeof BASE_PATH === 'string' ? BASE_PATH : '').replace(/\/+$/, '');
+    const url = path => base + path;
+    const panel = document.createElement('section');
+    panel.id = 'selHealthPanel';
+    panel.className = 'card';
+    panel.style.cssText = 'margin:24px;padding:20px;border:1px solid var(--border-color,#444);border-radius:10px';
+    const heading = document.createElement('h2');
+    heading.textContent = 'BMC Event Logging & Clock';
+    panel.append(heading);
+    const list = document.createElement('div');
+    panel.append(list);
+    const root = document.querySelector('main, .main-content, .container') || document.body;
+    root.append(panel);
+    const labels = {healthy:'Healthy', full:'Full', nearly_full:'Nearly Full', logging_disabled:'Logging Disabled',
+                    clock_incorrect:'Clock Incorrect', clock_unknown:'Clock reference or timezone unknown', overflow:'Past events dropped (overflow)', unknown:'Unknown / Stale'};
+    const element = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
+    async function load() {
+        try {
+            const ips = typeof bmcIp === 'string' ? [bmcIp] :
+                (await (await fetch(url('/api/servers'), {credentials:'same-origin'})).json()).map(s => s.bmc_ip);
+            list.replaceChildren();
+            for (const ip of ips) {
+                const response = await fetch(url('/api/server/' + encodeURIComponent(ip) + '/sel/health'), {credentials:'same-origin'});
+                if (!response.ok) continue;
+                const data = await response.json();
+                const row = element('article', '');
+                row.style.cssText = 'padding:14px 0;border-bottom:1px solid var(--border-color,#444)';
+                row.append(element('strong', data.server_name + ' (' + data.bmc_ip + ')'));
+                const state = data.health || {};
+                const warnings = state.flags?.length ? state.flags.map(flag => labels[flag] || labels.unknown) : [labels[state.state] || labels.unknown];
+                row.append(element('p', warnings.join(' · ') + (state.percent_used == null ? '' : ' · ' + state.percent_used.toFixed(1) + '% used')));
+                row.append(element('small', 'Observed: ' + (state.observed_at || 'not observed') +
+                    ' · BMC clock: ' + (state.clock && state.clock.offset_minutes != null ? new Date((state.clock.native_seconds - state.clock.offset_minutes * 60) * 1000).toISOString() + ' · ' + state.clock.quality : 'unknown')));
+                if (data.operation) {
+                    row.append(element('p', 'Last operation: ' + data.operation.action + ' · ' + data.operation.state + ' · ' + (data.operation.outcome || 'pending')));
+                    if (data.operation.archive_receipt) {
+                        const link = element('a', 'View complete raw backup receipt');
+                        link.href = url('/api/server/' + encodeURIComponent(ip) + '/sel/archives/' + encodeURIComponent(data.operation.archive_receipt));
+                        link.target = '_blank'; link.rel = 'noopener'; row.append(link);
+                    }
+                }
+                if (data.csrf_token) {
+                    const controls = element('div', ''); controls.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin-top:12px';
+                    const identity = {target_id:data.target_id, identity_revision:data.identity_revision, policy_revision:data.policies.revision};
+                    async function send(path, extra={}) {
+                        const result = await fetch(url(path), {method:'POST', credentials:'same-origin',
+                            headers:{'Content-Type':'application/json','X-CSRF-Token':data.csrf_token}, body:JSON.stringify({...identity,...extra})});
+                        const outcome = await result.json();
+                        if (!result.ok) alert(outcome.message || outcome.error || 'Action unavailable');
+                        await load();
+                    }
+                    for (const [action, label, route] of [
+                        ['enable','Enable Event Logging','/sel/enable'], ['clock','Sync BMC Clock Now','/sel/clock'],
+                        ['clear','Clear Backed-up BMC SEL','/clear_sel']]) {
+                        const button = element('button', label); button.type='button'; button.className='btn';
+                        button.disabled = !data.capabilities[action].available || !!data.operation && !['complete','failed'].includes(data.operation.state);
+                        button.title = button.disabled ? data.capabilities[action].reason : label;
+                        button.addEventListener('click', async () => {
+                            if (!confirm(label + ' for ' + data.server_name + '? Saved history is retained.')) return;
+                            button.disabled=true;
+                            try { await send('/api/server/' + encodeURIComponent(ip) + route); }
+                            catch { alert('Request outcome unavailable. Check the operation status before any retry.'); await load(); }
+                        }); controls.append(button);
+                    }
+                    for (const [key,label] of [['automatic_clear','Automatic Clearing (confirmed full only)'],['automatic_clock','Automatic Clock Correction']]) {
+                        const wrapper=element('label',''); const input=document.createElement('input'); input.type='checkbox';
+                        input.checked=data.policies[key] === true;
+                        input.addEventListener('change', async () => { input.disabled=true;
+                            try { await send('/api/server/' + encodeURIComponent(ip) + '/sel/policy', {[key]:input.checked}); }
+                            catch { alert('Policy update unavailable'); await load(); }
+                        }); wrapper.append(input, document.createTextNode(' '+label)); controls.append(wrapper);
+                    }
+                    row.append(controls);
+                }
+                if (!Object.values(data.capabilities).some(capability => capability.available))
+                    row.append(element('p', 'Hardware actions unavailable until this exact device, firmware and transport are qualified.'));
+                list.append(row);
+            }
+            if (!list.children.length) list.append(element('p', 'No active configured machines.'));
+        } catch { list.replaceChildren(element('p', 'SEL health unavailable. No action was started.')); }
+    }
+    load();
+    setInterval(load, 60000);
+})();
+</script>
+
 </body>
 </html>
 

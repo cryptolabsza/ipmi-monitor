@@ -1,0 +1,14 @@
+{
+  "status": "precode_definition_review_passed",
+  "tw-doc-review": "passed: root scoped mapping/validation-definition review",
+  "tw-code-review": "passed: root inspected tests and independently reproduced12 behavioral RED",
+  "production_GO": true,
+  "note": "No review pass is claimed or fabricated by builder.",
+  "evidence": ".traceweaver/sel-health-20261103/root-precode-review.json",
+  "limits": [
+    "all publication/live BMC mutations",
+    "exact hardware qualification",
+    "representative operator acceptance",
+    "full implementation GREEN and independent reviews"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "scope": "frozen implementation source and decisive verification evidence",
+  "files": {
+    "src/ipmi_monitor/app.py": "af9d0739f58c9edf563b03d3ba4bdf46d0bfc9cf82ba35a1834410236ca588aa",
+    "src/ipmi_monitor/sel_management.py": "6c5936dd7b0eb7a483bf11456f406b5da0601385ff6f00068200f55238b9cb81",
+    "src/ipmi_monitor/templates/dashboard.html": "cf671e475167ba503f23ce9e6b2b996c85af72611fedb1e05eaa6010f3263247",
+    "src/ipmi_monitor/templates/server_detail.html": "e1c6205f976dda7111f5c9d0a0fab4e9c89bf11162621532fc29e46fd4779538",
+    "templates/dashboard.html": "4df25ebeedeb36c50aa3432f63c906f05ee78f702e3f196454fc185138b652b9",
+    "templates/server_detail.html": "211a62bb53c4ea6aa7d1c341818337bbd35bac3cfa7ae09515a911ffdbcfae80",
+    "tests/test_sel_management.py": "a49b027d66cabce5ad22ff278292cb32babed04d1774c3a01d9154a3b6d2777f",
+    "tests/test_retention_cleanup.py": "9a6ddb29126ceee118730415900f0fbd1740c0837addc5afc81bad3522c561cd",
+    "docs/user-guide.md": "2d2323e4e75ae83dbb3e1aaadc9052e8e657e702c945da7aef389eac8d2f5ec9",
+    "traceability-matrix.md": "43f4824881dcb2a8b47e5d34ade0462688c5d536718dd3938ce4569198e79a22",
+    ".traceweaver/sel-health-20261103/implementation-evidence.json": "15f81219730700413f552086dea16baaffbf4a0d7973e5a203c62c703a1e8869",
+    ".traceweaver/sel-health-20261103/vv-capsule.json": "d9746d76f15ac92c7a17944d5e7526249a3f78127718a757a64b21cad2a4f527",
+    ".traceweaver/sel-health-20261103/root-precode-review.json": "279c9b87dfbbbf6b388a4d74154292a23e39389da445e2a277c0c4ad9dc85188",
+    "requirements.md": "f6225261ed181955315bc58f56a01e7ca121173ba6c5b83afef5d6918bd4aced",
+    ".traceweaver/intent-contract.yml": "07b7d8829e97d6c3b622888a3104ec8ecc1597d62c9562c1d001c44a3d11b5bc",
+    "docs/validation/sel-health-20261103.md": "6a889b8ccf862c44fa8a145295b3a5d4e23d94db221ac194aa1284345c903b68"
+  }
+}

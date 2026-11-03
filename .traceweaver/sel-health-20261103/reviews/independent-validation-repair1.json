@@ -1,0 +1,91 @@
+{
+  "verdict": "PASS_SCOPED_REPAIR_RERUN",
+  "scope": "One bounded repair rerun for IV-SEL-001 and IV-SEL-002; complete actual Flask-rendered pages and live local API producers, with both shipped template trees selected using FileSystemLoader.",
+  "snapshot": {
+    "manifest": "review-repair1-source-manifest.json",
+    "behavior_digest": "ba3ad8da1d31dc00ff3b6786846f4de48c28b4209734008afe3a4ae7fcb47bec",
+    "source_hashes_unchanged": true,
+    "files": {
+      "src/ipmi_monitor/app.py": "af9d0739f58c9edf563b03d3ba4bdf46d0bfc9cf82ba35a1834410236ca588aa",
+      "src/ipmi_monitor/sel_management.py": "75258025fd802ca55970d10fa15de514a8b42921b5c2c72d944f8587197a59cb",
+      "tests/test_sel_management.py": "6ca68541f0864644d72adb606614a6e6de478b5ecc766b73b5d9fbfc320feeda",
+      "tests/test_retention_cleanup.py": "9a6ddb29126ceee118730415900f0fbd1740c0837addc5afc81bad3522c561cd",
+      "templates/dashboard.html": "0a063639be1d58b0cb6364c47155dba7c8f7b2d09a312e758f24a8544e849a0a",
+      "templates/server_detail.html": "6b8081e18a49f0762a039402fda617df66b6b28b858923028150ea1f51f1790c",
+      "src/ipmi_monitor/templates/dashboard.html": "db8d51e766fe5e5944b344858e9f1c65a96bbf7839be3a9ddd3d4e575ac633b7",
+      "src/ipmi_monitor/templates/server_detail.html": "02a04b5c0279a02f45639173c3497c19b56a6205dc83f3a8915925b9507edc5f"
+    },
+    "manifest_note": "Final receipt bound to latest manifest after test-only auxiliary-firmware assertion strengthening; seven other file hashes unchanged."
+  },
+  "findings": [
+    {
+      "id": "IV-SEL-001",
+      "result": "CLOSED_LOCAL_REPRODUCTION",
+      "evidence": "All eight full dashboard cases: window.SEL_XSS=0; zero option img/svg/onerror nodes; exact hostile name appears literally in all three device selectors and health panel."
+    },
+    {
+      "id": "IV-SEL-002",
+      "result": "CLOSED_LOCAL_REPRODUCTION",
+      "evidence": "All eight complete server-page cases: health URL resolves to same localhost origin with expected empty or /fleet/ipmi prefix; actual health panel loads and displays hostile name literally, Unknown / Stale and hardware qualification explanation; admin five controls and readonly none."
+    }
+  ],
+  "checks": {
+    "cases": 16,
+    "passed": 16,
+    "command_count": 69,
+    "nonzero_command_exits": 0,
+    "matrix": {
+      "template_trees": [
+        "src/ipmi_monitor/templates",
+        "templates"
+      ],
+      "pages": [
+        "dashboard",
+        "server"
+      ],
+      "roles": [
+        "admin",
+        "readonly"
+      ],
+      "paths": [
+        "direct root",
+        "/fleet/ipmi WSGI SCRIPT_NAME mount"
+      ]
+    },
+    "admin_contract": "Three unavailable hardware action buttons disabled; two independent automatic policy checkboxes unchecked.",
+    "readonly_contract": "No SEL action buttons or policy checkboxes.",
+    "javascript": "No SyntaxError observed in cumulative browser error collection. Existing promotion-iframe onload TypeError observed under dead outbound proxy; scope-limited and unrelated to repaired controls.",
+    "prior_evidence": "Earlier 61 SEL/retention tests and actual baseline-derived full-row migration/API/parser/freshness probes retained as prior evidence; not rerun wholesale. app.py and retention tests unchanged. sel_management.py security repairs are separately assessed by Astra; earlier entire-service evidence is not represented as a fresh rerun."
+  },
+  "environment": {
+    "python": "3.14.6",
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "browser": "agent-browser 0.26.0; Chrome for Testing 151.0.7922.34",
+    "database": "Reused original baseline-derived synthetic SQLite database; checked exact hostile configured name, five retained events, both policy flags off and unobserved health before serving.",
+    "isolation": "No create_app or collectors. External subprocess/requests denied; socket connections allowed only loopback. Browser launched with dead outbound proxy localhost:9 and loopback bypass. Each template tree served from separate isolated process; own browser and servers stopped."
+  },
+  "remaining_limits": [
+    "Fleet-prefix path behavior verified through actual WSGI SCRIPT_NAME mount; not a deployed authenticated Fleet proxy or signed-proxy integration check.",
+    "No actual Linux amd64 image/package validation in this lane; root owns build and installed-package evidence.",
+    "No real BMC/device qualification, native-clock write, credentials, deployment or intended-use acceptance.",
+    "Existing unrelated promo iframe onload TypeError remains visible under dead outbound proxy; no claim of globally error-free dashboard.",
+    "Runtime model identity unverified."
+  ],
+  "commands": [
+    {
+      "command": "server.py src/ipmi_monitor/templates 18791",
+      "result": "served, then stopped by controlled SIGINT"
+    },
+    {
+      "command": "server.py templates 18792",
+      "result": "served, then stopped by controlled SIGINT"
+    },
+    {
+      "command": "browser_checks.py",
+      "exit": 0,
+      "result": "16/16 cases;69 commands,0 nonzero exits",
+      "raw": "browser-run.log"
+    }
+  ],
+  "promote": "These two local repair findings are closed for this source snapshot. Combine with independent security, build/package and remaining authority/qualification evidence; this lane grants no release or hardware acceptance."
+}

@@ -1,0 +1,56 @@
+{
+  "baseline_id": "SEL-20261103",
+  "baseline_revision": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "authority_status": "owner_approved_local_implementation_and_build; root_precode_mapping_review_passed",
+  "owner": "Hannes Zietsman",
+  "owner_receipt": ".traceweaver/sel-health-20261103/owner-approval.json",
+  "approved_plan": ".traceweaver/sel-health-20261103/plan-v2.md",
+  "approved_plan_sha256": "0c75c22c8021534d3e360e9ebac9f7c55c6f89bb35ecac2c6a60e28a366043cc",
+  "requirements_sha256": "f6225261ed181955315bc58f56a01e7ca121173ba6c5b83afef5d6918bd4aced",
+  "requirements": [
+    {
+      "req_id": "REQ-SEL-001",
+      "trace_id": "TRACE-SEL-001",
+      "source": "\u00a71, \u00a72",
+      "statement": "Monitor shall persist independently observed current capacity, logging state, native SEL clock, capability, identity and freshness. Dashboard and server page shall identify machine name/BMC IP and Full, Nearly Full, Logging Disabled, Clock Incorrect and Unknown/Stale states truthfully. Current controls, not historical events, determine logging. Unknown/expired/missing capacity cannot authorize writes or percentage triggers. Near-full defaults to 90%; automatic clear requires confirmed full."
+    },
+    {
+      "req_id": "REQ-SEL-002",
+      "trace_id": "TRACE-SEL-002",
+      "source": "\u00a73; User scope owner selection",
+      "statement": "Every manual, bulk or automatic BMC clear shall use one shared workflow: same qualified hardware reservation spans final bounded complete raw record read and clear; durable complete backup, audit intent and verifiable receipt commit before dispatch. Empty success differs from read failure; partial/malformed-without-raw/page/commit/quota/audit/guard failures prevent clear. Reservation invalidation permits bounded recollection only. Standalone fresh-reservation clear and disabling logging for a quiet window are forbidden. BMC clear shall never delete saved history; unqualified history-preserving manual and automatic clear are unavailable."
+    },
+    {
+      "req_id": "REQ-SEL-003",
+      "trace_id": "TRACE-SEL-003",
+      "source": "\u00a73, \u00a74, \u00a75",
+      "statement": "Monitor shall serialize clear/clock using database-enforced per-server/log ownership, durable queued/archiving/mutating/verifying/complete/failed/outcome-unknown states, receipts, identity/revision, initiator and reason. Ambiguous effects reconcile before new mutations, without blind retries or exactly-once claims; attempts, deadlines and cooldown are bounded. Every insertion/dedup path shall preserve events under stable server/log identity, reconciled generation and raw evidence across ID reuse, reset, external clear and replacement. Compatible migration preserves existing rows. Trusted collected/archive time controls eligibility for the existing retention duration; raw native dates remain evidence. Pending/reconciling backups and independent action/consent audit survive ordinary SEL and explicit history clearing."
+    },
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "source": "\u00a71, \u00a72, \u00a76; clarification enable-control invariant",
+      "statement": "Mutations and separate default-off clear/clock opt-in policies shall require current admin authority, session CSRF/request intent, exact-origin validation and POST, supporting direct/Fleet base paths. Resolve active configured stable server/log before credentials/network; bind consent to identity/revision and recheck before dispatch, revoking queued work on change. Every shared SEL sink in both template trees shall render untrusted names/events/errors as text with enum classes. Scoped transport shall use complete per-target credentials, non-argv secret channel without -P fallback, fixed allowlisted commands/configured targets and sanitized errors. IPMI is the first mutation transport; Redfish mutations stay disabled. Enable Logging changes only the qualified bit, preserves other settings and requires current readback; unsupported/ambiguous hardware stays warning-only."
+    },
+    {
+      "req_id": "REQ-SEL-005",
+      "trace_id": "TRACE-SEL-005",
+      "source": "\u00a75; implementation-clarifications.md offset restoration",
+      "statement": "Monitor shall detect impossible/uninitialized dates and configurable drift (default five minutes) using verified fresh UTC, explicit qualified native/timezone/offset semantics and current external-time-management status. Healthy external NTP remains authority; unhealthy externally managed time is reported without competing writes. Admin sync/independently opted-in correction shall write only qualified hardware with unambiguous mapping and trusted reference, preserve raw dates/time quality and independently audit before/after/desired UTC. Capture intended offset, set SEL time, restore UTC offset reset by Set SEL Time and verify both offset and clock within documented tolerance; failure between writes is incomplete/unknown, never blind retry. Clock and clear share ownership; clock writes invalidate stale clear evidence. No OS/Mac/GPU clock/frequency changes."
+    }
+  ],
+  "must_not_change": [
+    "existing authority/history meaning",
+    "saved-history retention duration/entitlements",
+    "versions/dependencies/infrastructure/CI",
+    "OS/Mac/GPU clocks",
+    "unrelated dirty checkout"
+  ],
+  "held": [
+    "full implementation verification and independent source review",
+    "exact device hardware qualification",
+    "representative operator acceptance",
+    "stage/commit/push/PR/merge/release/deploy/live BMC actions"
+  ],
+  "precode_review": ".traceweaver/sel-health-20261103/root-precode-review.json"
+}

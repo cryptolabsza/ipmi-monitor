@@ -1,3 +1,5 @@
+# TRACEWEAVER: file-role=sel-verification-003; req=REQ-SEL-003; trace=TRACE-SEL-003; ver=VER-SEL-003
+# TRACEWEAVER: verifies=VER-SEL-003; req=REQ-SEL-003; trace=TRACE-SEL-003
 """Regression coverage for bounded SQLite retention cleanup."""
 
 from datetime import datetime, timedelta
@@ -40,6 +42,7 @@ def _old_event(index, when):
         server_name="retention-test",
         sel_id=f"old-{index}",
         event_date=when,
+        collected_at=when,
         sensor_type="System Event",
         event_description="expired event",
         severity="info",
@@ -52,6 +55,7 @@ def _current_event(sel_id, when):
         server_name="retention-test",
         sel_id=sel_id,
         event_date=when,
+        collected_at=when,
         sensor_type="System Event",
         event_description="current event",
         severity="info",

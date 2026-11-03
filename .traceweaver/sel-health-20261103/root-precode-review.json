@@ -1,0 +1,39 @@
+{
+  "id": "ROOT-SEL-PRECODE-20261103",
+  "status": "passed",
+  "review_scope": "Requirements/trace mapping, pre-implementation executable tests, verification and validation definitions; not runtime or hardware safety acceptance.",
+  "reviewer": "root orchestrator",
+  "date": "2026-11-03T15:44:11.208642+00:00",
+  "source_baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "plan_sha256": "0c75c22c8021534d3e360e9ebac9f7c55c6f89bb35ecac2c6a60e28a366043cc",
+  "authority": "Explicit latest owner implementation/build approval; faithful additive 5-ID mapping reviewed against approved v2 and readback/offset clarifications.",
+  "hashes": {
+    "requirements.md": "f6225261ed181955315bc58f56a01e7ca121173ba6c5b83afef5d6918bd4aced",
+    "traceability-matrix.md": "946fed79e33c03c86f370f013f0c5fbafa13090586f325f366aba55416f59be2",
+    ".traceweaver/intent-contract.yml": "07b7d8829e97d6c3b622888a3104ec8ecc1597d62c9562c1d001c44a3d11b5bc",
+    "tests/test_sel_management.py": "0f8c0eb9f4702a5f9b30d49ff32bb11b3a300e3d0a3207455f5366ba52fd7666",
+    "docs/validation/sel-health-20261103.md": "6a889b8ccf862c44fa8a145295b3a5d4e23d94db221ac194aa1284345c903b68",
+    ".traceweaver/sel-health-20261103/verification-plan.json": "7a6ed92017997597498fb2d72e4facb5fe88b8ea17deca1ef3e4a4d4d4cedaa9",
+    ".traceweaver/sel-health-20261103/interface-design.md": "f0de701b59ef4f81ba05b530c5681b70cc3e01c7ef402435eb35fc6b66634d22"
+  },
+  "evidence": [
+    "artifacts/ipmi-sel-build-20261103/artifacts/root-red.log",
+    "artifacts/ipmi-sel-build-20261103/artifacts/baseline.log"
+  ],
+  "verification": "Root independently repeated exact new artifact on unchanged production:12 behavioral failures, zero setup/collection errors. Existing63-pass baseline raw log inspected.",
+  "known_test_limit": "Initial tests prove observable gaps only. Full adapter/reservation/persistence/migration/concurrency/qualification/proxy/browser/clock scenarios remain required before source acceptance; no hardware proof inferred.",
+  "production_GO": true,
+  "scope": "Worktree-only approved SEL/time production source implementation, tests, docs, local build.",
+  "required_implementation_checks": [
+    "Test valid CSRF/identity token against unconfigured/disabled target before any credential lookup, not only missing-intent rejection.",
+    "Inventory all manual clear dispatch paths; generic admin custom IPMI command must not silently bypass scoped guarded SEL/clock actions. Preserve unrelated diagnostic capabilities.",
+    "Implement exact qualified raw protocol path, not a permanently unsupported placeholder. Qualification stays empty for actual devices pending real canary.",
+    "Use canonical typed matrix target bindings and packaged paired anchor authoring helper; no manual bypass of helper refusal."
+  ],
+  "held": [
+    "all publication/live BMC mutations",
+    "exact hardware qualification",
+    "representative operator acceptance",
+    "full implementation GREEN and independent reviews"
+  ]
+}

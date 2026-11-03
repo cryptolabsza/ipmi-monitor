@@ -102,3 +102,20 @@ ai_report_css_20261102:
   requirements: [REQ-AICSS-001]
   status: local_source_verified_two_independent_reviews_passed_repair1
   held: publication_production_target_mutation_and_actual_target_acceptance
+
+# Additive owner-approved local SEL/time implementation amendment; historic scopes retained.
+sel_health_20261103:
+  authority: .traceweaver/sel-health-20261103/authority.json
+  owner_approval: .traceweaver/sel-health-20261103/owner-approval.json
+  plan: .traceweaver/sel-health-20261103/plan-v2.md
+  plan_sha256: 0c75c22c8021534d3e360e9ebac9f7c55c6f89bb35ecac2c6a60e28a366043cc
+  clarifications: .traceweaver/sel-health-20261103/implementation-clarifications.md
+  baseline: c0a3b83724d993ef2f806a4a12305025d72c2b88
+  workflow_profile: L3
+  vv_capsule: .traceweaver/sel-health-20261103/vv-capsule.json
+  requirements: [REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005]
+  status: approved_local_behavior_mapping_precode_review_pending
+  held: production_GO_full_verification_hardware_qualification_intended_use_acceptance_and_all_publication
+  publication_owner_approval: .traceweaver/sel-health-20261103/publication-owner-approval.json
+  publication_scope: protected_feature_to_dev_only_after_live_gates
+  publication_remaining_holds: main_release_live_BMC_hardware_qualification_and_production_deployment
