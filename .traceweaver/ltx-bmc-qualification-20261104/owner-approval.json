@@ -1,0 +1,15 @@
+{
+  "schema": "owner-approval/1",
+  "recorded_at": "2026-11-04T14:29:22.791537+00:00",
+  "literal_response": "Approved",
+  "approved_plan_revision": 2,
+  "plan_html_sha256": "ac048ce3953acff2f468c0352dae88f31f0c87ecbebad86621260b6ef2f66fc6",
+  "plan_json_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+  "reviewed_profile_hash": "sha256:1e07d9190ef7601d036f0c2203c3d0f2a8e641c8691cdb96ea94297b34204103",
+  "frozen_profile_hash": "sha256:0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc",
+  "approval_scope": "reviewedfix/qualificationplan includingnormalprotectedpatchrelease+oneIPMIimagedeploy+oneDATAactivation and per-devicepolicyarmingonlyafterqualifiedstagegates",
+  "preserved_holds": "safe testresource/vendor/exactdevicecanaryevidence, no forcedclear/lossyoverride/unverifiedclockwrites",
+  "backup": "priorfullDBwaiverpersists; verifiedcompleteSELarchivebeforeclear mandatory",
+  "SSH": "existing suppliedubuntu_key/LTXroute scopedallowancepersists",
+  "models": "requested Solhigh/freshSolhigh/Astrahigh; servedidentityunattested"
+}

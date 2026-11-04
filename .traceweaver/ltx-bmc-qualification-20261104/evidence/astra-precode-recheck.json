@@ -1,0 +1,44 @@
+{
+  "schema": "ltx-sel-precode-fixture-recheck/1",
+  "reviewed_at": "2026-11-04",
+  "reviewer": "/root/astra_bmc_qualification",
+  "requested_model": "gpt-6-astra/high; native served identity unattested",
+  "decision": "PASS_SCOPED_PRECODE_FIXTURE_OBLIGATION",
+  "scope": "Only producer-faithful digest/operation links, positive acceptance and independent tamper negatives; no broader code/hardware review.",
+  "approved_baseline": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "approved_plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+  "frozen_profile_hash": "0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc",
+  "reviewed_artifact_sha256": {
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/test_sel_management.py": "31d8bf9dce7bbc3fc4d65c49f228d88200dbb3c3b851d9fb46df05373dacd66b",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/test_sel_qualifications.py": "4ef739b1f2ba5e49615df73b41de8bb947ba69e12f1731cc3b6b1bd40b635e1a",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout": "38eda54d790a2587af7a72e643e7d77656e3ad313bff4b1b71e83c21d22ca9fb",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.json": "84f4f6a0d1aa3509825ed2021d6a5fa223b3d719ef061e2c770ce81d4b0dfe3d",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/red-strengthened.xml": "885d9fc98addbde8a20da3de624ffedef56fcf143ad9006148b31394d0108a9b",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/fixture-regression.stdout": "6b252ac243b8af5f86d7cbf6299085b1d826f7ef829911559c0f58d75a5eecf2",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/fixture-regression.json": "28084b2d9b66cf3697ddca287d9256c85d2f73e33d137f72615fd1d44585a952",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/production-unchanged.json": "248896e8b6d60226547a07672d552b9bac667b3bc5d4cec0e7790f47d82ef38f"
+  },
+  "expected_test_hashes_match": true,
+  "findings": [],
+  "remaining_scoped_findings": 0,
+  "evidence": [
+    "Each temporary per-action evidence document now carries matching record/fingerprint/action and concrete canary operation ID; registry action digests equal actual admitted file hashes.",
+    "Positive acceptance checks all three actions through real qualification_records/qualified and independently resolves each digest and operation ID from files. JUnit confirms this case passes.",
+    "Digest-only corruption preserves admitted operation IDs; operation-ID-only corruption preserves admitted digests. Raw output and JUnit show both cases fail at the intended rejection assertion against unchanged production, independently.",
+    "Strengthened focused run:15 assertion failures,5 passes,71 deselected; no import/collection error substitutes for behavioral RED.",
+    "Existing nonbrowser fixture regression:59 passed,26 deselected. Earlier exact browser retry remains separate prior evidence; no new combined full-suite claim.",
+    "Production manifest reports19 unchanged files, unchanged before/after digest and no new production module."
+  ],
+  "obligation_disposition": {
+    "VVO-01": "Scoped evidence-link fixture/positive-acceptance defect addressed. Maintain this positive case as exact tool/source/profile schema and custody checks are implemented; add approved required fixture metadata faithfully rather than relaxing validators.",
+    "VVO-02": "Addressed: independent digest and operation-ID negatives now present and RED.",
+    "VVO-03..05": "Retained: actual installer filesystem/publication, SQLite race, environment precedence and packaged import-origin/zero-side-effect RED must precede their corresponding production functions. CLI-help RED does not prove them."
+  },
+  "root_gate": "Root may use this scoped pass alongside the initial precode review to synchronize actual artifact hashes, update capsule review statuses, rerun require-review-passed and decide bounded production GO. This reviewer changed no statuses and grants no production/hardware/activation approval.",
+  "limits": [
+    "Synthetic evidence is confined to temporary test fixtures and is not hardware qualification.",
+    "Full live database backup waiver and mandatory complete durable SEL archive remain unchanged.",
+    "Safe hardware resource, actual session/full-chain feasibility, native semantics and external-time ownership remain held.",
+    "No tests rerun or target/product actions performed by this reviewer; saved raw logs/JUnit and artifacts inspected."
+  ]
+}

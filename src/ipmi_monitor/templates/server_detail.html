@@ -2373,7 +2373,16 @@ No data collected yet. Click "Refresh" to collect system information.
                 const warnings = state.flags?.length ? state.flags.map(flag => labels[flag] || labels.unknown) : [labels[state.state] || labels.unknown];
                 row.append(element('p', warnings.join(' · ') + (state.percent_used == null ? '' : ' · ' + state.percent_used.toFixed(1) + '% used')));
                 row.append(element('small', 'Observed: ' + (state.observed_at || 'not observed') +
-                    ' · BMC clock: ' + (state.clock && state.clock.offset_minutes != null ? new Date((state.clock.native_seconds - state.clock.offset_minutes * 60) * 1000).toISOString() + ' · ' + state.clock.quality : 'unknown')));
+                    ' · Native counter: ' + (state.clock ? state.clock.native_seconds : 'unknown') +
+                    ' · UTC offset: ' + (state.clock?.offset_minutes ?? 'unknown') +
+                    ' · Mapping: ' + (state.clock_mapping || 'unqualified')));
+                const reasons = {unsupported_cipher:'Cipher suite 17 unsupported', role_or_auth_rejected:'Role or authentication rejected',
+                    rmcp_session_failed:'Secure session unavailable', device_timeout:'Device timed out', unsupported_command:'Command unsupported',
+                    malformed_device_response:'Malformed device response', clock_mapping_unknown:'Native clock mapping unqualified'};
+                for (const [probe, observation] of Object.entries(state.probes || {})) {
+                    if (observation.reason) row.append(element('small', ' · ' + probe + ': ' +
+                        (reasons[observation.reason] || 'Observation unavailable') + ' · ' + observation.observed_at));
+                }
                 if (data.operation) {
                     row.append(element('p', 'Last operation: ' + data.operation.action + ' · ' + data.operation.state + ' · ' + (data.operation.outcome || 'pending')));
                     if (data.operation.archive_receipt) {
@@ -2408,6 +2417,7 @@ No data collected yet. Click "Refresh" to collect system information.
                     for (const [key,label] of [['automatic_clear','Automatic Clearing (confirmed full only)'],['automatic_clock','Automatic Clock Correction']]) {
                         const wrapper=element('label',''); const input=document.createElement('input'); input.type='checkbox';
                         input.checked=data.policies[key] === true;
+                        input.disabled=!input.checked && !data.capabilities[key === 'automatic_clear' ? 'clear' : 'clock'].available;
                         input.addEventListener('change', async () => { input.disabled=true;
                             try { await send('/api/server/' + encodeURIComponent(ip) + '/sel/policy', {[key]:input.checked}); }
                             catch { alert('Policy update unavailable'); await load(); }

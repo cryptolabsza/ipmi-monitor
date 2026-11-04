@@ -1,0 +1,66 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+______ test_final_dispatch_observed_missing_qualification_durably_disarms ______
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10184/test_final_dispatch_observed_m0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f6442b0>
+
+    def test_final_dispatch_observed_missing_qualification_durably_disarms(qualified_site, monkeypatch):
+        (client, app, _db, _models, runtime, _commands), state, _registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True}, headers=headers).status_code == 200
+        dispatch = runtime.sel_manager.dispatch_intent
+        def invalidate(*args, **kwargs):
+            monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', '0' * 64)
+            return dispatch(*args, **kwargs)
+        monkeypatch.setattr(runtime.sel_manager, 'dispatch_intent', invalidate)
+        with app.app_context():
+            operation = runtime.sel_manager.execute(runtime.SELTarget.query.one(), 'clear', 'automatic-policy', True)
+            assert operation.state == 'failed'
+>           assert runtime.SELTarget.query.one().auto_clear is False
+E           AssertionError: assert True is False
+E            +  where True = <SELTarget 1da47854-1f0b-4967-915c-aff00789064a>.auto_clear
+E            +    where <SELTarget 1da47854-1f0b-4967-915c-aff00789064a> = one()
+E            +      where one = <flask_sqlalchemy.query.Query object at 0x10f78a830>.one
+E            +        where <flask_sqlalchemy.query.Query object at 0x10f78a830> = <class 'ipmi_monitor.sel_management.register_sel_management.<locals>.SELTarget'>.query
+E            +          where <class 'ipmi_monitor.sel_management.register_sel_management.<locals>.SELTarget'> = <module 'ipmi_monitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>.SELTarget
+
+tests/test_sel_management.py:617: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-04 17:59:47,441] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-04 17:59:47,441] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_final_dispatch_observed_missing_qualification_durably_disarms
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 48 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_management.py::test_final_dispatch_observed_missing_qualification_durably_disarms
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py::test_final_dispatch_observed_missing_qualification_durably_disarms
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_final_dispatch_observed_missing_qualification_durably_disarms
+1 failed, 51 warnings in 0.73s

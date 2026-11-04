@@ -1,0 +1,221 @@
+{
+  "schema": "ltx-sel-adversarial-repair-review/1",
+  "reviewer": "adversarial",
+  "review_lane": "Requested Astra/high; served identity unattested",
+  "created_at": "2026-11-04T16:08:48.086251+00:00",
+  "verdict": "PASS_SCOPED_SOURCE_REPAIR",
+  "repair_attempt": 1,
+  "remaining_repair_cycles": 0,
+  "scope": "Identity-scoped recheck of ASTRA-SEL-P1-01 and ASTRA-SEL-P1-02 and credible repair regressions; no broad rediscovery, source modification or live operations.",
+  "source_identity": {
+    "manifest_sha256": "c127ecbe8b741eaa88b67ec224309b79bef7a3ca96d6304bff06e5c1ab77dd99",
+    "files": {
+      "docs/user-guide.md": {
+        "expected": "97fbf754269536b9bcdd0bafc3db195e3a43c85f644c2c8390387b5f18e7c637",
+        "actual": "97fbf754269536b9bcdd0bafc3db195e3a43c85f644c2c8390387b5f18e7c637"
+      },
+      "docs/validation/sel-health-20261103.md": {
+        "expected": "eed8fa084a22ebd43bb5c4d7953a9043142c51c29260f22295974c6febeb2733",
+        "actual": "eed8fa084a22ebd43bb5c4d7953a9043142c51c29260f22295974c6febeb2733"
+      },
+      "src/ipmi_monitor/cli.py": {
+        "expected": "73bebbedb6b544a1828bd2a8f26793bbdfb24a4644fa051fa21d060d6ed541c4",
+        "actual": "73bebbedb6b544a1828bd2a8f26793bbdfb24a4644fa051fa21d060d6ed541c4"
+      },
+      "src/ipmi_monitor/sel_management.py": {
+        "expected": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+        "actual": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc"
+      },
+      "src/ipmi_monitor/templates/dashboard.html": {
+        "expected": "d15c3f79fbd8ed8e4ee180dac5e385562513b0bd2f63824456e600d8488eb56e",
+        "actual": "d15c3f79fbd8ed8e4ee180dac5e385562513b0bd2f63824456e600d8488eb56e"
+      },
+      "src/ipmi_monitor/templates/server_detail.html": {
+        "expected": "389a4fe95be90b6a88d8173c24f1638c9e5ef19ac89367cdd1aacefae791bbfc",
+        "actual": "389a4fe95be90b6a88d8173c24f1638c9e5ef19ac89367cdd1aacefae791bbfc"
+      },
+      "templates/dashboard.html": {
+        "expected": "96e76b4d4e9c156a480230b4519230102a408ad58646f18d93d728c116dfde8d",
+        "actual": "96e76b4d4e9c156a480230b4519230102a408ad58646f18d93d728c116dfde8d"
+      },
+      "templates/server_detail.html": {
+        "expected": "eb6211e1b321b428b6cb43be6f412be77f08cb5d801a325fb56177234df563c8",
+        "actual": "eb6211e1b321b428b6cb43be6f412be77f08cb5d801a325fb56177234df563c8"
+      },
+      "tests/test_sel_management.py": {
+        "expected": "b57e392a58d53b7aa2796755bba2bbd7a5975f6e8cec8ab958f3919dff23bacf",
+        "actual": "b57e392a58d53b7aa2796755bba2bbd7a5975f6e8cec8ab958f3919dff23bacf"
+      },
+      "traceability-matrix.md": {
+        "expected": "8254077606a3f4947f85a1a5088f4d3d2bb06f7cc63c1d96a61aa108302ad432",
+        "actual": "8254077606a3f4947f85a1a5088f4d3d2bb06f7cc63c1d96a61aa108302ad432"
+      },
+      "src/ipmi_monitor/sel_qualifications.py": {
+        "expected": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+        "actual": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17"
+      },
+      "tests/fixtures/ltx_sel_reads_20261104.json": {
+        "expected": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d",
+        "actual": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d"
+      },
+      "tests/sel_qualification_linux.py": {
+        "expected": "fa40e6ed7f15a84e53236ba63fae5aa8531c517445cece3ded8dba29b7598083",
+        "actual": "fa40e6ed7f15a84e53236ba63fae5aa8531c517445cece3ded8dba29b7598083"
+      },
+      "tests/test_sel_persistent.py": {
+        "expected": "867ae07a2635684dfa00e15372edb458b3b1fc7409a9c6dc403cf391d5b93e46",
+        "actual": "867ae07a2635684dfa00e15372edb458b3b1fc7409a9c6dc403cf391d5b93e46"
+      },
+      "tests/test_sel_qualifications.py": {
+        "expected": "24448e235b33d84307480dc684c73db4c68186fb9a18c2e9ff00550d0923aa5b",
+        "actual": "24448e235b33d84307480dc684c73db4c68186fb9a18c2e9ff00550d0923aa5b"
+      }
+    },
+    "changed_from_original": [
+      "src/ipmi_monitor/sel_management.py",
+      "tests/test_sel_management.py"
+    ],
+    "all_match": true
+  },
+  "findings": [],
+  "closed_findings": [
+    {
+      "id": "ASTRA-SEL-P1-01",
+      "previous_severity": "P1",
+      "status": "closed_verified",
+      "confidence": 100,
+      "requirements": [
+        "REQ-SEL-003",
+        "REQ-SEL-004"
+      ],
+      "rules": [
+        "U2",
+        "U4A",
+        "PLAN-S03"
+      ],
+      "file": "src/ipmi_monitor/sel_management.py",
+      "lines": [
+        800,
+        813,
+        824,
+        850,
+        892,
+        1309
+      ],
+      "evidence": [
+        "Actual policy code now retains per-action consent unless the same action is explicitly supplied; explicit OFF clears that action consent. Changed qualification also disarms mismatched actions.",
+        "Independent tests submit other-toggle OFF and threshold-only POSTs after changing A to B without an intervening health GET. Neither clear nor clock receives renewed consent; automatic execution is rejected and no operation or device write occurs.",
+        "Independent A\u2192B\u2192A tests observe B at execute and final dispatch for both clear and clock, then roll the caller session back and restore A. The saved policy remains OFF with empty consent and automatic claim remains denied.",
+        "A separately opened SQLite connection confirms the OFF value after rollback; a qualification_consent_revoked audit exists. The safety commit in revoke_locked therefore survives rejection and caller rollback.",
+        "Unchanged other-action consent is retained while the other toggle turns OFF; unqualified OFF remains available. Focused existing tests confirm normal qualified clear and positive/negative-offset clock operations still work."
+      ]
+    },
+    {
+      "id": "ASTRA-SEL-P1-02",
+      "previous_severity": "P1",
+      "status": "closed_verified",
+      "confidence": 100,
+      "requirements": [
+        "REQ-SEL-003",
+        "REQ-SEL-004"
+      ],
+      "rules": [
+        "U2",
+        "U4A",
+        "PLAN-S03",
+        "IC07"
+      ],
+      "file": "src/ipmi_monitor/sel_management.py",
+      "lines": [
+        797,
+        838,
+        847,
+        965,
+        1343,
+        1361,
+        1370
+      ],
+      "evidence": [
+        "Manual and bulk handlers capture an immutable identity/policy/epoch tuple before execution. Execute carries that tuple through device IO into claim.",
+        "Claim reloads under BEGIN IMMEDIATE but compares the current tuple against the original expected tuple before operation creation, rather than adopting fresh revisions as request intent.",
+        "Independent reproductions commit identity revision, policy revision or epoch changes through a second real SQLite connection immediately before claim, then explicitly expire ORM state. All six manual/bulk variants reject, create no operation and dispatch no device write.",
+        "Focused retained regressions also exercise authority changes during device identity IO and final dispatch serialization. Normal qualified operations still complete."
+      ]
+    }
+  ],
+  "independent_validation": {
+    "environment": "macOS local Python 3.14 virtualenv; real Flask/SQLite/qualification loader; existing synthetic subprocess and HTTP fixture boundaries; no network or BMC operations",
+    "new_adversarial_recheck": {
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:src TMPDIR=<repair1>/raw .venv/bin/python -m pytest -p no:cacheprovider -p tests.conftest -q <repair1>/raw/test_recheck.py",
+      "result": "16 passed, 0 failed in 4.05s",
+      "raw": "raw/recheck.stdout",
+      "test_artifact": "raw/test_recheck.py"
+    },
+    "targeted_existing_checks": {
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:src TMPDIR=<repair1>/raw .venv/bin/python -m pytest -p no:cacheprovider -q tests/test_sel_management.py -k \"original_request_authority_survives_io_and_claim_refresh or qualified_clear_archives_raw_before_same_reservation_dispatch or clock_restores_positive_and_negative_offset_using_real_raw_adapter or dispatch_intent_serializes_a_revocation_at_the_database_transition or unqualified_policy_opt_in_is_denied_but_opt_out_remains_available\"",
+      "result": "12 passed, 91 deselected, 0 failed in 3.55s",
+      "raw": "raw/targeted-existing.stdout"
+    },
+    "identity": "15/15 exact bytes match c127ecbe8b741eaa88b67ec224309b79bef7a3ca96d6304bff06e5c1ab77dd99. Only sel_management.py and its existing test file differ from the original reviewed manifest."
+  },
+  "prior_verification_gap_disposition": [
+    {
+      "id": "G-SOURCE-01",
+      "status": "original_installed_path_proof_supplied; final_package_identity_rerun_owned_by_Sol_root",
+      "evidence": "../../final-validation/nonempty-linux.stdout",
+      "assessment": "Read raw successful nonempty import-to-loader-to-qualification_selection result, idempotence, stored-evidence tamper rejection, env precedence, no socket/app startup and fixed ipmitool -V. Identity is original adapter a74d0e2d..., loader b9280b97...; do not call it repaired-package proof."
+    },
+    {
+      "id": "G-SOURCE-02",
+      "status": "original_bounded_fault_proof_supplied; final_package_identity_rerun_owned_by_Sol_root",
+      "evidence": "../../final-validation/repair1/original-boundary.stdout",
+      "assessment": "Read raw pre-pointer failure with absent active pointer; post-rename parent-fsync EIO with outcome_unknown and independent isolated STATUS showing the exact complete bundle; mixed-valid/invalid whole-bundle rejection and old-pointer preservation, unchanged policy rows/no socket. This is local syscall fault evidence, not physical power-loss durability."
+    },
+    {
+      "id": "G-REPAIR-01",
+      "status": "closed_for_this_reviewer_scope",
+      "assessment": "Independent adapted exploits now require and observe refusal/no effects; relevant existing normal and serialization paths pass. Root/Sol own full-suite and final package acceptance."
+    }
+  ],
+  "testing_gaps": [
+    "No remaining test gap blocks closure of this reviewer's two source finding families. Independent final installed-package reruns and required CI remain root acceptance inputs, not inferred from the original package proofs."
+  ],
+  "residual_risks": [
+    "All nine live policy pairs remain OFF per the supplied operating state; this reviewer neither inspected live state anew nor changed it.",
+    "Seven secure-access issues remain unresolved. Truthful read labels are only M1 progress, not completion of device access or the owner goal.",
+    "Exact safe-firmware reservation/erase preservation and complete same-token durable archive within the existing deadline remain hardware gates. Non-reserving 3639/885-record timings do not qualify conditional clear.",
+    "Native clock vendor mapping, verified TLS trust/current ownership including external writers, interruption behavior and later non-reversion remain hardware gates.",
+    "Code rollback/upgrade and retained-pointer lifecycle require operational acceptance. No automatic old-pointer reactivation is certified by these source tests.",
+    "Root retains protected publication, immutable-image verification, one counted image deployment, later one DATA activation and named operator acceptance. Complete verified raw SEL archive before every clear remains mandatory; no full-production-DB backup requirement is reintroduced."
+  ],
+  "promotion": {
+    "source_only": "This reviewer has no remaining P1 or credible introduced regression in the scoped repair. Root may consider the exact frozen candidate for the protected source-only M1 route after its independent final package/CI gates.",
+    "hardware": "HOLD; no activation, clock write, clear, qualification or full-goal completion authority is granted.",
+    "publication_authority_granted": false
+  },
+  "sections": {
+    "CHANGED": [
+      "Per-action consent preservation and durable observed qualification revocation",
+      "Original identity/policy/epoch carried through manual and bulk IO into serialized claim"
+    ],
+    "VERIFIED": [
+      "Both original P1 findings closed on exact repaired bytes",
+      "16 independent adversarial cases and 12 targeted existing cases pass",
+      "15 frozen hashes match; only the two authorized files changed"
+    ],
+    "CLAIMED": [
+      "Scoped source repair accepted by this reviewer only; no hardware qualification or full owner-goal completion"
+    ],
+    "BLOCKED": [
+      "Hardware access/qualification/activation and operational lifecycle acceptance remain held",
+      "Root final package, required CI and protected publication gates remain separate"
+    ],
+    "PROMOTE": [
+      "Exact repaired source-only M1 candidate may proceed to root acceptance. No live action or publication is performed or authorized by this report."
+    ]
+  },
+  "raw_sha256": {
+    "raw/recheck.stdout": "a2f950ac154c132f1596a39a720e43e22670f47cc0e05dcb0433fe282ccdc5df",
+    "raw/targeted-existing.stdout": "f21e242be2589245f3d56bc5757a21b82a571b4163ddfeeed5d634619ef2f748"
+  }
+}

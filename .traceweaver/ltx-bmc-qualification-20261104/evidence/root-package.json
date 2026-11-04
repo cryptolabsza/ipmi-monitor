@@ -1,0 +1,12 @@
+{
+  "wheel_sha256": "9b12c4c0a1d9bc231a9c9c8fe1e1b2ed3a6475734647900058691c3b5d2cec43",
+  "sdist_sha256": "bc4778f0c7cb9b03a43c4cd570f93b383bf401b3f093357395690f6c63678341",
+  "runtime_members": {
+    "sel_management.py": true,
+    "sel_qualifications.py": true,
+    "cli.py": true,
+    "templates/dashboard.html": true,
+    "templates/server_detail.html": true
+  },
+  "sdist_runtime_matches": true
+}

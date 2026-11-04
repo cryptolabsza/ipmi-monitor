@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "reviewer": "/root/astra_bmc_qualification requestedgpt-6-astra/high",
+  "tests_review": "passed_precode_artifact_use",
+  "validation_definition_review": "passed_definition_only_hardwareHELD",
+  "evidence": [
+    "evidence/astra-precode-review.json",
+    "evidence/astra-precode-recheck.json"
+  ],
+  "reviewed_at": "2026-11-04T14:51:10.121574+00:00",
+  "conditions": [
+    "Fullinstallerfilesystem/publication/SQLiterace/envprecedence/isolatedorigin/zeroeffect behavioralRED precedes each correspondingproductionfunction",
+    "Nohardwarequalification orpolicyarming inferred",
+    "No productionGO until root require-review-passed checker succeeds"
+  ],
+  "production_GO": false,
+  "current_source_review": {
+    "status": "passed_repair1",
+    "root_acceptance": "root-source-acceptance.json",
+    "accepted_review_identity": "sha256:a653e7537a5d3a9e8d06d8e8c94b7064608c5381292d1d18865cc69d2c7fb323",
+    "source_only": true,
+    "hardware_and_full_goal": "held"
+  }
+}

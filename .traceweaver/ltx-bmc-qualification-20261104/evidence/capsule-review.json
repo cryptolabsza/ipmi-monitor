@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/Users/hanneszietsman/CrypotAI/TraceWeaver/plugins/traceweaver-core/skills/tw-vv-define/scripts/traceweaver-check-vv-capsule",
+    "--root",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104",
+    "--capsule",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/vv-capsule.json",
+    "--require-review-passed",
+    "--jsonl",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/capsule-review-findings.jsonl"
+  ],
+  "exit_code": 1
+}

@@ -1,0 +1,62 @@
+{
+  "reviews/astra-repair1.json": {
+    "source": "execution/astra-final/repair1/repair1-report.json",
+    "sha256": "19b2980a0df8b0f98d8f12518aa62e0caaa1ecb63062f0bfec58253318468bdd"
+  },
+  "reviews/sol-repair1.json": {
+    "source": "execution/final-validation/repair1/report.json",
+    "sha256": "1142dc36c0a1fc1269429a1386b8b04cc3828e70638a9f60d0bc9915407ebe33"
+  },
+  "reviews/astra-discovery.json": {
+    "source": "execution/astra-final/report.json",
+    "sha256": "95ed7377c72da741046a92c6977f3576c51d63f5aca7100a76cda950917f9d0d"
+  },
+  "evidence/source-repair1-manifest.json": {
+    "source": "execution/builder/repair1-frozen-manifest.json",
+    "sha256": "c127ecbe8b741eaa88b67ec224309b79bef7a3ca96d6304bff06e5c1ab77dd99"
+  },
+  "evidence/repair1-red.stdout": {
+    "source": "execution/builder/repair1-red.stdout",
+    "sha256": "92717ceb7d043c287550b0433427174dc02e78b20ae21b76755a7939d4a7ce1b"
+  },
+  "evidence/repair1-final-dispatch-red.stdout": {
+    "source": "execution/builder/repair1-final-dispatch-red.stdout",
+    "sha256": "265f199138a5385db4d97df38bcda131120a046876332e13b1d706c8dc698bce"
+  },
+  "evidence/repair1-full.stdout": {
+    "source": "execution/builder/repair1-full.stdout",
+    "sha256": "db3b3379d246d89b54cf2eebe53ab7171baaac0eecc7671d1ebabd7fe4b43860"
+  },
+  "evidence/repair1-full.json": {
+    "source": "execution/builder/repair1-full.json",
+    "sha256": "601c43daf0dfb54105aa02ca997fb726afc41d9a80ade2b7cdc10ddbd41cbe15"
+  },
+  "evidence/repair1-linux.stderr": {
+    "source": "execution/builder/repair1-linux.stderr",
+    "sha256": "658d43e332242170f95097dca4d751e35f1b5f3650512428cf4da8be2e116383"
+  },
+  "evidence/root-repair1-adversarial.stdout": {
+    "source": "execution/root-repair1-adversarial-recheck.stdout",
+    "sha256": "473446c80d5b150ca3bbacaf456308c4577b99f63669fe98cbaa63b8dc37d7ff"
+  },
+  "evidence/installed-nonempty.stdout": {
+    "source": "execution/final-validation/repair1/repaired-positive.stdout",
+    "sha256": "653f887d45a4c316da1d4c8012d354a7f41c9e955b0dd8f9d49c56eca7cf7f80"
+  },
+  "evidence/installed-boundary.stdout": {
+    "source": "execution/final-validation/repair1/repaired-boundary.stdout",
+    "sha256": "fc22c8f09ee670abb815c933e78bcbeeab618a44b54b6d30f753b0199158daba"
+  },
+  "evidence/browser-independent.stdout": {
+    "source": "execution/final-validation/independent-browser.stdout",
+    "sha256": "7591c1c4003bc31fa095196d34e2d0f7dcd948f377b9c420229c0e185f04b759"
+  },
+  "evidence/browser-all-states.stdout": {
+    "source": "execution/final-validation/all-template-states.stdout",
+    "sha256": "b583a4df3645dd636d384e75d47686c6c09b5fce03b6dd2e5c43f2357213f44f"
+  },
+  "evidence/root-package.json": {
+    "source": "execution/root-repair1-package-byte-verification.json",
+    "sha256": "4e23900627b2a25476f90c2566be703fb44aeb98c94289ccd2c2ca85d36753e0"
+  }
+}

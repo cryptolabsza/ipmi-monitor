@@ -1,0 +1,49 @@
+{
+  "schema": "ltx-source-only-patch-release-projection/1",
+  "owner_approval": "../owner-approval.json literal Approved for revision2 U7/U8",
+  "plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+  "base_main": "c632ad31adece259fe59e184608df4af3b05b8f4",
+  "merged_dev": "b27931231dba83b6f6dd8de5e3872cd0ed7bf8a9",
+  "source_pr": "https://github.com/cryptolabsza/ipmi-monitor/pull/22",
+  "source_commit": "f480b2bda2ea0538cdab4273a775d6931beaf9e8",
+  "version": "1.4.1",
+  "integration_mode": "local Review-Staging only; no commit/push/PR before exact fresh publication capsule",
+  "merge_resolution": {
+    ".traceweaver/intent-contract.yml": {
+      "resolution": "preserved both append-only historical and current projections",
+      "sha256": "6529b0011efcac96819aa17508ecc0ca435b8ea1ea928760422c98df084decdb"
+    },
+    "traceability-matrix.md": {
+      "resolution": "preserved both append-only historical and current projections",
+      "sha256": "0ba0cd60f6093ef1ad7489bb3c92ea661a6af917eacbecf194445089c75d8822"
+    },
+    "pyproject.toml": {
+      "old": "1.4.0",
+      "new": "1.4.1",
+      "only_one_constant_changed": true
+    },
+    "src/ipmi_monitor/__init__.py": {
+      "old": "1.4.0",
+      "new": "1.4.1",
+      "only_one_constant_changed": true
+    }
+  },
+  "all12reviewed_behavior_bytes_unchanged": true,
+  "requirements": "Full dev requirements bytes preserved as prefix; main historical release projection retained, no applicable REQ-SEL meaning change",
+  "main_CI_policy": "byte-identical retained current main baseline, not a new CI change",
+  "accepted_review_identity": "sha256:a653e7537a5d3a9e8d06d8e8c94b7064608c5381292d1d18865cc69d2c7fb323",
+  "backup_waiver": "Full production DB backup waiver persists; complete verified raw SEL archive before each clear remains mandatory",
+  "holds": [
+    "M2 seven secure access repairs unresolved",
+    "M3 exact device action qualification/intentional opt-in incomplete",
+    "No live mutation from release preparation",
+    "one new source deployment plus one conditional DATA activation, unused"
+  ],
+  "validation": {
+    "full_suite": 382,
+    "failures": 0,
+    "skips": 0,
+    "local_linux_wheel_and_sdist": "six actualruntime/template/init members match; version1.4.1",
+    "required_CI_and_image_tag_target": "separate pending gates"
+  }
+}

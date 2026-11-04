@@ -1,0 +1,587 @@
+{
+  "schema": "ltx-sel-plan/1",
+  "title": "LTX SEL read repair and gated device qualification",
+  "created": "2026-11-04",
+  "artifact_contract": "ce-unified-plan/v1",
+  "artifact_readiness": "requirements-only",
+  "readiness_reason": "Draft revision2 for one scoped Astra recheck and explicit owner approval. Read-repair and packaged data-installer implementation are concretely bounded; hardware phases remain conditional on safe resource/vendor evidence and actual qualification. No builder authority frozen.",
+  "execution": "code",
+  "operating_mode": "Implementation Gate planning for unchanged REQ-SEL behavior; draft Authority Baseline projection for new operational qualification/deployment scope only. No publication executed by tw-plan.",
+  "tw_plan_engine": "tw-plan wrapper with packaged ce-plan, verification-planner and validation-planner applied in root-delegated no-publication artifact-only task; explicit requested HTML/JSON outputs honored. No interactive menu in child; root owns review/approval.",
+  "requirements_quality_preflight": {
+    "result": "accepted_unchanged_existing_scope_for_planning",
+    "requirements": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "accepted_plan_sha256": "0c75c22c8021534d3e360e9ebac9f7c55c6f89bb35ecac2c6a60e28a366043cc",
+    "approval_ref": ".traceweaver/sel-health-20261103/owner-approval.json",
+    "root_precode_ref": ".traceweaver/sel-health-20261103/root-precode-review.json",
+    "baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+    "released_analysis_ref": "c632ad31adece259fe59e184608df4af3b05b8f4",
+    "new_operational_scope": "draft authority-projection.json; pending exact plan approval; no new approved requirements/waivers"
+  },
+  "profile_ref": "profile.json",
+  "profile_hash": "sha256:1e07d9190ef7601d036f0c2203c3d0f2a8e641c8691cdb96ea94297b34204103",
+  "goal": "Complete owner goal: securely observe the seven failed BMCs, qualify every required LTX device/action with accepted exact evidence, and intentionally arm automatic clear and native-clock policies where requested. Read-status repair is a useful independently shippable milestone, not completion while any required access/action remains held.",
+  "settled_facts_and_constraints": [
+    "Existing REQ/TRACE/VER/VAL-SEL-001..005 retain their meaning: lossless same-reservation archive-before-clear, independent health, durable identity/audit, guarded admin controls and qualified native clock. No lossy override or waiver is proposed.",
+    "OWNER-SEL-LTX-BACKUP-WAIVER-20261104 persists: no mandatory production full-IPMI-DB backup/restore; preserve existing volume/history and prior container rollback. Complete verified raw SEL archive/receipt before every clear remains mandatory.",
+    "Owner intent is to fix seven unknown BMCs and enable automatic clear after verified backup plus native clock correction on LTX. This plan is the proposed operational scope; approval and actual qualification are pending.",
+    "Released IPMI source c632ad31adece259fe59e184608df4af3b05b8f4 /1.4.0, installed image sha256:b25e5648c38d696df26ac41e0d4637a6e61b0c65fbf0f9a615df9af2a8243c7a. Installed ipmitool1.8.19-9 binary SHA2567c2f3cf62182533909041789c7f47a07d8949b019a35892c445ada979f33cf28; shell/exec are listed, persistent-session correctness is not proved.",
+    "Fresh source/live evidence: h100x4 .101.20 rejects cipher17 while existing default-profile Device ID works; negotiated security is unknown. h100x8 .101.22 and l40sx8 .101.125 reject role including explicit USER17. Dell R630 .101.121\u2013124 time out strict17 and fail bounded default RMCP+ session. Credential presence does not prove validity/permissions/channel.",
+    "RTX .102.221 firmware01.09 has3639 records/full; ADA .102.220 firmware03.03 has885/24.32%. Both logging enabled; raw native counters approximate UTC with offset-300. The five-hour warning depends on unqualified local-epoch interpretation; actual clock fault is unproved.",
+    "All nine policy pairs are off; no active operations or archives; qualification environment absent at final read-only receipt. Fresh host kernel synchronization is proven only for that observation. Last NTP packet age and BMC clock ownership/mapping remain distinct.",
+    "Spare/safe test device availability is awaited. No production device is approved as a destructive negative-test fixture. Full .221 cannot be cleared to make marker space."
+  ],
+  "implementation_units": [
+    {
+      "id": "U1",
+      "title": "Freeze scope, exact identities and authority",
+      "owner": "Root",
+      "files": [
+        ".traceweaver/ltx-bmc-qualification-20261104/{owner-approval.json,authority.json,plan.json,workflow-profile.json,verification-plan.json,vv-capsule.json}",
+        "traceability-matrix.md",
+        ".traceweaver/intent-contract.yml",
+        ".traceweaver/ltx-bmc-qualification-20261104/installer-interface.json"
+      ],
+      "action": "After owner approval, record its literal text and reviewed plan/profile hashes. Reuse REQ-SEL-001..005 and existing accepted scoped design/owner receipt; append only current operational mapping and evidence links. Run tw-doc-review/full L3 V&V definition before builder. Fresh read-only GitHub auth/SSH/remote HEAD checks and dev/worktree inventory precede publication planning. Create isolated feat/ltx-sel-qualification worktree from verified dev; preserve dirty AGENTS.md/tests/__init__.py, unrelated PR14 and every other worktree.",
+      "pass": "Baseline/plan/profile/evidence identities agree; no requirement weakened or invented; mutation hold stages explicit. Owner approval is not claimed from this draft.",
+      "depends": []
+    },
+    {
+      "id": "U2",
+      "title": "Repair truthful read status and clock interpretation",
+      "owner": "Sol builder",
+      "files": [
+        "src/ipmi_monitor/sel_management.py",
+        "src/ipmi_monitor/app.py",
+        "tests/test_sel_management.py",
+        "templates/dashboard.html",
+        "templates/server_detail.html",
+        "src/ipmi_monitor/templates/dashboard.html",
+        "src/ipmi_monitor/templates/server_detail.html"
+      ],
+      "action": "Introduce fixed sanitized error enums for unsupported cipher, rejected role/auth, RMCP+ session failure, timeout, unsupported command and malformed response; no raw stderr or secret output. Record capacity, logging, identity, native time and offset independently with source/profile, own observation time and reason. An optional GUID/offset failure must not discard successful capacity/logging. Unknown identity never enables actions. Use explicit cipher17/-E for new raw reads; no automatic profile downgrade or -P fallback. Terminal session failure ends remaining same-profile network attempts while recording their unobserved reason, avoiding repeated waits. Missing mapping keeps native counter/offset visible but calculated UTC/drift/Clock Incorrect unknown; impossible/uninitialized raw dates may still warn. Apply only qualified mapping, supporting utc_epoch only if exact vendor evidence accepts it; otherwise neither write nor derived drift. Update app collector integration only where required for new independent data; avoid duplicate automatic health reads if changed without altering history collection. Show reason text and qualification/armed policy state in all four templates using existing text sinks and fixed classes; prevent new opt-in while action unavailable, always permit turning an opted-in policy off. Preserve POST/admin/session CSRF/exact-origin/direct/Fleet behavior. Every policy arm, action claim, execute and dispatch path reads and rechecks the current qualification source/bundle/record binding under the SQLite authority lock; an observed hardware fingerprint alone cannot carry old consent into new qualification.",
+      "pass": "Nine rows have truthful measured dimensions/reasons; .221/.220 are not called five hours wrong without mapping. Confirmed full warning remains; no unknown capacity becomes full or writes. Failed transport remains explicitly blocked instead of being falsely repaired.",
+      "depends": [
+        "U1"
+      ]
+    },
+    {
+      "id": "U3",
+      "title": "Resolve access faults through approved existing sources",
+      "owner": "Root with Sol diagnostic evidence",
+      "files": [
+        "docs/validation/sel-health-20261103.md",
+        ".traceweaver/ltx-bmc-qualification-20261104/access-evidence.json"
+      ],
+      "action": "In the approved live diagnostic window, compare exact target/inventory identity, existing org-secret reference/version and complete per-target resolver result without values; inspect permitted read-only account/channel/IPMI LAN privilege status through an already authenticated verified channel. Existing presence-only rows are insufficient. At most one bounded strict Device ID recheck per changed verified target configuration, followed by remaining seven fixed reads only if session succeeds. No cipher matrix, account escalation, password rotation, firmware update, NTP change or broad BMC scan. An existing correct owner-managed secret reference may be selected for its exact target only after independent identity/source review; no new secret or raw value is written to evidence. Changes revoke prior identity-bound policy consent. h100x4 alternate read profile requires independently proved negotiated authentication/integrity/confidentiality equivalence and explicit reviewed profile, never reuse a successful default session as a write qualification. If unavailable, show cipher mismatch and hold. Redfish reads for new qualification require exact vendor path and CA/pin trust; never reuse legacy verify=False client.",
+      "pass": "Full access repair passes only when all seven have secure independently validated observations through an accepted existing credential/channel/profile. A retained specific blocker is an honest partial diagnostic outcome, not a fixed or qualified BMC; full owner goal remains incomplete. No credential/permission/channel remedy is promised until its exact existing approved mechanism is verified.",
+      "depends": [
+        "U1",
+        "U2"
+      ]
+    },
+    {
+      "id": "U4",
+      "title": "Prove complete snapshot feasibility and tool binding",
+      "owner": "Sol builder; independent Sol verifies",
+      "files": [
+        "src/ipmi_monitor/sel_management.py",
+        "tests/test_sel_management.py",
+        "scripts/sel_qualification.py",
+        ".traceweaver/ltx-bmc-qualification-20261104/snapshot-feasibility.json"
+      ],
+      "action": "Pin qualification applicability to exact deployed adapter/source behavior and installed tool binary/version/security/role profile; reject mismatch. Start with installed1.8.19 shell/exec capability inspection and a controlled safe test proving one authenticated session can execute dynamic raw commands, frame complete responses and preserve one reservation. Help output alone is insufficient. Production read-only non-reserving traversal may measure completeness/timing but is never deletion authority; Reserve SEL is a state-changing qualification step. Maximum one target traversal at a time,65535 records/4MiB archive bound,60s current operation deadline and at most2 reservation-loss recollections remain. Measure actual885/3639 chains, raw next-ID uniqueness/count and info consistency; no extrapolation called full proof. Current per-process latency extrapolates159\u2013221s/655\u2013910s, so do not just increase subprocess timeout. If installed-tool single-session strategy cannot finish safely within existing bounds, ship read repair with clear held; any new dependency, changed global deadline, leases/heartbeat/reconcile design or split token requires plan re-review. No partial snapshots, readraw substitution or fresh reservation between chunks. scripts/sel_qualification.py is a proposed isolated offline/operator harness, not an API or runtime qualification bypass; its source and exact allowlist must be reviewed before use.",
+      "pass": "Recorded full-chain timing under reviewed bounds and complete raw receipt; synthetic timing protects application logic but does not establish actual session semantics. Missing feasibility blocks all clear qualification.",
+      "depends": [
+        "U1",
+        "U2"
+      ]
+    },
+    {
+      "id": "U4A",
+      "title": "Add fixed packaged qualification INSTALL and STATUS",
+      "owner": "Sol builder; fresh Sol independent validator; Astra security reviewer; root accepts",
+      "files": [
+        "src/ipmi_monitor/sel_qualifications.py (new fixed data importer/status and shared validation/store helpers)",
+        "src/ipmi_monitor/cli.py (fixed qualifications install/status surface only)",
+        "src/ipmi_monitor/sel_management.py (absence-only pointer loader, qualification binding and serialized policy/claim/dispatch)",
+        "src/ipmi_monitor/app.py (only additive schema/data resolution integration if needed; preserve existing rows)",
+        "tests/test_sel_qualifications.py (new filesystem/CLI boundary tests)",
+        "tests/test_sel_management.py (reuse qualification/policy/ownership/dispatch fixtures)",
+        "docs/user-guide.md",
+        ".traceweaver/ltx-bmc-qualification-20261104/installer-interface.json"
+      ],
+      "action": "Implement only official-image fixed qualifications install/status data operations, not a host service, environment/mount editor or HTTP route. Preferred operator invocation is the reviewed image Python with -I -m ipmi_monitor.sel_qualifications; packaged console command may expose the same fixed operations after module-origin proof. No checked-out code, DATA_DIR/current-directory/PYTHONPATH import or caller-selected command/module/destination/DB path. Root verifies exact running container ID/image/source/tool identity first, then fixed docker exec stdin invocation. Install requires root operator, --expected-sha256 matching exact reviewed envelope bytes; separately record registry-byte SHA256 for runtime binding. Strict JSON plus bounded base64 file values only: reject duplicate keys/paths/record IDs, wrong types, unknown authority fields and undeclared/unreferenced evidence. Each action digest and operation ID must resolve to admitted evidence manifest. Entire bundle rejected if any record/file/semantic match fails; current skip-bad-record loader is not validation. Caps:64MiB stdin before parse,32MiB decoded total,64 files, registry1MiB/evidence4MiB each, relative ASCII paths at most8 components and each component at most128 characters, no absolute/dot/backslash/control/indirection. Stop for reviewed cap adjustment, never truncate. Resolve existing explicit DATA_DIR without importing app startup; LTX must be /app/data on verified existing persistent mount. Only sel-qualifications beneath it: root-owned0700 dirs/0600 regular single-link files, no symlink ancestry, exclusive/no-follow descriptor-relative creation. Never chown/chmod unrelated paths. Validate/reopen bytes in private staging, fsync files/directories, then publish create-only envelope-digest directory. Existing same digest is reusable only after full byte revalidation; never overwrite. Versioned small regular active.json pointer includes exact envelope/registry digests, fixed contained location, approved source/tool/profile metadata and previous pointer digest; temp-file fsync + atomic rename + parent fsync. Retain prior bundle/pointer bytes, no automatic GC/newest search/rollback. Before pointer publication acquire existing SQLite BEGIN IMMEDIATE serialization in read-write-existing DB mode, require all policies OFF and no queued,active or outcome-unknown operation; installer never disables policies itself. Existing schema/dialect required, no DB create/migration/collector startup; verify current adapter/tool/profile identity in a bounded15s activation window. All policy-arm/action-claim/final-dispatch writers re-read binding under the same authority boundary: pin source mode, envelope or env-registry digest, selected record/action digest into consent and queued operation; revoke/reject changed binding, recheck immediately before dispatch. Compatible additive fields/migration preserve rows and never fabricate prior qualification consent. EITHER environment key present, even empty/partial, selects environment mode; invalid config remains unqualified and NEVER falls back. Only both absent permits explicitly operator-installed pointer; missing/corrupt/unsafe pointer/bundle stays off, no search or auto repair. Runtime validates full pointer bundle custody, record/evidence semantics/hashes, expiry and current exact hardware/adapter/tool/profile applicability. Pointer publication yields complete old/new or fail-closed state, never mixed files. Install/status perform zero network/BMC/credential-resolution/policy writes. Fixed sanitized outcomes installed/already_installed/refused/outcome_unknown and digest/stage receipts only. STATUS independently rereads safe active mode/digests/validation. Lost reply means STATUS/readback, not blind reinstall. No deactivate command or old-pointer reactivation in this scope; disabling automation uses existing guarded policy POSTs.",
+      "pass": "IC01..11 and PLAN-S01/S03 pass in actual filesystem-to-loader/SQLite/image packaging tests; valid data visible without restart while policies remain off. No installer result is hardware qualification or admin consent.",
+      "depends": [
+        "U1",
+        "U2",
+        "U4 tool/source binding"
+      ]
+    },
+    {
+      "id": "U5",
+      "title": "Qualify lossless clear in a safe exact-firmware environment",
+      "owner": "Named operator; fresh independent Sol evidence validator; Astra reviewer; root accepts",
+      "files": [
+        "scripts/sel_qualification.py",
+        "docs/validation/sel-health-20261103.md",
+        ".traceweaver/ltx-bmc-qualification-20261104/qualification/clear/"
+      ],
+      "action": "Keep both policies off. Await exact safe lab/spare resource and vendor firmware/aux evidence before destructive negative tests (QUAL-S01). If production-only offers no defensible first-clear path, stop clear qualification; never force-clear full .221 for space. Reviewed harness allowlist: exact Device ID/GUID/SEL info/allocation/logging/time/offset reads; Reserve SEL; reservation-sensitive nonzero-offset Get SEL Entry; approved benign representative marker ingress; raw conditional Clear SEL initiate/status. No standalone sel clear/reset/logging-off. Before any potential erase: complete raw SEL snapshot under the final reservation, independently reopened/readable durable receipt with verified digest/completeness and committed audit, protected retention and unchanged retained history verified. The owner full-IPMI-SQLite-backup waiver persists; no production full DB backup or restore is required. The waiver does not waive complete raw SEL backup or history preservation. Safe lab must prove stale token after accepted event and independent reservation is rejected by actual clear, valid same-token clear, bounded accepted/in-progress/completed behavior, and representative acknowledged ingress before/during/after erase retained according to vendor linearization/buffering. Add SEL Entry alone is insufficient if real Event Receiver ingress differs. Any acknowledged lost marker, unobserved erase interval, unsafe PEF effect, capacity shortage, identity drift or reply ambiguity stops. Maximum one accepted erase per exact safe fixture/canary per procedure; rejected stale-token trials remain safe-environment only; two read/archive attempts maximum and no blind effect retry. After exact-firmware lab proof and independently accepted target bootstrap evidence, at most one valid same-reservation clear per named production canary with complete backup; no bulk production test. Per-GUID registry may cite shared exact-firmware lab evidence only with documented applicability plus exact-target accepted canary/identity evidence; never mark another device qualified merely because its model matches.",
+      "pass": "QUAL-S01/S02/P05 explicitly pass for exact action/device/configuration; independent raw markers/counts/receipts/audit and target history survive. Otherwise action stays unavailable, no partial pass.",
+      "depends": [
+        "U3",
+        "U4",
+        "U4A data custody/claim binding (does not approve hardware)"
+      ]
+    },
+    {
+      "id": "U6",
+      "title": "Qualify native time independently",
+      "owner": "Named operator; fresh Sol validates; Astra reviews; root accepts",
+      "files": [
+        "src/ipmi_monitor/sel_management.py",
+        "tests/test_sel_management.py",
+        "scripts/sel_qualification.py",
+        "docs/validation/sel-health-20261103.md",
+        ".traceweaver/ltx-bmc-qualification-20261104/qualification/clock/"
+      ],
+      "action": "Identify exact vendor native epoch/offset semantics and every potential external time writer (NTP, BIOS/host/vendor agents); NTP.ProtocolEnabled=false alone cannot prove manual authority (QUAL-S03/P04). Acquire CA/pin from independently verified organizational custody and use exact authenticated vendor read-only ownership probes with no redirects; no verified route means clock writes held. Do not use verify=False legacy client. Reacquire host UTC reference at dispatch: read-only Linux TIME_OK/discipline/error bounds and fresh <=30s observation; record NTP source/status/error as supporting context without pretending packet age<=30s. Safe fixture covers positive/negative offsets, Set Time offset-reset/restoration, independent clock+offset readback within5s including timing, and client interruption after time accepted/before offset confirmed with retained ownership/no blind replay. No production timezone change just for coverage. After lab and target ownership/semantics acceptance, one correction sequence per exact target only if mapping is known and actual drift exceeds configured threshold or clock is uninitialized; no write to remove an inferred warning. Set SEL Time then restore captured intended offset only as vendor-qualified semantics require; observe a vendor-justified interval to catch reversion. Fixing monitor/Mac/OS/GPU clocks, NTP settings, rebooting or changing firmware is excluded.",
+      "pass": "Exact action mapping/ownership/trusted UTC/tolerance/interruption evidence accepted; no managed/unknown/reverting clock is written. If raw clock already correct, record no correction needed and do not write for demonstration.",
+      "depends": [
+        "U3",
+        "U4",
+        "U4A data custody/claim binding (does not approve hardware)"
+      ]
+    },
+    {
+      "id": "U7",
+      "title": "Verify, review and publish the bounded patch",
+      "owner": "Sol builder; fresh Sol validator; Astra reviewer; root publisher",
+      "files": [
+        "tests/test_sel_management.py",
+        "tests/test_retention_cleanup.py",
+        "tests/test_collection_workers.py",
+        "docs/user-guide.md",
+        "docs/validation/sel-health-20261103.md",
+        ".traceweaver/ltx-bmc-qualification-20261104/",
+        "traceability-matrix.md",
+        ".traceweaver/intent-contract.yml",
+        "pyproject.toml",
+        "src/ipmi_monitor/__init__.py",
+        "src/ipmi_monitor/sel_qualifications.py",
+        "src/ipmi_monitor/cli.py",
+        "tests/test_sel_qualifications.py"
+      ],
+      "action": "Reuse focused test matrix below: first behavioral RED against exact pre-fix code, then same-scope GREEN; preserve existing critical tests without duplication or weakened assertions. Fresh Sol inspects final artifact and raw outputs; Astra adversarial review addresses QUAL-S01..03/P04..05 plus PLAN-S01..03/IC01..11. Include installed-image isolated module/console packaging proof and importer-to-loader tests. The tested source contains official data installer before its one image deployment. Maximum one repair/retest cycle; unresolved blocker returns to root. Run focused SEL, affected retention/collection/auth/API tests and deterministic template/packaging checks; required CI/integration gates remain mandatory. Source review can accept read-status repair while hardware actions stay held. Root performs controlled feature PR into dev, required checks/merge, then normal protected dev-to-main patch release1.4.1, bump only at release merge and tag/image source-digest verification. No feature/dev version bump or CI/runner/security scope change. Existing protected publication wrapper and required checks govern; draft plan is no publication execution.",
+      "pass": "Exact candidate/build/image, all required checks and independent review agree; no remaining source blocker. Hardware holds remain visible and are not relabeled released qualification.",
+      "depends": [
+        "U2",
+        "U4A",
+        "U4 accepted strategy or explicit no-clear hold"
+      ]
+    },
+    {
+      "id": "U8",
+      "title": "Deploy IPMI only and activate accepted policies",
+      "owner": "Root; current deployment admin; Hannes/approved independent operations rater",
+      "files": [
+        "LTX accepted Fleet selection: IPMI immutable image pin only",
+        "LTX existing /app/data/sel-qualifications digest store and active.json through fixed packaged INSTALL",
+        "LTX SELTarget policy consent/binding rows through guarded API only",
+        ".traceweaver/ltx-bmc-qualification-20261104/deployment-and-acceptance.json"
+      ],
+      "action": "Refresh exact current Fleet selection, IPMI container/source/image/tool identities, health and preserved volume/history/prior-container rollback. Owner full-IPMI-DB backup waiver persists; no full live DB backup prerequisite. Budget exactly one new source IPMI image deployment and one separately counted data activation; no second generic container recreate or prior spent-budget reuse. Only IPMI immutable pin changes; proxy/CLI/DC/other pins/accounts/credentials/history/retention preserved. Deploy truthful read fix plus reviewed packaged INSTALL/STATUS even if hardware proof is held; no qualification or policy arm is invented. When exact action evidence passes safe resource/vendor/target procedures, named independent reviewer and root accept exact envelope bytes/expected SHA, actual canary IDs/evidence manifest, registry digest, expiry/requalification and full GUID/firmware/aux/log/tool/binary/deployed adapter/profile bindings. Verify current official image/container/module origin and DATA_DIR mount, record current policies OFF/no operations and pointer/status, invoke fixed isolated packaged INSTALL with bounded data-only stdin and expected envelope SHA. It validates/publishes under SQLite authority lock without network/credential/policy access; use STATUS plus independent pointer/bundle reopen for actual receipt. No mount/env/host-service change or container restart is required. Environment mode presence retains precedence and invalid env never falls back. Lost install reply => STATUS/reconcile, never blind retry. Once deployed source/history/receipt/direct-Fleet browser checks and actual installer readback pass, current admin intentionally enables automatic_clear and automatic_clock separately for each accepted action/device via guarded session-CSRF/exact-origin/revision POST. Consent binds installed qualification digest; no DB flag edits. Observe first eligible confirmed-full clear and native correction only if qualified drift/uninitialized condition exists; already-correct clock is not written for demonstration. Policies with no trigger are armed, not falsely reported as executed. Qualification/hash/tool/identity change, expiry or outcome-unknown prevents mutation; read-only reconcile, no blind retry. Existing guarded OFF stops future arming; rollback may return code to prior env-only loader, which ignores pointer mode. Keep retained current/previous evidence and subsequent history/audit; never auto-reactivate an old pointer on upgrade. Any future replacement/deactivation beyond exact admitted install/idempotent status needs explicit reviewed scope, not silent rollback. Hannes/named independent proxy accepts actual scenarios. Partial read-status release does not complete owner goal while required access/qualification/consent remains missing.",
+      "pass": "One counted IPMI source deployment and, only after actual qualification acceptance, one fixed data activation; independent status/readback confirms exact bytes and policies remain off until explicit bound consent. Other pins/history unchanged. Full owner goal passes only when every required access/action qualification and intentional opt-in is accepted; any remaining blocker leaves goal incomplete.",
+      "depends": [
+        "U7",
+        "U4A",
+        "U5 clear activation only",
+        "U6 clock activation only"
+      ]
+    }
+  ],
+  "operational_authority_projection": {
+    "schema": "ltx-sel-operational-authority-projection/1",
+    "status": "draft_owner_approval_pending",
+    "source_intent": "Fix seven unknown BMCs and qualify devices so automatic clear after verified backup and native clock correction can be enabled on LTX.",
+    "existing_behavioral_authority": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "not_a_requirement_amendment": true,
+    "proposed_authorization": "Bounded source repair and fixed packaged INSTALL/STATUS implementation/tests/review; normal protected1.4.1 patch release; one new IPMI-only source deployment plus one separately counted qualification data activation without recreation; safe qualification evidence collection/install only after all prerequisites pass; separate current-admin bound policy opt-ins. No approval/result inferred.",
+    "not_authorized_by_projection": [
+      "Lossy clear/global bypass/provisional fake record",
+      "Production destructive negative tests without accepted safe bootstrap",
+      "New secret/account privilege/firmware/NTP/OS/GPU changes",
+      "Unproved cipher fallback or legacy verify=False",
+      "New dependency/global deadline/lease redesign",
+      "Other product/component/CLI/proxy changes",
+      "Additional container recreation/host mount/env/service edits",
+      "HTTP installer or executable/archive bundle payload",
+      "New deactivation/replacement/old-pointer reactivation outside reviewed install/idempotent status"
+    ],
+    "pending_resource_decision": "Safe lab/spare same exact firmware or separately reviewed defensible safe production bootstrap; if absent, U5/U6 destructive qualification remains held while read repair proceeds.",
+    "installer": "New proposed official-image fixed data import under existing DATA_DIR; architecture accepted subject to IC01..11, implementation and owner approval pending. It is not an already installed capability."
+  },
+  "verification_plan": {
+    "plan_id": "VER-PLAN-LTX-SEL-20261104",
+    "requirement_ids": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "method": "test",
+    "owner": "Root; Sol evidence collector; fresh Sol validator",
+    "status": "draft",
+    "tested_ref_required": true,
+    "target_environment": "Isolated feature worktree/local Flask SQLite/browser; exact candidate container; safe exact-firmware fixture; LTX only through bounded approved commands",
+    "command_scope": [
+      ".venv/bin/python -m pytest -q tests/test_sel_management.py",
+      ".venv/bin/python -m pytest -q tests/test_sel_qualifications.py",
+      ".venv/bin/python -m pytest -q tests/test_retention_cleanup.py tests/test_collection_workers.py tests/test_auth.py tests/test_api_servers.py tests/test_admin_command_audit.py",
+      "Applicable repository lint/type/template/package checks and all required protected CI/integration checks; no new skips or lowered gates"
+    ],
+    "cross_reference_matrix": [
+      {
+        "requirement_id": "REQ-SEL-001",
+        "method": "test",
+        "procedure_ref": "VER-SEL-001 / ATP-LTX-READ",
+        "expected_result": "Cipher/role/session/timeout fixtures preserve independent successful capacity/logging and raw time/offset with per-probe freshness and fixed sanitized reasons. No unqualified mapping produces derived clock UTC/drift/incorrect warning. No unknown/stale capacity authorizes full trigger.",
+        "tests": "Extend current tests/test_sel_management.py raw boundary, capacity/freshness cases610/621 and unknown/default-off63; add only minimal actual failure parameters.",
+        "evidence_required": [
+          "red-read.log",
+          "green-read.log",
+          "browser-direct-fleet.json"
+        ],
+        "target_environment": "Real Flask/SQLite collector/API and both shipped template trees; synthetic subprocess/HTTP boundary in local tests, then exact deployed IPMI source/image.",
+        "harness_equivalence": "Tests prove application behavior only; live fixed-read receipts prove target observations. Neither qualifies firmware."
+      },
+      {
+        "requirement_id": "REQ-SEL-002",
+        "method": "test",
+        "procedure_ref": "VER-SEL-002 / ATP-LTX-CLEAR",
+        "expected_result": "Representative885/3639 multi-record chain completes under accepted bounded strategy or safely blocks; same reservation covers complete backup+conditional clear; no partial/truncated/changed chain or invalidated token clears; acknowledged representative erase-interval markers survive.",
+        "tests": "Reuse clear archive304, invalidation320, DB-failure424, accepted-clear-C5643; minimal full next-ID chain/timing regression and installed-tool framing/incomplete response case if strategy approved.",
+        "evidence_required": [
+          "red-snapshot.log",
+          "green-snapshot.log",
+          "snapshot-feasibility.json",
+          "qualification/clear/raw-receipts.json"
+        ],
+        "target_environment": "Local real raw adapter+SQLite, actual installed tool safe fixture, exact qualified firmware and approved production canary.",
+        "harness_equivalence": "Synthetic latency/counters cannot prove real persistent session/reservation or erase buffering. Safe exact-firmware evidence and independent actual receipts required."
+      },
+      {
+        "requirement_id": "REQ-SEL-003",
+        "method": "test",
+        "procedure_ref": "VER-SEL-003 / ATP-LTX-PRESERVE",
+        "expected_result": "History/raw bytes/generations retained, FULL/EXTRA archive/audit commit and independent receipt reopen precede dispatch, active or unknown operation retains ownership and protected archive; cooldown/reconcile cannot reclaim live work. INSTALL/policy/claim/dispatch races across two real SQLite sessions cannot replace qualification under armed, queued, active or outcome-unknown work.",
+        "tests": "Reuse ownership443,restart471,active archive/audit488,migration554 and existing retention/collection tests. Add only a concurrency deadline regression if approved session strategy changes timing.",
+        "evidence_required": [
+          "green-preservation.log",
+          "raw-sel-archive-reopen.json",
+          "pre-post-history.json",
+          "qualification/interruption.json"
+        ],
+        "target_environment": "Actual SQLite/mounted raw archive and separate sessions; synthetic legacy migration/restore in isolated container/volume only, not a required live DB backup.",
+        "harness_equivalence": "Local DB transaction checks do not establish production disk durability or an off-host copy; raw archive reopen/completeness/digest/custody are separately recorded. Synthetic migration/restore coverage remains local only; no live full DB backup prerequisite is reintroduced."
+      },
+      {
+        "requirement_id": "REQ-SEL-004",
+        "method": "test",
+        "procedure_ref": "VER-SEL-004 / ATP-LTX-GUARDS",
+        "expected_result": "Current admin/session/origin/revision gates remain; raw errors never leak secrets; tool/version/binary/profile mismatch denies qualification; unqualified policy cannot newly arm but disabling remains possible; hostile text safe direct/Fleet in both template trees. IC01..11 data installer integration: full-bundle rejection leaves pointer unchanged; safe exact bundle visible without restart/side effects; env-presence precedence; no path/import escape; source/tool/record/bundle binding through consent and dispatch.",
+        "tests": "Extend pin/mismatch393/aux694 with actual tool binding; reuse role88,intent97,origin592,revocation668/818,rendered726 and managed credential539. Do not duplicate auth suite. New focused tests/test_sel_qualifications.py uses actual temporary filesystem+SQLite and packaged -I module; minimum parameterized path/custody, invalid/oversize/hash/duplicate/semantic bundle, before/after-publication interruption, exact-idempotence and independent STATUS cases. Race two real DB sessions for armed/queued/unknown vs INSTALL, plus install/policy-arm/claim/final dispatch. Spy network/credential/policy boundaries only to prove zero effects. No fake runtime qualification enters production.",
+        "evidence_required": [
+          "red-security.log",
+          "green-security.log",
+          "browser-direct-fleet.json",
+          "qualified-registry-review.json",
+          "red-installer.log",
+          "green-installer.log",
+          "packaged-isolated-origin.json",
+          "installer-filesystem-db-concurrency.json",
+          "installer-lost-reply-status.json"
+        ],
+        "target_environment": "Real routes and real browser-rendered templates direct/Fleet; exact server registry mount and immutable artifact.",
+        "harness_equivalence": "Synthetic reviewer/checks are fixture-only and cannot become installed qualification; digest/permissions are custody, not external security isolation."
+      },
+      {
+        "requirement_id": "REQ-SEL-005",
+        "method": "test",
+        "procedure_ref": "VER-SEL-005 / ATP-LTX-CLOCK",
+        "expected_result": "Unqualified native interpretation remains unknown; qualified local/UTC epoch math only from exact evidence, positive/negative offsets restore/verify as appropriate; healthy/unhealthy/unknown external authority blocks, failed fresh reference blocks, interruption stays unknown/no replay; later reversion stops.",
+        "tests": "Extend current clock334/347/529 and kernel579 with nearUTC+offset-300 unqualified regression and accepted mapping case only if evidence supports; retain both offset signs and failure-between-writes.",
+        "evidence_required": [
+          "red-clock.log",
+          "green-clock.log",
+          "qualification/clock/vendor-ownership.json",
+          "qualification/clock/raw-before-after.json"
+        ],
+        "target_environment": "Real adapter application tests, safe actual firmware fixture and exact-target CA-verified ownership evidence.",
+        "harness_equivalence": "Local arithmetic and instant readback do not prove firmware interpretation/external ownership or sustained correctness; vendor interval and independent actual readback required."
+      }
+    ],
+    "execution_record_template": {
+      "execution_id": "VER-LTX-SEL-candidate-case",
+      "requirement_id": "record existing REQ-SEL ID",
+      "method": "test",
+      "setup": "exact fixture/target and accepted procedure",
+      "tested_ref": "exact commit+diff/image/tool/firmware/profile hashes",
+      "procedure_or_command": "actual bounded command or procedure",
+      "date_or_session": "UTC and monotonic timing",
+      "expected_result": "criterion from matrix before execution",
+      "actual_result": "pending",
+      "outcome": "held",
+      "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/evidence/",
+      "deviations": []
+    }
+  },
+  "validation_plan": {
+    "plan_id": "VAL-PLAN-LTX-SEL-20261104",
+    "need_source": "Owner request and existing approved SEL need/plan",
+    "intended_use": "Administrator can identify logging/capacity/access/native-clock issues, preserve evidence and intentionally enable safe qualified automation.",
+    "operating_context": "Exact nine LTX inventory targets, direct and supported Fleet base paths, unchanged retention/credentials/other component pins",
+    "method": "representative_operator_acceptance",
+    "owner": "Hannes Zietsman / root",
+    "rater_profile": {
+      "name_or_role": "Hannes Zietsman or separately named owner-approved operations proxy",
+      "relationship_to_work": "Deployment administrator responsible for LTX evidence and outcomes",
+      "independence_note": "Not implementing agent; named proxy approval and role recorded before pass",
+      "representative_reason": "Operates these exact machines and chooses automation outcomes"
+    },
+    "scenario_matrix": [
+      {
+        "scenario_id": "VAL-SEL-001",
+        "scenario": "Operator identifies each exact LTX name/IP, independent capacity/logging and access blockers; raw clock interpretation unknown displayed honestly.",
+        "acceptance_signal": "Independent fixed reads match displayed readings/reasons; no false five-hour correction or unsupported healthy status.",
+        "evidence_path": "acceptance/health.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-002",
+        "scenario": "On accepted safe canary, operator inspects complete durable raw receipt then clear outcome.",
+        "acceptance_signal": "Same-token conditional clear and ingress preservation independently accepted; saved history readable. Otherwise held, no forced test.",
+        "evidence_path": "acceptance/clear.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-003",
+        "scenario": "Operator inspects independently reopened raw SEL backup receipt, retained history and interrupted operation status.",
+        "acceptance_signal": "History/audit/active receipt unchanged; unknown effect visibly held and no replay.",
+        "evidence_path": "acceptance/preservation.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-004",
+        "scenario": "Current admin arms each accepted per-device policy through direct/Fleet UI; read roles cannot.",
+        "acceptance_signal": "Independent toggles/revocation/rebinding work, unqualified action stays unavailable, no unsafe rendering.",
+        "evidence_path": "acceptance/security.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-005",
+        "scenario": "Operator sees qualified BMC native correction only where needed and permitted by clock authority.",
+        "acceptance_signal": "Trusted UTC/mapping/offset/readback plus vendor-justified interval pass; already-correct, managed or unknown clocks are not written.",
+        "evidence_path": "acceptance/clock.json"
+      }
+    ],
+    "decision": "held",
+    "deferred_gaps": [
+      {
+        "gap": "GAP-SEL-HARDWARE-001",
+        "owner": "Hannes/root",
+        "trigger": "Safe exact-device/action qualification and independent raw review",
+        "impact": "Clear/clock action remains unavailable until its evidence passes"
+      },
+      {
+        "gap": "GAP-SEL-ACCEPTANCE-002",
+        "owner": "Hannes/root",
+        "trigger": "Actual approved deployment/operator session on exact candidate",
+        "impact": "No operational acceptance or requirement closure before named rater evidence"
+      }
+    ]
+  },
+  "design_decisions": [
+    {
+      "id": "DD-LTX-01",
+      "status": "candidate",
+      "selected": "Independent read dimensions with strict trusted mutation boundary",
+      "alternatives": "Keep generic unknown; silently follow default collector profile",
+      "reason": "Meets truthful health requirement while preserving cipher/identity safeguards."
+    },
+    {
+      "id": "DD-LTX-02",
+      "status": "candidate",
+      "selected": "Existing installed-tool single-session proof within existing60s budget or clear hold",
+      "alternatives": "Raise timeout globally; partial/rawread archive; new dependency silently",
+      "reason": "Current session-per-record path infeasible at real record counts; transport capability unproved, ownership/reconcile assumptions must not silently change."
+    },
+    {
+      "id": "DD-LTX-03",
+      "status": "candidate",
+      "selected": "Qualified native mapping/ownership required for derived clock error and writes",
+      "alternatives": "Treat -300 offset as local epoch everywhere; set clock to remove warning",
+      "reason": "Raw nearUTC evidence makes current five-hour drift ambiguous; external ownership broader than NTP boolean."
+    },
+    {
+      "id": "DD-LTX-04",
+      "status": "candidate",
+      "selected": "Safe lab before production destructive canary; per-action/GUID acceptance",
+      "alternatives": "Provisional qualification flags; clear full production log for marker space",
+      "reason": "Negative stale-token test itself can lose unarchived events; firmware proof and safe bootstrap required."
+    }
+  ],
+  "acceptance_and_stop_conditions": [
+    "No owner-approved plan/profile/V&V => no builder/source mutation.",
+    "No safe lab/credible loss-preserving bootstrap => no destructive qualification, no production negative tests; read repair continues.",
+    "Snapshot exceeds existing bounds or requires new dependency/deadline/lease design => hold clear and submit concrete plan revision.",
+    "No qualified native mapping/current verified ownership/TLS trust/fresh UTC => no derived drift claim or native correction.",
+    "Cipher/role/auth failure => truthful blocker, never downgrade cipher/escalate account privileges by implication.",
+    "Any lost acknowledged marker, changed identity/firmware/tool/profile, partial backup, storage/audit failure, ambiguous effect or time reversion => stop affected action; retain ownership/evidence, reconcile without replay.",
+    "One repair cycle exhausted => return unresolved finding; no untracked repeat work.",
+    "Required CI/source/image/Fleet identity mismatch => no release/deploy; other component pin change => stop.",
+    "Only named independent reviewer/root action acceptance plus current-admin guarded consent permits policy activation; no all-device pass inferred.",
+    "One source-image deployment plus one separately counted data activation only; neither is a generic retry/recreate ticket. Ambiguous reply => fixed status/reconcile.",
+    "INSTALL refuses any armed policy, queued/active/outcome-unknown operation, malformed/unsafe bundle, changed tool/source/profile or invalid existing schema; it never changes policy to make installation succeed.",
+    "EITHER env key present but invalid stays unqualified; no pointer/newest/old-bundle fallback. Changed qualification digest invalidates consent/queued selection and is rejected at dispatch under SQLite lock.",
+    "Read-status milestone can ship with honest blockers, but full goal is incomplete until every required failed access/action is securely resolved, accepted and opted in."
+  ],
+  "definition_of_done": [
+    "M1 may ship independently after approval: truthful read repair and new fixed data installer are tested/reviewed/released/deployed; this alone does not satisfy the full owner goal.",
+    "Full goal requires all seven failed BMCs to have secure validated observations, and every required LTX device/action to have accepted exact qualification plus intentional digest-bound policy opt-in. No specific blocker substitutes for a fixed or qualified BMC.",
+    "Complete verified raw SEL archive/reopened receipt/retention and pre/post history/audit preserved for every clear; owner full-live-DB-backup waiver remains in effect.",
+    "Official data activation/status/readback and named independent operator acceptance pass; other product pins/accounts/credentials/history remain preserved.",
+    "Any missing secure access, safe fixture/bootstrap, snapshot feasibility, native mapping/ownership or action evidence leaves the overall goal incomplete with exact owner/next evidence recorded."
+  ],
+  "confidence_check": {
+    "depth": "deep",
+    "targeted_strengthening_applied": [
+      "Applied PLAN-S01 concrete official-image data INSTALL+STATUS in existing DATA_DIR, strict IC01..11 custody and packaging",
+      "Applied PLAN-S02 full DB waiver consistently; raw SEL backup and history safeguards preserved",
+      "Applied PLAN-S03 qualification source/bundle/record binding under SQLite install/policy/claim/dispatch serialization",
+      "Counted one source image deployment and one data activation separately; no generic second recreation",
+      "Separated useful read-status milestone from full seven-device access/qualification/opt-in completion"
+    ],
+    "remaining_blockers": [
+      "Owner safe lab/spare resource answer and exact accepted destructive canary/target manifest",
+      "Measured installed-tool persistent session/full885/3639-record proof within current bounds",
+      "Vendor-exact native semantics, all external writers/current authenticated ownership/TLS custody and observation interval",
+      "Verified existing credential/channel mechanism for failed seven targets; no implicit privilege/firmware remedy"
+    ],
+    "ce_doc_review": {
+      "skipped_reason": "output_format_html",
+      "fixes_applied": 0,
+      "manual_review": "Root will dispatch Astra against actual plan; no review pass claimed"
+    },
+    "architecture_review": {
+      "reference": "../astra-review/plan-review.json",
+      "verdict": "REVISE actual draft before end-to-end approval; ACCEPT proposed packaged data-only installer architecture subject to the explicit contract below",
+      "plan_pass_claimed": false,
+      "next": "One scoped Astra recheck of revision2 actual files, then root owner approval gate"
+    }
+  },
+  "next_wrapper": "Root scoped tw-doc-review/Astra recheck revision2, explicit owner approval and full L3 V&V definition; then tw-work bounded source only. Hardware stages execute only after actual conditional prerequisites/evidence acceptance; controlled wrappers own publication.",
+  "plan_revision": 2,
+  "previous_revisions": [
+    "revisions/draft-1/",
+    "revisions/draft-1-waiver-corrected/"
+  ],
+  "installer_contract": {
+    "source": "../astra-review/plan-review.json IC01..11",
+    "accepted_architecture_only": true,
+    "rules": [
+      {
+        "id": "IC01",
+        "rule": "Invoke only a fixed module/entrypoint packaged in the reviewed official immutable IPMI image. Prefer an isolated Python invocation or verified console entrypoint that cannot import from DATA_DIR/current working directory/PYTHONPATH. Verify the exact container ID and image/source digest before the fixed docker exec; do not execute a checked-out script or accept executable bundle content. Packaging must prove the isolated invocation actually locates the installed module."
+      },
+      {
+        "id": "IC02",
+        "rule": "Accept only install with an exact expected SHA256 and a data-only stdin envelope. Use a strict JSON manifest plus bounded base64 file values, not tar/zip extraction, pickle, YAML constructors, templates, shell commands or URLs. Reject duplicate JSON keys, duplicate paths/record IDs, invalid types, unknown authority fields and undeclared/unreferenced files. No caller-selected destination, DB path, module or command."
+      },
+      {
+        "id": "IC03",
+        "rule": "Expected SHA256 identifies the exact root-reviewed envelope bytes; record a separate registry-byte digest for runtime pinning. Both values must be explicit and must not be confused. Independently hash each decoded evidence file and require action evidence digests/operation IDs to resolve to the admitted evidence manifest. Reject the entire bundle if any record or evidence is invalid; do not use the current loader\u2019s skip-invalid-record behavior as installer validation."
+      },
+      {
+        "id": "IC04",
+        "rule": "Bound total stdin before parse, file count, decoded total, per-file bytes, registry bytes and path depth. Proposed narrow initial caps:64MiB envelope/32MiB decoded total/64files, registry1MiB and each evidence4MiB; retain current runtime per-file caps. If genuine evidence does not fit, stop for a reviewed cap adjustment, not truncation. Names are relative ASCII allowlisted components without dot traversal, absolute paths, backslashes, control characters or hidden indirection."
+      },
+      {
+        "id": "IC05",
+        "rule": "Use existing explicit DATA_DIR resolution; for LTX verify it is /app/data and the expected persistent mount. Operate only beneath sel-qualifications. Require root operator identity on this root runtime, directories0700/files0600, regular single-link files and non-symlink directory ancestry. Use exclusive creation/no-follow descriptor-relative operations to avoid check/open path races. Never chown/chmod existing unrelated paths or overwrite an existing digest directory."
+      },
+      {
+        "id": "IC06",
+        "rule": "Write a unique private staging directory, validate/reopen bytes from disk, fsync files and directories, then publish a create-only digest directory. An existing same-digest directory is reusable only after byte-for-byte revalidation. Activate a small versioned regular JSON pointer containing digest identities, fixed relative location, approved configuration metadata and previous pointer digest via temporary file+fsync+atomic rename+parent fsync. Retain previous bundle and pointer bytes for diagnosis; no automatic garbage collection or rollback to an older qualification."
+      },
+      {
+        "id": "IC07",
+        "rule": "Acquire the existing database authority serialization boundary before pointer publication; refuse affected armed policies or any affected queued/active/outcome-unknown operation. Require existing database/schema in read-write-existing mode, never create a database or import app startup that launches collectors/migrations. Missing/unmapped schema or unsupported dialect blocks install. Validate current source/tool/profile identity while under a bounded activation window. No policy fields or BMC state change."
+      },
+      {
+        "id": "IC08",
+        "rule": "Environment mode wins when EITHER SEL_QUALIFICATIONS_FILE or SEL_QUALIFICATIONS_SHA256 is present, including empty values. Partial/empty/bad/missing-file/hash-invalid environment configuration returns unqualified and never falls back. Only absence of both permits operator-pointer mode. Missing/corrupt/unsafe pointer or bundle fails closed; never search for newest directory or repair a bad pointer automatically."
+      },
+      {
+        "id": "IC09",
+        "rule": "The runtime validates pointer/bundle custody, complete registry/evidence hashes and semantics, expiry and current deployed adapter/tool/profile applicability. Registry metadata cannot grant unsupported commands or select arbitrary targets. Pointer changes do not arm policies. Runtime must invalidate caches correctly; atomic publication must yield complete old, complete new, or fail-closed state, never mixed evidence."
+      },
+      {
+        "id": "IC10",
+        "rule": "Installer makes no network/BMC calls, consumes no BMC credentials, changes no policies and exposes no HTTP install route. Use fixed sanitized outcome codes with receipt digest and installation stage; never echo arbitrary evidence or environment. Return installed, already_installed, refused or outcome_unknown truthfully; inspect durable status after a lost reply rather than retrying blindly."
+      },
+      {
+        "id": "IC11",
+        "rule": "Add a fixed read-only status command reporting the active mode/digests and safe validation outcome for independent readback. Root records the install receipt, reviewed bundle and before/after identity. Failure before pointer publication preserves old activation; interruption after publication is reconciled from pointer/bundle/status. Reverting code to the older env-only loader naturally ignores pointer mode; do not auto-reactivate an old pointer on later upgrades. A future deactivation/replacement operation requires explicit reviewed scope and remains separate from policy consent."
+      }
+    ],
+    "commands": [
+      "qualifications install --expected-sha256 (exact reviewed envelope byte digest; stdin data)",
+      "qualifications status (fixed read-only mode/digest/outcome)"
+    ],
+    "caps": {
+      "envelope_bytes": 67108864,
+      "decoded_total_bytes": 33554432,
+      "file_count": 64,
+      "registry_bytes": 1048576,
+      "evidence_file_bytes": 4194304,
+      "path_components": 8,
+      "path_component_characters": 128,
+      "pointer_bytes": 16384,
+      "activation_window_seconds": 15
+    },
+    "runtime_mode": "EITHER env key present => env only/fail closed, including empty/partial. BOTH absent => explicit pointer or unqualified.",
+    "operations": "One source image deployment plus one DATA-only activation; no restart/mount/env change. No deactivation/replacement beyond admitted exact install/idempotent validation, no auto old-pointer fallback."
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "name": "Application read-status repair",
+      "complete_when": "Approved source/test/review/release/deployment reports independent readings and true blockers; ambiguous native mapping not labeled Clock Incorrect.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "M2",
+      "name": "Secure seven-device access repair",
+      "complete_when": "All seven have independent secure observations using verified accepted credentials/channel/profile; specific retained blockers mean M2 incomplete.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "M3",
+      "name": "Exact device/action qualification and bound automation",
+      "complete_when": "Safe exact evidence accepted, complete raw SEL backup safeguards proved, fixed DATA install readback passes, current admin opts in each required action/device; named independent intended-use acceptance.",
+      "full_goal_complete": "Only after M1+M2+M3 and no required unresolved target/action hold."
+    }
+  ]
+}

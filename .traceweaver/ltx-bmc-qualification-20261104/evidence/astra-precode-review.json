@@ -1,0 +1,122 @@
+{
+  "schema": "ltx-sel-precode-vv-review/1",
+  "reviewed_at": "2026-11-04",
+  "reviewer": "/root/astra_bmc_qualification",
+  "requested_model": "gpt-6-astra/high; native served identity unattested",
+  "decision": "PASS_PRECODE_ARTIFACT_USE_ONLY",
+  "production_GO": false,
+  "review_scope": "Initial RED tests/fixtures, authority and full L3 verification/validation definitions only. No final code/hardware acceptance. Root alone updates capsule review status and decides production GO.",
+  "approved_baseline": {
+    "worktree_base": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+    "released_source": "c632ad31adece259fe59e184608df4af3b05b8f4",
+    "owner_literal": "Approved",
+    "approved_plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+    "approved_plan_actual_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+    "frozen_profile_declared": "sha256:0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc",
+    "frozen_profile_canonical_sha256": "0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc"
+  },
+  "reviewed_artifact_sha256": {
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/test_sel_management.py": "7ee4de256c1edafdde86406d9bf8bdbe72b83cc41cf6950b7ff147ab9bb01857",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/test_sel_qualifications.py": "8374c73d982783d236743a8736803af0704689831577316ac70a9312825c5d41",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/fixtures/ltx_sel_reads_20261104.json": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/docs/validation/sel-health-20261103.md": "eed8fa084a22ebd43bb5c4d7953a9043142c51c29260f22295974c6febeb2733",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/authority.json": "0e707b290460558d5267f43813f14f773f993f5fe97ef62a0916f70431ce8e70",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/owner-approval.json": "4b547b85d9e7b77c138ca0f23f20f5149fc5d68c7cd07dd921a3f05fc6cc156d",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/verification-plan.json": "b6816f11a662defb108c9087c60f4fec0d81fc2e2a00836e14e1202d032a9ffc",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/validation-plan.json": "bd9c9cf5b661668a4e5ec381184ddd7df1e0dbc6a4ec2fc87b568c2d3efe2a65",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/vv-capsule.json": "a7efdb9bdfee4a0a1365d3c458c0a1b30ea02d9ac6e411e9811ed779baf22ade",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/installer-interface.json": "6ed99e04dd6a1cbb471675e876674b141ef1247124b78c0dbea4f2f66c82126a",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/review-status.json": "b7ebdec94df10e0d05f2d67510b6a3ba698fce4b591d1bf29f701a179ab4087f",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/plan.json": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.stdout": "ae7ba08c3afa0e4b5b03024d1bc8004783d9e0c97a5360e00622965114dcefb2",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.json": "f858f1476eec73c12ad5d774bb10c299c783227c708c2f70dfc12f146b4beb0e",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/baseline.stdout": "946981a3f653b08437cea8fe89740692c06a0c4285c5df2fcc06a03730ebe974",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/baseline.json": "e92eb6c9a2259fd3bcede22879bc764b4f36b982908f9e892a1d20658de5369f",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/baseline-browser.stdout": "1fe495ca010aa485908e8d3178aa6b9ecb0f5e389ce0ec35fc0490e0512b5ab9",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/baseline-browser.json": "d6be4c9ae9e0ccd0752eeaf2d8265c3c9653e63e400083bf6d40d31f4ddea664",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/capsule-structure.json": "6b2ecbecd529324e6ed5a37f67bed4579741de13ad51394c4493d81ea7e5ea48",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/capsule-review.json": "6779c2dc1ee3b6bdc2577491defd8e9ffa9594ff309e84275a7685d64a22ce9e",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.traceweaver/ltx-bmc-qualification-20261104/evidence/capsule-review-findings.jsonl": "8beb53cba0644ccf8fa6d3e3b30ce29a8752839b438b2602aaca155ac9f505aa",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/frozen-profile.json": "a3f21c2cbd1dbcafccf21ae2631e47bb15adaea4875504e6567a6933bd4fd501",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/profile-freeze.json": "25045ebaf45a6583abdf387dac510be835f82bb9b0717e0ff3a152a7e67f9904",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/production-unchanged.json": "248896e8b6d60226547a07672d552b9bac667b3bc5d4cec0e7790f47d82ef38f"
+  },
+  "production_and_authority_diff_names": [],
+  "findings": [],
+  "p1_definition_blockers": 0,
+  "evidence_assessment": [
+    {
+      "area": "Initial behavioral RED",
+      "observed": "Saved raw pytest output contains14 assertion failures,4 passes,71 deselected. Failing cases expose observable API/adapter/registry behavior, including missing CLI command; there are no import/collection failures used as RED.",
+      "limit": "This review inspected raw logs and tests; it did not rerun tests."
+    },
+    {
+      "area": "Baseline",
+      "observed": "First baseline records59 passes and12 browser failures; exact12-case browser retry records12 passes. Original failure log retained.",
+      "limit": "This is combined scope evidence across two runs, not a fabricated single71-pass run."
+    },
+    {
+      "area": "Production unchanged",
+      "observed": "Independent git diff across src/templates/requirements/matrix/intent is empty; retained manifest reports19 unchanged production files and no new production modules.",
+      "limit": "No production implementation reviewed."
+    },
+    {
+      "area": "IC01..11 definition",
+      "observed": "Installer interface and VER-SEL-004 explicitly define real filesystem/SQLite/isolated image boundaries, exact source and evidence digests, whole-bundle rejection, custody/caps, fsync/atomic publication, env precedence, active-policy/operation exclusion and consent/dispatch binding.",
+      "limit": "CLI-help RED and registry rejection cases do not prove the full installer."
+    },
+    {
+      "area": "Authority and acceptance",
+      "observed": "Literal approval, exact plan and frozen profile references align. VAL scenarios name independent operator, exact artifacts and per-target evidence. Raw SEL archive remains mandatory; full live database backup waiver persists. One image deployment and one data activation remain distinct.",
+      "limit": "Hardware/intended-use gaps remain held; no automatic policy or qualification issuance is authorized by this review."
+    },
+    {
+      "area": "Capsule status",
+      "observed": "Structure check exit0; require-review-passed exit1 with five pending-review findings. review-status.json is pending and production_GO=false.",
+      "limit": "Expected pre-review state; root must attach real scoped review evidence, update statuses honestly and rerun checker before any GO."
+    }
+  ],
+  "mandatory_per_unit_tdd_obligations": [
+    {
+      "id": "VVO-01",
+      "before": "Strict registry/evidence validator implementation",
+      "obligation": "Upgrade the existing qualified_site fixture to a valid producer-faithful synthetic manifest: admitted file digest, admitted operation IDs, required tool/source/profile fields and valid custody. Assert the unchanged valid fixture is accepted before corruption. Existing legacy fixture action sha=1 repeated64 and synthetic-only operation not represented in evidence must not cause unrelated invalidity to make all negatives pass. Never relax production validation for fixtures."
+    },
+    {
+      "id": "VVO-02",
+      "before": "Action evidence relationship validation implementation",
+      "obligation": "Parameterize digest mismatch and operation-ID mismatch independently against that accepted fixture. The current combined corruption demonstrates an existing gap but would pass if only one of the two required relationships were validated. Preserve both requirements with the minimum two cases."
+    },
+    {
+      "id": "VVO-03",
+      "before": "Installer storage/publication functions",
+      "obligation": "Author and demonstrate observable absent/old-behavior RED for whole-bundle/path/custody/cap failures, unchanged pointer on refusal, actual install-to-loader readback, idempotence and before/after-publication interruption. Include symlink evidence/ancestry in the defined path matrix; the current symlink test covers only registry path. Do not replace these with tests of validation helper return values alone."
+    },
+    {
+      "id": "VVO-04",
+      "before": "Installer/policy/claim/dispatch serialization functions",
+      "obligation": "Demonstrate the defined two-real-SQLite-session race cases before corresponding code: armed/queued/active/outcome-unknown excludes activation; stale consent and selected qualification digest cannot survive change. Preserve existing restart/unknown-outcome ownership assertions."
+    },
+    {
+      "id": "VVO-05",
+      "before": "Pointer-mode loader and packaged entrypoint behavior",
+      "obligation": "Demonstrate missing/partial/empty/invalid env precedence, no old/newest fallback, module-origin isolation and zero app-startup/network/credential/policy-write side effects through actual CLI/loader boundaries. New executable coverage is required before those production functions; initial help RED is not blanket permission to write first and test afterward."
+    }
+  ],
+  "coverage_limits_and_retained_guards": [
+    "The three885/3639 chain/deadline cases and timeout classification already pass. Retain them as useful guards; do not force artificial RED or call synthetic timing hardware/session feasibility.",
+    "Fresh live-read bytes are preserved in sanitized fixtures and replay only the subprocess boundary. Fixtures are not qualification evidence and must never be shipped into an installed registry.",
+    "Transport reason tests cover cipher, role, session and timeout at fingerprint boundary. Collector terminal-session short-circuit, unsupported/malformed response and independent per-dimension freshness remain defined acceptance behavior to verify as those units change.",
+    "Native counter-near-UTC/-300 tests correctly deny unqualified derived drift; they do not select UTC interpretation or prove a five-hour hardware fault.",
+    "No safe resource, full-chain actual-session proof, erase-interval marker evidence, exact external-time ownership or native hardware semantics was supplied. All relevant hardware actions remain held.",
+    "Tests may use synthetic approved-format data in temporary test roots to verify application gates, but must not weaken test-only runtime rejection or install that data as real qualification."
+  ],
+  "root_next_step": "Use this scoped pass for precode artifact review only. Record the per-unit RED obligations in builder dispatch, update actual capsule/review-status entries and rerun require-review-passed; root alone issues bounded production-code GO. Final code, required CI, installed-image evidence and hardware acceptance remain separate.",
+  "validation": {
+    "review_json_valid": true,
+    "target_connections": 0,
+    "BMC_actions": 0,
+    "source_edits": 0,
+    "tests_rerun": 0
+  }
+}
