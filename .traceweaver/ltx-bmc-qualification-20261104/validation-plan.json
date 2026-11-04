@@ -1,0 +1,131 @@
+{
+  "skill_name": "validation-planner",
+  "authority_status": "owner_approved_definition_not_acceptance",
+  "baseline_reference": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "decision": "held",
+  "decision_rationale": "No independent named-operator/hardware acceptance yet.",
+  "validation_plan": {
+    "plan_id": "VAL-PLAN-LTX-SEL-20261104",
+    "need_source": "Owner request and existing approved SEL need/plan",
+    "intended_use": "Administrator can identify logging/capacity/access/native-clock issues, preserve evidence and intentionally enable safe qualified automation.",
+    "operating_context": "Exact nine LTX inventory targets, direct and supported Fleet base paths, unchanged retention/credentials/other component pins",
+    "method": "representative_operator_acceptance",
+    "owner": "Hannes Zietsman / root",
+    "rater_profile": {
+      "name_or_role": "Hannes Zietsman or separately named owner-approved operations proxy",
+      "relationship_to_work": "Deployment administrator responsible for LTX evidence and outcomes",
+      "independence_note": "Not implementing agent; named proxy approval and role recorded before pass",
+      "representative_reason": "Operates these exact machines and chooses automation outcomes"
+    },
+    "scenario_matrix": [
+      {
+        "scenario_id": "VAL-SEL-001",
+        "scenario": "Operator identifies each exact LTX name/IP, independent capacity/logging and access blockers; raw clock interpretation unknown displayed honestly.",
+        "acceptance_signal": "Independent fixed reads match displayed readings/reasons; no false five-hour correction or unsupported healthy status.",
+        "evidence_path": "acceptance/health.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-002",
+        "scenario": "On accepted safe canary, operator inspects complete durable raw receipt then clear outcome.",
+        "acceptance_signal": "Same-token conditional clear and ingress preservation independently accepted; saved history readable. Otherwise held, no forced test.",
+        "evidence_path": "acceptance/clear.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-003",
+        "scenario": "Operator inspects independently reopened raw SEL backup receipt, retained history and interrupted operation status.",
+        "acceptance_signal": "History/audit/active receipt unchanged; unknown effect visibly held and no replay.",
+        "evidence_path": "acceptance/preservation.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-004",
+        "scenario": "Current admin arms each accepted per-device policy through direct/Fleet UI; read roles cannot.",
+        "acceptance_signal": "Independent toggles/revocation/rebinding work, unqualified action stays unavailable, no unsafe rendering.",
+        "evidence_path": "acceptance/security.json"
+      },
+      {
+        "scenario_id": "VAL-SEL-005",
+        "scenario": "Operator sees qualified BMC native correction only where needed and permitted by clock authority.",
+        "acceptance_signal": "Trusted UTC/mapping/offset/readback plus vendor-justified interval pass; already-correct, managed or unknown clocks are not written.",
+        "evidence_path": "acceptance/clock.json"
+      }
+    ],
+    "decision": "held",
+    "deferred_gaps": [
+      {
+        "gap": "GAP-SEL-HARDWARE-001",
+        "owner": "Hannes/root",
+        "trigger": "Safe exact-device/action qualification and independent raw review",
+        "impact": "Clear/clock action remains unavailable until its evidence passes"
+      },
+      {
+        "gap": "GAP-SEL-ACCEPTANCE-002",
+        "owner": "Hannes/root",
+        "trigger": "Actual approved deployment/operator session on exact candidate",
+        "impact": "No operational acceptance or requirement closure before named rater evidence"
+      }
+    ]
+  },
+  "stakeholder_or_rater_profile": {
+    "name_or_role": "Hannes Zietsman or separately named owner-approved operations proxy",
+    "relationship_to_work": "Deployment administrator responsible for LTX evidence and outcomes",
+    "independence_note": "Not implementing agent; named proxy approval and role recorded before pass",
+    "representative_reason": "Operates these exact machines and chooses automation outcomes"
+  },
+  "validation_scenario_matrix": [
+    {
+      "scenario_id": "VAL-SEL-001",
+      "scenario": "Operator identifies each exact LTX name/IP, independent capacity/logging and access blockers; raw clock interpretation unknown displayed honestly.",
+      "acceptance_signal": "Independent fixed reads match displayed readings/reasons; no false five-hour correction or unsupported healthy status.",
+      "evidence_path": "acceptance/health.json"
+    },
+    {
+      "scenario_id": "VAL-SEL-002",
+      "scenario": "On accepted safe canary, operator inspects complete durable raw receipt then clear outcome.",
+      "acceptance_signal": "Same-token conditional clear and ingress preservation independently accepted; saved history readable. Otherwise held, no forced test.",
+      "evidence_path": "acceptance/clear.json"
+    },
+    {
+      "scenario_id": "VAL-SEL-003",
+      "scenario": "Operator inspects independently reopened raw SEL backup receipt, retained history and interrupted operation status.",
+      "acceptance_signal": "History/audit/active receipt unchanged; unknown effect visibly held and no replay.",
+      "evidence_path": "acceptance/preservation.json"
+    },
+    {
+      "scenario_id": "VAL-SEL-004",
+      "scenario": "Current admin arms each accepted per-device policy through direct/Fleet UI; read roles cannot.",
+      "acceptance_signal": "Independent toggles/revocation/rebinding work, unqualified action stays unavailable, no unsafe rendering.",
+      "evidence_path": "acceptance/security.json"
+    },
+    {
+      "scenario_id": "VAL-SEL-005",
+      "scenario": "Operator sees qualified BMC native correction only where needed and permitted by clock authority.",
+      "acceptance_signal": "Trusted UTC/mapping/offset/readback plus vendor-justified interval pass; already-correct, managed or unknown clocks are not written.",
+      "evidence_path": "acceptance/clock.json"
+    }
+  ],
+  "hold_conditions": [
+    {
+      "gap": "GAP-SEL-HARDWARE-001",
+      "owner": "Hannes/root",
+      "trigger": "Safe exact-device/action qualification and independent raw review",
+      "impact": "Clear/clock action remains unavailable until its evidence passes"
+    },
+    {
+      "gap": "GAP-SEL-ACCEPTANCE-002",
+      "owner": "Hannes/root",
+      "trigger": "Actual approved deployment/operator session on exact candidate",
+      "impact": "No operational acceptance or requirement closure before named rater evidence"
+    }
+  ],
+  "adoption_evidence_record": {
+    "result": "blocked",
+    "rater_or_source": "No actual rater result",
+    "approval_package_inputs": [
+      "exact candidate image/source/tool/profile",
+      "independent local GREEN/review",
+      "actual safe qualified canary archive/readback",
+      "operator policy consent per exact digest"
+    ],
+    "deferred_trigger": "Root accepted safe exact-firmware resource then approved candidate deployment and named owner session"
+  }
+}

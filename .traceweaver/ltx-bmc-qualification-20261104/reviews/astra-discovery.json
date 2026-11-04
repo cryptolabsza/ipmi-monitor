@@ -1,0 +1,261 @@
+{
+  "schema": "ltx-sel-adversarial-review/1",
+  "reviewer": "adversarial",
+  "review_lane": "Astra requested high; served model identity unattested",
+  "created_at": "2026-11-04T15:49:30.014332+00:00",
+  "verdict": "HOLD_SOURCE_PUBLICATION",
+  "source_only_verdict": "Two confirmed P1 authorization regressions require the root-managed repair/recheck before this frozen candidate enters publication.",
+  "hardware_verdict": "HELD; no device/action qualified or policy activated by this review. Overall owner goal remains incomplete.",
+  "scope": {
+    "repository": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104",
+    "base": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+    "manifest": "../builder/frozen-review-manifest.json",
+    "manifest_sha256": "bc5a23fb84742ea2342ab677ebf680c082334af4fe63506e907f2e5cd4332508",
+    "all_15_frozen_files_verified": true,
+    "depth": "deep",
+    "changed_lines_excluding_tests_generated_lockfiles": 1133,
+    "risk_signals": [
+      "authorization",
+      "data mutation",
+      "external BMC API",
+      "filesystem custody",
+      "SQLite authority"
+    ],
+    "techniques": [
+      "assumption violation",
+      "composition failures",
+      "cascade construction",
+      "legitimate concurrent/sequence abuse"
+    ],
+    "source_changes_by_reviewer": false
+  },
+  "authority": {
+    "requirements": "REQ-SEL-001..005 unchanged",
+    "plan_revision": 2,
+    "plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+    "approval": "../../owner-approval.json",
+    "scope": "Independent source review only; no publication, deployment, DATA install, live test or policy authority consumed."
+  },
+  "findings": [
+    {
+      "id": "ASTRA-SEL-P1-01",
+      "severity": "P1",
+      "status": "confirmed_open",
+      "confidence": 100,
+      "title": "Unrelated policy changes or a restored registry revive clear consent after qualification changes",
+      "rule_ids": [
+        "U2",
+        "U4A",
+        "PLAN-S03",
+        "IC08",
+        "IC09"
+      ],
+      "requirement_ids": [
+        "REQ-SEL-003",
+        "REQ-SEL-004"
+      ],
+      "file": "src/ipmi_monitor/sel_management.py",
+      "line": 1261,
+      "related_lines": [
+        810,
+        837,
+        844,
+        1252
+      ],
+      "evidence": [
+        "An administrator arms clear and clock against valid registry A. The record and source digest are persisted in consent_qualification.",
+        "Replace A with valid B for the same hardware (the reproducer changes only reviewer and updates the pinned registry hash). An automatic claim correctly rejects A consent with qualification_consent_revoked.",
+        "The administrator turns only automatic_clock off, or changes only near_full_percent. sel_policy preserves auto_clear=True but unconditionally replaces both consent entries with current B selections.",
+        "A subsequent automatic clear passes claim and final dispatch and completes clear_verified. Both cases produced a retained archive and an actual clear invocation at the substituted device boundary.",
+        "A second variant observes and rejects B through execute, then restores exact registry A without any policy POST. The old A consent was never durably revoked; automatic clear again completes clear_verified."
+      ],
+      "reproducer": {
+        "path": "raw/test_consent_reproducer.py",
+        "tests": [
+          "test_unrelated_policy_edit_revives_changed_clear_consent",
+          "test_observed_qualification_change_then_restore_revives_old_consent"
+        ],
+        "raw_evidence": [
+          "raw/consent-reproducer.stdout",
+          "raw/restored-consent-reproducer.stdout"
+        ],
+        "boundary": "Real Flask routes, SQLite, strict environment-mode qualification loader and actual SEL manager/adapter; existing synthetic subprocess/HTTP fixture only. No hardware calls."
+      },
+      "impact": "Independent clear/clock opt-in loses its meaning: changing or disabling the other policy can authorize destructive clear against a newly qualified record, and an observed qualification revocation is reversible without renewed consent.",
+      "remediation_scope": "Preserve each action consent unless that same action is explicitly opted into with current qualified selection. Opt-outs and threshold edits must not rebind another action. Persist observed binding revocation/disarming under the SQLite authority boundary so restored old qualification cannot revive consent; ensure that revocation survives the rejecting request rollback. Keep opt-out available while unqualified.",
+      "verification_required": [
+        "A\u2192B then other-toggle OFF leaves clear unable to dispatch",
+        "A\u2192B then threshold-only edit leaves clear unable to dispatch",
+        "A\u2192B observed refusal\u2192A restored remains revoked until explicit action opt-in",
+        "Symmetric clock case and normal independent opt-in/opt-out still work"
+      ],
+      "autofix_class": "manual",
+      "owner": "downstream-resolver"
+    },
+    {
+      "id": "ASTRA-SEL-P1-02",
+      "severity": "P1",
+      "status": "confirmed_open",
+      "confidence": 100,
+      "title": "A revocation committed before claim is adopted by a stale manual clear request",
+      "rule_ids": [
+        "U2",
+        "U4A",
+        "PLAN-S03",
+        "IC07"
+      ],
+      "requirement_ids": [
+        "REQ-SEL-003",
+        "REQ-SEL-004"
+      ],
+      "file": "src/ipmi_monitor/sel_management.py",
+      "line": 803,
+      "related_lines": [
+        790,
+        797,
+        813,
+        818,
+        920,
+        1278
+      ],
+      "evidence": [
+        "A manual clear request passes valid_revision with policy_revision=0, then performs device identity/qualification work.",
+        "Before claim, a separate real SQLite connection commits policy_revision=1 with both policies OFF, modeling an administrator revocation that wins before the claim authority boundary.",
+        "The new claim rolls back and reloads the target but keeps only target_id. It discards the request-era revision rather than comparing it with the freshly locked row.",
+        "The queued operation copies revision1, and its UPDATE predicate compares against that same revision1. Final dispatch sees matching revision1 and accepts the stale revision0 request.",
+        "The real route returned complete/clear_verified and the device boundary recorded clear. The base implementation retained the earlier revision in its claim CAS; the refresh regression is introduced in this diff."
+      ],
+      "reproducer": {
+        "path": "raw/test_consent_reproducer.py",
+        "tests": [
+          "test_policy_revision_changed_before_claim_does_not_cancel_stale_manual_clear"
+        ],
+        "raw_evidence": [
+          "raw/claim-race-reproducer.stdout"
+        ],
+        "boundary": "Actual POST, actual SQLite second-connection commit immediately before original claim, unchanged SEL execution and final dispatch; only hardware IO substituted."
+      },
+      "impact": "A policy revocation committed first cannot cancel an in-flight manual or bulk request whose authority was checked before device IO. The operation silently acquires the new revision instead.",
+      "remediation_scope": "Capture immutable expected identity revision, policy revision and snapshot epoch before claim rollback; compare them against the row loaded under BEGIN IMMEDIATE and reject differences before creating an operation. Retain the new qualification binding comparison. Carry original request authority through execution where needed, without accepting current values as renewed intent.",
+      "verification_required": [
+        "Committed pre-claim policy revision change rejects manual clear before mutation",
+        "Identity/epoch changes before claim also reject",
+        "Unchanged revision and qualified action still complete normally",
+        "Revocation at final dispatch retains existing serialization behavior"
+      ],
+      "autofix_class": "manual",
+      "owner": "downstream-resolver"
+    }
+  ],
+  "reviewed_boundaries": [
+    {
+      "boundary": "Read status and four UI copies",
+      "assessment": "Source inspection supports independent capacity/logging collection after optional identity failure, terminal transport short-circuit, fixed reason enums, raw native counter display without unqualified ISO-Z conversion, and unavailable opt-in/available opt-out. No independently reproduced defect in this read-repair scope. Browser verification belongs to the independent validator."
+    },
+    {
+      "boundary": "DATA importer and loader",
+      "assessment": "Inspected strict duplicate-key/field/type validation, path and size bounds, evidence/action ID/digest resolution, public PEM/supporting JSON admission, root custody, no-follow/exclusive writes, reopen/fsync, create-only bundles, atomic pointer and fail-closed env precedence. The interface remains fixed/offline and does not import app startup or change policies. Retained Linux tests cover empty-registry storage activation and isolated module origin, not the complete nonempty evidence pipeline."
+    },
+    {
+      "boundary": "Serialized authority",
+      "assessment": "Installer takes BEGIN IMMEDIATE, refuses armed/nonterminal work, opens existing DB mode=rw, and runtime reloads selection at claim/dispatch. The two reproduced findings show that locking alone does not preserve original request or consent semantics."
+    },
+    {
+      "boundary": "Persistent raw path and backup",
+      "assessment": "Fixed /usr/bin/ipmitool, strict cipher17/admin profile and non-argv password channel; bounded PTY frames, command allowlist, child cleanup and no write fallback inspected. execute opens the session before reserve; final reserve token flows through complete snapshot, durable receipt/audit, dispatch and conditional clear. No live session/reservation/erase qualification inferred from child tests."
+    },
+    {
+      "boundary": "Clock correction",
+      "assessment": "Qualified local/UTC epoch selection, verified TLS CA, current NTP status, trusted reference, offset capture/restore/readback and unknown outcome retention inspected. Supporting evidence is human-reviewed data, not independent proof of vendor semantics or absence of other clock writers."
+    }
+  ],
+  "independently_executed": [
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:src TMPDIR=<report>/raw .venv/bin/python -m pytest -p no:cacheprovider -p tests.conftest -q -s <report>/raw/test_consent_reproducer.py (targeted invocations)",
+      "environment": "Local macOS Python 3.14 virtualenv, actual Flask/SQLite/loader; no network",
+      "result": "Four adversarial scenarios reproduced in 2+1+1 passing exploit assertions. These are defect reproductions, not acceptance passes.",
+      "evidence": [
+        "raw/consent-reproducer.stdout",
+        "raw/claim-race-reproducer.stdout",
+        "raw/restored-consent-reproducer.stdout"
+      ]
+    },
+    {
+      "command": "SHA256 all fifteen frozen files and parse raw live non-reserving chain receipts",
+      "result": "15/15 exact hashes. 3639 records/53.1898s and 885 records/13.1998s, all 16-byte records with unique matching record IDs; reservation_used=0 and hardware_qualified=false.",
+      "evidence": [
+        "raw/review-input-identity.json",
+        "raw/rtx-full-raw-analysis.json",
+        "raw/ada-full-raw-analysis.json"
+      ]
+    }
+  ],
+  "testing_gaps": [
+    {
+      "id": "G-SOURCE-01",
+      "status": "must_be_closed_by_independent_validation_or_root_hold",
+      "description": "Reviewed installed-Linux harness uses an empty registry. Real nonempty envelope \u2192 private files \u2192 active pointer \u2192 runtime qualification/CA resolution is not demonstrated by that harness; environment-fixture validation and empty installed activation are separate paths."
+    },
+    {
+      "id": "G-SOURCE-02",
+      "status": "must_be_closed_by_independent_validation_or_root_hold",
+      "description": "Retained installed-Linux harness lacks explicit interrupted publication/fsync lost-reply and malformed full-bundle mixed-record fault injections. Do not equate its eight successes with all IC01..11 cases."
+    },
+    {
+      "id": "G-REPAIR-01",
+      "status": "open",
+      "description": "Retain minimal meaningful regressions for the two confirmed finding families, then rerun affected authorization/SEL tests and final frozen package identity checks. Existing successful suite does not cover the reproduced sequences."
+    }
+  ],
+  "residual_risks": [
+    {
+      "id": "HARDWARE-ACCESS",
+      "status": "held",
+      "description": "Seven secure-access failures remain unresolved. Specific truthful labels improve M1 but do not complete M2."
+    },
+    {
+      "id": "HARDWARE-CLEAR",
+      "status": "held",
+      "description": "Non-reserving full-chain timings do not prove authenticated session reuse, reservation invalidation, complete durable archive plus final conditional erase inside 60 seconds, or preservation of concurrent/erase-interval events. Exact-firmware safe resource and independently accepted canary evidence remain mandatory; no first clear of full .221 to create marker space."
+    },
+    {
+      "id": "HARDWARE-CLOCK",
+      "status": "held",
+      "description": "Exact vendor native mapping, approved CA/pin custody, current ownership including external writers, positive/negative offset and interruption evidence, and later non-reversion interval remain unqualified. No clock write is authorized to remove a display warning."
+    },
+    {
+      "id": "DEPLOYMENT-ACCEPTANCE",
+      "status": "held",
+      "description": "All nine policy pairs remain OFF per task evidence. Release/required CI/exact immutable image verification, one counted source deployment, later exact DATA activation/readback and named operator acceptance are root gates. No full production DB backup prerequisite is reintroduced; every clear still requires its complete verified raw SEL archive."
+    },
+    {
+      "id": "LIFECYCLE-POINTER",
+      "status": "operational_verification_required",
+      "description": "Importer does not replace or search old pointers. A rollback/upgrade sequence still requires explicit root verification that retained old qualification/policy state is not reactivated; this review does not certify that lifecycle from the isolated installer tests."
+    }
+  ],
+  "claims": {
+    "changed": [
+      "Truthful read dimensions/reasons and UI counters",
+      "Fixed DATA-only qualification install/status and loader",
+      "Persistent SEL session transport",
+      "Qualification-bound policy/operation fields"
+    ],
+    "verified": [
+      "Exact frozen input identities",
+      "Two authorization failure families with actual route/SQLite reproductions",
+      "Raw non-reserving record count/byte/identity checks"
+    ],
+    "claimed_not_verified": [
+      "Full seven-BMC access repair",
+      "Exact device clear qualification",
+      "Native clock ownership/mapping qualification",
+      "Production installation/arming/acceptance"
+    ],
+    "blocked": [
+      "This frozen source candidate: two P1 findings",
+      "Hardware mutations and full owner-goal closure: outstanding accepted evidence"
+    ],
+    "promote": "Only a repaired, independently revalidated source-only M1 candidate may be considered by root for the protected route. This review grants no publication or hardware authority."
+  }
+}

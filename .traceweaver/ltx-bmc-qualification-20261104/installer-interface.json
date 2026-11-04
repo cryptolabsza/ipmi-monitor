@@ -1,0 +1,73 @@
+{
+  "schema": "ltx-installer-interface-projection/1",
+  "authority": "plan.json#U4A",
+  "status": "accepted_design_not_implementation",
+  "contract": {
+    "source": "../astra-review/plan-review.json IC01..11",
+    "accepted_architecture_only": true,
+    "rules": [
+      {
+        "id": "IC01",
+        "rule": "Invoke only a fixed module/entrypoint packaged in the reviewed official immutable IPMI image. Prefer an isolated Python invocation or verified console entrypoint that cannot import from DATA_DIR/current working directory/PYTHONPATH. Verify the exact container ID and image/source digest before the fixed docker exec; do not execute a checked-out script or accept executable bundle content. Packaging must prove the isolated invocation actually locates the installed module."
+      },
+      {
+        "id": "IC02",
+        "rule": "Accept only install with an exact expected SHA256 and a data-only stdin envelope. Use a strict JSON manifest plus bounded base64 file values, not tar/zip extraction, pickle, YAML constructors, templates, shell commands or URLs. Reject duplicate JSON keys, duplicate paths/record IDs, invalid types, unknown authority fields and undeclared/unreferenced files. No caller-selected destination, DB path, module or command."
+      },
+      {
+        "id": "IC03",
+        "rule": "Expected SHA256 identifies the exact root-reviewed envelope bytes; record a separate registry-byte digest for runtime pinning. Both values must be explicit and must not be confused. Independently hash each decoded evidence file and require action evidence digests/operation IDs to resolve to the admitted evidence manifest. Reject the entire bundle if any record or evidence is invalid; do not use the current loader\u2019s skip-invalid-record behavior as installer validation."
+      },
+      {
+        "id": "IC04",
+        "rule": "Bound total stdin before parse, file count, decoded total, per-file bytes, registry bytes and path depth. Proposed narrow initial caps:64MiB envelope/32MiB decoded total/64files, registry1MiB and each evidence4MiB; retain current runtime per-file caps. If genuine evidence does not fit, stop for a reviewed cap adjustment, not truncation. Names are relative ASCII allowlisted components without dot traversal, absolute paths, backslashes, control characters or hidden indirection."
+      },
+      {
+        "id": "IC05",
+        "rule": "Use existing explicit DATA_DIR resolution; for LTX verify it is /app/data and the expected persistent mount. Operate only beneath sel-qualifications. Require root operator identity on this root runtime, directories0700/files0600, regular single-link files and non-symlink directory ancestry. Use exclusive creation/no-follow descriptor-relative operations to avoid check/open path races. Never chown/chmod existing unrelated paths or overwrite an existing digest directory."
+      },
+      {
+        "id": "IC06",
+        "rule": "Write a unique private staging directory, validate/reopen bytes from disk, fsync files and directories, then publish a create-only digest directory. An existing same-digest directory is reusable only after byte-for-byte revalidation. Activate a small versioned regular JSON pointer containing digest identities, fixed relative location, approved configuration metadata and previous pointer digest via temporary file+fsync+atomic rename+parent fsync. Retain previous bundle and pointer bytes for diagnosis; no automatic garbage collection or rollback to an older qualification."
+      },
+      {
+        "id": "IC07",
+        "rule": "Acquire the existing database authority serialization boundary before pointer publication; refuse affected armed policies or any affected queued/active/outcome-unknown operation. Require existing database/schema in read-write-existing mode, never create a database or import app startup that launches collectors/migrations. Missing/unmapped schema or unsupported dialect blocks install. Validate current source/tool/profile identity while under a bounded activation window. No policy fields or BMC state change."
+      },
+      {
+        "id": "IC08",
+        "rule": "Environment mode wins when EITHER SEL_QUALIFICATIONS_FILE or SEL_QUALIFICATIONS_SHA256 is present, including empty values. Partial/empty/bad/missing-file/hash-invalid environment configuration returns unqualified and never falls back. Only absence of both permits operator-pointer mode. Missing/corrupt/unsafe pointer or bundle fails closed; never search for newest directory or repair a bad pointer automatically."
+      },
+      {
+        "id": "IC09",
+        "rule": "The runtime validates pointer/bundle custody, complete registry/evidence hashes and semantics, expiry and current deployed adapter/tool/profile applicability. Registry metadata cannot grant unsupported commands or select arbitrary targets. Pointer changes do not arm policies. Runtime must invalidate caches correctly; atomic publication must yield complete old, complete new, or fail-closed state, never mixed evidence."
+      },
+      {
+        "id": "IC10",
+        "rule": "Installer makes no network/BMC calls, consumes no BMC credentials, changes no policies and exposes no HTTP install route. Use fixed sanitized outcome codes with receipt digest and installation stage; never echo arbitrary evidence or environment. Return installed, already_installed, refused or outcome_unknown truthfully; inspect durable status after a lost reply rather than retrying blindly."
+      },
+      {
+        "id": "IC11",
+        "rule": "Add a fixed read-only status command reporting the active mode/digests and safe validation outcome for independent readback. Root records the install receipt, reviewed bundle and before/after identity. Failure before pointer publication preserves old activation; interruption after publication is reconciled from pointer/bundle/status. Reverting code to the older env-only loader naturally ignores pointer mode; do not auto-reactivate an old pointer on later upgrades. A future deactivation/replacement operation requires explicit reviewed scope and remains separate from policy consent."
+      }
+    ],
+    "commands": [
+      "qualifications install --expected-sha256 (exact reviewed envelope byte digest; stdin data)",
+      "qualifications status (fixed read-only mode/digest/outcome)"
+    ],
+    "caps": {
+      "envelope_bytes": 67108864,
+      "decoded_total_bytes": 33554432,
+      "file_count": 64,
+      "registry_bytes": 1048576,
+      "evidence_file_bytes": 4194304,
+      "path_components": 8,
+      "path_component_characters": 128,
+      "pointer_bytes": 16384,
+      "activation_window_seconds": 15
+    },
+    "runtime_mode": "EITHER env key present => env only/fail closed, including empty/partial. BOTH absent => explicit pointer or unqualified.",
+    "operations": "One source image deployment plus one DATA-only activation; no restart/mount/env change. No deactivation/replacement beyond admitted exact install/idempotent validation, no auto old-pointer fallback."
+  },
+  "plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13"
+}

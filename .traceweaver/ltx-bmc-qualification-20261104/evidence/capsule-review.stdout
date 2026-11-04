@@ -1,0 +1,8 @@
+vv_capsule_status=blocked
+vv_capsule_capsule=.traceweaver/ltx-bmc-qualification-20261104/vv-capsule.json
+vv_capsule_findings=5
+vv_capsule_finding=VV-CAPSULE-REVIEW-NOT-PASSED req_id=REQ-SEL-001 evidence=req_id="REQ-SEL-001" index=0
+vv_capsule_finding=VV-CAPSULE-REVIEW-NOT-PASSED req_id=REQ-SEL-002 evidence=req_id="REQ-SEL-002" index=1
+vv_capsule_finding=VV-CAPSULE-REVIEW-NOT-PASSED req_id=REQ-SEL-003 evidence=req_id="REQ-SEL-003" index=2
+vv_capsule_finding=VV-CAPSULE-REVIEW-NOT-PASSED req_id=REQ-SEL-004 evidence=req_id="REQ-SEL-004" index=3
+vv_capsule_finding=VV-CAPSULE-REVIEW-NOT-PASSED req_id=REQ-SEL-005 evidence=req_id="REQ-SEL-005" index=4

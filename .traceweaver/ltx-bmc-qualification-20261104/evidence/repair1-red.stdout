@@ -1,0 +1,662 @@
+FFFFFFFFFFFFFFFF                                                         [100%]
+=================================== FAILURES ===================================
+_ test_unrelated_policy_edit_never_renews_changed_action_consent[threshold-clear] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_unrelated_policy_edit_nev0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fb34770>
+action = 'clear', edit = 'threshold'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('edit', ['threshold', 'other_off'])
+    def test_unrelated_policy_edit_never_renews_changed_action_consent(qualified_site, monkeypatch, action, edit):
+        import hashlib
+        import json
+        (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+        value = json.loads(registry.read_bytes())
+        value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        headers, data = intent(client)
+        other = 'clock' if action == 'clear' else 'clear'
+        update = {'near_full_percent': 91} if edit == 'threshold' else {'automatic_' + other: False}
+        response = client.post(f'/api/server/{BMC}/sel/policy', json={**data, **update}, headers=headers)
+        assert response.status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 122fbb78-30cc-46b2-aba3-6fb990024e79>, ('auto_' + 'clear'))
+
+tests/test_sel_management.py:502: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-04 17:55:45,967] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-04 17:55:45,967] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+_ test_unrelated_policy_edit_never_renews_changed_action_consent[threshold-clock] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_unrelated_policy_edit_nev1/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fb36c40>
+action = 'clock', edit = 'threshold'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('edit', ['threshold', 'other_off'])
+    def test_unrelated_policy_edit_never_renews_changed_action_consent(qualified_site, monkeypatch, action, edit):
+        import hashlib
+        import json
+        (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+        value = json.loads(registry.read_bytes())
+        value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        headers, data = intent(client)
+        other = 'clock' if action == 'clear' else 'clear'
+        update = {'near_full_percent': 91} if edit == 'threshold' else {'automatic_' + other: False}
+        response = client.post(f'/api/server/{BMC}/sel/policy', json={**data, **update}, headers=headers)
+        assert response.status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 07c6a4b7-81c8-4408-beb3-819f7a5608e9>, ('auto_' + 'clock'))
+
+tests/test_sel_management.py:502: AssertionError
+_ test_unrelated_policy_edit_never_renews_changed_action_consent[other_off-clear] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_unrelated_policy_edit_nev2/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fbe1eb0>
+action = 'clear', edit = 'other_off'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('edit', ['threshold', 'other_off'])
+    def test_unrelated_policy_edit_never_renews_changed_action_consent(qualified_site, monkeypatch, action, edit):
+        import hashlib
+        import json
+        (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+        value = json.loads(registry.read_bytes())
+        value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        headers, data = intent(client)
+        other = 'clock' if action == 'clear' else 'clear'
+        update = {'near_full_percent': 91} if edit == 'threshold' else {'automatic_' + other: False}
+        response = client.post(f'/api/server/{BMC}/sel/policy', json={**data, **update}, headers=headers)
+        assert response.status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 3cae35c6-3fc7-4d6c-add5-b45b3efa3861>, ('auto_' + 'clear'))
+
+tests/test_sel_management.py:502: AssertionError
+_ test_unrelated_policy_edit_never_renews_changed_action_consent[other_off-clock] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_unrelated_policy_edit_nev3/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fbcdd00>
+action = 'clock', edit = 'other_off'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('edit', ['threshold', 'other_off'])
+    def test_unrelated_policy_edit_never_renews_changed_action_consent(qualified_site, monkeypatch, action, edit):
+        import hashlib
+        import json
+        (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+        value = json.loads(registry.read_bytes())
+        value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        headers, data = intent(client)
+        other = 'clock' if action == 'clear' else 'clear'
+        update = {'near_full_percent': 91} if edit == 'threshold' else {'automatic_' + other: False}
+        response = client.post(f'/api/server/{BMC}/sel/policy', json={**data, **update}, headers=headers)
+        assert response.status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 37acdf46-ca6f-4792-8333-cd0403d0ebb0>, ('auto_' + 'clock'))
+
+tests/test_sel_management.py:502: AssertionError
+_ test_observed_qualification_revocation_survives_rollback_and_restore[changed-clear] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_observed_qualification_re0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe78270>
+action = 'clear', unavailable = 'changed'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('unavailable', ['changed', 'invalid_pin'])
+    def test_observed_qualification_revocation_survives_rollback_and_restore(qualified_site, monkeypatch, action, unavailable):
+        import hashlib
+        import json
+        from ipmi_monitor.sel_management import SELUnavailable
+        (client, app, db, _models, runtime, commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + action: True}, headers=headers).status_code == 200
+        original = registry.read_bytes()
+        if unavailable == 'changed':
+            value = json.loads(original)
+            value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+            registry.write_text(json.dumps(value))
+            pin = hashlib.sha256(registry.read_bytes()).hexdigest()
+        else:
+            pin = '0' * 64
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', pin)
+        with app.app_context():
+            with pytest.raises(SELUnavailable):
+                runtime.sel_manager.execute(runtime.SELTarget.query.one(), action, 'automatic-policy', True)
+            db.session.rollback()  # This must not roll back the safety revocation.
+        registry.write_bytes(original)
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(original).hexdigest())
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 7bc313d2-0500-466c-8a3a-aea28b973663>, ('auto_' + 'clear'))
+
+tests/test_sel_management.py:532: AssertionError
+_ test_observed_qualification_revocation_survives_rollback_and_restore[changed-clock] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_observed_qualification_re1/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fdca250>
+action = 'clock', unavailable = 'changed'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('unavailable', ['changed', 'invalid_pin'])
+    def test_observed_qualification_revocation_survives_rollback_and_restore(qualified_site, monkeypatch, action, unavailable):
+        import hashlib
+        import json
+        from ipmi_monitor.sel_management import SELUnavailable
+        (client, app, db, _models, runtime, commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + action: True}, headers=headers).status_code == 200
+        original = registry.read_bytes()
+        if unavailable == 'changed':
+            value = json.loads(original)
+            value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+            registry.write_text(json.dumps(value))
+            pin = hashlib.sha256(registry.read_bytes()).hexdigest()
+        else:
+            pin = '0' * 64
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', pin)
+        with app.app_context():
+            with pytest.raises(SELUnavailable):
+                runtime.sel_manager.execute(runtime.SELTarget.query.one(), action, 'automatic-policy', True)
+            db.session.rollback()  # This must not roll back the safety revocation.
+        registry.write_bytes(original)
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(original).hexdigest())
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 07c1449d-56b4-406d-83aa-7be1803a26a3>, ('auto_' + 'clock'))
+
+tests/test_sel_management.py:532: AssertionError
+_ test_observed_qualification_revocation_survives_rollback_and_restore[invalid_pin-clear] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_observed_qualification_re2/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fdcab50>
+action = 'clear', unavailable = 'invalid_pin'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('unavailable', ['changed', 'invalid_pin'])
+    def test_observed_qualification_revocation_survives_rollback_and_restore(qualified_site, monkeypatch, action, unavailable):
+        import hashlib
+        import json
+        from ipmi_monitor.sel_management import SELUnavailable
+        (client, app, db, _models, runtime, commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + action: True}, headers=headers).status_code == 200
+        original = registry.read_bytes()
+        if unavailable == 'changed':
+            value = json.loads(original)
+            value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+            registry.write_text(json.dumps(value))
+            pin = hashlib.sha256(registry.read_bytes()).hexdigest()
+        else:
+            pin = '0' * 64
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', pin)
+        with app.app_context():
+            with pytest.raises(SELUnavailable):
+                runtime.sel_manager.execute(runtime.SELTarget.query.one(), action, 'automatic-policy', True)
+            db.session.rollback()  # This must not roll back the safety revocation.
+        registry.write_bytes(original)
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(original).hexdigest())
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 92a714b4-3dbf-4013-872c-ee95a6f25ae9>, ('auto_' + 'clear'))
+
+tests/test_sel_management.py:532: AssertionError
+_ test_observed_qualification_revocation_survives_rollback_and_restore[invalid_pin-clock] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_observed_qualification_re3/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ff188c0>
+action = 'clock', unavailable = 'invalid_pin'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    @pytest.mark.parametrize('unavailable', ['changed', 'invalid_pin'])
+    def test_observed_qualification_revocation_survives_rollback_and_restore(qualified_site, monkeypatch, action, unavailable):
+        import hashlib
+        import json
+        from ipmi_monitor.sel_management import SELUnavailable
+        (client, app, db, _models, runtime, commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + action: True}, headers=headers).status_code == 200
+        original = registry.read_bytes()
+        if unavailable == 'changed':
+            value = json.loads(original)
+            value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+            registry.write_text(json.dumps(value))
+            pin = hashlib.sha256(registry.read_bytes()).hexdigest()
+        else:
+            pin = '0' * 64
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', pin)
+        with app.app_context():
+            with pytest.raises(SELUnavailable):
+                runtime.sel_manager.execute(runtime.SELTarget.query.one(), action, 'automatic-policy', True)
+            db.session.rollback()  # This must not roll back the safety revocation.
+        registry.write_bytes(original)
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(original).hexdigest())
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+>           assert getattr(target, 'auto_' + action) is False
+E           AssertionError: assert True is False
+E            +  where True = getattr(<SELTarget 734415ec-e8f0-44d1-83e7-5de5c886667b>, ('auto_' + 'clock'))
+
+tests/test_sel_management.py:532: AssertionError
+_______ test_other_action_off_preserves_unchanged_action_consent[clear] ________
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_other_action_off_preserve0/qualifications.json'))
+action = 'clear'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    def test_other_action_off_preserves_unchanged_action_consent(qualified_site, action):
+        import json
+        (client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+        with app.app_context():
+            original = json.loads(runtime.SELTarget.query.one().consent_qualification)[action]
+        headers, data = intent(client)
+        other = 'clock' if action == 'clear' else 'clear'
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + other: False}, headers=headers).status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+            assert getattr(target, 'auto_' + action) is True
+            assert json.loads(target.consent_qualification)[action] == original
+>           assert not json.loads(target.consent_qualification).get(other)
+E           assert not '8fa5ac0349a88b91ee6b890d6f365db50b307a810cfb0c483bf6eb30173c62cb'
+E            +  where '8fa5ac0349a88b91ee6b890d6f365db50b307a810cfb0c483bf6eb30173c62cb' = <built-in method get of dict object at 0x10ff261c0>('clock')
+E            +    where <built-in method get of dict object at 0x10ff261c0> = {'clear': '22aed31e1fe006f3be28e5bd7523e617fc489a01e24623266bf1b3bd56eefc7e', 'clock': '8fa5ac0349a88b91ee6b890d6f365db50b307a810cfb0c483bf6eb30173c62cb'}.get
+E            +      where {'clear': '22aed31e1fe006f3be28e5bd7523e617fc489a01e24623266bf1b3bd56eefc7e', 'clock': '8fa5ac0349a88b91ee6b890d6f365db50b307a810cfb0c483bf6eb30173c62cb'} = <function loads at 0x10a4fecf0>('{"clear": "22aed31e1fe006f3be28e5bd7523e617fc489a01e24623266bf1b3bd56eefc7e", "clock": "8fa5ac0349a88b91ee6b890d6f365db50b307a810cfb0c483bf6eb30173c62cb"}')
+E            +        where <function loads at 0x10a4fecf0> = <module 'json' from '/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py'>.loads
+E            +        and   '{"clear": "22aed31e1fe006f3be28e5bd7523e617fc489a01e24623266bf1b3bd56eefc7e", "clock": "8fa5ac0349a88b91ee6b890d6f365db50b307a810cfb0c483bf6eb30173c62cb"}' = <SELTarget 9d0e44da-9fa0-4d0f-ace3-98027b1b6a24>.consent_qualification
+
+tests/test_sel_management.py:561: AssertionError
+_______ test_other_action_off_preserves_unchanged_action_consent[clock] ________
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_other_action_off_preserve1/qualifications.json'))
+action = 'clock'
+
+    @pytest.mark.parametrize('action', ['clear', 'clock'])
+    def test_other_action_off_preserves_unchanged_action_consent(qualified_site, action):
+        import json
+        (client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+        with app.app_context():
+            original = json.loads(runtime.SELTarget.query.one().consent_qualification)[action]
+        headers, data = intent(client)
+        other = 'clock' if action == 'clear' else 'clear'
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + other: False}, headers=headers).status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+            assert getattr(target, 'auto_' + action) is True
+            assert json.loads(target.consent_qualification)[action] == original
+>           assert not json.loads(target.consent_qualification).get(other)
+E           assert not 'f83d071f150b87ae4693c3e8db0697d01c71a7eeec52ee9c50d090fecdb01834'
+E            +  where 'f83d071f150b87ae4693c3e8db0697d01c71a7eeec52ee9c50d090fecdb01834' = <built-in method get of dict object at 0x110b8cec0>('clear')
+E            +    where <built-in method get of dict object at 0x110b8cec0> = {'clear': 'f83d071f150b87ae4693c3e8db0697d01c71a7eeec52ee9c50d090fecdb01834', 'clock': 'd7055e4e8a1067007e7a1eb819524d842423213a972e16f2e40d053b1f6b21e9'}.get
+E            +      where {'clear': 'f83d071f150b87ae4693c3e8db0697d01c71a7eeec52ee9c50d090fecdb01834', 'clock': 'd7055e4e8a1067007e7a1eb819524d842423213a972e16f2e40d053b1f6b21e9'} = <function loads at 0x10a4fecf0>('{"clear": "f83d071f150b87ae4693c3e8db0697d01c71a7eeec52ee9c50d090fecdb01834", "clock": "d7055e4e8a1067007e7a1eb819524d842423213a972e16f2e40d053b1f6b21e9"}')
+E            +        where <function loads at 0x10a4fecf0> = <module 'json' from '/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py'>.loads
+E            +        and   '{"clear": "f83d071f150b87ae4693c3e8db0697d01c71a7eeec52ee9c50d090fecdb01834", "clock": "d7055e4e8a1067007e7a1eb819524d842423213a972e16f2e40d053b1f6b21e9"}' = <SELTarget 48e4e3fd-9830-48f7-932e-d56915d7a2dd>.consent_qualification
+
+tests/test_sel_management.py:561: AssertionError
+_ test_original_request_authority_survives_io_and_claim_refresh[claim-policy_revision] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_original_request_authorit0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe9c210>
+phase = 'claim', column = 'policy_revision'
+
+    @pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+        ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+    def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+        from sqlalchemy import text
+        from ipmi_monitor.sel_management import IPMISELAdapter
+        (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+        changed = []
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        def revoke():
+            if not changed:
+                with db.engine.begin() as connection:
+                    connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+                changed.append(True)
+        if phase == 'expired_io':
+            original = IPMISELAdapter.fingerprint
+            def boundary(adapter):
+                revoke()
+                db.session.expire_all()
+                return original(adapter)
+            monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+        else:
+            original = runtime.sel_manager.claim
+            def boundary(*args, **kwargs):
+                revoke()
+                db.session.expire_all()
+                return original(*args, **kwargs)
+            monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+        headers, data = intent(client)
+        response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                               json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+        if phase == 'bulk':
+            assert response.status_code == 200
+            assert response.get_json()['operations'][0]['state'] == 'failed'
+        else:
+>           assert response.status_code == 409, response.get_json()
+E           AssertionError: {'action': 'clear', 'archive_receipt': 'f4e1d9c6-8437-4b1b-91fa-1ebe2d042eab', 'created_at': '2026-11-04T15:55:48.559346Z', 'id': '80777f05-a58f-4139-bdea-9c1623872362', ...}
+E           assert 200 == 409
+E            +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:599: AssertionError
+_ test_original_request_authority_survives_io_and_claim_refresh[claim-revision] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_original_request_authorit1/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe6ce20>
+phase = 'claim', column = 'revision'
+
+    @pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+        ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+    def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+        from sqlalchemy import text
+        from ipmi_monitor.sel_management import IPMISELAdapter
+        (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+        changed = []
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        def revoke():
+            if not changed:
+                with db.engine.begin() as connection:
+                    connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+                changed.append(True)
+        if phase == 'expired_io':
+            original = IPMISELAdapter.fingerprint
+            def boundary(adapter):
+                revoke()
+                db.session.expire_all()
+                return original(adapter)
+            monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+        else:
+            original = runtime.sel_manager.claim
+            def boundary(*args, **kwargs):
+                revoke()
+                db.session.expire_all()
+                return original(*args, **kwargs)
+            monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+        headers, data = intent(client)
+        response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                               json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+        if phase == 'bulk':
+            assert response.status_code == 200
+            assert response.get_json()['operations'][0]['state'] == 'failed'
+        else:
+>           assert response.status_code == 409, response.get_json()
+E           AssertionError: {'action': 'clear', 'archive_receipt': '12469f99-bca1-4cd8-a56c-a2889b1c921b', 'created_at': '2026-11-04T15:55:48.786611Z', 'id': 'c14fea5c-ee91-4391-baed-d55c2624ecc3', ...}
+E           assert 200 == 409
+E            +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:599: AssertionError
+_ test_original_request_authority_survives_io_and_claim_refresh[claim-snapshot_epoch] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_original_request_authorit2/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe99610>
+phase = 'claim', column = 'snapshot_epoch'
+
+    @pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+        ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+    def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+        from sqlalchemy import text
+        from ipmi_monitor.sel_management import IPMISELAdapter
+        (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+        changed = []
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        def revoke():
+            if not changed:
+                with db.engine.begin() as connection:
+                    connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+                changed.append(True)
+        if phase == 'expired_io':
+            original = IPMISELAdapter.fingerprint
+            def boundary(adapter):
+                revoke()
+                db.session.expire_all()
+                return original(adapter)
+            monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+        else:
+            original = runtime.sel_manager.claim
+            def boundary(*args, **kwargs):
+                revoke()
+                db.session.expire_all()
+                return original(*args, **kwargs)
+            monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+        headers, data = intent(client)
+        response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                               json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+        if phase == 'bulk':
+            assert response.status_code == 200
+            assert response.get_json()['operations'][0]['state'] == 'failed'
+        else:
+>           assert response.status_code == 409, response.get_json()
+E           AssertionError: {'action': 'clear', 'archive_receipt': 'a8aa0f1b-ba06-44e5-962c-29a74396b85f', 'created_at': '2026-11-04T15:55:49.009156Z', 'id': 'd57012d9-741f-44d5-8f8d-f79fcf90ab32', ...}
+E           assert 200 == 409
+E            +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:599: AssertionError
+_ test_original_request_authority_survives_io_and_claim_refresh[expired_io-policy_revision] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_original_request_authorit3/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe99b50>
+phase = 'expired_io', column = 'policy_revision'
+
+    @pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+        ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+    def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+        from sqlalchemy import text
+        from ipmi_monitor.sel_management import IPMISELAdapter
+        (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+        changed = []
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        def revoke():
+            if not changed:
+                with db.engine.begin() as connection:
+                    connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+                changed.append(True)
+        if phase == 'expired_io':
+            original = IPMISELAdapter.fingerprint
+            def boundary(adapter):
+                revoke()
+                db.session.expire_all()
+                return original(adapter)
+            monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+        else:
+            original = runtime.sel_manager.claim
+            def boundary(*args, **kwargs):
+                revoke()
+                db.session.expire_all()
+                return original(*args, **kwargs)
+            monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+        headers, data = intent(client)
+        response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                               json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+        if phase == 'bulk':
+            assert response.status_code == 200
+            assert response.get_json()['operations'][0]['state'] == 'failed'
+        else:
+>           assert response.status_code == 409, response.get_json()
+E           AssertionError: {'action': 'clear', 'archive_receipt': '9e755ce8-6204-43af-9e3a-b14b5bad6973', 'created_at': '2026-11-04T15:55:49.233261Z', 'id': 'cc491485-8816-41c4-b7d1-7122ef9d9fe4', ...}
+E           assert 200 == 409
+E            +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:599: AssertionError
+_ test_original_request_authority_survives_io_and_claim_refresh[expired_io-snapshot_epoch] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_original_request_authorit4/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe5a570>
+phase = 'expired_io', column = 'snapshot_epoch'
+
+    @pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+        ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+    def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+        from sqlalchemy import text
+        from ipmi_monitor.sel_management import IPMISELAdapter
+        (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+        changed = []
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        def revoke():
+            if not changed:
+                with db.engine.begin() as connection:
+                    connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+                changed.append(True)
+        if phase == 'expired_io':
+            original = IPMISELAdapter.fingerprint
+            def boundary(adapter):
+                revoke()
+                db.session.expire_all()
+                return original(adapter)
+            monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+        else:
+            original = runtime.sel_manager.claim
+            def boundary(*args, **kwargs):
+                revoke()
+                db.session.expire_all()
+                return original(*args, **kwargs)
+            monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+        headers, data = intent(client)
+        response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                               json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+        if phase == 'bulk':
+            assert response.status_code == 200
+            assert response.get_json()['operations'][0]['state'] == 'failed'
+        else:
+>           assert response.status_code == 409, response.get_json()
+E           AssertionError: {'action': 'clear', 'archive_receipt': '53c76fa7-9a79-4e37-bbcb-ade7e8b33a58', 'created_at': '2026-11-04T15:55:49.455755Z', 'id': '5a0e4514-55b0-480b-ba17-6ef57c55e8fb', ...}
+E           assert 200 == 409
+E            +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:599: AssertionError
+_ test_original_request_authority_survives_io_and_claim_refresh[bulk-policy_revision] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10182/test_original_request_authorit5/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10fe5a410>
+phase = 'bulk', column = 'policy_revision'
+
+    @pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+        ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+    def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+        from sqlalchemy import text
+        from ipmi_monitor.sel_management import IPMISELAdapter
+        (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+        changed = []
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        def revoke():
+            if not changed:
+                with db.engine.begin() as connection:
+                    connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+                changed.append(True)
+        if phase == 'expired_io':
+            original = IPMISELAdapter.fingerprint
+            def boundary(adapter):
+                revoke()
+                db.session.expire_all()
+                return original(adapter)
+            monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+        else:
+            original = runtime.sel_manager.claim
+            def boundary(*args, **kwargs):
+                revoke()
+                db.session.expire_all()
+                return original(*args, **kwargs)
+            monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+        headers, data = intent(client)
+        response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                               json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+        if phase == 'bulk':
+            assert response.status_code == 200
+>           assert response.get_json()['operations'][0]['state'] == 'failed'
+E           AssertionError: assert 'complete' == 'failed'
+E             
+E             - failed
+E             + complete
+
+tests/test_sel_management.py:597: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_unrelated_policy_edit_never_renews_changed_action_consent[threshold-clear]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 198 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_management.py: 16 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py: 16 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_unrelated_policy_edit_never_renews_changed_action_consent[threshold-clear]
+FAILED tests/test_sel_management.py::test_unrelated_policy_edit_never_renews_changed_action_consent[threshold-clock]
+FAILED tests/test_sel_management.py::test_unrelated_policy_edit_never_renews_changed_action_consent[other_off-clear]
+FAILED tests/test_sel_management.py::test_unrelated_policy_edit_never_renews_changed_action_consent[other_off-clock]
+FAILED tests/test_sel_management.py::test_observed_qualification_revocation_survives_rollback_and_restore[changed-clear]
+FAILED tests/test_sel_management.py::test_observed_qualification_revocation_survives_rollback_and_restore[changed-clock]
+FAILED tests/test_sel_management.py::test_observed_qualification_revocation_survives_rollback_and_restore[invalid_pin-clear]
+FAILED tests/test_sel_management.py::test_observed_qualification_revocation_survives_rollback_and_restore[invalid_pin-clock]
+FAILED tests/test_sel_management.py::test_other_action_off_preserves_unchanged_action_consent[clear]
+FAILED tests/test_sel_management.py::test_other_action_off_preserves_unchanged_action_consent[clock]
+FAILED tests/test_sel_management.py::test_original_request_authority_survives_io_and_claim_refresh[claim-policy_revision]
+FAILED tests/test_sel_management.py::test_original_request_authority_survives_io_and_claim_refresh[claim-revision]
+FAILED tests/test_sel_management.py::test_original_request_authority_survives_io_and_claim_refresh[claim-snapshot_epoch]
+FAILED tests/test_sel_management.py::test_original_request_authority_survives_io_and_claim_refresh[expired_io-policy_revision]
+FAILED tests/test_sel_management.py::test_original_request_authority_survives_io_and_claim_refresh[expired_io-snapshot_epoch]
+FAILED tests/test_sel_management.py::test_original_request_authority_survives_io_and_claim_refresh[bulk-policy_revision]
+16 failed, 86 deselected, 231 warnings in 4.05s

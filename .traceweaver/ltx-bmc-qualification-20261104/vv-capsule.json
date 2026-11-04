@@ -1,0 +1,140 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L3",
+  "work_item_id": "WORK-LTX-SEL-20261104",
+  "plan_ref": ".traceweaver/ltx-bmc-qualification-20261104/plan.json",
+  "authority_ref": ".traceweaver/ltx-bmc-qualification-20261104/authority.json",
+  "baseline_ref": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "profile_hash": "sha256:0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc",
+  "requirements": [
+    {
+      "req_id": "REQ-SEL-001",
+      "trace_id": "TRACE-SEL-001",
+      "ver_id": "VER-SEL-001",
+      "val_id": "VAL-SEL-001",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md / LTX BMC repair preimplementation evidence 20261104 / TRACE-SEL-001",
+      "reviews": [
+        {
+          "gate": "tw-code-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        },
+        {
+          "gate": "tw-doc-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        }
+      ],
+      "coverage_note": "actual raw read/transport/clock interpretation RED"
+    },
+    {
+      "req_id": "REQ-SEL-002",
+      "trace_id": "TRACE-SEL-002",
+      "ver_id": "VER-SEL-002",
+      "val_id": "VAL-SEL-002",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md / LTX BMC repair preimplementation evidence 20261104 / TRACE-SEL-002",
+      "reviews": [
+        {
+          "gate": "tw-code-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        },
+        {
+          "gate": "tw-doc-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        }
+      ],
+      "coverage_note": "changed qualification final clear-dispatch RED; complete885/3639 chain passes and captured latency safely holds, existing archive-before-clear regression retained"
+    },
+    {
+      "req_id": "REQ-SEL-003",
+      "trace_id": "TRACE-SEL-003",
+      "ver_id": "VER-SEL-003",
+      "val_id": "VAL-SEL-003",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md / LTX BMC repair preimplementation evidence 20261104 / TRACE-SEL-003",
+      "reviews": [
+        {
+          "gate": "tw-code-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        },
+        {
+          "gate": "tw-doc-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        }
+      ],
+      "coverage_note": "changed qualification queued ownership/consent dispatch RED; existing concurrency/restart/history retained"
+    },
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "ver_id": "VER-SEL-004",
+      "val_id": "VAL-SEL-004",
+      "verification_artifact": "tests/test_sel_qualifications.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md / LTX BMC repair preimplementation evidence 20261104 / TRACE-SEL-004",
+      "reviews": [
+        {
+          "gate": "tw-code-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        },
+        {
+          "gate": "tw-doc-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        }
+      ],
+      "coverage_note": "fixed CLI absent and registry whole-bundle/custody/action evidence RED; unqualified policy RED"
+    },
+    {
+      "req_id": "REQ-SEL-005",
+      "trace_id": "TRACE-SEL-005",
+      "ver_id": "VER-SEL-005",
+      "val_id": "VAL-SEL-005",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md / LTX BMC repair preimplementation evidence 20261104 / TRACE-SEL-005",
+      "reviews": [
+        {
+          "gate": "tw-code-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        },
+        {
+          "gate": "tw-doc-review",
+          "id": "LTX-SEL-PRECODE-20261104",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/review-status.json"
+        }
+      ],
+      "coverage_note": "actual UTC-near native raw counters with-300 cannot imply18000s drift RED"
+    }
+  ],
+  "high_risk_controls": {
+    "rollback": "Owner full-DB waiver persists. Retain original IPMI image/container rollback, persistent volume/history and complete immutable raw archive/receipt. INSTALL preserves old pointer/bundle on pre-publication failure; lost reply => fixed STATUS/readback, no blind replay/new activation/old-pointer search. Native/clear unknown effects retain ownership and reconcile. No source/deploy/activation performed in this phase.",
+    "owner_decision": "Literal Approved authorizes reviewed revision2 conditional scope only. Hannes/root owns exact safe-resource/vendor/canary acceptance, reviewed envelope digest, one-source-image deployment/one-data activation gates, current-admin separate action-specific consent, and full-goal acceptance. All unknown mapping/access/hardware actions remain off."
+  }
+}

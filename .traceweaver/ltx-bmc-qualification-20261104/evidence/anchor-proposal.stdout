@@ -1,0 +1,11 @@
+trace_anchor_authoring_status=proposed
+trace_anchor_authoring_target=tests/test_sel_qualifications.py
+trace_anchor_authoring_anchor_type=verifies
+trace_anchor_authoring_requirement=REQ-SEL-004
+trace_anchor_authoring_trace=TRACE-SEL-004
+trace_anchor_authoring_verification=VER-SEL-004
+trace_anchor_authoring_anchor=# TRACEWEAVER: file-role=sel-qualification-custody-verification; req=REQ-SEL-004; trace=TRACE-SEL-004; ver=VER-SEL-004 | # TRACEWEAVER: verifies=VER-SEL-004; req=REQ-SEL-004; trace=TRACE-SEL-004
+trace_anchor_authoring_matrix_row=| tests/test_sel_qualifications.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | verifies | sel-qualification-custody-verification |
+trace_anchor_authoring_file_changed=false
+trace_anchor_authoring_matrix_changed=false
+trace_anchor_authoring_reason=TraceWeaver reviewed hierarchy maps this artifact to REQ-SEL-004.

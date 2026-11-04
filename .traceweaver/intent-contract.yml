@@ -119,3 +119,16 @@ sel_health_20261103:
   publication_owner_approval: .traceweaver/sel-health-20261103/publication-owner-approval.json
   publication_scope: protected_feature_to_dev_only_after_live_gates
   publication_remaining_holds: main_release_live_BMC_hardware_qualification_and_production_deployment
+
+# Mechanical current-stage projection of approved LTX revision2; old stages retained.
+ltx_bmc_qualification_20261104:
+  authority: .traceweaver/ltx-bmc-qualification-20261104/authority.json
+  owner_approval: .traceweaver/ltx-bmc-qualification-20261104/owner-approval.json
+  current_source_result: .traceweaver/ltx-bmc-qualification-20261104/root-source-acceptance.json
+  accepted_review_identity: sha256:a653e7537a5d3a9e8d06d8e8c94b7064608c5381292d1d18865cc69d2c7fb323
+  requirements: [REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005]
+  approved_plan_sha256: 3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13
+  status: source_repair1_verified_independently_reviewed_hardware_held
+  publication_scope: protected_feature_to_dev_then_main_patch_1.4.1_after_exact_capsules_and_checks
+  deployment_scope: one_new_ipmi_only_source_image_then_one_conditional_data_activation
+  held: seven_secure_access_repairs_exact_hardware_qualification_intended_use_acceptance_and_policy_arming

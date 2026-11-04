@@ -1,0 +1,58 @@
+{
+  "selected_nodeids": [
+    "tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[full_device]",
+    "tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[partial_device]",
+    "tests/test_sel_management.py::test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command0]",
+    "tests/test_sel_management.py::test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command1]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[cipher_rejected-unsupported_cipher]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[role_rejected-role_or_auth_rejected]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[session_rejected-rmcp_session_failed]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[timeout-device_timeout]",
+    "tests/test_sel_management.py::test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clear]",
+    "tests/test_sel_management.py::test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clock]",
+    "tests/test_sel_management.py::test_changed_qualification_bundle_revokes_queued_consent_before_dispatch",
+    "tests/test_sel_management.py::test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline[885-0]",
+    "tests/test_sel_management.py::test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline[3639-0]",
+    "tests/test_sel_management.py::test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline[3639-0.19]",
+    "tests/test_sel_qualifications.py::test_fixed_qualification_cli_exposes_only_install_and_status",
+    "tests/test_sel_qualifications.py::test_registry_rejects_entire_bundle_when_one_record_is_invalid",
+    "tests/test_sel_qualifications.py::test_registry_and_evidence_cannot_enter_through_symlink",
+    "tests/test_sel_qualifications.py::test_complete_synthetic_fixture_resolves_every_action_digest_and_operation",
+    "tests/test_sel_qualifications.py::test_action_evidence_digest_and_operation_must_resolve_independently[digest]",
+    "tests/test_sel_qualifications.py::test_action_evidence_digest_and_operation_must_resolve_independently[operation_id]"
+  ],
+  "failed_nodeids": [
+    "tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[full_device]",
+    "tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[partial_device]",
+    "tests/test_sel_management.py::test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command0]",
+    "tests/test_sel_management.py::test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command1]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[cipher_rejected-unsupported_cipher]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[role_rejected-role_or_auth_rejected]",
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[session_rejected-rmcp_session_failed]",
+    "tests/test_sel_management.py::test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clear]",
+    "tests/test_sel_management.py::test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clock]",
+    "tests/test_sel_management.py::test_changed_qualification_bundle_revokes_queued_consent_before_dispatch",
+    "tests/test_sel_qualifications.py::test_fixed_qualification_cli_exposes_only_install_and_status",
+    "tests/test_sel_qualifications.py::test_registry_rejects_entire_bundle_when_one_record_is_invalid",
+    "tests/test_sel_qualifications.py::test_registry_and_evidence_cannot_enter_through_symlink",
+    "tests/test_sel_qualifications.py::test_action_evidence_digest_and_operation_must_resolve_independently[digest]",
+    "tests/test_sel_qualifications.py::test_action_evidence_digest_and_operation_must_resolve_independently[operation_id]"
+  ],
+  "passed_nodeids": [
+    "tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[timeout-device_timeout]",
+    "tests/test_sel_management.py::test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline[885-0]",
+    "tests/test_sel_management.py::test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline[3639-0]",
+    "tests/test_sel_management.py::test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline[3639-0.19]",
+    "tests/test_sel_qualifications.py::test_complete_synthetic_fixture_resolves_every_action_digest_and_operation"
+  ],
+  "failed_count": 15,
+  "passed_count": 5,
+  "raw_stdout_sha256": "38eda54d790a2587af7a72e643e7d77656e3ad313bff4b1b71e83c21d22ca9fb",
+  "tested_artifact_sha256": {
+    "tests/test_sel_management.py": "31d8bf9dce7bbc3fc4d65c49f228d88200dbb3c3b851d9fb46df05373dacd66b",
+    "tests/test_sel_qualifications.py": "4ef739b1f2ba5e49615df73b41de8bb947ba69e12f1731cc3b6b1bd40b635e1a",
+    "tests/fixtures/ltx_sel_reads_20261104.json": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d"
+  },
+  "production_manifest_sha256": "dd6d4f1065d3dae781e1d36fe861b746046a18af7e72c430b327d7bd70f5d7b9",
+  "supersedes": "red-final.stdout14RED4PASS retained as earlier preparation evidence; strengthened test evidence controls current capsule."
+}

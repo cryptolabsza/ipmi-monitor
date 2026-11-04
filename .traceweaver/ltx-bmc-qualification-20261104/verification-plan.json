@@ -1,0 +1,250 @@
+{
+  "skill_name": "verification-planner",
+  "skill_version": "0.1",
+  "authority_status": "owner_approved_unchanged_requirement_scope",
+  "baseline_reference": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "source_inputs": [
+    "plan.json",
+    "authority.json",
+    "../../requirements.md",
+    "../../traceability-matrix.md",
+    "../intent-contract.yml"
+  ],
+  "decision": "held",
+  "decision_rationale": "Behavioral RED recorded against unchanged production; required independent precode artifact reviews pending; hardware proof distinct.",
+  "hold_conditions": [
+    "Astra precode review of tests and validation definition",
+    "root production-code GO",
+    "actual installed-tool/session exact-firmware feasibility and staged hardware acceptance"
+  ],
+  "verification_plan": {
+    "plan_id": "VER-PLAN-LTX-SEL-20261104",
+    "requirement_ids": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "method": "test",
+    "owner": "Root; Sol evidence collector; fresh Sol validator",
+    "status": "preimplementation_definition_review_pending",
+    "tested_ref_required": true,
+    "target_environment": "Isolated feature worktree/local Flask SQLite/browser; exact candidate container; safe exact-firmware fixture; LTX only through bounded approved commands",
+    "command_scope": [
+      ".venv/bin/python -m pytest -q tests/test_sel_management.py",
+      ".venv/bin/python -m pytest -q tests/test_sel_qualifications.py",
+      ".venv/bin/python -m pytest -q tests/test_retention_cleanup.py tests/test_collection_workers.py tests/test_auth.py tests/test_api_servers.py tests/test_admin_command_audit.py",
+      "Applicable repository lint/type/template/package checks and all required protected CI/integration checks; no new skips or lowered gates"
+    ],
+    "cross_reference_matrix": [
+      {
+        "requirement_id": "REQ-SEL-001",
+        "method": "test",
+        "procedure_ref": "VER-SEL-001 / ATP-LTX-READ",
+        "expected_result": "Cipher/role/session/timeout fixtures preserve independent successful capacity/logging and raw time/offset with per-probe freshness and fixed sanitized reasons. No unqualified mapping produces derived clock UTC/drift/incorrect warning. No unknown/stale capacity authorizes full trigger.",
+        "tests": "Extend current tests/test_sel_management.py raw boundary, capacity/freshness cases610/621 and unknown/default-off63; add only minimal actual failure parameters.",
+        "evidence_required": [
+          "red-read.log",
+          "green-read.log",
+          "browser-direct-fleet.json"
+        ],
+        "target_environment": "Real Flask/SQLite collector/API and both shipped template trees; synthetic subprocess/HTTP boundary in local tests, then exact deployed IPMI source/image.",
+        "harness_equivalence": "Tests prove application behavior only; live fixed-read receipts prove target observations. Neither qualifies firmware."
+      },
+      {
+        "requirement_id": "REQ-SEL-002",
+        "method": "test",
+        "procedure_ref": "VER-SEL-002 / ATP-LTX-CLEAR",
+        "expected_result": "Representative885/3639 multi-record chain completes under accepted bounded strategy or safely blocks; same reservation covers complete backup+conditional clear; no partial/truncated/changed chain or invalidated token clears; acknowledged representative erase-interval markers survive.",
+        "tests": "Reuse clear archive304, invalidation320, DB-failure424, accepted-clear-C5643; minimal full next-ID chain/timing regression and installed-tool framing/incomplete response case if strategy approved.",
+        "evidence_required": [
+          "red-snapshot.log",
+          "green-snapshot.log",
+          "snapshot-feasibility.json",
+          "qualification/clear/raw-receipts.json"
+        ],
+        "target_environment": "Local real raw adapter+SQLite, actual installed tool safe fixture, exact qualified firmware and approved production canary.",
+        "harness_equivalence": "Synthetic latency/counters cannot prove real persistent session/reservation or erase buffering. Safe exact-firmware evidence and independent actual receipts required."
+      },
+      {
+        "requirement_id": "REQ-SEL-003",
+        "method": "test",
+        "procedure_ref": "VER-SEL-003 / ATP-LTX-PRESERVE",
+        "expected_result": "History/raw bytes/generations retained, FULL/EXTRA archive/audit commit and independent receipt reopen precede dispatch, active or unknown operation retains ownership and protected archive; cooldown/reconcile cannot reclaim live work. INSTALL/policy/claim/dispatch races across two real SQLite sessions cannot replace qualification under armed, queued, active or outcome-unknown work.",
+        "tests": "Reuse ownership443,restart471,active archive/audit488,migration554 and existing retention/collection tests. Add only a concurrency deadline regression if approved session strategy changes timing.",
+        "evidence_required": [
+          "green-preservation.log",
+          "raw-sel-archive-reopen.json",
+          "pre-post-history.json",
+          "qualification/interruption.json"
+        ],
+        "target_environment": "Actual SQLite/mounted raw archive and separate sessions; synthetic legacy migration/restore in isolated container/volume only, not a required live DB backup.",
+        "harness_equivalence": "Local DB transaction checks do not establish production disk durability or an off-host copy; raw archive reopen/completeness/digest/custody are separately recorded. Synthetic migration/restore coverage remains local only; no live full DB backup prerequisite is reintroduced."
+      },
+      {
+        "requirement_id": "REQ-SEL-004",
+        "method": "test",
+        "procedure_ref": "VER-SEL-004 / ATP-LTX-GUARDS",
+        "expected_result": "Current admin/session/origin/revision gates remain; raw errors never leak secrets; tool/version/binary/profile mismatch denies qualification; unqualified policy cannot newly arm but disabling remains possible; hostile text safe direct/Fleet in both template trees. IC01..11 data installer integration: full-bundle rejection leaves pointer unchanged; safe exact bundle visible without restart/side effects; env-presence precedence; no path/import escape; source/tool/record/bundle binding through consent and dispatch.",
+        "tests": "Extend pin/mismatch393/aux694 with actual tool binding; reuse role88,intent97,origin592,revocation668/818,rendered726 and managed credential539. Do not duplicate auth suite. New focused tests/test_sel_qualifications.py uses actual temporary filesystem+SQLite and packaged -I module; minimum parameterized path/custody, invalid/oversize/hash/duplicate/semantic bundle, before/after-publication interruption, exact-idempotence and independent STATUS cases. Race two real DB sessions for armed/queued/unknown vs INSTALL, plus install/policy-arm/claim/final dispatch. Spy network/credential/policy boundaries only to prove zero effects. No fake runtime qualification enters production.",
+        "evidence_required": [
+          "red-security.log",
+          "green-security.log",
+          "browser-direct-fleet.json",
+          "qualified-registry-review.json",
+          "red-installer.log",
+          "green-installer.log",
+          "packaged-isolated-origin.json",
+          "installer-filesystem-db-concurrency.json",
+          "installer-lost-reply-status.json"
+        ],
+        "target_environment": "Real routes and real browser-rendered templates direct/Fleet; exact server registry mount and immutable artifact.",
+        "harness_equivalence": "Synthetic reviewer/checks are fixture-only and cannot become installed qualification; digest/permissions are custody, not external security isolation."
+      },
+      {
+        "requirement_id": "REQ-SEL-005",
+        "method": "test",
+        "procedure_ref": "VER-SEL-005 / ATP-LTX-CLOCK",
+        "expected_result": "Unqualified native interpretation remains unknown; qualified local/UTC epoch math only from exact evidence, positive/negative offsets restore/verify as appropriate; healthy/unhealthy/unknown external authority blocks, failed fresh reference blocks, interruption stays unknown/no replay; later reversion stops.",
+        "tests": "Extend current clock334/347/529 and kernel579 with nearUTC+offset-300 unqualified regression and accepted mapping case only if evidence supports; retain both offset signs and failure-between-writes.",
+        "evidence_required": [
+          "red-clock.log",
+          "green-clock.log",
+          "qualification/clock/vendor-ownership.json",
+          "qualification/clock/raw-before-after.json"
+        ],
+        "target_environment": "Real adapter application tests, safe actual firmware fixture and exact-target CA-verified ownership evidence.",
+        "harness_equivalence": "Local arithmetic and instant readback do not prove firmware interpretation/external ownership or sustained correctness; vendor interval and independent actual readback required."
+      }
+    ],
+    "execution_record_template": {
+      "execution_id": "VER-LTX-SEL-candidate-case",
+      "requirement_id": "record existing REQ-SEL ID",
+      "method": "test",
+      "setup": "exact fixture/target and accepted procedure",
+      "tested_ref": "exact commit+diff/image/tool/firmware/profile hashes",
+      "procedure_or_command": "actual bounded command or procedure",
+      "date_or_session": "UTC and monotonic timing",
+      "expected_result": "criterion from matrix before execution",
+      "actual_result": "pending",
+      "outcome": "held",
+      "evidence_path": ".traceweaver/ltx-bmc-qualification-20261104/evidence/",
+      "deviations": []
+    },
+    "success_criteria": [
+      "Every focused RED case becomes GREEN without weakening assertions or security/authority checks.",
+      "Existing71 SEL baseline cases remain passing; no new skips.",
+      "IC01..11 verified at real filesystem-to-loader/SQLite/isolated image boundaries before INSTALL is accepted.",
+      "60s/65535records/4MiB, at most2 recollections remain; genuine hardware feasibility not inferred from synthetic chains."
+    ]
+  },
+  "verification_cross_reference_matrix": [
+    {
+      "requirement_id": "REQ-SEL-001",
+      "method": "test",
+      "procedure_ref": "VER-SEL-001 / ATP-LTX-READ",
+      "expected_result": "Cipher/role/session/timeout fixtures preserve independent successful capacity/logging and raw time/offset with per-probe freshness and fixed sanitized reasons. No unqualified mapping produces derived clock UTC/drift/incorrect warning. No unknown/stale capacity authorizes full trigger.",
+      "tests": "Extend current tests/test_sel_management.py raw boundary, capacity/freshness cases610/621 and unknown/default-off63; add only minimal actual failure parameters.",
+      "evidence_required": [
+        "red-read.log",
+        "green-read.log",
+        "browser-direct-fleet.json"
+      ],
+      "target_environment": "Real Flask/SQLite collector/API and both shipped template trees; synthetic subprocess/HTTP boundary in local tests, then exact deployed IPMI source/image.",
+      "harness_equivalence": "Tests prove application behavior only; live fixed-read receipts prove target observations. Neither qualifies firmware."
+    },
+    {
+      "requirement_id": "REQ-SEL-002",
+      "method": "test",
+      "procedure_ref": "VER-SEL-002 / ATP-LTX-CLEAR",
+      "expected_result": "Representative885/3639 multi-record chain completes under accepted bounded strategy or safely blocks; same reservation covers complete backup+conditional clear; no partial/truncated/changed chain or invalidated token clears; acknowledged representative erase-interval markers survive.",
+      "tests": "Reuse clear archive304, invalidation320, DB-failure424, accepted-clear-C5643; minimal full next-ID chain/timing regression and installed-tool framing/incomplete response case if strategy approved.",
+      "evidence_required": [
+        "red-snapshot.log",
+        "green-snapshot.log",
+        "snapshot-feasibility.json",
+        "qualification/clear/raw-receipts.json"
+      ],
+      "target_environment": "Local real raw adapter+SQLite, actual installed tool safe fixture, exact qualified firmware and approved production canary.",
+      "harness_equivalence": "Synthetic latency/counters cannot prove real persistent session/reservation or erase buffering. Safe exact-firmware evidence and independent actual receipts required."
+    },
+    {
+      "requirement_id": "REQ-SEL-003",
+      "method": "test",
+      "procedure_ref": "VER-SEL-003 / ATP-LTX-PRESERVE",
+      "expected_result": "History/raw bytes/generations retained, FULL/EXTRA archive/audit commit and independent receipt reopen precede dispatch, active or unknown operation retains ownership and protected archive; cooldown/reconcile cannot reclaim live work. INSTALL/policy/claim/dispatch races across two real SQLite sessions cannot replace qualification under armed, queued, active or outcome-unknown work.",
+      "tests": "Reuse ownership443,restart471,active archive/audit488,migration554 and existing retention/collection tests. Add only a concurrency deadline regression if approved session strategy changes timing.",
+      "evidence_required": [
+        "green-preservation.log",
+        "raw-sel-archive-reopen.json",
+        "pre-post-history.json",
+        "qualification/interruption.json"
+      ],
+      "target_environment": "Actual SQLite/mounted raw archive and separate sessions; synthetic legacy migration/restore in isolated container/volume only, not a required live DB backup.",
+      "harness_equivalence": "Local DB transaction checks do not establish production disk durability or an off-host copy; raw archive reopen/completeness/digest/custody are separately recorded. Synthetic migration/restore coverage remains local only; no live full DB backup prerequisite is reintroduced."
+    },
+    {
+      "requirement_id": "REQ-SEL-004",
+      "method": "test",
+      "procedure_ref": "VER-SEL-004 / ATP-LTX-GUARDS",
+      "expected_result": "Current admin/session/origin/revision gates remain; raw errors never leak secrets; tool/version/binary/profile mismatch denies qualification; unqualified policy cannot newly arm but disabling remains possible; hostile text safe direct/Fleet in both template trees. IC01..11 data installer integration: full-bundle rejection leaves pointer unchanged; safe exact bundle visible without restart/side effects; env-presence precedence; no path/import escape; source/tool/record/bundle binding through consent and dispatch.",
+      "tests": "Extend pin/mismatch393/aux694 with actual tool binding; reuse role88,intent97,origin592,revocation668/818,rendered726 and managed credential539. Do not duplicate auth suite. New focused tests/test_sel_qualifications.py uses actual temporary filesystem+SQLite and packaged -I module; minimum parameterized path/custody, invalid/oversize/hash/duplicate/semantic bundle, before/after-publication interruption, exact-idempotence and independent STATUS cases. Race two real DB sessions for armed/queued/unknown vs INSTALL, plus install/policy-arm/claim/final dispatch. Spy network/credential/policy boundaries only to prove zero effects. No fake runtime qualification enters production.",
+      "evidence_required": [
+        "red-security.log",
+        "green-security.log",
+        "browser-direct-fleet.json",
+        "qualified-registry-review.json",
+        "red-installer.log",
+        "green-installer.log",
+        "packaged-isolated-origin.json",
+        "installer-filesystem-db-concurrency.json",
+        "installer-lost-reply-status.json"
+      ],
+      "target_environment": "Real routes and real browser-rendered templates direct/Fleet; exact server registry mount and immutable artifact.",
+      "harness_equivalence": "Synthetic reviewer/checks are fixture-only and cannot become installed qualification; digest/permissions are custody, not external security isolation."
+    },
+    {
+      "requirement_id": "REQ-SEL-005",
+      "method": "test",
+      "procedure_ref": "VER-SEL-005 / ATP-LTX-CLOCK",
+      "expected_result": "Unqualified native interpretation remains unknown; qualified local/UTC epoch math only from exact evidence, positive/negative offsets restore/verify as appropriate; healthy/unhealthy/unknown external authority blocks, failed fresh reference blocks, interruption stays unknown/no replay; later reversion stops.",
+      "tests": "Extend current clock334/347/529 and kernel579 with nearUTC+offset-300 unqualified regression and accepted mapping case only if evidence supports; retain both offset signs and failure-between-writes.",
+      "evidence_required": [
+        "red-clock.log",
+        "green-clock.log",
+        "qualification/clock/vendor-ownership.json",
+        "qualification/clock/raw-before-after.json"
+      ],
+      "target_environment": "Real adapter application tests, safe actual firmware fixture and exact-target CA-verified ownership evidence.",
+      "harness_equivalence": "Local arithmetic and instant readback do not prove firmware interpretation/external ownership or sustained correctness; vendor interval and independent actual readback required."
+    }
+  ],
+  "execution_record_template": {
+    "execution_id": "VER-PLAN-LTX-SEL-20261104",
+    "procedure_or_command": "see exact evidence/red-strengthened.json",
+    "tested_ref": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+    "date_or_session": "2026-11-04",
+    "actual_result": "15 expected assertion failures;5 passes, including valid synthetic evidence acceptance; baseline59application+12browser pass;59existingfixture-dependent cases rerun pass",
+    "outcome": "fail",
+    "evidence_path": "evidence/red-strengthened.stdout",
+    "deviations": [
+      "Original browser bind failures held and superseded by exact12-case elevated PASS; no test skipped.",
+      "No forced RED invented for already-correct bounded full-chain behavior."
+    ]
+  },
+  "lean_test_value": {
+    "reused": "Existing real app/SQLite/intent/qualified registry/command boundary fixtures and baseline71cases.",
+    "new": "20 parameterized cases (15RED,5PASS): one valid manifest acceptance control and separate digest-only/operation-ID-only corruption prevent masking; no new production exceptions.",
+    "retained": "All existing clear/archive/invalidation/ownership/retention/migration/origin/direct-Fleet checks unchanged.",
+    "removed_tests": 0,
+    "runtime_limit": "Local synthetic responses prove application behavior only; no actual tool session, firmware or hardware qualification."
+  },
+  "fixture_strengthening": {
+    "schema_basis": "Existing sel-device-qualification/1 registry and accepted per-action evidence manifest fields; no separate versioned evidence-file schema is claimed.",
+    "validity": "Each temporary action digest resolves exact admitted file bytes; action operation UUID matches its admitted operation with action/fingerprint/checks/timestamp/outcome/raw receipt. Explicit test asserts valid registry/action acceptance.",
+    "independent_negatives": "Corrupt only digest OR only operation UUID; otherwise valid manifest remains unchanged.",
+    "existing_firmware_case": "When producing first auxiliary-firmware identity, update admitted evidence fingerprint plus file/action digests together; second identity still revokes consent.",
+    "remaining_importer_gate": "Author/run actual filesystem/SQLite/image custody, interruption/race/origin tests to meaningful behavioral RED before corresponding production validation/install functions. Absent CLI RED alone is not IC01..11 proof. No production root-override/test bypass."
+  }
+}

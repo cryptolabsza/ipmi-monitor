@@ -1,0 +1,81 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "task_id": "WORK-LTX-SEL-20261104",
+  "profile_revision": 2,
+  "profile_status": "frozen_owner_approved",
+  "risk": "L3",
+  "selection_rationale": "Security-sensitive external hardware mutations, destructive clear, persistent evidence, native clock and release/deployment. Read repair is deliverable independently of held mutation qualification.",
+  "process_budget": {
+    "estimated_delivery_minutes": 180,
+    "estimated_process_target_minutes": 45,
+    "estimated_process_ceiling_minutes": 180,
+    "target_process_to_delivery_ratio_percent": 25,
+    "hard_ceiling_process_to_delivery_ratio_percent": 100,
+    "waiting_for_owner_or_vendor_excluded_and_recorded": true
+  },
+  "model_routing": {
+    "source": "Explicit Orchestra/user-directed Sol implementation, fresh Sol validation and Astra review; overrides conflicting lower-priority template default per root instruction.",
+    "native_surface": "collaboration.spawn_agent",
+    "requested_models": [
+      "gpt-6.1-sol",
+      "gpt-6-astra"
+    ],
+    "served_model_provenance": "unattested unless actual host runtime independently reports it; no fabricated external attestation; requested launch identity is not served identity proof",
+    "runtime_configuration_changes": false
+  },
+  "child_roles": {
+    "builder": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "maximum_timebox_minutes": 120
+    },
+    "independent_validator": {
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "fresh_context": true,
+      "maximum_timebox_minutes": 45
+    },
+    "adversarial_reviewer": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "high",
+      "maximum_timebox_minutes": 45
+    },
+    "deployer": "root-owned controlled publication/Fleet lane only",
+    "acceptance_owner": "Hannes Zietsman or named owner-approved independent operations proxy"
+  },
+  "reviewer_cap": 1,
+  "independent_validator_cap": 1,
+  "repair_cycle_cap": 1,
+  "severe_blocker_exception_cycle_cap": 0,
+  "requires_deploy": true,
+  "requires_browser_dogfood": true,
+  "selected_controls": [
+    "Explicit plan approval before source changes",
+    "Feature worktree from freshly verified dev; dirty canonical untouched",
+    "Existing REQ-SEL-001..005 unchanged; reviewed full L3 V&V definition before builder",
+    "Real boundary RED then minimal GREEN; fresh independent validation; Astra adversarial review",
+    "One repair cycle maximum; unresolved blocker returns to root",
+    "No new dependency, cipher downgrade or global deadline/lease redesign without plan revision",
+    "No unqualified production destructive negative tests; safe lab/firmware bootstrap required",
+    "Independent raw backup/custody and exact action qualification before admin policy consent",
+    "Unknown outcome retains ownership; no blind retries; scope/pin/history/credentials preserved",
+    "Exactly one new IPMI source-image Fleet deployment plus one separately counted data activation; no second generic container recreation",
+    "Fixed official-image isolated data-only INSTALL+STATUS; strict whole-bundle custody, no network/credentials/policies",
+    "Either environment key present selects env-only fail-closed; pointer fallback only if both absent",
+    "All policies OFF/no queued,active,outcome-unknown operations under SQLite lock before activation",
+    "Qualification source/bundle/record digests bind admin consent, operation claim and final serialized dispatch",
+    "Existing owner full-IPMI-database backup waiver preserved; complete verified raw SEL archive still mandatory"
+  ],
+  "immutable_after_building": {
+    "expansion_rule": "Freeze approved selected fields and canonical hash at first builder dispatch; changed controls/scope require new revision with reason."
+  },
+  "escalation_reason": "Pre-builder draft revision incorporates Astra PLAN-S01..03/IC01..11, owner backup waiver and exact full-goal completion; no profile has been frozen.",
+  "operation_budget": {
+    "source_image_deployments": 1,
+    "data_activations": 1,
+    "generic_second_recreation": 0,
+    "old_budget_reuse": false,
+    "failure": "Lost reply or ambiguous outcome => status/reconcile, never blind retry."
+  },
+  "profile_hash": "sha256:0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc"
+}

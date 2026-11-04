@@ -9,12 +9,11 @@ import hashlib
 import hmac
 import json
 import os
-from pathlib import Path
 import re
+import select
 import secrets
-import stat
-import sys
 import subprocess
+import sys
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -25,8 +24,8 @@ from sqlalchemy import event, inspect, text
 from sqlalchemy.schema import CreateTable, CreateIndex
 from sqlalchemy.orm import Session
 
-ADAPTER_VERSION = "sel-raw-v2"
-TRANSPORT = "lanplus-cipher17"
+ADAPTER_VERSION = "sel-raw-v3-persistent"
+TRANSPORT = "lanplus-cipher17-admin"
 MAX_RECORDS = 65535
 MAX_SECONDS = 60
 COOLDOWN = 300
@@ -92,6 +91,129 @@ def scoped_custom_command(command):
     return False
 
 
+class IPMIShellSession:
+    """One bounded local child, fixed numeric commands, no shell builtins/input."""
+    PROMPT = b'ipmitool> '
+
+    def __init__(self, adapter, reservation=None):
+        self.adapter = adapter
+        self.process = self.master = None
+        self.pending, self.total = b'', 0
+        self.reservation = reservation
+        try:
+            import pty
+            import termios
+            tool = '/usr/bin/ipmitool'
+            master, slave = pty.openpty()
+            self.master = master
+            try:
+                attributes = termios.tcgetattr(slave)
+                attributes[3] &= ~termios.ECHO
+                termios.tcsetattr(slave, termios.TCSANOW, attributes)
+                env = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C', 'TERM': 'dumb',
+                       'IPMI_PASSWORD': adapter.secret}
+                self.process = adapter.runtime.subprocess.Popen([tool, '-I', 'lanplus', '-C', '17',
+                    '-L', 'ADMINISTRATOR', '-H', adapter.bmc_ip, '-U', adapter.user, '-E',
+                    '-N', '1', '-R', '1', 'shell'], stdin=slave, stdout=slave, stderr=slave,
+                    env=env, close_fds=True, shell=False)
+                env.clear()
+            finally:
+                os.close(slave)
+            if self.frame().strip():
+                raise SELUnavailable('malformed_device_response')
+        except BaseException as exc:
+            self.close()
+            if isinstance(exc, SELUnavailable):
+                raise
+            raise SELUnavailable('device_transport_unavailable') from None
+
+    def frame(self):
+        deadline = min(self.adapter.deadline, time.monotonic() + 10)
+        while True:
+            position = self.pending.find(self.PROMPT)
+            if position >= 0:
+                body, self.pending = self.pending[:position], self.pending[position + len(self.PROMPT):]
+                if len(body) > 4096 or self.pending:
+                    raise SELUnavailable('malformed_device_response')
+                return body
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise SELUnavailable('device_deadline_exceeded' if time.monotonic() >= self.adapter.deadline else 'device_timeout')
+            if len(self.pending) > 4096 or self.total > 8 * 1024 * 1024:
+                raise SELUnavailable('malformed_device_response')
+            ready, _, _ = select.select([self.master], [], [], remaining)
+            if not ready:
+                continue
+            try:
+                chunk = os.read(self.master, 1024)
+            except OSError:
+                raise SELUnavailable('device_stream_closed') from None
+            if not chunk:
+                raise SELUnavailable('device_stream_closed')
+            self.total += len(chunk)
+            self.pending += chunk
+
+    def raw(self, netfn, command, *data):
+        values = (netfn, command, *data)
+        fixed_reads = {(6, 1), (6, 0x37), (6, 0x2f), (10, 0x40), (10, 0x41), (10, 0x48), (10, 0x5c)}
+        if any(type(value) is not int or not 0 <= value <= 255 for value in values):
+            raise SELUnavailable('command_not_allowlisted')
+        allowed = values in fixed_reads or values == (10, 0x42)
+        if values[:2] == (10, 0x43):
+            allowed = (len(values) == 8 and bytes(values[2:4]) == self.reservation and
+                       values[6:] == (0, 255) and values[4:6] != (255, 255))
+        elif values[:2] == (10, 0x47):
+            allowed = (len(values) == 8 and bytes(values[2:4]) == self.reservation and
+                       values[4:7] == (0x43, 0x4c, 0x52) and values[7] in (0, 0xaa))
+        if not allowed:
+            raise SELUnavailable('command_not_allowlisted')
+        if not self.process or self.process.poll() is not None or time.monotonic() >= self.adapter.deadline:
+            raise SELUnavailable('device_deadline_exceeded')
+        line = 'raw ' + ' '.join(hex(value) for value in values)
+        try:
+            encoded = (line + '\n').encode('ascii')
+            if os.write(self.master, encoded) != len(encoded):
+                raise SELUnavailable('device_stream_closed')
+            response = self.frame().decode('ascii').replace('\r', '').strip()
+            lines = response.splitlines()
+            if lines and lines[0].strip() == line:
+                response = '\n'.join(lines[1:]).strip()
+            parts = response.split()
+            if not parts or len(parts) > 512 or any(not re.fullmatch('[0-9a-fA-F]{2}', value) for value in parts):
+                if re.search(r'rsp\s*=\s*0xc5\b', response, re.I):
+                    raise ReservationLost('reservation_invalid')
+                raise SELUnavailable('malformed_device_response')
+            result = bytes(int(value, 16) for value in parts)
+            if values == (10, 0x42):
+                if len(result) != 2 or result == bytes(2):
+                    raise SELUnavailable('hardware_reservation_unavailable')
+                self.reservation = result
+            return result
+        except ReservationLost:
+            raise
+        except SELUnavailable:
+            self.close()
+            raise
+        except (OSError, UnicodeError):
+            self.close()
+            raise SELUnavailable('device_stream_or_response_failure') from None
+
+    def close(self):
+        if self.master is not None:
+            os.close(self.master)
+            self.master = None
+        if self.process is not None:
+            if self.process.poll() is None:
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait(timeout=1)
+            else:
+                self.process.wait()
+
+
 class IPMISELAdapter:
     """Fixed authenticated raw commands, with the reservation carried explicitly."""
 
@@ -101,27 +223,59 @@ class IPMISELAdapter:
         if not self.user or not self.secret:
             raise SELUnavailable('target_credentials_unavailable')
         self.deadline = time.monotonic() + MAX_SECONDS
+        self.terminal_error = None
+        self._shell = None
+
+    def open_session(self, reservation=None):
+        if self._shell is None:
+            self._shell = IPMIShellSession(self, reservation)
+
+    def close(self):
+        if self._shell is not None:
+            self._shell.close()
+            self._shell = None
 
     def raw(self, netfn, command, *data):
+        if self._shell is not None:
+            return self._shell.raw(netfn, command, *data)
+        return self._run_raw(netfn, command, *data)
+
+    def _run_raw(self, netfn, command, *data):
+        if self.terminal_error:
+            raise SELUnavailable(self.terminal_error)
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise SELUnavailable('device_deadline_exceeded')
-        argv = ['ipmitool', '-I', 'lanplus', '-C', '17', '-H', self.bmc_ip,
+        argv = ['/usr/bin/ipmitool', '-I', 'lanplus', '-C', '17', '-L', 'ADMINISTRATOR', '-H', self.bmc_ip,
                 '-U', self.user, '-E', 'raw'] + [hex(v) for v in (netfn, command, *data)]
-        env = os.environ.copy()
-        env['IPMI_PASSWORD'] = self.secret
+        env = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C', 'IPMI_PASSWORD': self.secret}
         try:
             result = self.runtime.subprocess.run(argv, env=env, capture_output=True, text=True,
                                                  timeout=min(10, remaining))
         except subprocess.TimeoutExpired:
+            self.terminal_error = 'device_timeout'
             raise SELUnavailable('device_timeout') from None
         except Exception:
+            self.terminal_error = 'device_transport_unavailable'
             raise SELUnavailable('device_transport_unavailable') from None
         if result.returncode:
             # No external command body, argv or exception is returned/logged.
             if re.search(r'(?:rsp\s*=\s*0x|completion code.*0x)c5\b', result.stderr or '', re.I):
                 raise ReservationLost('reservation_invalid')
-            raise SELUnavailable('device_command_failed')
+            stderr = (result.stderr or '').lower()
+            if 'no matching cipher' in stderr:
+                code = 'unsupported_cipher'
+            elif any(value in stderr for value in ('invalid role', 'unauthorized', 'authentication', 'rakp 2 hmac')):
+                code = 'role_or_auth_rejected'
+            elif 'unable to establish ipmi v2' in stderr or 'rmcp+' in stderr:
+                code = 'rmcp_session_failed'
+            elif re.search(r'(?:rsp\s*=\s*0x|completion code.*0x)c1\b', stderr) or 'invalid command' in stderr:
+                code = 'unsupported_command'
+            else:
+                code = 'device_command_failed'
+            if code in {'unsupported_cipher', 'role_or_auth_rejected', 'rmcp_session_failed'}:
+                self.terminal_error = code
+            raise SELUnavailable(code)
         output = result.stdout.strip().split()
         if len(output) > 512 or any(not re.fullmatch(r'[a-fA-F0-9]{2}', v) for v in output):
             raise SELUnavailable('malformed_device_response')
@@ -171,13 +325,19 @@ class IPMISELAdapter:
 
     def clock(self):
         value = self.raw(0x0a, 0x48)
-        offset = self.raw(0x0a, 0x5c)
-        if len(value) != 4 or len(offset) != 2:
+        if len(value) != 4:
             raise SELUnavailable('clock_mapping_unknown')
         seconds = int.from_bytes(value, 'little')
-        minutes = int.from_bytes(offset, 'little', signed=True)
+        reason = None
+        try:
+            offset = self.raw(0x0a, 0x5c)
+            if len(offset) != 2:
+                raise SELUnavailable('malformed_device_response')
+            minutes = int.from_bytes(offset, 'little', signed=True)
+        except SELUnavailable as exc:
+            minutes, reason = 2047, exc.code
         return {'native_seconds': seconds, 'offset_minutes': None if minutes == 2047 else minutes,
-                'quality': 'uninitialized' if seconds < 0x20000000 else 'native'}
+                'offset_reason': reason, 'quality': 'uninitialized' if seconds < 0x20000000 else 'native'}
 
     def reserve(self):
         value = self.raw(0x0a, 0x42)
@@ -186,6 +346,7 @@ class IPMISELAdapter:
         return value
 
     def snapshot(self, reservation):
+        self.open_session(reservation)
         before = self.info()
         if not before['supports_reserve']:
             raise SELUnavailable('hardware_reservation_unavailable')
@@ -268,9 +429,9 @@ class IPMISELAdapter:
         if management['managed']:
             raise SELUnavailable('externally_managed_clock')
         offset = before['offset_minutes']
-        if offset is None or not -720 <= offset <= 840 or qualification.get('clock_semantics') != 'local_epoch_with_utc_offset':
+        if offset is None or not -720 <= offset <= 840 or qualification.get('clock_semantics') not in {'local_epoch_with_utc_offset', 'utc_epoch'}:
             raise SELUnavailable('clock_mapping_unknown')
-        desired = int(reference['utc']) + offset * 60
+        desired = int(reference['utc']) + (offset * 60 if qualification['clock_semantics'] == 'local_epoch_with_utc_offset' else 0)
         if not 0x20000000 <= desired < 0xffffffff:
             raise SELUnavailable('trusted_time_out_of_range')
         # Set SEL Time resets UTC offset on IPMI hardware. Restore and verify it.
@@ -349,74 +510,22 @@ def trusted_reference(runtime):
 
 
 def qualification_records():
-    """A pinned, server-owned registry; no request or policy can grant support."""
-    path, expected = os.environ.get('SEL_QUALIFICATIONS_FILE'), os.environ.get('SEL_QUALIFICATIONS_SHA256')
-    if not path or not expected:
-        return []
-    try:
-        file = Path(path)
-        info = file.stat()
-        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o022 or info.st_uid not in {0, os.geteuid()}:
-            return []
-        value = file.read_bytes()
-        if len(value) > 1024 * 1024 or not hmac.compare_digest(hashlib.sha256(value).hexdigest(), expected):
-            return []
-        registry = json.loads(value)
-        if registry['schema'] != 'sel-device-qualification/1' or not isinstance(registry['records'], list):
-            return []
-        accepted = []
-        for record in registry['records']:
-            try:
-                uuid.UUID(record['record_id'])
-                artifacts = record['evidence_artifacts']
-                if not isinstance(artifacts, list) or not artifacts:
-                    continue
-                for artifact in artifacts:
-                    relative = Path(artifact['path'])
-                    candidate = (file.parent / relative).resolve()
-                    if relative.is_absolute() or not candidate.is_relative_to(file.parent.resolve()):
-                        raise ValueError()
-                    metadata = candidate.stat()
-                    if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & 0o022 or metadata.st_uid not in {0, os.geteuid()}:
-                        raise ValueError()
-                    if metadata.st_size > 4 * 1024 * 1024:
-                        raise ValueError()
-                    if not hmac.compare_digest(hashlib.sha256(candidate.read_bytes()).hexdigest(), artifact['sha256']):
-                        raise ValueError()
-                accepted.append(record)
-            except (KeyError, ValueError, OSError, TypeError):
-                continue
-        return accepted
-    except Exception:
-        return []
+    from .sel_qualifications import qualification_state
+    return qualification_state()['records']
+
+
+def qualification_selection(fingerprint, action):
+    from .sel_qualifications import qualification_state
+    state = qualification_state()
+    for record in state['records']:
+        if record['fingerprint'] == fingerprint and action in record['actions']:
+            return record, digest({'source': state['binding'], 'record': digest(record),
+                                   'action': digest(record['actions'][action])})
+    return None, None
 
 
 def qualified(fingerprint, action):
-    for record in qualification_records():
-        try:
-            if (record['fingerprint'] != fingerprint or record['test_only'] is not False or
-                    record.get('firmware_identity_scope') != fingerprint.get('firmware_identity_capability')):
-                continue
-            expires = datetime.fromisoformat(record['expires_at'].replace('Z', '+00:00'))
-            approved = datetime.fromisoformat(record['approved_at'].replace('Z', '+00:00'))
-            if not approved <= datetime.now(timezone.utc) < expires or not record['reviewer']:
-                continue
-            evidence = record['actions'][action]
-            required = {
-                'clear': {'same_reservation', 'insertion_invalidates', 'competing_reservation', 'complete_raw_backup', 'completion_readback', 'new_events_survive'},
-                'enable': {'unrelated_bits_preserved', 'enabled_readback'},
-                'clock': {'positive_offset', 'negative_offset', 'offset_restored', 'interrupted_write', 'trusted_reference', 'ntp_ownership', 'clock_readback'},
-            }[action]
-            if set(evidence['checks']) < required or not all(evidence['checks'][name] is True for name in required):
-                continue
-            if not evidence['canary_operation_ids'] or not evidence['sha256'] or not all(re.fullmatch('[0-9a-f]{64}', d) for d in evidence['sha256']):
-                continue
-            if action == 'clock' and record.get('clock_semantics') != 'local_epoch_with_utc_offset':
-                continue
-            return record
-        except (KeyError, ValueError, TypeError):
-            continue
-    return None
+    return qualification_selection(fingerprint, action)[0]
 
 
 # TRACEWEAVER: entrypoint=register_sel_management; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
@@ -442,6 +551,7 @@ def register_sel_management(runtime):
         auto_clock = db.Column(db.Boolean, nullable=False, default=False)
         policy_revision = db.Column(db.Integer, nullable=False, default=0)
         consent_fingerprint = db.Column(db.String(64))
+        consent_qualification = db.Column(db.Text)
         near_full = db.Column(db.Integer, nullable=False, default=90)
         drift_seconds = db.Column(db.Integer, nullable=False, default=300)
 
@@ -456,6 +566,7 @@ def register_sel_management(runtime):
         initiator = db.Column(db.String(120), nullable=False)
         automatic = db.Column(db.Boolean, default=False, nullable=False)
         reason = db.Column(db.String(80), nullable=False)
+        qualification_binding = db.Column(db.String(64))
         archive_id = db.Column(db.String(36))
         outcome = db.Column(db.String(80))
         evidence = db.Column(db.Text)
@@ -566,9 +677,24 @@ def register_sel_management(runtime):
             target = self.target(bmc_ip)
             try:
                 adapter = self.adapter(target)
-                fingerprint = self.identify(target, adapter)
                 health = {'state': 'unknown', 'logging_enabled': None, 'percent_used': None,
-                          'capacity_observed_at': None, 'logging_observed_at': None, 'clock_observed_at': None}
+                          'capacity_observed_at': None, 'logging_observed_at': None, 'clock_observed_at': None,
+                          'probes': {}}
+                def observed(name, reason=None):
+                    health['probes'][name] = {'reason': reason, 'observed_at': stamp(utcnow()),
+                                             'source': 'ipmitool:raw', 'profile': TRANSPORT}
+                try:
+                    fingerprint = self.identify(target, adapter)
+                    observed('identity')
+                except SELUnavailable as exc:
+                    fingerprint = None
+                    observed('identity', exc.code)
+                    if target.fingerprint:
+                        target.revision += 1
+                        target.policy_revision += 1
+                        target.fingerprint = target.consent_fingerprint = target.consent_qualification = None
+                        target.auto_clear = target.auto_clock = False
+                        self.audit(target, 'identity_unavailable', {'reason': exc.code}, subject='collector')
                 try:
                     info = adapter.info()
                     old = json.loads(target.health or '{}').get('info')
@@ -580,13 +706,16 @@ def register_sel_management(runtime):
                     health['percent_used'] = info['percent_used']
                     # Overflow is a historical loss warning, not current capacity.
                     health['full'] = (None if info['free_bytes'] in (0xffff, 0xfffe) else info['free_bytes'] == 0)
-                except SELUnavailable:
+                    observed('capacity')
+                except SELUnavailable as exc:
                     health['full'] = None
+                    observed('capacity', exc.code)
                 try:
                     health['logging_enabled'] = bool(adapter.logging() & 8)
                     health['logging_observed_at'] = stamp(utcnow())
-                except SELUnavailable:
-                    pass
+                    observed('logging')
+                except SELUnavailable as exc:
+                    observed('logging', exc.code)
                 try:
                     health['clock'] = adapter.clock()
                     health['clock_observed_at'] = stamp(utcnow())
@@ -595,11 +724,16 @@ def register_sel_management(runtime):
                     native = health['clock']
                     offset = native['offset_minutes']
                     health['clock_incorrect'] = native['quality'] == 'uninitialized'
-                    if reference and offset is not None:
-                        health['drift_seconds'] = native['native_seconds'] - offset * 60 - reference['utc']
+                    mapping = qualified(fingerprint, 'clock') if fingerprint else None
+                    health['clock_mapping'] = mapping.get('clock_semantics') if mapping else None
+                    if reference and offset is not None and mapping:
+                        health['drift_seconds'] = native['native_seconds'] - (offset * 60 if mapping['clock_semantics'] == 'local_epoch_with_utc_offset' else 0) - reference['utc']
                         health['clock_incorrect'] |= abs(health['drift_seconds']) > target.drift_seconds
-                except SELUnavailable:
+                    observed('clock', 'clock_mapping_unknown' if not mapping else None)
+                    observed('offset', native.get('offset_reason'))
+                except SELUnavailable as exc:
                     health['clock'] = None
+                    observed('clock', exc.code)
                 health['fingerprint'] = fingerprint
                 target.health, target.observed_at = json.dumps(health), utcnow()
                 db.session.commit()
@@ -607,7 +741,7 @@ def register_sel_management(runtime):
                 target.health = json.dumps({'state': 'unknown', 'error': exc.code})
                 target.observed_at = utcnow()
                 db.session.commit()
-            return self.health(target)
+            return self.health(self.refresh_consent(target))
 
         def health(self, target):
             health = json.loads(target.health or '{}')
@@ -624,7 +758,7 @@ def register_sel_management(runtime):
                     flags.append('logging_disabled')
                 if health.get('clock_incorrect'):
                     flags.append('clock_incorrect')
-                elif not health.get('clock') or not health.get('reference_verified') or health['clock'].get('offset_minutes') is None:
+                elif not health.get('clock') or not health.get('clock_mapping') or not health.get('reference_verified') or health['clock'].get('offset_minutes') is None:
                     flags.append('clock_unknown')
             known = fresh and health.get('logging_enabled') is not None and health.get('full') is not None
             health.update(state=next((flag for flag in flags if flag != 'overflow'), 'overflow') if flags else 'healthy' if known else 'unknown', flags=flags,
@@ -636,6 +770,7 @@ def register_sel_management(runtime):
             return health
 
         def representation(self, target):
+            target = self.refresh_consent(target)
             server = self.current_server(target.bmc_ip)
             fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
             capabilities = {action: {'available': bool(target.failure_count < 3 and fingerprint and qualified(fingerprint, action)),
@@ -659,10 +794,74 @@ def register_sel_management(runtime):
                     body['policy_revision'] != target.policy_revision):
                 raise SELUnavailable('stale_target_or_policy_revision')
 
-        def claim(self, target, action, initiator, automatic=False):
+        def authority(self, target):
+            return (target.revision, target.policy_revision, target.snapshot_epoch)
+
+        def consent_state(self, target, selections):
+            consent = json.loads(target.consent_qualification or '{}')
+            armed = {'clear': target.auto_clear, 'clock': target.auto_clock}
+            fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
+            revoked = []
+            for action in ('clear', 'clock'):
+                if armed[action] and (not selections[action] or consent.get(action) != selections[action] or
+                        target.consent_fingerprint != (digest(fingerprint) if fingerprint else None)):
+                    armed[action] = False
+                    consent[action] = None
+                    revoked.append(action)
+            return consent, armed, revoked
+
+        def revoke_locked(self, target, selections):
+            consent, armed, revoked = self.consent_state(target, selections)
+            if revoked:
+                target.auto_clear, target.auto_clock = armed['clear'], armed['clock']
+                target.consent_qualification = json.dumps(consent, sort_keys=True)
+                target.policy_revision += 1
+                self.audit(target, 'qualification_consent_revoked', {'actions': revoked}, subject='qualification-observer')
+                # Commit the safety revocation before a caller rejects/rolls back.
+                db.session.commit()
+            return bool(revoked)
+
+        def refresh_consent(self, target):
+            target_id = target.id
+            db.session.rollback()
+            if db.engine.dialect.name != 'sqlite':
+                raise SELUnavailable('serialized_dispatch_unavailable')
+            db.session.execute(text('BEGIN IMMEDIATE'))
+            db.session.expire_all()
+            target = db.session.get(SELTarget, target_id)
+            fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
+            selections = {action: qualification_selection(fingerprint, action)[1] for action in ('clear', 'clock')}
+            self.revoke_locked(target, selections)
+            db.session.commit()
+            return target
+
+        def claim(self, target, action, initiator, automatic=False, expected_qualification=None, expected_authority=None):
+            expected_authority = self.authority(target) if expected_authority is None else expected_authority
+            target_id = target.id
+            db.session.rollback()
+            if db.engine.dialect.name != 'sqlite':
+                raise SELUnavailable('serialized_dispatch_unavailable')
+            db.session.execute(text('BEGIN IMMEDIATE'))
+            db.session.expire_all()
+            target = db.session.get(SELTarget, target_id)
+            if self.authority(target) != expected_authority:
+                raise SELUnavailable('identity_or_policy_revoked')
+            fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
+            selections = {name: qualification_selection(fingerprint, name)[1] for name in ('clear', 'clock')}
+            if self.revoke_locked(target, selections):
+                raise SELUnavailable('qualification_consent_revoked')
+            _, selection = qualification_selection(fingerprint, action)
+            if not selection:
+                raise SELUnavailable('exact_hardware_qualification_required')
+            if expected_qualification is not None and selection != expected_qualification:
+                raise SELUnavailable('qualification_revoked')
+            if automatic and (not (target.auto_clear if action == 'clear' else target.auto_clock) or
+                    json.loads(target.consent_qualification or '{}').get(action) != selection):
+                raise SELUnavailable('qualification_consent_revoked')
             operation = SELOperation(id=str(uuid.uuid4()), target_id=target.id, action=action,
                 state='queued', identity_revision=target.revision, policy_revision=target.policy_revision,
-                epoch=target.snapshot_epoch, initiator=initiator, automatic=automatic, reason='automatic' if automatic else 'admin_request')
+                epoch=target.snapshot_epoch, initiator=initiator, automatic=automatic, reason='automatic' if automatic else 'admin_request',
+                qualification_binding=selection)
             updated = db.session.query(SELTarget).filter(SELTarget.id == target.id,
                 SELTarget.active_operation.is_(None), SELTarget.revision == target.revision,
                 SELTarget.policy_revision == target.policy_revision,
@@ -689,6 +888,14 @@ def register_sel_management(runtime):
             if operation.automatic and (target.consent_fingerprint != digest(fingerprint) or
                     not (target.auto_clear if operation.action == 'clear' else target.auto_clock)):
                 raise SELUnavailable('automation_revoked')
+            _, selection = qualification_selection(fingerprint, operation.action)
+            selections = {name: qualification_selection(fingerprint, name)[1] for name in ('clear', 'clock')}
+            if self.revoke_locked(target, selections):
+                raise SELUnavailable('qualification_consent_revoked')
+            if not selection or selection != operation.qualification_binding:
+                raise SELUnavailable('qualification_revoked')
+            if operation.automatic and json.loads(target.consent_qualification or '{}').get(operation.action) != selection:
+                raise SELUnavailable('qualification_consent_revoked')
             return target, operation
 
         def recheck(self, target, operation, adapter, fingerprint):
@@ -696,6 +903,10 @@ def register_sel_management(runtime):
             # Network identity proof precedes fresh database authority, never the reverse.
             if adapter.fingerprint() != fingerprint:
                 raise SELUnavailable('identity_or_policy_revoked')
+            db.session.rollback()
+            if db.engine.dialect.name != 'sqlite':
+                raise SELUnavailable('serialized_dispatch_unavailable')
+            db.session.execute(text('BEGIN IMMEDIATE'))
             db.session.expire_all()
             return self.check_authority(target_id, operation_id, fingerprint)[0]
 
@@ -704,8 +915,6 @@ def register_sel_management(runtime):
             target_id, operation_id = target.id, operation.id
             if adapter.fingerprint() != fingerprint:
                 raise SELUnavailable('identity_or_policy_revoked')
-            if not qualified(fingerprint, operation.action):
-                raise SELUnavailable('exact_hardware_qualification_required')
             # Discard stale read snapshots, then serialize the FINAL authority
             # decision and accepted intent with all SQLite lifecycle/policy writers.
             # A revocation committed first wins; after this commit dispatch is
@@ -753,18 +962,21 @@ def register_sel_management(runtime):
             self.audit(target, 'operation_' + state, {'outcome': outcome}, operation)
             db.session.commit()
 
-        def execute(self, target, action, initiator, automatic=False):
-            expected_revision = target.revision
+        def execute(self, target, action, initiator, automatic=False, expected_authority=None):
+            expected_authority = self.authority(target) if expected_authority is None else expected_authority
+            expected_revision = expected_authority[0]
             if target.failure_count >= 3:
                 raise SELUnavailable('repeated_failure_hold')
             adapter = self.adapter(target)
             fingerprint = self.identify(target, adapter)
-            qualification = qualified(fingerprint, action)
+            qualification, selected_binding = qualification_selection(fingerprint, action)
             if not qualification:
+                self.refresh_consent(target)
                 raise SELUnavailable('exact_hardware_qualification_required')
             if target.revision != expected_revision:
                 raise SELUnavailable('configured_identity_changed')
-            operation = self.claim(target, action, initiator, automatic)
+            operation = self.claim(target, action, initiator, automatic, expected_qualification=selected_binding,
+                                   expected_authority=expected_authority)
             operation.evidence = json.dumps({'qualification_id': qualification['record_id'],
                                              'qualification_sha256': digest(qualification)})
             self.audit(target, 'qualification_bound', json.loads(operation.evidence), operation)
@@ -773,6 +985,9 @@ def register_sel_management(runtime):
             try:
                 self.durability()
                 if action == 'clear':
+                    adapter.open_session()
+                    if adapter.fingerprint() != fingerprint:
+                        raise SELUnavailable('identity_or_policy_revoked')
                     operation.state = 'archiving'
                     db.session.commit()
                     snapshot = None
@@ -835,6 +1050,7 @@ def register_sel_management(runtime):
                     dispatched = True
                     result = adapter.sync_clock(qualification, reference, before, management)
                     self.finish(target, operation, 'complete', 'clock_verified', result)
+                adapter.close()
                 try:
                     self.observe(target.bmc_ip)
                 except Exception:
@@ -856,6 +1072,8 @@ def register_sel_management(runtime):
                 except Exception:
                     db.session.rollback()  # Committed dispatch intent remains owned and reconcilable.
                     app.logger.warning('SEL operation requires durable reconciliation')
+            finally:
+                adapter.close()
             return operation
 
         def reconcile(self, target):
@@ -942,6 +1160,11 @@ def register_sel_management(runtime):
                         raise
             for model in (SELTarget, SELOperation, SELArchive, SELAudit):
                 model.__table__.create(bind=engine, checkfirst=True)
+            with engine.begin() as connection:
+                for table, column, datatype in [('sel_target', 'consent_qualification', 'TEXT'),
+                                                 ('sel_operation', 'qualification_binding', 'VARCHAR(64)')]:
+                    if column not in {entry['name'] for entry in inspect(connection).get_columns(table)}:
+                        connection.exec_driver_sql(f'ALTER TABLE {table} ADD COLUMN {column} {datatype}')
 
     manager = Manager()
     runtime.sel_manager = manager
@@ -1063,6 +1286,13 @@ def register_sel_management(runtime):
     def sel_policy(bmc_ip):
         data = body()
         target = manager.target(bmc_ip)
+        target_id = target.id
+        db.session.rollback()
+        if db.engine.dialect.name != 'sqlite':
+            raise SELUnavailable('serialized_dispatch_unavailable')
+        db.session.execute(text('BEGIN IMMEDIATE'))
+        db.session.expire_all()
+        target = db.session.get(SELTarget, target_id)
         manager.valid_revision(target, data)
         allowed = {'target_id', 'identity_revision', 'policy_revision', 'automatic_clear', 'automatic_clock', 'near_full_percent', 'clock_drift_seconds'}
         if set(data) - allowed:
@@ -1076,11 +1306,21 @@ def register_sel_management(runtime):
         fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
         if (data.get('automatic_clear') or data.get('automatic_clock')) and not fingerprint:
             raise SELUnavailable('observed_identity_required')
-        changes = {'auto_clear': data.get('automatic_clear', target.auto_clear),
-            'auto_clock': data.get('automatic_clock', target.auto_clock),
+        selections = {action: qualification_selection(fingerprint, action)[1] for action in ('clear', 'clock')}
+        consent, armed, revoked = manager.consent_state(target, selections)
+        for action in ('clear', 'clock'):
+            if data.get('automatic_' + action) is True and not selections[action]:
+                manager.revoke_locked(target, selections)
+                raise SELUnavailable('exact_hardware_qualification_required')
+            if 'automatic_' + action in data:
+                armed[action] = data['automatic_' + action]
+                consent[action] = selections[action] if armed[action] else None
+        changes = {'auto_clear': armed['clear'],
+            'auto_clock': armed['clock'],
             'near_full': data.get('near_full_percent', target.near_full),
             'drift_seconds': data.get('clock_drift_seconds', target.drift_seconds),
             'consent_fingerprint': digest(fingerprint) if fingerprint else None,
+            'consent_qualification': json.dumps(consent, sort_keys=True),
             'policy_revision': target.policy_revision + 1}
         updated = db.session.query(SELTarget).filter(SELTarget.id == target.id,
             SELTarget.revision == data['identity_revision'],
@@ -1100,7 +1340,8 @@ def register_sel_management(runtime):
             raise SELUnavailable('invalid_action_fields')
         target = manager.target(bmc_ip)
         manager.valid_revision(target, data)
-        operation = manager.execute(target, action, session['username'])
+        expected_authority = manager.authority(target)
+        operation = manager.execute(target, action, session['username'], expected_authority=expected_authority)
         return reply(manager.operation_view(operation), 200 if operation.state == 'complete' else 202)
 
     @app.post('/api/server/<bmc_ip>/sel/enable')
@@ -1117,6 +1358,7 @@ def register_sel_management(runtime):
         if set(data) != {'targets'} or not isinstance(data['targets'], list) or len(data['targets']) > 100:
             raise SELUnavailable('invalid_target_list')
         results = []
+        authorities = {}
         for entry in data['targets']:
             if not isinstance(entry, dict):
                 raise SELUnavailable('invalid_target_list')
@@ -1125,10 +1367,11 @@ def register_sel_management(runtime):
                 raise SELUnavailable('configured_active_target_required')
             manager.current_server(target.bmc_ip)
             manager.valid_revision(target, entry)
+            authorities[entry['target_id']] = manager.authority(target)
         for entry in data['targets']:
             target = db.session.get(SELTarget, entry['target_id'])
             try:
-                operation = manager.execute(target, 'clear', session['username'])
+                operation = manager.execute(target, 'clear', session['username'], expected_authority=authorities[entry['target_id']])
                 results.append({'bmc_ip': target.bmc_ip, **manager.operation_view(operation)})
             except SELUnavailable as exc:
                 db.session.rollback()

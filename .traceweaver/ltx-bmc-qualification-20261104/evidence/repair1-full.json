@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "--junitxml",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-full.xml"
+  ],
+  "cwd": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104",
+  "exit_code": 0,
+  "wall_seconds": 146.8214432920795,
+  "manifest_sha256": "c127ecbe8b741eaa88b67ec224309b79bef7a3ca96d6304bff06e5c1ab77dd99"
+}

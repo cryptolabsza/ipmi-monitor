@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/opt/homebrew/opt/python@3.14/bin/python3.14",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sel_management.py",
+    "-k",
+    "not (ltx_ or unqualified_policy or changed_qualification or complete_chain or full_rendered_sel_pages)"
+  ],
+  "exit_code": 0,
+  "seconds": 13.361541917081922,
+  "scope": "All59existingnonbrowserSELbaselinecases,unchangedproduction,newproducerfaithfulfixture"
+}

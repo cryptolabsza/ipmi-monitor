@@ -1,0 +1,73 @@
+{
+  "status": "proposal_only_not_applied",
+  "existing_rows_preserved": true,
+  "rows": [
+    {
+      "req_id": "REQ-SEL-001",
+      "trace_id": "TRACE-SEL-001",
+      "ver_id": "VER-SEL-001",
+      "val_id": "VAL-SEL-001",
+      "verification": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.stdout",
+      "validation": "docs/validation/sel-health-20261103.md",
+      "status": "behavioral_RED_review_pending_hardware_HELD"
+    },
+    {
+      "req_id": "REQ-SEL-002",
+      "trace_id": "TRACE-SEL-002",
+      "ver_id": "VER-SEL-002",
+      "val_id": "VAL-SEL-002",
+      "verification": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.stdout",
+      "validation": "docs/validation/sel-health-20261103.md",
+      "status": "behavioral_RED_review_pending_hardware_HELD"
+    },
+    {
+      "req_id": "REQ-SEL-003",
+      "trace_id": "TRACE-SEL-003",
+      "ver_id": "VER-SEL-003",
+      "val_id": "VAL-SEL-003",
+      "verification": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.stdout",
+      "validation": "docs/validation/sel-health-20261103.md",
+      "status": "behavioral_RED_review_pending_hardware_HELD"
+    },
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "ver_id": "VER-SEL-004",
+      "val_id": "VAL-SEL-004",
+      "verification": "tests/test_sel_qualifications.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.stdout",
+      "validation": "docs/validation/sel-health-20261103.md",
+      "status": "behavioral_RED_review_pending_hardware_HELD"
+    },
+    {
+      "req_id": "REQ-SEL-005",
+      "trace_id": "TRACE-SEL-005",
+      "ver_id": "VER-SEL-005",
+      "val_id": "VAL-SEL-005",
+      "verification": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/ltx-bmc-qualification-20261104/evidence/red-final.stdout",
+      "validation": "docs/validation/sel-health-20261103.md",
+      "status": "behavioral_RED_review_pending_hardware_HELD"
+    }
+  ],
+  "code_anchor_evidence_proposal": [
+    {
+      "artifact": "tests/test_sel_qualifications.py",
+      "req": "REQ-SEL-004",
+      "trace": "TRACE-SEL-004",
+      "ver": "VER-SEL-004",
+      "role": "sel-qualification-custody-verification"
+    },
+    {
+      "artifact": "tests/fixtures/ltx_sel_reads_20261104.json",
+      "req": "REQ-SEL-001,REQ-SEL-005",
+      "trace": "TRACE-SEL-001,TRACE-SEL-005",
+      "ver": "VER-SEL-001,VER-SEL-005",
+      "role": "sanitized-producer-raw-read-fixture"
+    }
+  ],
+  "merge_owner": "root or later authorized tw-work; tw-vv-define does not mutate matrix"
+}
