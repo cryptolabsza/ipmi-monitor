@@ -1,0 +1,237 @@
+{
+  "schema": "ltx-sanitized-read-fixture/1",
+  "source_sha256": "979f1defe53c3245acf3a960330929397c5177c87e4c3049d6d593a3bb54f018",
+  "source": "live-diagnostics/safe-command-fixtures.json",
+  "sanitization": "Target IP/name and argv/username removed; exact raw response bytes, safe stderr, command, UTC and elapsed retained. Hardware observations only, never qualifications.",
+  "targets": {
+    "cipher_rejected": [
+      {
+        "utc": "2026-11-04T11:53:43.865123+00:00",
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "Error in open session response message : no matching cipher suite\n\nError: Unable to establish IPMI v2 / RMCP+ session\n",
+        "seconds": 0.09191881399601698,
+        "raw": [
+          "0x6",
+          "0x1"
+        ],
+        "timeout_expired": false
+      }
+    ],
+    "role_rejected": [
+      {
+        "utc": "2026-11-04T11:53:44.459280+00:00",
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "Error in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n",
+        "seconds": 0.09044013964012265,
+        "raw": [
+          "0x6",
+          "0x1"
+        ],
+        "timeout_expired": false
+      }
+    ],
+    "full_device": [
+      {
+        "utc": "2026-11-04T11:53:45.645472+00:00",
+        "returncode": 0,
+        "stdout": " 20 81 01 09 02 bf d6 c1 00 0d 10 00 00 00 00\n",
+        "stderr": "",
+        "seconds": 0.18417023913934827,
+        "raw": [
+          "0x6",
+          "0x1"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:45.830086+00:00",
+        "returncode": 0,
+        "stdout": " a6 00 fd 66 cb 74 cc 89 76 21 d2 1d b2 11 a3 02\n",
+        "stderr": "",
+        "seconds": 0.2163740317337215,
+        "raw": [
+          "0x6",
+          "0x37"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:46.046648+00:00",
+        "returncode": 0,
+        "stdout": " 51 37 0e 00 00 ca 81 a2 6a 00 00 00 00 8f\n",
+        "stderr": "",
+        "seconds": 0.18369334237650037,
+        "raw": [
+          "0xa",
+          "0x40"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:46.230529+00:00",
+        "returncode": 0,
+        "stdout": " 37 0e 12 00 00 00 00 00 01\n",
+        "stderr": "",
+        "seconds": 0.18860800983384252,
+        "raw": [
+          "0xa",
+          "0x41"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:46.419400+00:00",
+        "returncode": 0,
+        "stdout": " 0c\n",
+        "stderr": "",
+        "seconds": 0.18813757319003344,
+        "raw": [
+          "0x6",
+          "0x2f"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:46.607692+00:00",
+        "returncode": 0,
+        "stdout": " ac 1c eb 6a\n",
+        "stderr": "",
+        "seconds": 0.1850645449012518,
+        "raw": [
+          "0xa",
+          "0x48"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:46.792964+00:00",
+        "returncode": 0,
+        "stdout": " d4 fe\n",
+        "stderr": "",
+        "seconds": 0.19977679196745157,
+        "raw": [
+          "0xa",
+          "0x5c"
+        ],
+        "timeout_expired": false
+      }
+    ],
+    "partial_device": [
+      {
+        "utc": "2026-11-04T11:53:47.495133+00:00",
+        "returncode": 0,
+        "stdout": " 20 81 03 03 02 bf d6 c1 00 0d 10 00 00 00 00\n",
+        "stderr": "",
+        "seconds": 0.18988919584080577,
+        "raw": [
+          "0x6",
+          "0x1"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:47.685281+00:00",
+        "returncode": 0,
+        "stdout": " d0 50 99 e5 97 bf 1e 7e f3 21 d2 1d b2 11 a3 02\n",
+        "stderr": "",
+        "seconds": 0.23624040419235826,
+        "raw": [
+          "0x6",
+          "0x37"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:47.921747+00:00",
+        "returncode": 0,
+        "stdout": " 51 75 03 a4 c1 c3 9e ea 6a 00 00 00 00 0f\n",
+        "stderr": "",
+        "seconds": 0.25212327390909195,
+        "raw": [
+          "0xa",
+          "0x40"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:48.174079+00:00",
+        "returncode": 0,
+        "stdout": " 37 0e 12 00 c2 0a c2 0a 01\n",
+        "stderr": "",
+        "seconds": 0.1874870820902288,
+        "raw": [
+          "0xa",
+          "0x41"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:48.361761+00:00",
+        "returncode": 0,
+        "stdout": " 0c\n",
+        "stderr": "",
+        "seconds": 0.1825743792578578,
+        "raw": [
+          "0x6",
+          "0x2f"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:48.544497+00:00",
+        "returncode": 0,
+        "stdout": " c5 1c eb 6a\n",
+        "stderr": "",
+        "seconds": 0.1888935170136392,
+        "raw": [
+          "0xa",
+          "0x48"
+        ],
+        "timeout_expired": false
+      },
+      {
+        "utc": "2026-11-04T11:53:48.733508+00:00",
+        "returncode": 0,
+        "stdout": " d4 fe\n",
+        "stderr": "",
+        "seconds": 0.1911937464028597,
+        "raw": [
+          "0xa",
+          "0x5c"
+        ],
+        "timeout_expired": false
+      }
+    ],
+    "timeout": [
+      {
+        "utc": "2026-11-04T11:53:49.427036+00:00",
+        "returncode": null,
+        "stdout": "",
+        "stderr": "",
+        "seconds": 10.014564616139978,
+        "raw": [
+          "0x6",
+          "0x1"
+        ],
+        "timeout_expired": true
+      }
+    ],
+    "session_rejected": [
+      {
+        "utc": "2026-11-04T11:55:21.341029+00:00",
+        "returncode": 1,
+        "stdout": "",
+        "stderr": "Error: Unable to establish IPMI v2 / RMCP+ session\n",
+        "seconds": 2.1058964268304408,
+        "raw": [
+          "0x6",
+          "0x1"
+        ],
+        "timeout_expired": false
+      }
+    ]
+  },
+  "session_source_sha256": "871cdabf876750f862c8fa757acc0a0945ced4bcb32bf2109f5c69104d0e60f5"
+}

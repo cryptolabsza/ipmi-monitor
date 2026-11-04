@@ -1,0 +1,409 @@
+{
+  "schema": "ltx-final-source-validation-repair1/1",
+  "created_at": "2026-11-04T16:09:52.225214+00:00",
+  "decision": "PASS_FOR_ROOT_SOURCE_GATE",
+  "repair_cycle": "single authorized repair1; no source changes by validator; no further cycle requested",
+  "scope": "M1 exact repaired source only; full owner goal remains incomplete",
+  "supersedes": {
+    "report": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/report.json",
+    "scope": "Only its FV-P1-001 source finding and original frozen identity verdict; original raw evidence/history unchanged."
+  },
+  "model_provenance": {
+    "requested": "gpt-6.1-sol/high",
+    "served_identity": "unattested"
+  },
+  "authority": {
+    "owner_approval": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/owner-approval.json",
+    "approved_revision": 2,
+    "requirements": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "requirements_unchanged": true,
+    "root_owns": "Final traceability, source acceptance, protected PR/release and intended-use/hardware/publication decisions"
+  },
+  "identity": {
+    "manifest": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-frozen-manifest.json",
+    "manifest_sha256": "c127ecbe8b741eaa88b67ec224309b79bef7a3ca96d6304bff06e5c1ab77dd99",
+    "expected_manifest_sha256": "c127ecbe8b741eaa88b67ec224309b79bef7a3ca96d6304bff06e5c1ab77dd99",
+    "all15_match": true,
+    "files": {
+      "docs/user-guide.md": {
+        "sha256": "97fbf754269536b9bcdd0bafc3db195e3a43c85f644c2c8390387b5f18e7c637",
+        "match": true,
+        "changed_from_original": false
+      },
+      "docs/validation/sel-health-20261103.md": {
+        "sha256": "eed8fa084a22ebd43bb5c4d7953a9043142c51c29260f22295974c6febeb2733",
+        "match": true,
+        "changed_from_original": false
+      },
+      "src/ipmi_monitor/cli.py": {
+        "sha256": "73bebbedb6b544a1828bd2a8f26793bbdfb24a4644fa051fa21d060d6ed541c4",
+        "match": true,
+        "changed_from_original": false
+      },
+      "src/ipmi_monitor/sel_management.py": {
+        "sha256": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+        "match": true,
+        "changed_from_original": true
+      },
+      "src/ipmi_monitor/templates/dashboard.html": {
+        "sha256": "d15c3f79fbd8ed8e4ee180dac5e385562513b0bd2f63824456e600d8488eb56e",
+        "match": true,
+        "changed_from_original": false
+      },
+      "src/ipmi_monitor/templates/server_detail.html": {
+        "sha256": "389a4fe95be90b6a88d8173c24f1638c9e5ef19ac89367cdd1aacefae791bbfc",
+        "match": true,
+        "changed_from_original": false
+      },
+      "templates/dashboard.html": {
+        "sha256": "96e76b4d4e9c156a480230b4519230102a408ad58646f18d93d728c116dfde8d",
+        "match": true,
+        "changed_from_original": false
+      },
+      "templates/server_detail.html": {
+        "sha256": "eb6211e1b321b428b6cb43be6f412be77f08cb5d801a325fb56177234df563c8",
+        "match": true,
+        "changed_from_original": false
+      },
+      "tests/test_sel_management.py": {
+        "sha256": "b57e392a58d53b7aa2796755bba2bbd7a5975f6e8cec8ab958f3919dff23bacf",
+        "match": true,
+        "changed_from_original": true
+      },
+      "traceability-matrix.md": {
+        "sha256": "8254077606a3f4947f85a1a5088f4d3d2bb06f7cc63c1d96a61aa108302ad432",
+        "match": true,
+        "changed_from_original": false
+      },
+      "src/ipmi_monitor/sel_qualifications.py": {
+        "sha256": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+        "match": true,
+        "changed_from_original": false
+      },
+      "tests/fixtures/ltx_sel_reads_20261104.json": {
+        "sha256": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d",
+        "match": true,
+        "changed_from_original": false
+      },
+      "tests/sel_qualification_linux.py": {
+        "sha256": "fa40e6ed7f15a84e53236ba63fae5aa8531c517445cece3ded8dba29b7598083",
+        "match": true,
+        "changed_from_original": false
+      },
+      "tests/test_sel_persistent.py": {
+        "sha256": "867ae07a2635684dfa00e15372edb458b3b1fc7409a9c6dc403cf391d5b93e46",
+        "match": true,
+        "changed_from_original": false
+      },
+      "tests/test_sel_qualifications.py": {
+        "sha256": "24448e235b33d84307480dc684c73db4c68186fb9a18c2e9ff00550d0923aa5b",
+        "match": true,
+        "changed_from_original": false
+      }
+    },
+    "changed_members": [
+      "src/ipmi_monitor/sel_management.py",
+      "tests/test_sel_management.py"
+    ],
+    "actual_diff": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-before-after.diff",
+    "actual_diff_sha256": "76afbd09527daa1ff9385b6c66dda27f3247f6d50c4e57222966d180842c65c6",
+    "package": {
+      "wheel": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-wheels/ipmi_monitor-1.2.0-py3-none-any.whl",
+      "wheel_sha256": "9b12c4c0a1d9bc231a9c9c8fe1e1b2ed3a6475734647900058691c3b5d2cec43",
+      "sdist": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-sdist/ipmi_monitor-1.2.0.tar.gz",
+      "sdist_sha256": "bc4778f0c7cb9b03a43c4cd570f93b383bf401b3f093357395690f6c63678341",
+      "members": {
+        "src/ipmi_monitor/cli.py": {
+          "wheel": true,
+          "sdist": true
+        },
+        "src/ipmi_monitor/sel_management.py": {
+          "wheel": true,
+          "sdist": true
+        },
+        "src/ipmi_monitor/templates/dashboard.html": {
+          "wheel": true,
+          "sdist": true
+        },
+        "src/ipmi_monitor/templates/server_detail.html": {
+          "wheel": true,
+          "sdist": true
+        },
+        "src/ipmi_monitor/sel_qualifications.py": {
+          "wheel": true,
+          "sdist": true
+        }
+      },
+      "all_source_match": true,
+      "all_members_match": true
+    }
+  },
+  "commands": [
+    {
+      "id": "affected-authorization",
+      "command": ".venv/bin/python -m pytest -q tests/test_sel_management.py /Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/test_independent_consent_recheck.py -k 'not full_rendered' --junitxml=/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/affected-authorization.xml",
+      "cwd": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104",
+      "exit": 0,
+      "stdout": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/affected-authorization.stdout",
+      "stderr": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/affected-authorization.stderr",
+      "junit": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/affected-authorization.xml",
+      "summary": {
+        "tests": 95.0,
+        "failures": 0.0,
+        "errors": 0.0,
+        "skipped": 0.0,
+        "time": 84.452
+      }
+    },
+    {
+      "id": "installed-positive",
+      "command": "docker run --rm --platform linux/amd64 --network none --read-only --tmpfs /app/data:rw,mode=0700 --tmpfs /tmp:rw,mode=1777 --mount type=bind,source=/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-wheels,target=/wheels,readonly --mount type=bind,source=/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation,target=/proof,readonly --entrypoint /bin/sh b25e5648c38d -c 'python -m venv --system-site-packages /tmp/validate-env && /tmp/validate-env/bin/python -m pip install --no-index --no-deps --ignore-installed /wheels/*.whl && /tmp/validate-env/bin/python -I /proof/nonempty_installed.py && /tmp/validate-env/bin/python -I /proof/existing_linux.py'",
+      "exit": 0,
+      "stdout": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-positive.stdout",
+      "stderr": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-positive.stderr",
+      "checks": "Nonempty installed importer\u2192loader\u2192qualified/selection, idempotence, evidence tamper failclosed, either environment presence failclosed, real tool identity/no app/network; existing8 root/Linux/SQLite/race/origin cases."
+    },
+    {
+      "id": "installed-boundary",
+      "command": "docker run --rm --platform linux/amd64 --network none --read-only --tmpfs /app/data:rw,mode=0700 --tmpfs /tmp:rw,mode=1777 --mount type=bind,source=/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-wheels,target=/wheels,readonly --mount type=bind,source=/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation,target=/proof,readonly --entrypoint /bin/sh b25e5648c38d -c 'python -m venv --system-site-packages /tmp/validate-env && /tmp/validate-env/bin/python -m pip install --no-index --no-deps --ignore-installed /wheels/*.whl && /tmp/validate-env/bin/python -I /proof/repair1/boundary_installed.py'",
+      "exit": 0,
+      "stdout": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-boundary.stdout",
+      "stderr": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-boundary.stderr",
+      "checks": "Pre-rename EIO, post-rename parent-fsync EIO with fresh STATUS reopen, valid+invalid second record whole-bundle refusal, old pointer preservation."
+    }
+  ],
+  "external_raw_suite_evidence": {
+    "producer": "builder execution observed/retained by root; XML and raw receipts independently inspected, not builder assessment",
+    "red": {
+      "xml": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-red.xml",
+      "summary": {
+        "tests": 16.0,
+        "failures": 16.0,
+        "errors": 0.0,
+        "skipped": 0.0,
+        "time": 4.053
+      }
+    },
+    "final_full": {
+      "json": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-full.json",
+      "stdout": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-full.stdout",
+      "xml": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/repair1-full.xml",
+      "summary": {
+        "tests": 382.0,
+        "failures": 0.0,
+        "errors": 0.0,
+        "skipped": 0.0,
+        "time": 146.068
+      },
+      "exit": 0,
+      "rerun_by_validator": false
+    }
+  },
+  "closed_ids": [
+    {
+      "id": "FV-P1-001",
+      "status": "closed_for_exact_repaired_source",
+      "evidence": "Four independent API/SQLite consent assertions (clear/clock \u00d7 other_off/threshold), plus new regression cases pass. Observed invalid/changed selections durably disarm; restoration does not revive consent; unrelated edits do not renew other actions."
+    },
+    {
+      "id": "G-SOURCE-01",
+      "status": "closed_for_local_installed_importer_loader_contract",
+      "evidence": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-positive.stdout"
+    },
+    {
+      "id": "G-SOURCE-02",
+      "status": "closed_for_local_bounded_publication_and_whole_bundle_contract",
+      "evidence": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-boundary.stdout"
+    }
+  ],
+  "related_review_family": {
+    "name": "original request identity/policy/epoch capture across preliminary I/O and claim",
+    "status": "no remaining blocker observed",
+    "evidence": "Actual repair captures authority before preliminary I/O and passes tuple through execute and claim; 6 concrete race cases plus existing revocation/final dispatch cases pass. Manual and bulk paths covered."
+  },
+  "open_source_findings": [],
+  "verification_details": {
+    "authorization": {
+      "cases": 95,
+      "failures": 0,
+      "skipped": 0,
+      "real_paths": "Actual Flask admin/token/origin API, SQLAlchemy/SQLite target/operation/consent state and raw-adapter boundary; no BMC dispatch from independent reproducer."
+    },
+    "consent_semantics": [
+      "Changed or invalid qualification observation durably clears armed action/binding before caller rollback.",
+      "Restoring original qualification A after observed rejection does not revive either action.",
+      "Switching OFF the other action preserves unchanged accepted action consent.",
+      "A fresh explicit opt-in can arm the newly accepted selection.",
+      "Original identity/policy/snapshot epoch survives I/O/session refresh; stale manual/bulk requests cannot acquire new authority.",
+      "Final dispatch observes missing qualification, durably disarms and prevents clear."
+    ],
+    "installed_positive": {
+      "actual_local_tool_calls": [
+        [
+          "/usr/bin/ipmitool",
+          "-V"
+        ]
+      ],
+      "checks": [
+        "positive nonempty import-to-loader-to-qualification_selection",
+        "idempotent install",
+        "stored evidence tamper fail-closed",
+        "no fallback on either environment key present",
+        "no application import",
+        "no socket creation",
+        "actual fixed ipmitool -V only"
+      ],
+      "identity": {
+        "adapter_sha256": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+        "adapter_version": "sel-raw-v3-persistent",
+        "loader_sha256": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+        "tool_sha256": "7c2f3cf62182533909041789c7f47a07d8949b019a35892c445ada979f33cf28",
+        "tool_version": "ipmitool version 1.8.19",
+        "transport": "lanplus-cipher17-admin"
+      },
+      "module_origin": "/tmp/validate-env/lib/python3.11/site-packages/ipmi_monitor/sel_qualifications.py",
+      "policy_rows_unchanged": [
+        [
+          "t",
+          0,
+          0,
+          null
+        ]
+      ],
+      "producer_raw_commands": [
+        [
+          6,
+          1
+        ],
+        [
+          6,
+          55
+        ]
+      ],
+      "record_count": 1,
+      "result": "PASS",
+      "scope": "synthetic data admission only; no hardware authority"
+    },
+    "installed_boundary": {
+      "cases": [
+        {
+          "active_pointer": "absent",
+          "case": "before_atomic_pointer_publication",
+          "code": 1,
+          "result": {
+            "outcome": "refused",
+            "reason": "unsafe_storage",
+            "stage": "preflight"
+          },
+          "status_reopen": [
+            1,
+            {
+              "envelope_sha256": null,
+              "mode": "operator",
+              "outcome": "refused",
+              "registry_sha256": null,
+              "stage": "status"
+            },
+            ""
+          ]
+        },
+        {
+          "case": "post_rename_parent_fsync_fault",
+          "code": 1,
+          "complete_exact_bundle": true,
+          "policy_rows_unchanged": true,
+          "result": {
+            "envelope_sha256": "44fde6fec03927e468b7ace9d974774d64df624183360dfca8e60d6e2d3ea752",
+            "outcome": "outcome_unknown",
+            "stage": "published"
+          },
+          "status_reopen": [
+            0,
+            {
+              "envelope_sha256": "44fde6fec03927e468b7ace9d974774d64df624183360dfca8e60d6e2d3ea752",
+              "mode": "operator",
+              "outcome": "installed",
+              "registry_sha256": "b1fdc94d92349797216bb0700810ceca8b5a48fb5806c31025d2520fc504d524",
+              "stage": "status"
+            },
+            ""
+          ]
+        },
+        {
+          "active_pointer": "absent",
+          "case": "valid_record_plus_invalid_second_record",
+          "code": 1,
+          "result": {
+            "outcome": "refused",
+            "reason": "invalid_manifest_fields",
+            "stage": "preflight"
+          },
+          "whole_bundle_refused": true
+        },
+        {
+          "case": "invalid_mixed_bundle_preserves_existing_pointer",
+          "code": 1,
+          "existing_pointer_bytes_unchanged": true,
+          "result": {
+            "outcome": "refused",
+            "reason": "invalid_manifest_fields",
+            "stage": "preflight"
+          }
+        }
+      ],
+      "identity": {
+        "adapter_sha256": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+        "adapter_version": "sel-raw-v3-persistent",
+        "loader_sha256": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+        "tool_sha256": "7c2f3cf62182533909041789c7f47a07d8949b019a35892c445ada979f33cf28",
+        "tool_version": "ipmitool version 1.8.19",
+        "transport": "lanplus-cipher17-admin"
+      },
+      "network": "none; socket constructor forbidden",
+      "origin": "/tmp/validate-env/lib/python3.11/site-packages/ipmi_monitor/sel_qualifications.py",
+      "policy_rows_unchanged": [
+        [
+          "t",
+          0,
+          0,
+          null
+        ]
+      ],
+      "result": "PASS",
+      "scope": "IC06 bounded local publication fault proof only"
+    },
+    "unchanged_evidence_reused": "All4 templates, loader, CLI, real-child PTY and fixtures are byte-identical to earlier15-file freeze. Earlier64 independent browser and real-child receipts retained. Root final382 full run covers unchanged browser tests; no duplicate full/browser run by validator.",
+    "test_value": "Existing affected critical coverage reused;4 ephemeral independent safety cases added only under evidence directory, no permanent source/test edits or reduced assertions/skips."
+  },
+  "retained_non_source_failure": {
+    "stdout": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-installed.stdout",
+    "stderr": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/final-validation/repair1/repaired-installed.stderr",
+    "exit": 1,
+    "reason": "First combined harness passed positive+8 installer cases, then boundary preamble reused previous test database and failed CREATE TABLE. Boundary rerun alone in a fresh container passed; clean positive+8 receipt also retained. No production source repair or extra review cycle resulted."
+  },
+  "held_claims": [
+    {
+      "id": "GAP-SEL-HARDWARE-001",
+      "status": "held",
+      "reason": "No exact firmware/device reservation, insertion/competition/new-events-survive or native clock canary qualification."
+    },
+    {
+      "id": "GAP-SEL-ACCEPTANCE-002",
+      "status": "held",
+      "reason": "No installed live Fleet/owner intended-use acceptance or intentional policy arming."
+    },
+    "M2: Seven secure-access repairs remain unresolved. Specific error reasons are diagnostic, not fixes.",
+    "M3: Actual qualified clear/clock actions and auto-policy enablement remain incomplete.",
+    "No physical power-loss durability assertion: post-rename fsync EIO probe proves truthful application outcome and complete fresh-process readback only.",
+    "No live data activation/deployment/BMC mutation/SSH/credential/network configuration/publication was performed; local synthetic pointer writes occurred only in disposable network-disabled tmpfs.",
+    "Synthetic fixture admission is never firmware/device authority.",
+    "Full-database backup waiver preserved; complete verified raw SEL archive before every clear remains mandatory."
+  ],
+  "promote": "Eligible for root source acceptance and subsequent exact protected PR/release gates. This lane grants no publication/deployment/qualification activation/arming authority."
+}

@@ -1,0 +1,15 @@
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv
+test_armed_or_uncertain_work_refuses_before_publication (__main__.InstalledDataContract.test_armed_or_uncertain_work_refuses_before_publication) ... ok
+test_environment_presence_and_corrupt_pointer_never_fall_back (__main__.InstalledDataContract.test_environment_presence_and_corrupt_pointer_never_fall_back) ... ok
+test_install_reopen_idempotence_and_zero_policy_effect (__main__.InstalledDataContract.test_install_reopen_idempotence_and_zero_policy_effect) ... ok
+test_invalid_envelopes_do_not_create_active_state (__main__.InstalledDataContract.test_invalid_envelopes_do_not_create_active_state) ... ok
+test_isolated_installed_origin_ignores_poisoned_cwd_pythonpath_and_path (__main__.InstalledDataContract.test_isolated_installed_origin_ignores_poisoned_cwd_pythonpath_and_path) ... ok
+test_missing_db_and_digest_mismatch_create_no_activation (__main__.InstalledDataContract.test_missing_db_and_digest_mismatch_create_no_activation) ... ok
+test_real_sqlite_writer_committed_first_blocks_install (__main__.InstalledDataContract.test_real_sqlite_writer_committed_first_blocks_install) ... ok
+test_symlink_ancestry_and_hardlink_pointer_fail_closed (__main__.InstalledDataContract.test_symlink_ancestry_and_hardlink_pointer_fail_closed) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.476s
+
+OK

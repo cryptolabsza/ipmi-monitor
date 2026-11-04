@@ -33,6 +33,10 @@ This section maps only the exact accepted IPMI delta; file-level sets describe t
 | TRACE-SEL-001, TRACE-SEL-002, TRACE-SEL-003, TRACE-SEL-004, TRACE-SEL-005 | REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005 | templates/dashboard.html | VER-SEL-001, VER-SEL-002, VER-SEL-003, VER-SEL-004, VER-SEL-005 | VAL-SEL-001, VAL-SEL-002, VAL-SEL-003, VAL-SEL-004, VAL-SEL-005; shared docs/validation/sel-health-20261103.md; hardware/intended-use validation held | Owner approved local source implementation authority |
 | TRACE-SEL-001, TRACE-SEL-002, TRACE-SEL-003, TRACE-SEL-004, TRACE-SEL-005 | REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005 | templates/server_detail.html | VER-SEL-001, VER-SEL-002, VER-SEL-003, VER-SEL-004, VER-SEL-005 | VAL-SEL-001, VAL-SEL-002, VAL-SEL-003, VAL-SEL-004, VAL-SEL-005; shared docs/validation/sel-health-20261103.md; hardware/intended-use validation held | Owner approved local source implementation authority |
 | TRACE-SEL-003 | REQ-SEL-003 | tests/test_retention_cleanup.py | VER-SEL-003 | VAL-SEL-003 | Owner approved local source implementation authority; retains batching/concurrency assertions |
+| TRACE-SEL-003, TRACE-SEL-004, TRACE-SEL-005 | REQ-SEL-003, REQ-SEL-004, REQ-SEL-005 | src/ipmi_monitor/sel_qualifications.py | VER-SEL-003, VER-SEL-004, VER-SEL-005 | VAL-SEL-003, VAL-SEL-004, VAL-SEL-005; docs/validation/sel-health-20261103.md; independent source review and hardware/owner acceptance held | Owner-approved revision2 U4A source implementation authority |
+| TRACE-SEL-004 | REQ-SEL-004 | src/ipmi_monitor/cli.py | VER-SEL-004 | VAL-SEL-004; docs/validation/sel-health-20261103.md | Approved fixed qualification data INSTALL/STATUS scope only |
+| TRACE-SEL-003, TRACE-SEL-004, TRACE-SEL-005 | REQ-SEL-003, REQ-SEL-004, REQ-SEL-005 | tests/test_sel_qualifications.py; tests/sel_qualification_linux.py | VER-SEL-003, VER-SEL-004, VER-SEL-005 | VAL-SEL-003, VAL-SEL-004, VAL-SEL-005; docs/validation/sel-health-20261103.md | Approved executable custody/identity/SQLite verification; no hardware qualification claim |
+| TRACE-SEL-002, TRACE-SEL-003, TRACE-SEL-004 | REQ-SEL-002, REQ-SEL-003, REQ-SEL-004 | tests/test_sel_persistent.py | VER-SEL-002, VER-SEL-003, VER-SEL-004 | VAL-SEL-002, VAL-SEL-003, VAL-SEL-004; docs/validation/sel-health-20261103.md | Real local child/PTY framing, cleanup and same-token verification; synthetic tool only |
 
 ### Scoped verification and validation evidence
 
@@ -84,6 +88,13 @@ This section maps only the exact accepted IPMI delta; file-level sets describe t
 | src/ipmi_monitor/sel_management.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | sel-repair1-security-boundary |
 | src/ipmi_monitor/templates/dashboard.html | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | sel-repair1-security-boundary |
 | templates/dashboard.html | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | sel-repair1-security-boundary |
+| src/ipmi_monitor/sel_qualifications.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | file-role | qualification-data-custody |
+| src/ipmi_monitor/sel_qualifications.py | REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | qualification-data-custody |
+| src/ipmi_monitor/cli.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | file-role | fixed-qualification-operator-cli |
+| src/ipmi_monitor/cli.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | entrypoint | fixed-qualification-operator-cli |
+| tests/test_sel_qualifications.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | verifies | qualification-custody-verification |
+| tests/test_sel_persistent.py | REQ-SEL-002 | TRACE-SEL-002 | VER-SEL-002 | verifies | persistent-snapshot-verification |
+| tests/sel_qualification_linux.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | verifies | installed-linux-custody-verification |
 
 
 ### Owner-approved unsupported-format trace route
@@ -153,3 +164,18 @@ Current SEL source-publication authority (3 November 2026): `.traceweaver/sel-he
 Current owner receipt: `.traceweaver/sel-release-20261104/owner-approval.json`; bounded release projection and unchanged reviewed source hashes: `.traceweaver/sel-release-20261104/release-scope.json`. For TRACE-SEL-001 / REQ-SEL-001 / VER-SEL-001, TRACE-SEL-002 / REQ-SEL-002 / VER-SEL-002, TRACE-SEL-003 / REQ-SEL-003 / VER-SEL-003, TRACE-SEL-004 / REQ-SEL-004 / VER-SEL-004 and TRACE-SEL-005 / REQ-SEL-005 / VER-SEL-005, existing source behavior and verification mappings remain unchanged. The new approval permits the protected `1.4.0` release and gated Fleet canary; historical no-release entries above retain their stage-specific meaning.
 
 Final release-candidate suite/build evidence, independent review, protected checks, published immutable image/tag and actual target acceptance are distinct evidence lanes owned by release root. Canary requires verified target selection/installed Fleet operation, database backup and migration-compatible rollback; wider rollout requires observed migration, retained history and warnings. Exact firmware/action qualification and BMC mutation acceptance remain held. No new behavior, requirement IDs, scanner coverage, hardware qualification, deployed acceptance or requirement closure is claimed here.
+
+## LTX BMC repair preimplementation evidence 20261104
+
+Owner-approved revision2 plan and frozen L3 profile: `.traceweaver/ltx-bmc-qualification-20261104/authority.json`. Independent precode tests and validation definition passed review; production GREEN, release and exact hardware/operator qualification remain pending. This append records evidence only and changes no requirement meaning.
+
+| Trace | Requirement | Verification artifact | RED evidence | Validation definition | Precode review | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| TRACE-SEL-001 | REQ-SEL-001 | tests/test_sel_management.py | .traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout | docs/validation/sel-health-20261103.md | .traceweaver/ltx-bmc-qualification-20261104/review-status.json | precode review passed; GREEN/hardware held |
+| TRACE-SEL-002 | REQ-SEL-002 | tests/test_sel_management.py | .traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout | docs/validation/sel-health-20261103.md | .traceweaver/ltx-bmc-qualification-20261104/review-status.json | precode review passed; GREEN/hardware held |
+| TRACE-SEL-003 | REQ-SEL-003 | tests/test_sel_management.py | .traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout | docs/validation/sel-health-20261103.md | .traceweaver/ltx-bmc-qualification-20261104/review-status.json | precode review passed; GREEN/hardware held |
+| TRACE-SEL-004 | REQ-SEL-004 | tests/test_sel_qualifications.py | .traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout | docs/validation/sel-health-20261103.md | .traceweaver/ltx-bmc-qualification-20261104/review-status.json | precode review passed; GREEN/hardware held |
+| TRACE-SEL-005 | REQ-SEL-005 | tests/test_sel_management.py | .traceweaver/ltx-bmc-qualification-20261104/evidence/red-strengthened.stdout | docs/validation/sel-health-20261103.md | .traceweaver/ltx-bmc-qualification-20261104/review-status.json | precode review passed; GREEN/hardware held |
+
+
+Current LTX source result (4 November 2026): `.traceweaver/ltx-bmc-qualification-20261104/root-source-acceptance.json` supersedes the preparation-only source holds above. Exact repair1 has382 full-suite passes (0skip),95 independent affected cases,16 independent adversarial cases plus12 retained normal checks,16 root adversarial cases and installed nonempty/fault/whole-bundle/Linux8 proofs. Both confirmed P1 families are closed. Current portable evidence and reviews are in the scoped evidence-index.json and reviews/. All REQ/TRACE/VER/VAL-SEL-001..005 retain their meaning and hardware/intended-use closure remains HELD. Revision2 U7/U8 authorizes the protected source-only M1 release/deployment route after separate current Git/CI/image/target gates; seven secure-access repairs and action qualification/opt-in remain incomplete.

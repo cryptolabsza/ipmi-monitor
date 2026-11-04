@@ -1,0 +1,103 @@
+{
+  "schema": "ltx-sel-plan-scoped-recheck/1",
+  "reviewed_at": "2026-11-04",
+  "reviewer": "/root/astra_bmc_qualification",
+  "model_identity": "Requested gpt-6-astra/high; native served identity unattested",
+  "plan_revision": 2,
+  "raw_file_sha256": {
+    "plan.json": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+    "plan.html": "ac048ce3953acff2f468c0352dae88f31f0c87ecbebad86621260b6ef2f66fc6",
+    "profile.json": "03c2cce82274246a558ec651ae349d733bf26cb28a351f85446858d056fd36a0"
+  },
+  "profile_canonical_sha256_excluding_profile_hash": "1e07d9190ef7601d036f0c2203c3d0f2a8e641c8691cdb96ea94297b34204103",
+  "expected_hashes_match": true,
+  "decision": "READY_TO_PRESENT_FOR_OWNER_APPROVAL_WITH_STAGE_GATES",
+  "scope": "One scoped recheck of PLAN-S01..03, IC01..11 and introduced contradictions. No code review, new hardware research, implementation or target actions.",
+  "p1_findings_remaining": 0,
+  "findings": [],
+  "fix_verification": [
+    {
+      "id": "PLAN-S01",
+      "status": "addressed_at_planning_level",
+      "evidence": "U4A defines packaged INSTALL/STATUS, files, strict bundle validation, durable store and actual packaging/filesystem/SQLite tests. U8/profile permit one source image deployment and one separately counted data activation without mount/env change or restart."
+    },
+    {
+      "id": "PLAN-S02",
+      "status": "addressed_at_planning_level",
+      "evidence": "Settled waiver, U5/U8, VER-SEL-003 and VAL-SEL-003 consistently remove mandatory live full-database backup/restore. Complete raw SEL snapshot, independently reopened receipt/digest/completeness, committed audit, retention and history preservation remain required. Local synthetic migration/restore coverage is explicitly distinct."
+    },
+    {
+      "id": "PLAN-S03",
+      "status": "addressed_at_planning_level",
+      "evidence": "U4A requires all policies OFF and no queued/active/outcome-unknown work under BEGIN IMMEDIATE; U2/U4A bind source mode, envelope/env-registry and record/action digest into consent, claim and final dispatch. Changes reject/revoke rather than inherit old consent."
+    }
+  ],
+  "installer_contract_check": [
+    {
+      "ids": [
+        "IC01",
+        "IC02",
+        "IC03"
+      ],
+      "status": "covered",
+      "location": "U4A, U7, installer_contract.rules",
+      "details": "Fixed official-image isolated module/console origin; exact container/image/tool identity; strict bounded data-only envelope; explicit envelope versus registry digest; whole-bundle reject and evidence/operation ID resolution."
+    },
+    {
+      "ids": [
+        "IC04",
+        "IC05",
+        "IC06"
+      ],
+      "status": "covered",
+      "location": "U4A and installer_contract.caps",
+      "details": "64MiB input,32MiB decoded,64files,1MiB registry,4MiB evidence,8 path components/128chars,16KiB pointer; fixed existing DATA_DIR, root custody, no-follow/exclusive contained creation; fsync staging and create-only digest store; atomic pointer and previous evidence retained."
+    },
+    {
+      "ids": [
+        "IC07",
+        "IC08",
+        "IC09"
+      ],
+      "status": "covered",
+      "location": "U2/U4A/U8 and profile.selected_controls",
+      "details": "Existing-schema SQLite serialization;15s activation bound; no policy writes; either environment key selects env-only including invalid/empty, both absent required for pointer mode; fail closed and exact applicability/consent/dispatch digest binding."
+    },
+    {
+      "ids": [
+        "IC10",
+        "IC11"
+      ],
+      "status": "covered",
+      "location": "U4A/U8 and VER-SEL-004",
+      "details": "Zero network/BMC/credential-resolution/policy writes; fixed sanitized outcomes and independent STATUS; lost-reply reconciliation, explicit idempotence and interruption cases; no automatic prior-pointer rollback/re-activation or new deactivation surface."
+    }
+  ],
+  "nonblocking_precision_note": {
+    "location": "U8 action",
+    "quoted_text": "without network/credential/policy access",
+    "interpretation": "Read in conjunction with the explicit U4A policy/operation reads under SQLite lock, this must mean no network or credential access and no policy writes. U4A is unambiguous and controls are present, so this is not a remaining P1 blocker. A copy edit to policy writes would avoid readers interpreting it as banning the mandatory OFF-state read."
+  },
+  "preserved_stage_gates": [
+    "Explicit owner approval plus frozen exact plan/profile and full L3 V&V before builder work.",
+    "Safe lab/spare resource, exact target manifest and credible first-clear bootstrap before destructive canaries; no production negative-test default and no clearing full .221 for marker space.",
+    "Complete885/3639-record snapshot feasibility within60s,65535-record/4MiB archive and bounded recollection limits; failure keeps clear unavailable.",
+    "Exact vendor native semantics, authenticated current external time ownership, trusted fresh UTC and hardware offset/interruption/readback evidence before clock writes.",
+    "Required source validation, independent review, protected publication and exact deployed image identity remain execution gates.",
+    "Real exact-device/action evidence acceptance precedes one data installation; guarded current-admin digest-bound consent remains separate.",
+    "No missing access/qualification is declared fixed: M1 can ship independently, but full goal remains incomplete until M1+M2+M3 and every required target/action is accepted."
+  ],
+  "claim_limits": [
+    "This is planning/design readiness for presentation, not owner approval, implementation GO, hardware qualification, policy activation, publication approval or acceptance.",
+    "No new device evidence expected or inferred. Existing unknowns remain explicit stage gates.",
+    "Registry/file hashes and root modes remain custody, not hardware attestation or isolation from the root runtime.",
+    "Raw profile.json file hash differs from the canonical profile hash by design; canonical hash verified after removing profile_hash and serializing sorted compact JSON."
+  ],
+  "validation": {
+    "artifact_hashes": "all requested hashes matched",
+    "profile_hash": "canonical recomputation matched",
+    "json_html": "Both inspected; corrected waiver, concrete installer and operation budget present",
+    "target_actions": 0,
+    "source_edits": 0
+  }
+}

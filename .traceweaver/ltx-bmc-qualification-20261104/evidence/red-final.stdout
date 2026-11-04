@@ -1,0 +1,389 @@
+FFFFFFF.FFF...FFFF                                                       [100%]
+=================================== FAILURES ===================================
+_ test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[full_device] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ac89a70>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+device = 'full_device'
+
+    @pytest.mark.parametrize('device', ['full_device', 'partial_device'])
+    def test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault(sel_site, monkeypatch, ltx_reads, device):
+        import ipmi_monitor.sel_management as sel
+        client, app, _db, _models, runtime, _commands = sel_site
+        rows = ltx_reads[device]
+        native = next(int.from_bytes(bytes.fromhex(row['stdout']), 'little') for row in rows if row['raw'] == ['0xa', '0x48'])
+        monkeypatch.delenv('SEL_QUALIFICATIONS_FILE', raising=False)
+        monkeypatch.delenv('SEL_QUALIFICATIONS_SHA256', raising=False)
+        monkeypatch.setattr(sel, 'trusted_reference', lambda _: {'utc': native, 'source': 'test-fresh-UTC'})
+        replay_ltx(monkeypatch, runtime, rows)
+        with app.app_context():
+            runtime.sel_manager.observe(BMC)
+        health = client.get(f'/api/server/{BMC}/sel/health').get_json()['health']
+        assert health['clock']['native_seconds'] == native
+        assert health['clock']['offset_minutes'] == -300
+>       assert health.get('drift_seconds') is None, health
+E       AssertionError: {'capacity_observed_at': '2026-11-04T14:39:06.944144Z', 'clock': {'native_seconds': 1793793196, 'offset_minutes': -300, 'quality': 'native'}, 'clock_incorrect': True, 'clock_observed_at': '2026-11-04T14:39:06.944230Z', ...}
+E       assert 18000 is None
+E        +  where 18000 = <built-in method get of dict object at 0x10af04e00>('drift_seconds')
+E        +    where <built-in method get of dict object at 0x10af04e00> = {'capacity_observed_at': '2026-11-04T14:39:06.944144Z', 'clock': {'native_seconds': 1793793196, 'offset_minutes': -300, 'quality': 'native'}, 'clock_incorrect': True, 'clock_observed_at': '2026-11-04T14:39:06.944230Z', ...}.get
+
+tests/test_sel_management.py:346: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-04 16:39:06,597] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-04 16:39:06,597] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+_ test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[partial_device] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ac8b360>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+device = 'partial_device'
+
+    @pytest.mark.parametrize('device', ['full_device', 'partial_device'])
+    def test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault(sel_site, monkeypatch, ltx_reads, device):
+        import ipmi_monitor.sel_management as sel
+        client, app, _db, _models, runtime, _commands = sel_site
+        rows = ltx_reads[device]
+        native = next(int.from_bytes(bytes.fromhex(row['stdout']), 'little') for row in rows if row['raw'] == ['0xa', '0x48'])
+        monkeypatch.delenv('SEL_QUALIFICATIONS_FILE', raising=False)
+        monkeypatch.delenv('SEL_QUALIFICATIONS_SHA256', raising=False)
+        monkeypatch.setattr(sel, 'trusted_reference', lambda _: {'utc': native, 'source': 'test-fresh-UTC'})
+        replay_ltx(monkeypatch, runtime, rows)
+        with app.app_context():
+            runtime.sel_manager.observe(BMC)
+        health = client.get(f'/api/server/{BMC}/sel/health').get_json()['health']
+        assert health['clock']['native_seconds'] == native
+        assert health['clock']['offset_minutes'] == -300
+>       assert health.get('drift_seconds') is None, health
+E       AssertionError: {'capacity_observed_at': '2026-11-04T14:39:07.198462Z', 'clock': {'native_seconds': 1793793221, 'offset_minutes': -300, 'quality': 'native'}, 'clock_incorrect': True, 'clock_observed_at': '2026-11-04T14:39:07.198534Z', ...}
+E       assert 18000 is None
+E        +  where 18000 = <built-in method get of dict object at 0x10af4f300>('drift_seconds')
+E        +    where <built-in method get of dict object at 0x10af4f300> = {'capacity_observed_at': '2026-11-04T14:39:07.198462Z', 'clock': {'native_seconds': 1793793221, 'offset_minutes': -300, 'quality': 'native'}, 'clock_incorrect': True, 'clock_observed_at': '2026-11-04T14:39:07.198534Z', ...}.get
+
+tests/test_sel_management.py:346: AssertionError
+_ test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command0] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10af328d0>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+failed_command = (6, 55)
+
+    @pytest.mark.parametrize('failed_command', [(6, 0x37), (10, 0x5c)])
+    def test_ltx_optional_identity_or_offset_failure_preserves_independent_reads(sel_site, monkeypatch, ltx_reads, failed_command):
+        client, app, _db, _models, runtime, _commands = sel_site
+        failure = {'command': failed_command, 'returncode': 1, 'stdout': '',
+                   'stderr': 'Unable to send RAW command: rsp=0xc1: Invalid command\n'}
+        replay_ltx(monkeypatch, runtime, ltx_reads['full_device'], failure)
+        with app.app_context():
+            runtime.sel_manager.observe(BMC)
+        body = client.get(f'/api/server/{BMC}/sel/health').get_json()
+        health = body['health']
+>       assert health.get('info', {}).get('entries') == 3639, health
+E       AssertionError: {'error': 'device_command_failed', 'flags': ['clock_unknown'], 'logging_enabled': None, 'observed_at': '2026-11-04T14:39:07.406955Z', ...}
+E       assert None == 3639
+E        +  where None = <built-in method get of dict object at 0x10b2fa4c0>('entries')
+E        +    where <built-in method get of dict object at 0x10b2fa4c0> = {}.get
+E        +      where {} = <built-in method get of dict object at 0x10b2f7240>('info', {})
+E        +        where <built-in method get of dict object at 0x10b2f7240> = {'error': 'device_command_failed', 'flags': ['clock_unknown'], 'logging_enabled': None, 'observed_at': '2026-11-04T14:39:07.406955Z', ...}.get
+
+tests/test_sel_management.py:361: AssertionError
+_ test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command1] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10aee1d00>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+failed_command = (10, 92)
+
+    @pytest.mark.parametrize('failed_command', [(6, 0x37), (10, 0x5c)])
+    def test_ltx_optional_identity_or_offset_failure_preserves_independent_reads(sel_site, monkeypatch, ltx_reads, failed_command):
+        client, app, _db, _models, runtime, _commands = sel_site
+        failure = {'command': failed_command, 'returncode': 1, 'stdout': '',
+                   'stderr': 'Unable to send RAW command: rsp=0xc1: Invalid command\n'}
+        replay_ltx(monkeypatch, runtime, ltx_reads['full_device'], failure)
+        with app.app_context():
+            runtime.sel_manager.observe(BMC)
+        body = client.get(f'/api/server/{BMC}/sel/health').get_json()
+        health = body['health']
+        assert health.get('info', {}).get('entries') == 3639, health
+        assert health['full'] is True and health['logging_enabled'] is True, health
+        assert health['capacity_observed_at'] and health['logging_observed_at']
+>       assert (health.get('clock') or {}).get('native_seconds') == 1793793196, health
+E       AssertionError: {'capacity_observed_at': '2026-11-04T14:39:07.617640Z', 'clock': None, 'clock_observed_at': None, 'fingerprint': {'ada...ux_firmware': '00000000', 'aux_firmware_present': True, 'device_id_reply': '2081010902bfd6c1000d1000000000', ...}, ...}
+E       assert None == 1793793196
+E        +  where None = <built-in method get of dict object at 0x10bf07c40>('native_seconds')
+E        +    where <built-in method get of dict object at 0x10bf07c40> = (None or {}).get
+E        +      where None = <built-in method get of dict object at 0x10b10f540>('clock')
+E        +        where <built-in method get of dict object at 0x10b10f540> = {'capacity_observed_at': '2026-11-04T14:39:07.617640Z', 'clock': None, 'clock_observed_at': None, 'fingerprint': {'ada...ux_firmware': '00000000', 'aux_firmware_present': True, 'device_id_reply': '2081010902bfd6c1000d1000000000', ...}, ...}.get
+
+tests/test_sel_management.py:364: AssertionError
+_ test_ltx_transport_failures_have_distinct_sanitized_reasons[cipher_rejected-unsupported_cipher] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10aee28b0>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+fixture = 'cipher_rejected', code = 'unsupported_cipher'
+
+    @pytest.mark.parametrize('fixture,code', [('cipher_rejected', 'unsupported_cipher'),
+        ('role_rejected', 'role_or_auth_rejected'), ('session_rejected', 'rmcp_session_failed'), ('timeout', 'device_timeout')])
+    def test_ltx_transport_failures_have_distinct_sanitized_reasons(sel_site, monkeypatch, ltx_reads, fixture, code):
+        from ipmi_monitor.sel_management import IPMISELAdapter, SELUnavailable
+        _client, _app, _db, _models, runtime, _commands = sel_site
+        calls = replay_ltx(monkeypatch, runtime, ltx_reads[fixture])
+        adapter = IPMISELAdapter(runtime, BMC, ('fixture-user', 'synthetic-secret'))
+        with pytest.raises(SELUnavailable) as caught:
+            adapter.fingerprint()
+>       assert caught.value.code == code
+E       AssertionError: assert 'device_command_failed' == 'unsupported_cipher'
+E         
+E         - unsupported_cipher
+E         + device_command_failed
+
+tests/test_sel_management.py:377: AssertionError
+_ test_ltx_transport_failures_have_distinct_sanitized_reasons[role_rejected-role_or_auth_rejected] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10af62350>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+fixture = 'role_rejected', code = 'role_or_auth_rejected'
+
+    @pytest.mark.parametrize('fixture,code', [('cipher_rejected', 'unsupported_cipher'),
+        ('role_rejected', 'role_or_auth_rejected'), ('session_rejected', 'rmcp_session_failed'), ('timeout', 'device_timeout')])
+    def test_ltx_transport_failures_have_distinct_sanitized_reasons(sel_site, monkeypatch, ltx_reads, fixture, code):
+        from ipmi_monitor.sel_management import IPMISELAdapter, SELUnavailable
+        _client, _app, _db, _models, runtime, _commands = sel_site
+        calls = replay_ltx(monkeypatch, runtime, ltx_reads[fixture])
+        adapter = IPMISELAdapter(runtime, BMC, ('fixture-user', 'synthetic-secret'))
+        with pytest.raises(SELUnavailable) as caught:
+            adapter.fingerprint()
+>       assert caught.value.code == code
+E       AssertionError: assert 'device_command_failed' == 'role_or_auth_rejected'
+E         
+E         - role_or_auth_rejected
+E         + device_command_failed
+
+tests/test_sel_management.py:377: AssertionError
+_ test_ltx_transport_failures_have_distinct_sanitized_reasons[session_rejected-rmcp_session_failed] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...rom '/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10af61850>
+ltx_reads = {'cipher_rejected': [{'raw': ['0x6', '0x1'], 'returncode': 1, 'seconds': 0.09191881399601698, 'stderr': 'Error in open...r in open session response message : invalid role\n\nError: Unable to establish IPMI v2 / RMCP+ session\n', ...}], ...}
+fixture = 'session_rejected', code = 'rmcp_session_failed'
+
+    @pytest.mark.parametrize('fixture,code', [('cipher_rejected', 'unsupported_cipher'),
+        ('role_rejected', 'role_or_auth_rejected'), ('session_rejected', 'rmcp_session_failed'), ('timeout', 'device_timeout')])
+    def test_ltx_transport_failures_have_distinct_sanitized_reasons(sel_site, monkeypatch, ltx_reads, fixture, code):
+        from ipmi_monitor.sel_management import IPMISELAdapter, SELUnavailable
+        _client, _app, _db, _models, runtime, _commands = sel_site
+        calls = replay_ltx(monkeypatch, runtime, ltx_reads[fixture])
+        adapter = IPMISELAdapter(runtime, BMC, ('fixture-user', 'synthetic-secret'))
+        with pytest.raises(SELUnavailable) as caught:
+            adapter.fingerprint()
+>       assert caught.value.code == code
+E       AssertionError: assert 'device_command_failed' == 'rmcp_session_failed'
+E         
+E         - rmcp_session_failed
+E         + device_command_failed
+
+tests/test_sel_management.py:377: AssertionError
+_ test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clear] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10152/test_unqualified_policy_opt_in0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2ec8c0>
+policy = 'automatic_clear'
+
+    @pytest.mark.parametrize('policy', ['automatic_clear', 'automatic_clock'])
+    def test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available(qualified_site, monkeypatch, policy):
+        (client, _app, _db, _models, _runtime, commands), _state, _registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: True}, headers=headers).status_code == 200
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', '0' * 64)
+        headers, data = intent(client)
+        disabled = client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: False}, headers=headers)
+        assert disabled.status_code == 200
+        assert disabled.get_json()['policies'][policy] is False
+        headers, data = intent(client)
+        refused = client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: True}, headers=headers)
+>       assert refused.status_code == 409, refused.get_json()
+E       AssertionError: {'bmc_ip': '192.0.2.40', 'capabilities': {'clear': {'available': False, 'reason': 'Exact device/firmware qualification...tive'}, 'clock_incorrect': True, 'clock_observed_at': '2026-11-04T14:39:08.745925Z', ...}, 'identity_revision': 1, ...}
+E       assert 200 == 409
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:394: AssertionError
+_ test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clock] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10152/test_unqualified_policy_opt_in1/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2573f0>
+policy = 'automatic_clock'
+
+    @pytest.mark.parametrize('policy', ['automatic_clear', 'automatic_clock'])
+    def test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available(qualified_site, monkeypatch, policy):
+        (client, _app, _db, _models, _runtime, commands), _state, _registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: True}, headers=headers).status_code == 200
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', '0' * 64)
+        headers, data = intent(client)
+        disabled = client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: False}, headers=headers)
+        assert disabled.status_code == 200
+        assert disabled.get_json()['policies'][policy] is False
+        headers, data = intent(client)
+        refused = client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: True}, headers=headers)
+>       assert refused.status_code == 409, refused.get_json()
+E       AssertionError: {'bmc_ip': '192.0.2.40', 'capabilities': {'clear': {'available': False, 'reason': 'Exact device/firmware qualification...tive'}, 'clock_incorrect': True, 'clock_observed_at': '2026-11-04T14:39:08.990149Z', ...}, 'identity_revision': 1, ...}
+E       assert 200 == 409
+E        +  where 200 = <WrapperTestResponse streamed [200 OK]>.status_code
+
+tests/test_sel_management.py:394: AssertionError
+___ test_changed_qualification_bundle_revokes_queued_consent_before_dispatch ___
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10152/test_changed_qualification_bun0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b19a5f0>
+
+    def test_changed_qualification_bundle_revokes_queued_consent_before_dispatch(qualified_site, monkeypatch):
+        import hashlib
+        import json
+        from ipmi_monitor.sel_management import SELUnavailable
+        (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+        headers, data = intent(client)
+        assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True}, headers=headers).status_code == 200
+        with app.app_context():
+            target = runtime.SELTarget.query.one()
+            operation = runtime.sel_manager.claim(target, 'clear', 'automatic-policy', True)
+            fingerprint = json.loads(target.fingerprint)
+            changed = json.loads(registry.read_bytes())
+            changed['records'][0]['record_id'] = 'a62b78f8-8624-4980-b32d-8a37e2f4d110'
+            registry.write_text(json.dumps(changed))
+            monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+>           with pytest.raises(SELUnavailable, match='qualification|revoked'):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE <class 'ipmi_monitor.sel_management.SELUnavailable'>
+
+tests/test_sel_management.py:413: Failed
+_________ test_fixed_qualification_cli_exposes_only_install_and_status _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b2f1390>
+
+    def test_fixed_qualification_cli_exposes_only_install_and_status(monkeypatch):
+        from ipmi_monitor.cli import main
+        monkeypatch.setattr('subprocess.run', lambda *_a, **_k: (_ for _ in ()).throw(AssertionError('CLI help must be offline')))
+        result = CliRunner().invoke(main, ['qualifications', '--help'])
+>       assert result.exit_code == 0, result.output
+E       AssertionError: Usage: main [OPTIONS] COMMAND [ARGS]...
+E         Try 'main --help' for help.
+E         
+E         Error: No such command 'qualifications'.
+E         
+E       assert 2 == 0
+E        +  where 2 = <Result SystemExit(2)>.exit_code
+
+tests/test_sel_qualifications.py:18: AssertionError
+________ test_registry_rejects_entire_bundle_when_one_record_is_invalid ________
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10152/test_registry_rejects_entire_b0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c236830>
+
+    def test_registry_rejects_entire_bundle_when_one_record_is_invalid(qualified_site, monkeypatch):
+        from ipmi_monitor.sel_management import qualification_records
+        _site, _state, registry = qualified_site
+        value = json.loads(registry.read_bytes())
+        value['records'].append({'record_id': 'invalid'})
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+>       assert qualification_records() == []
+E       AssertionError: assert [{'actions': ...b31f'}], ...}] == []
+E         
+E         Left contains one more item: {'actions': {'clear': {'canary_operation_ids': ['synthetic-only'], 'checks': {'competing_reservation': True, 'complete...tifacts': [{'path': 'canary.json', 'sha256': 'd4e859a1c3f6d0a4e4737672cc3cbfc0703e5129014f40456ced886ad5adb31f'}], ...}
+E         Use -v to get more diff
+
+tests/test_sel_qualifications.py:36: AssertionError
+___________ test_registry_and_evidence_cannot_enter_through_symlink ____________
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10152/test_registry_and_evidence_can0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c1cb610>
+
+    def test_registry_and_evidence_cannot_enter_through_symlink(qualified_site, monkeypatch):
+        from ipmi_monitor.sel_management import qualification_records
+        _site, _state, registry = qualified_site
+        link = registry.with_name('registry-link.json')
+        link.symlink_to(registry)
+        monkeypatch.setenv('SEL_QUALIFICATIONS_FILE', str(link))
+>       assert qualification_records() == []
+E       AssertionError: assert [{'actions': ...b31f'}], ...}] == []
+E         
+E         Left contains one more item: {'actions': {'clear': {'canary_operation_ids': ['synthetic-only'], 'checks': {'competing_reservation': True, 'complete...tifacts': [{'path': 'canary.json', 'sha256': 'd4e859a1c3f6d0a4e4737672cc3cbfc0703e5129014f40456ced886ad5adb31f'}], ...}
+E         Use -v to get more diff
+
+tests/test_sel_qualifications.py:45: AssertionError
+_ test_action_evidence_digest_and_operation_must_resolve_to_admitted_evidence __
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10152/test_action_evidence_digest_an0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c1cb4d0>
+
+    def test_action_evidence_digest_and_operation_must_resolve_to_admitted_evidence(qualified_site, monkeypatch):
+        from ipmi_monitor.sel_management import qualified
+        _site, _state, registry = qualified_site
+        value = json.loads(registry.read_bytes())
+        record = value['records'][0]
+        record['actions']['clear']['sha256'] = ['0' * 64]
+        record['actions']['clear']['canary_operation_ids'] = ['not-an-admitted-operation']
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        # A real admitted file exists, but the action now cites a different digest
+        # and operation absent from that file. Presence is not proof.
+        admitted = {artifact['sha256'] for artifact in record['evidence_artifacts']}
+        assert set(record['actions']['clear']['sha256']).isdisjoint(admitted)
+>       assert qualified(record['fingerprint'], 'clear') is None
+E       AssertionError: assert {'actions': {'clear': {'canary_operation_ids': ['not-an-admitted-operation'], 'checks': {'competing_reservation': True...tifacts': [{'path': 'canary.json', 'sha256': 'd4e859a1c3f6d0a4e4737672cc3cbfc0703e5129014f40456ced886ad5adb31f'}], ...} is None
+E        +  where {'actions': {'clear': {'canary_operation_ids': ['not-an-admitted-operation'], 'checks': {'competing_reservation': True...tifacts': [{'path': 'canary.json', 'sha256': 'd4e859a1c3f6d0a4e4737672cc3cbfc0703e5129014f40456ced886ad5adb31f'}], ...} = <function qualified at 0x10ac16a30>({'adapter': 'sel-raw-v2', 'aux_firmware': None, 'aux_firmware_present': False, 'device_id_reply': '2001020151005701000100', ...}, 'clear')
+
+tests/test_sel_qualifications.py:61: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[full_device]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 156 warnings
+tests/test_sel_qualifications.py: 30 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_management.py: 14 warnings
+tests/test_sel_qualifications.py: 3 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py: 14 warnings
+tests/test_sel_qualifications.py: 3 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[full_device]
+FAILED tests/test_sel_management.py::test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault[partial_device]
+FAILED tests/test_sel_management.py::test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command0]
+FAILED tests/test_sel_management.py::test_ltx_optional_identity_or_offset_failure_preserves_independent_reads[failed_command1]
+FAILED tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[cipher_rejected-unsupported_cipher]
+FAILED tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[role_rejected-role_or_auth_rejected]
+FAILED tests/test_sel_management.py::test_ltx_transport_failures_have_distinct_sanitized_reasons[session_rejected-rmcp_session_failed]
+FAILED tests/test_sel_management.py::test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clear]
+FAILED tests/test_sel_management.py::test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available[automatic_clock]
+FAILED tests/test_sel_management.py::test_changed_qualification_bundle_revokes_queued_consent_before_dispatch
+FAILED tests/test_sel_qualifications.py::test_fixed_qualification_cli_exposes_only_install_and_status
+FAILED tests/test_sel_qualifications.py::test_registry_rejects_entire_bundle_when_one_record_is_invalid
+FAILED tests/test_sel_qualifications.py::test_registry_and_evidence_cannot_enter_through_symlink
+FAILED tests/test_sel_qualifications.py::test_action_evidence_digest_and_operation_must_resolve_to_admitted_evidence
+14 failed, 4 passed, 71 deselected, 221 warnings in 4.72s

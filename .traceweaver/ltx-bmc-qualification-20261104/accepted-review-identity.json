@@ -1,0 +1,57 @@
+{
+  "inputs": {
+    "semantic_authority_digest": "sha256:7486c584a6b18c27ff68cd5bf18b22dad4192453ea80e7641b3807244ce45922",
+    "behavior_digest": "sha256:0633654fa1c25521a3b19628b9aa526fe44c2d27b2d8d26941aff089aef30d18",
+    "verification_digest": "sha256:f7d6d6ca46cfefdd6cca4a753e03a1a169f213c5ca499db9255b70a72e593171",
+    "policy_epoch": "ltx-bmc-r2-source-20261104"
+  },
+  "accepted_review_identity": "sha256:a653e7537a5d3a9e8d06d8e8c94b7064608c5381292d1d18865cc69d2c7fb323",
+  "terminal_receipt": {
+    "schema_version": "tw-review-series-receipt/1",
+    "command": "record_accepted_review",
+    "series_generation_id": "RS-GEN-LTX-BMC-FINAL-20261104",
+    "predecessor_series_identity": null,
+    "series_identity": "sha256:4691cac0f07e291c36f99761760a4f305e2421ee4addaa80e62c46cd9cfead16",
+    "frozen_scope_identity": "sha256:0e346485a53c75299f262520c4cc291b3be835f08555cb345ee49dc21bdfa3af",
+    "canonical_protocol": {
+      "path": "plugins/traceweaver-core/references/scoped-review-protocol.md",
+      "version": "tw-scoped-review-protocol/1",
+      "digest": "sha256:9ee44eb8408345337fb2f3201d138cd0091bad97cbafe7bf0bf7a36d297f9f00"
+    },
+    "policy_epoch": "ltx-bmc-r2-source-20261104",
+    "ledger_digest": "sha256:0b05df1d1ce516097b4932563a149b1edbb8c5844766fb91faf65f1f715e9cb7",
+    "stage": "repair_verification",
+    "attempt_identity": "sha256:52183943e48fec211c6c838fc44c9ec130bdb538f11d9e5675b19c00d763c364",
+    "dispatch_identities": [
+      "sha256:d4f0bb780cdc10f1a57d2a66e54b5dce64d8d82beeeacdf4d890df6ec3486347",
+      "sha256:8b8077987a9cca211236ee4acf956b8e705bae787b401d25a3562ec2a76cca4d",
+      "sha256:6c71b36de5e615e3de1436f6a9ca4fcad5e65d0f31360135f7f22da95bc8c744"
+    ],
+    "remaining_repair_cycles": 0,
+    "unresolved_blocking_count": 0,
+    "nonblocking_debt_count": 0,
+    "terminal_outcome": "candidate_review_saturated",
+    "authority_acceptance_state": "authority_accepted",
+    "authority_acceptance_receipt": "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/owner-approval.json",
+    "last_session_id": "ltx-bmc-qualification-20261104-root",
+    "accepted_review_identity": "sha256:a653e7537a5d3a9e8d06d8e8c94b7064608c5381292d1d18865cc69d2c7fb323",
+    "mechanical_closure_recorded": true,
+    "mechanical_closure_identity": "sha256:806daab60aae317c1c2ecd79315a97e0cd49ba6e2a78ca9182d892ebb69c0c5d"
+  },
+  "verification": {
+    "full_suite": {
+      "tests": 382,
+      "failures": 0,
+      "skips": 0
+    },
+    "independent_affected": 95,
+    "adversarial": 16,
+    "adversarial_retained_normal": 12,
+    "root_adversarial": 16,
+    "installed_linux": 8,
+    "nonempty_importer": "pass",
+    "publication_fault_and_mixed_bundle": "pass",
+    "browser_existing_and_independent": "pass_unchanged_4_templates",
+    "actual_hardware_qualification": "held_not_source_claim"
+  }
+}

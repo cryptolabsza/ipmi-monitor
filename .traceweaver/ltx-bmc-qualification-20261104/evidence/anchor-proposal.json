@@ -1,0 +1,24 @@
+{
+  "command": [
+    "/Users/hanneszietsman/CrypotAI/TraceWeaver/plugins/traceweaver-core/skills/tw-traceability-check/scripts/traceweaver-author-code-anchors",
+    "--root",
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104",
+    "--mode",
+    "propose",
+    "--target",
+    "tests/test_sel_qualifications.py",
+    "--matrix",
+    "traceability-matrix.md",
+    "--anchor-level",
+    "verification",
+    "--requirement",
+    "REQ-SEL-004",
+    "--trace",
+    "TRACE-SEL-004",
+    "--verification",
+    "VER-SEL-004",
+    "--role",
+    "sel-qualification-custody-verification"
+  ],
+  "exit_code": 0
+}

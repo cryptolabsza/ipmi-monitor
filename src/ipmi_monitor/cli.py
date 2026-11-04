@@ -1,3 +1,4 @@
+# TRACEWEAVER: file-role=fixed-qualification-operator-cli; req=REQ-SEL-004; trace=TRACE-SEL-004; ver=VER-SEL-004
 """
 IPMI Monitor CLI - Command line interface with setup wizard
 """
@@ -46,6 +47,27 @@ def main():
         version      Show detailed version info
     """
     pass
+
+
+@main.group()
+# TRACEWEAVER: entrypoint=qualifications; req=REQ-SEL-004; trace=TRACE-SEL-004; ver=VER-SEL-004
+def qualifications():
+    """Install reviewed qualification data or inspect its safe status."""
+
+
+@qualifications.command('install')
+@click.option('--expected-sha256', required=True)
+def qualifications_install(expected_sha256):
+    """Read a bounded data envelope from stdin; never change policies."""
+    from .sel_qualifications import main as qualification_main
+    raise SystemExit(qualification_main(['install', '--expected-sha256', expected_sha256]))
+
+
+@qualifications.command('status')
+def qualifications_status():
+    """Independently read active qualification mode and digests."""
+    from .sel_qualifications import main as qualification_main
+    raise SystemExit(qualification_main(['status']))
 
 
 @main.command()

@@ -1,0 +1,18 @@
+{
+  "command": [
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sel_management.py",
+    "tests/test_sel_qualifications.py",
+    "-k",
+    "ltx_ or unqualified_policy or changed_qualification or complete_chain or fixed_qualification_cli or registry_rejects_entire or registry_and_evidence or action_evidence_digest or complete_synthetic_fixture",
+    "--junitxml",
+    "/Users/hanneszietsman/CrypotAI/artifacts/ltx-bmc-qualification-20261104/execution/builder/red-strengthened.xml"
+  ],
+  "exit_code": 1,
+  "seconds": 5.181822249898687,
+  "source": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "phase": "producer-faithful fixture and isolated digest/operation link negatives"
+}

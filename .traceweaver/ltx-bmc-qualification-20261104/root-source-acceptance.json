@@ -1,0 +1,56 @@
+{
+  "schema": "ltx-root-source-acceptance/1",
+  "decision": "pass_source_only",
+  "work_item": "WORK-LTX-SEL-20261104",
+  "owner_approval": "owner-approval.json",
+  "approved_plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+  "profile_hash": "sha256:0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc",
+  "requirements_hash": "f6225261ed181955315bc58f56a01e7ca121173ba6c5b83afef5d6918bd4aced",
+  "requirements_unchanged": true,
+  "source_manifest": "evidence/source-repair1-manifest.json",
+  "accepted_behavior": "accepted-behavior-manifest.json",
+  "review_identity": "sha256:a653e7537a5d3a9e8d06d8e8c94b7064608c5381292d1d18865cc69d2c7fb323",
+  "closed_findings": [
+    "ASTRA-SEL-P1-01",
+    "ASTRA-SEL-P1-02",
+    "FV-P1-001"
+  ],
+  "root_personal_checks": [
+    "all15frozenbytes",
+    "old/new2filediff",
+    "382passrawfullsuite",
+    "16adversarialcasesrunbyroot",
+    "wheel/sdist5runtimebytes",
+    "actualinstallednonempty/fault/wholebundle raw outputs",
+    "sourceanchors0findings"
+  ],
+  "source_verification": {
+    "full_suite": {
+      "tests": 382,
+      "failures": 0,
+      "skips": 0
+    },
+    "independent_affected": 95,
+    "adversarial": 16,
+    "adversarial_retained_normal": 12,
+    "root_adversarial": 16,
+    "installed_linux": 8,
+    "nonempty_importer": "pass",
+    "publication_fault_and_mixed_bundle": "pass",
+    "browser_existing_and_independent": "pass_unchanged_4_templates",
+    "actual_hardware_qualification": "held_not_source_claim"
+  },
+  "source_publication_scope": "Approved revision2 U7 protected exact feature PR into dev, checks/merge; protected dev-to-main1.4.1 release+tag/image proof. Separate exact capsules required. U8 one IPMI-only image deployment follows fresh target preservation guards.",
+  "historical_stage_projection": "Supersedes preparation-only production/publication holds in authority.json/review-status.json and initialmatrix for this accepted source stage only. No requirement, original approval or hardware hold is rewritten.",
+  "held_claims": [
+    "M2 seven secure-access failures remain unresolved",
+    "M3 exact device/action qualification and intentional opt-in incomplete",
+    "Trusted CA/pin and safe same-firmware resource not supplied",
+    "No hardware clear/clock/enable qualification, DATA activation or BMC mutation authorized before actual per-action evidence",
+    "No code rollback/upgrade pointer lifecycle or physical-powerloss certification",
+    "Full owner goal incomplete"
+  ],
+  "budget": "one new source image deployment and one separately counted DATA activation; both unused at source acceptance",
+  "backup_waiver": "Owner full production DB backup waiver persists; complete verified raw SEL archive before each clear remains mandatory",
+  "publication_gate": "source-review pass; exact Git/remote/CI/image/deployment gates remain separate"
+}
