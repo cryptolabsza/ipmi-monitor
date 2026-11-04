@@ -119,3 +119,23 @@ sel_health_20261103:
   publication_owner_approval: .traceweaver/sel-health-20261103/publication-owner-approval.json
   publication_scope: protected_feature_to_dev_only_after_live_gates
   publication_remaining_holds: main_release_live_BMC_hardware_qualification_and_production_deployment
+
+
+# Latest mechanical release/status projection; all earlier authority and IDs retained.
+sel_release_20261104:
+  owner_approval: .traceweaver/sel-release-20261104/owner-approval.json
+  release_scope: .traceweaver/sel-release-20261104/release-scope.json
+  baseline_dev: e6c63ef25aecdfcc856f3bff73cd19b31259e9d7
+  baseline_main: cf79b1258e9b6c0daed8c9c998218e4fb48cc0db
+  release_version: 1.4.0
+  requirements: [REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005]
+  traces: [TRACE-SEL-001, TRACE-SEL-002, TRACE-SEL-003, TRACE-SEL-004, TRACE-SEL-005]
+  verification: [VER-SEL-001, VER-SEL-002, VER-SEL-003, VER-SEL-004, VER-SEL-005]
+  status: owner_approved_protected_release_and_gated_Fleet_canary
+  behavior: unchanged_reviewed_source_no_new_requirements_or_profile
+  prior_holds: historical_approval_stages_retained_current_release_authority_is_this_scoped_receipt
+  release_gates: required_protected_checks_exact_artifact_identity_image_publication_and_tag_verification
+  canary_gates: verified_Fleet_operation_target_selection_database_backup_migration_compatible_rollback
+  wider_rollout_gate: observed_target_health_migration_retained_history_and_warning_UI
+  held: exact_firmware_action_qualification_BMC_writes_and_unobserved_runtime_acceptance
+  claim_limit: no_requirement_closure_or_installed_acceptance_inferred
