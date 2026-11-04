@@ -1,0 +1,70 @@
+{
+  "kind": "mechanical_release_projection",
+  "recorded_date": "2026-11-04",
+  "owner_approval": ".traceweaver/sel-release-20261104/owner-approval.json",
+  "owner_approval_sha256": "2c9af5bbab2b522bab6ecba6c5e1bc7c6b49123a654e643e38ca0f204f02b0a5",
+  "repository": "cryptolabsza/ipmi-monitor",
+  "version": "1.4.0",
+  "baselines": {
+    "dev": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+    "main": "cf79b1258e9b6c0daed8c9c998218e4fb48cc0db",
+    "latest_release": "v1.3.3"
+  },
+  "integration": "Exact main ancestry merged into isolated dev-based release branch without commit; final protected release and publication belong to root.",
+  "metadata_updates": {
+    "pyproject.toml": {
+      "dev": "1.2.0",
+      "main": "1.3.3",
+      "candidate": "1.4.0"
+    },
+    "src/ipmi_monitor/__init__.py": {
+      "dev": "1.2.0",
+      "main": "1.3.3",
+      "candidate": "1.4.0"
+    }
+  },
+  "preserved_main_policy": {
+    "path": ".github/ci-build-timeout-policy.json",
+    "sha256": "6466ce578150abda3e5f33c471bfbd2e330ac9f6426adff06ca4b1f6f8a52e2d"
+  },
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-002",
+    "REQ-SEL-003",
+    "REQ-SEL-004",
+    "REQ-SEL-005"
+  ],
+  "traces": [
+    "TRACE-SEL-001",
+    "TRACE-SEL-002",
+    "TRACE-SEL-003",
+    "TRACE-SEL-004",
+    "TRACE-SEL-005"
+  ],
+  "verification": [
+    "VER-SEL-001",
+    "VER-SEL-002",
+    "VER-SEL-003",
+    "VER-SEL-004",
+    "VER-SEL-005"
+  ],
+  "reviewed_files_sha256": {
+    "src/ipmi_monitor/app.py": "af9d0739f58c9edf563b03d3ba4bdf46d0bfc9cf82ba35a1834410236ca588aa",
+    "src/ipmi_monitor/sel_management.py": "75258025fd802ca55970d10fa15de514a8b42921b5c2c72d944f8587197a59cb",
+    "tests/test_sel_management.py": "6ca68541f0864644d72adb606614a6e6de478b5ecc766b73b5d9fbfc320feeda",
+    "tests/test_retention_cleanup.py": "9a6ddb29126ceee118730415900f0fbd1740c0837addc5afc81bad3522c561cd",
+    "templates/dashboard.html": "0a063639be1d58b0cb6364c47155dba7c8f7b2d09a312e758f24a8544e849a0a",
+    "templates/server_detail.html": "6b8081e18a49f0762a039402fda617df66b6b28b858923028150ea1f51f1790c",
+    "src/ipmi_monitor/templates/dashboard.html": "db8d51e766fe5e5944b344858e9f1c65a96bbf7839be3a9ddd3d4e575ac633b7",
+    "src/ipmi_monitor/templates/server_detail.html": "02a04b5c0279a02f45639173c3497c19b56a6205dc83f3a8915925b9507edc5f"
+  },
+  "behavior_scope": "Existing reviewed SEL health/native-clock implementation unchanged; no new normative requirements, workflow profile, dependencies, test changes or CI edits.",
+  "current_authority": "Owner approved protected dev-to-main release, image/tag verification and gated Fleet canary, followed by observed target verification before wider rollout.",
+  "remaining_gates": [
+    "Required protected checks and exact artifact/source identity",
+    "Verified installed Fleet operation, target selection, database backup and migration-compatible rollback before canary",
+    "Observed health, migration, retained history and warning UI before wider rollout",
+    "Exact BMC firmware/action qualification before any clear or native-clock write"
+  ],
+  "claim_limits": "No hardware write, deployed acceptance, operational qualification or requirement closure inferred from local tests or release approval."
+}

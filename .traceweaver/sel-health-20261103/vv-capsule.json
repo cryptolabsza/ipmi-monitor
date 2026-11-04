@@ -1,0 +1,134 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L3",
+  "work_item_id": "WORK-SEL-20261103",
+  "plan_ref": ".traceweaver/sel-health-20261103/plan-v2.md",
+  "authority_ref": ".traceweaver/sel-health-20261103/authority.json",
+  "baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "high_risk_controls": {
+    "rollback": "No live actions authorized. Before future device qualification, retain raw committed receipt and full database backup; disable both policies/revoke revision to stop queued work. Do not roll back a destructive BMC effect by pretending history was never cleared; preserve archive/audit and reconcile. SQLite migration must be atomic with complete old database backup; older app rollback uses a consistent pre-migration DB only after retaining all subsequent archives/audit, under owner decision. Native-clock ambiguity requires reconcile/readback and owner-approved repair, never blind retry.",
+    "owner_decision": "owner-approval.json approves local implementation/build only. Root explicitly gates production mutation after this preparation. Exact firmware/action qualification, intended-use acceptance and every publication/live operation remain held. No default-off policy or unsupported device bypass is permitted."
+  },
+  "requirements": [
+    {
+      "req_id": "REQ-SEL-001",
+      "trace_id": "TRACE-SEL-001",
+      "ver_id": "VER-SEL-001",
+      "val_id": "VAL-SEL-001",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/sel-health-20261103/artifacts/red.log",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md#SEL-20261103 TRACE-SEL-001 planned mapping",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-SEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "CODE-SEL-TESTS-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-002",
+      "trace_id": "TRACE-SEL-002",
+      "ver_id": "VER-SEL-002",
+      "val_id": "VAL-SEL-002",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/sel-health-20261103/artifacts/red.log",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md#SEL-20261103 TRACE-SEL-002 planned mapping",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-SEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "CODE-SEL-TESTS-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-003",
+      "trace_id": "TRACE-SEL-003",
+      "ver_id": "VER-SEL-003",
+      "val_id": "VAL-SEL-003",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/sel-health-20261103/artifacts/red.log",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md#SEL-20261103 TRACE-SEL-003 planned mapping",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-SEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "CODE-SEL-TESTS-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "ver_id": "VER-SEL-004",
+      "val_id": "VAL-SEL-004",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/sel-health-20261103/artifacts/red.log",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md#SEL-20261103 TRACE-SEL-004 planned mapping",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-SEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "CODE-SEL-TESTS-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-005",
+      "trace_id": "TRACE-SEL-005",
+      "ver_id": "VER-SEL-005",
+      "val_id": "VAL-SEL-005",
+      "verification_artifact": "tests/test_sel_management.py",
+      "red_evidence": ".traceweaver/sel-health-20261103/artifacts/red.log",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md#SEL-20261103 TRACE-SEL-005 planned mapping",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-SEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "CODE-SEL-TESTS-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/sel-health-20261103/root-precode-review.json"
+        }
+      ]
+    }
+  ]
+}

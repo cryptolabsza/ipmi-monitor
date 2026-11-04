@@ -1,0 +1,225 @@
+{
+  "skill_name": "verification-planner",
+  "decision": "held",
+  "decision_rationale": "Initial RED exists for each scoped requirement. Full adapter/concurrency/browser coverage is explicitly planned and must be authored against the actual implementation contracts after precode review; no full verification claim.",
+  "authority_status": "owner-approved local implementation/build; mapping review pending",
+  "baseline_reference": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "source_inputs": [
+    ".traceweaver/sel-health-20261103/owner-approval.json",
+    ".traceweaver/sel-health-20261103/plan-v2.md",
+    ".traceweaver/sel-health-20261103/implementation-clarifications.md",
+    "requirements.md"
+  ],
+  "verification_plan": {
+    "plan_id": "VER-PLAN-SEL-20261103",
+    "requirement_ids": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "verification_scope": "SEL health, guarded raw archive/clear, durable identity/retention/state, security and native clock",
+    "method": "test",
+    "success_criteria": {
+      "REQ-SEL-001": [
+        "Current full/near-full/logging enabled/disabled states come from real adapter response parsing; logging not inferred from historical events.",
+        "Each observation has independent freshness/identity; unknown/stale/missing capacity cannot claim healthy/full/percentage trigger.",
+        "Near-full90% warns; confirmed full alone can trigger opted-in clear; simultaneous conditions remain visible by machine name/IP."
+      ],
+      "REQ-SEL-002": [
+        "All clear entrypoints share one service; complete raw snapshot and independent audit/receipt commit before dispatch.",
+        "Same raw reservation is used on every final record traversal and clear; fresh-reservation standalone utility never called.",
+        "Partial/page/undecodable-without-raw/storage/quota/commit/audit/reservation loss prevent writes; raw undecodable bytes preserved.",
+        "Invalidation by new event/competing owner gives bounded recollection; post-clear new records survive; command exit alone cannot declare completion."
+      ],
+      "REQ-SEL-003": [
+        "Database ownership enforces one target/log writer across independent sessions/workers, shared by clear and clock.",
+        "Restart/timeouts reconcile durable intent before any mutation; ambiguous effects never blindly retry.",
+        "All event producer/dedup paths preserve reset/external-clear/replacement/reused-ID evidence and replay dedup; timestamps alone never key events.",
+        "Compatible SQLite migration preserves every row/column and removes obsolete unique constraint with rollback on failure.",
+        "Trusted collection/archive age preserves configured retention duration; pending/reconciling archive and independent audit survive explicit history deletion."
+      ],
+      "REQ-SEL-004": [
+        "Current admin plus session-bound CSRF and exact trusted-origin guard all POSTs including old routes/bulk; direct and authenticated Fleet base paths work.",
+        "Configured active stable identity resolved before secret/network; independent policies default off; consent revisions revoke queued work and recheck at dispatch.",
+        "Each target uses complete username+secret; fixed authenticated IPMI commands use -E invocation-local environment; no -P fallback or unsafe errors/logging.",
+        "Both template trees safely display BMC-controlled text/names/errors with fixed enums; actual browser payload creates no executable elements.",
+        "Enable modifies only qualified bit, preserves all others and requires enabled readback. Unqualified/ambiguous devices cannot mutate."
+      ],
+      "REQ-SEL-005": [
+        "Trusted fresh synchronized UTC reference required; local wall clock alone is insufficient; healthy/unhealthy external NTP remains externally managed.",
+        "Uninitialized/incorrect native dates yield warning and accurate quality; no ambiguous timezone/offset/reference write.",
+        "Qualified offset-capable clock positive/negative native mapping sets time then restores offset reset by time write and verifies both within tolerance.",
+        "Failure between writes and timeout stays incomplete/outcome-unknown and reconciles without blind retry.",
+        "Clock owner shared with clear; invalidates stale snapshot epoch; raw original/native dates and independent before/after/desired audit retained. No OS/Mac/GPU clock mutation."
+      ]
+    },
+    "target_environment": "local Mac Flask/SQLite real app + synthetic command responses; deployed Linux/IPMI firmware separate qualification",
+    "tested_ref_required": true,
+    "owner": "root orchestrator / scoped builder",
+    "status": "initial-RED-prepared-full-GREEN-held"
+  },
+  "verification_cross_reference_matrix": [
+    {
+      "requirement_id": "REQ-SEL-001",
+      "method": "test",
+      "procedure_ref": "VER-SEL-001",
+      "expected_result": [
+        "Current full/near-full/logging enabled/disabled states come from real adapter response parsing; logging not inferred from historical events.",
+        "Each observation has independent freshness/identity; unknown/stale/missing capacity cannot claim healthy/full/percentage trigger.",
+        "Near-full90% warns; confirmed full alone can trigger opted-in clear; simultaneous conditions remain visible by machine name/IP."
+      ],
+      "initial_red_tests": [
+        "test_unobserved_health_is_unknown_and_automation_defaults_off"
+      ],
+      "actual_initial_red": "health endpoint404, expected200",
+      "remaining_verification": [
+        "fixed Get SEL Info/current logging-control boundary responses for full/near-full/healthy/disabled/unknown/stale",
+        "configured identity vs unrelated device evidence; threshold/missing capacity; read roles"
+      ],
+      "evidence_required": [
+        ".traceweaver/sel-health-20261103/artifacts/red.log",
+        "future exact-candidate GREEN log, browser record and independent review"
+      ],
+      "target_environment": "worktree .venv CPython3.14.6 / Flask3.1.3 / SQLAlchemy2.1.6 / SQLite",
+      "harness_equivalence": "Real production parser, models, database, route authorization and template files. subprocess/HTTP boundary substitutes prevent live actions. Local cases can prove application ordering/contracts only; they do not prove IPMI firmware reservation invalidation, authentication, clock semantics or actual production durability/operation."
+    },
+    {
+      "requirement_id": "REQ-SEL-002",
+      "method": "test",
+      "procedure_ref": "VER-SEL-002",
+      "expected_result": [
+        "All clear entrypoints share one service; complete raw snapshot and independent audit/receipt commit before dispatch.",
+        "Same raw reservation is used on every final record traversal and clear; fresh-reservation standalone utility never called.",
+        "Partial/page/undecodable-without-raw/storage/quota/commit/audit/reservation loss prevent writes; raw undecodable bytes preserved.",
+        "Invalidation by new event/competing owner gives bounded recollection; post-clear new records survive; command exit alone cannot declare completion."
+      ],
+      "initial_red_tests": [
+        "test_bmc_clear_never_deletes_saved_history"
+      ],
+      "actual_initial_red": "single and bulk routes delete the existing saved row after command acceptance",
+      "remaining_verification": [
+        "actual raw adapter invocation sequence including reservation traversal and clear ID assertion",
+        "empty/partial/cycle/oversize/raw malformed/persistence/audit failure",
+        "reservation invalidation and bounded retry; completion polling with new event; unsupported qualification warning-only",
+        "manual/bulk/automatic service routing"
+      ],
+      "evidence_required": [
+        ".traceweaver/sel-health-20261103/artifacts/red.log",
+        "future exact-candidate GREEN log, browser record and independent review"
+      ],
+      "target_environment": "worktree .venv CPython3.14.6 / Flask3.1.3 / SQLAlchemy2.1.6 / SQLite",
+      "harness_equivalence": "Real production parser, models, database, route authorization and template files. subprocess/HTTP boundary substitutes prevent live actions. Local cases can prove application ordering/contracts only; they do not prove IPMI firmware reservation invalidation, authentication, clock semantics or actual production durability/operation."
+    },
+    {
+      "requirement_id": "REQ-SEL-003",
+      "method": "test",
+      "procedure_ref": "VER-SEL-003",
+      "expected_result": [
+        "Database ownership enforces one target/log writer across independent sessions/workers, shared by clear and clock.",
+        "Restart/timeouts reconcile durable intent before any mutation; ambiguous effects never blindly retry.",
+        "All event producer/dedup paths preserve reset/external-clear/replacement/reused-ID evidence and replay dedup; timestamps alone never key events.",
+        "Compatible SQLite migration preserves every row/column and removes obsolete unique constraint with rollback on failure.",
+        "Trusted collection/archive age preserves configured retention duration; pending/reconciling archive and independent audit survive explicit history deletion."
+      ],
+      "initial_red_tests": [
+        "test_raw_record_reuse_survives_real_parse_save_pipeline",
+        "test_newly_collected_bad_native_date_does_not_expire_history"
+      ],
+      "actual_initial_red": "actual parser\u2192save suppresses changed raw ID; cleanup deletes recently collected old-native-date evidence",
+      "remaining_verification": [
+        "two actual SQLite sessions claim same target and clear-vs-clock; crash state/reconcile/attempt/cooldown",
+        "pre-migration database copied by real migration, every producer path enumerated from app code",
+        "fresh archive containing old/invalid dates; aged ordinary/archive cleanup; active-operation protection and audit survival"
+      ],
+      "evidence_required": [
+        ".traceweaver/sel-health-20261103/artifacts/red.log",
+        "future exact-candidate GREEN log, browser record and independent review"
+      ],
+      "target_environment": "worktree .venv CPython3.14.6 / Flask3.1.3 / SQLAlchemy2.1.6 / SQLite",
+      "harness_equivalence": "Real production parser, models, database, route authorization and template files. subprocess/HTTP boundary substitutes prevent live actions. Local cases can prove application ordering/contracts only; they do not prove IPMI firmware reservation invalidation, authentication, clock semantics or actual production durability/operation."
+    },
+    {
+      "requirement_id": "REQ-SEL-004",
+      "method": "test",
+      "procedure_ref": "VER-SEL-004",
+      "expected_result": [
+        "Current admin plus session-bound CSRF and exact trusted-origin guard all POSTs including old routes/bulk; direct and authenticated Fleet base paths work.",
+        "Configured active stable identity resolved before secret/network; independent policies default off; consent revisions revoke queued work and recheck at dispatch.",
+        "Each target uses complete username+secret; fixed authenticated IPMI commands use -E invocation-local environment; no -P fallback or unsafe errors/logging.",
+        "Both template trees safely display BMC-controlled text/names/errors with fixed enums; actual browser payload creates no executable elements.",
+        "Enable modifies only qualified bit, preserves all others and requires enabled readback. Unqualified/ambiguous devices cannot mutate."
+      ],
+      "initial_red_tests": [
+        "test_readwrite_cannot_dispatch_sel_mutation",
+        "test_admin_clear_requires_session_intent_and_exact_origin",
+        "test_unknown_configured_target_is_rejected_before_credentials",
+        "test_policy_update_requires_session_intent"
+      ],
+      "actual_initial_red": "readwrite/bodyless/cross-origin/unconfigured clear dispatches; missing policy route404",
+      "remaining_verification": [
+        "valid token produced by real health route, wrong-user/session token, exact-origin and trusted/untrusted Fleet headers/base path",
+        "independent policy opt-ins/revision/rebind/deprecation/revocation between queue/dispatch; GET no write",
+        "command boundary captured credentials/argv/env; leaked error redaction; no global credential fallback",
+        "browser both template trees with hostile event/name/error payloads; enable bit preservation and false readback",
+        "exact qualification action/firmware/device/adapter mismatch; no API/global bypass"
+      ],
+      "evidence_required": [
+        ".traceweaver/sel-health-20261103/artifacts/red.log",
+        "future exact-candidate GREEN log, browser record and independent review"
+      ],
+      "target_environment": "worktree .venv CPython3.14.6 / Flask3.1.3 / SQLAlchemy2.1.6 / SQLite",
+      "harness_equivalence": "Real production parser, models, database, route authorization and template files. subprocess/HTTP boundary substitutes prevent live actions. Local cases can prove application ordering/contracts only; they do not prove IPMI firmware reservation invalidation, authentication, clock semantics or actual production durability/operation."
+    },
+    {
+      "requirement_id": "REQ-SEL-005",
+      "method": "test",
+      "procedure_ref": "VER-SEL-005",
+      "expected_result": [
+        "Trusted fresh synchronized UTC reference required; local wall clock alone is insufficient; healthy/unhealthy external NTP remains externally managed.",
+        "Uninitialized/incorrect native dates yield warning and accurate quality; no ambiguous timezone/offset/reference write.",
+        "Qualified offset-capable clock positive/negative native mapping sets time then restores offset reset by time write and verifies both within tolerance.",
+        "Failure between writes and timeout stays incomplete/outcome-unknown and reconciles without blind retry.",
+        "Clock owner shared with clear; invalidates stale snapshot epoch; raw original/native dates and independent before/after/desired audit retained. No OS/Mac/GPU clock mutation."
+      ],
+      "initial_red_tests": [
+        "test_native_clock_action_is_guarded_before_dispatch"
+      ],
+      "actual_initial_red": "missing clock endpoint404, expected request-intent rejection403",
+      "remaining_verification": [
+        "real raw-command adapter Get/Set SEL time/offset sequence with positive/negative/undefined offset",
+        "fresh/stale/unsynchronized trusted reference; healthy/unhealthy/unknown NTP management; unsupported device",
+        "time accepted then offset failure; readback mismatch; dispatch timeout/restart reconciliation",
+        "clock-vs-clear two-session conflict and snapshot invalidation; original timestamp/quality persistence"
+      ],
+      "evidence_required": [
+        ".traceweaver/sel-health-20261103/artifacts/red.log",
+        "future exact-candidate GREEN log, browser record and independent review"
+      ],
+      "target_environment": "worktree .venv CPython3.14.6 / Flask3.1.3 / SQLAlchemy2.1.6 / SQLite",
+      "harness_equivalence": "Real production parser, models, database, route authorization and template files. subprocess/HTTP boundary substitutes prevent live actions. Local cases can prove application ordering/contracts only; they do not prove IPMI firmware reservation invalidation, authentication, clock semantics or actual production durability/operation."
+    }
+  ],
+  "execution_record_template": {
+    "execution_id": "VER-SEL-<requirement>-<candidate>",
+    "requirement_id": "REQ-SEL-<id>",
+    "method": "test",
+    "setup": "worktree-local .venv; no live BMC/network",
+    "procedure_or_command": ".venv/bin/python -m pytest -q tests/test_sel_management.py <affected tests>",
+    "tested_ref": "record exact commit + diff manifest",
+    "date_or_session": "record UTC time",
+    "expected_result": "all applicable criteria pass with no implementation bypass; before-code corresponding behavioral RED",
+    "actual_result": "pending",
+    "outcome": "blocked",
+    "evidence_path": ".traceweaver/sel-health-20261103/artifacts/green.log (future)",
+    "deviations": []
+  },
+  "hold_conditions": [
+    "root precode review/production GO",
+    "minimum meaningful real adapter boundary/concurrency/browser tests and GREEN not yet implemented",
+    "independent review of final source and artifact build",
+    "exact target hardware qualification and representative validation remain separate"
+  ],
+  "recommended_next_skill": "root precode review then tw-work only after explicit root GO"
+}

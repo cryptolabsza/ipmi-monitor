@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-03",
+  "owner": "Hannes Zietsman",
+  "literal_approval": "im lets inplement and build with [$orchestra](/Users/hanneszietsman/.agents/skills/orchestra/SKILL.md)",
+  "approved_plan": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-security-review-20261103/plan-v2.md",
+  "approved_plan_sha256": "0c75c22c8021534d3e360e9ebac9f7c55c6f89bb35ecac2c6a60e28a366043cc",
+  "clarifications": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-security-review-20261103/implementation-clarifications.md",
+  "scope": "Implement and locally build approved SEL health, guarded clearing and BMC native clock feature; no live BMC actions or publication.",
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-sel-health-20261103",
+  "baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88"
+}

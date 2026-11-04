@@ -1,0 +1,30 @@
+[
+  {
+    "file": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-packaged-dashboard.html",
+    "open_exit": 0,
+    "check_exit": 0,
+    "stdout": "{\n  \"controlCount\": 3,\n  \"eventTextPreserved\": true,\n  \"executed\": false,\n  \"machineTextPreserved\": true,\n  \"panelPresent\": true,\n  \"unavailableWarning\": true,\n  \"unsafeElementCount\": 0,\n  \"url\": \"file:///Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-packaged-dashboard.html\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-packaged-server_detail.html",
+    "open_exit": 0,
+    "check_exit": 0,
+    "stdout": "{\n  \"controlCount\": 3,\n  \"eventTextPreserved\": true,\n  \"executed\": false,\n  \"machineTextPreserved\": true,\n  \"panelPresent\": true,\n  \"unavailableWarning\": true,\n  \"unsafeElementCount\": 0,\n  \"url\": \"file:///Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-packaged-server_detail.html\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-root-dashboard.html",
+    "open_exit": 0,
+    "check_exit": 0,
+    "stdout": "{\n  \"controlCount\": 3,\n  \"eventTextPreserved\": true,\n  \"executed\": false,\n  \"machineTextPreserved\": true,\n  \"panelPresent\": true,\n  \"unavailableWarning\": true,\n  \"unsafeElementCount\": 0,\n  \"url\": \"file:///Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-root-dashboard.html\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "file": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-root-server_detail.html",
+    "open_exit": 0,
+    "check_exit": 0,
+    "stdout": "{\n  \"controlCount\": 3,\n  \"eventTextPreserved\": true,\n  \"executed\": false,\n  \"machineTextPreserved\": true,\n  \"panelPresent\": true,\n  \"unavailableWarning\": true,\n  \"unsafeElementCount\": 0,\n  \"url\": \"file:///Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/browser-root-server_detail.html\"\n}\n",
+    "stderr": ""
+  }
+]

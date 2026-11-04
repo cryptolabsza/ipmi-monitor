@@ -1,0 +1,27 @@
+{
+  "source_revision": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+  "artifacts": {
+    "requirements.md": "f6225261ed181955315bc58f56a01e7ca121173ba6c5b83afef5d6918bd4aced",
+    "traceability-matrix.md": "946fed79e33c03c86f370f013f0c5fbafa13090586f325f366aba55416f59be2",
+    ".traceweaver/intent-contract.yml": "07b7d8829e97d6c3b622888a3104ec8ecc1597d62c9562c1d001c44a3d11b5bc",
+    "tests/test_sel_management.py": "0f8c0eb9f4702a5f9b30d49ff32bb11b3a300e3d0a3207455f5366ba52fd7666",
+    "docs/validation/sel-health-20261103.md": "6a889b8ccf862c44fa8a145295b3a5d4e23d94db221ac194aa1284345c903b68",
+    ".traceweaver/sel-health-20261103/authority.json": "896ffab2414968368be8d9e26178dd306022163b2525ca5bda352b99690ed404",
+    ".traceweaver/sel-health-20261103/implementation-clarifications.md": "858f1b1f47f6f5f340922559f6910763a5031e4f14192e75f4d5b7625928b960",
+    ".traceweaver/sel-health-20261103/workflow-profile.json": "367769462258e09d8c23c07b30216fb96e5432bff5762dad636afcf0365507f2",
+    ".traceweaver/sel-health-20261103/review-status.json": "671fab18dee6ab4b1b8c82f29b3590a2ad50e2ad90ffca3eb04b2675ca9d2e92",
+    ".traceweaver/sel-health-20261103/verification-plan.json": "7a6ed92017997597498fb2d72e4facb5fe88b8ea17deca1ef3e4a4d4d4cedaa9",
+    ".traceweaver/sel-health-20261103/plan-v2.md": "0c75c22c8021534d3e360e9ebac9f7c55c6f89bb35ecac2c6a60e28a366043cc",
+    ".traceweaver/sel-health-20261103/owner-approval.json": "8339a1bb50d4f2a0f3de7ad7b25835050cb952ee4b1afcc92468956f4c9a4875",
+    ".traceweaver/sel-health-20261103/vv-capsule.json": "dec33aed3d4387eef799437a11660f4bc3ed656debe082c945271b0298de4091",
+    ".traceweaver/sel-health-20261103/interface-design.md": "f0de701b59ef4f81ba05b530c5681b70cc3e01c7ef402435eb35fc6b66634d22",
+    ".traceweaver/sel-health-20261103/artifacts/collection.log": "d3c4cd688be68139746927b0576a809fc9c93f3d254f1eac8dc95b7fd8276c66",
+    ".traceweaver/sel-health-20261103/artifacts/dependencies.json": "f4a00a416a2c18ec2640a0cafdfe5851b12a535d4616660a66d2e8b62cfbaa5a",
+    ".traceweaver/sel-health-20261103/artifacts/test-lint.log": "592055705cfa677b0042efbb466b52a57d7ca5e8c5f68076cc4fb30b8b823949",
+    ".traceweaver/sel-health-20261103/artifacts/red.log": "6354724e689c521f390423be74247ce1f1c89ba3e946ee194245c889884e1532",
+    ".traceweaver/sel-health-20261103/artifacts/baseline.log": "470cb6d1013e8fc7cd615c5e3681e58377d0b835d2112426a3030ba07957f138",
+    ".traceweaver/sel-health-20261103/artifacts/capsule-strict-check.log": "ad1357d5c780d1d212ddd45a4b0c936c6fcd39c42edb9ab6b285690473c2a1b0",
+    ".traceweaver/sel-health-20261103/artifacts/capsule-check.log": "017fc890eda357817d0845783ed4c6acc26e8ce525fda540d53fec930c6199c3",
+    ".traceweaver/sel-health-20261103/preflight-evidence.json": "985c13400bcef2cb5f3f8a8557b18ab4aed71326deee519ca5d1d573127927f9"
+  }
+}

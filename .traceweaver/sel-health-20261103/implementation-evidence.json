@@ -1,0 +1,95 @@
+{
+  "stage": "local_source_verification",
+  "root_production_GO": ".traceweaver/sel-health-20261103/root-precode-review.json",
+  "source_identity": {
+    "baseline": "c0a3b83724d993ef2f806a4a12305025d72c2b88",
+    "branch": "feat/sel-health-clock-20261103",
+    "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "sqlite": "3.53.3",
+    "requested_model": "gpt-6.1-sol",
+    "requested_effort": "high",
+    "runtime_attestation": "not independently available",
+    "source_frozen_manifest": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-sel-build-20261103/artifacts/frozen-source-manifest.json",
+    "date": "2026-11-03T16:14:18.620653+00:00"
+  },
+  "verification_results": [
+    {
+      "command": ".venv/bin/python -m pytest -q",
+      "exit": 0,
+      "result": "315 passed,2501 warnings in61.92s",
+      "raw_log": "final-full-local-suite.log",
+      "environment": "Mac CPython3.14.6, permitted local socket/Chromium execution; no live device actions"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_dashboard_ai_reports.py",
+      "exit": 0,
+      "result": "4 passed in3.75s after sandbox socket permission failure",
+      "raw_log": "ai-browser-escalated.log"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_sel_management.py -k custom_command (pre-fix)",
+      "exit": 1,
+      "result": "4 expected behavior failures before bypass protection",
+      "raw_log": "bypass-red.log"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_sel_management.py -k current_capacity_or_freshness (actual selection: current_capacity or freshness)",
+      "exit": 1,
+      "result": "5 expected behavior failures before truthful allocation/freshness correction",
+      "raw_log": "capacity-red.log"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_sel_management.py -k numeric_or_prefix (pre-fix)",
+      "exit": 1,
+      "result": "3 expected behavior failures before decimal/octal/prefix alias correction",
+      "raw_log": "alias-red.log"
+    },
+    {
+      "command": "isolated agent-browser DOM checks against four local fixtures from actual Flask event/name API producers and real production SEL sink/panel functions",
+      "exit": 0,
+      "result": "4/4 pass; literal event/name text retained, no img/svg/event handler nodes and no payload execution",
+      "raw_log": "browser-text-proof.json"
+    },
+    {
+      "command": "actual Flask render of packaged/root dashboard/server templates; node --check every inline script",
+      "exit": 0,
+      "result": "10 scripts pass syntax checks",
+      "raw_log": "template-js-syntax.json"
+    },
+    {
+      "command": "traceweaver-check-code-anchors --mode implementation --changed-file [four supported Python source/test files, plus four HTML inputs ignored by installed scanner]",
+      "exit": 0,
+      "result": "0 findings on four supported Python targets; no unsupported HTML scanner coverage claimed",
+      "raw_log": "final-anchor-scan.log"
+    },
+    {
+      "command": ".venv/bin/python -m ruff check src/ipmi_monitor/sel_management.py tests/test_sel_management.py --select E4,E7,E9,F; python -m py_compile app.py sel_management.py test_sel_management.py; git diff --check",
+      "exit": 0,
+      "result": "focused lint/compile/diff checks pass",
+      "raw_log": "final-lint.log"
+    }
+  ],
+  "coverage_changes": {
+    "new_focused_module_cases": 53,
+    "prior_existing_tests_retained": 262,
+    "initial_measured_baseline": "63 cases across six focused modules;16.86s",
+    "existing_changes": "test_retention_cleanup.py helper fixtures explicitly set collected_at=when; all batching/concurrency/rollback/deadline assertions retained. Paired trace comments only otherwise. No removed tests/skips/assertion weakening.",
+    "comparison_limit": "No full pre-change timing/coverage measurement; no speedup or coverage percentage claimed."
+  },
+  "evidence_custody": {
+    "initial_red": ".traceweaver/sel-health-20261103/artifacts/red.log",
+    "code_and_test_anchors": "packaged helper paired source/matrix writes; initial typed-row status rejected because validation hold was in authority Status, corrected authority status only, validation hold retained in Validation; retry passed",
+    "html_formatter": "root-approved narrow compatibility formatter changes only successful helper-authored outer # wrapper into HTML comment; unchanged BODY/IDs and paired matrix tuple logged in anchor-html-format.json",
+    "browser_limit": "Focused named production sink functions/new panel rendered in local DOM using actual API producer outputs; no full-page deployed or hardware acceptance claim. Actual entire Flask-rendered inline scripts separately syntax-checked.",
+    "kernel_reference": "Root independently checked Linux LP64 ABI and unprivileged modes=0 query; actual local container is UNSYNC, correctly warning-only. Artifacts/linux-time-status-root-check.json remains root evidence, not builder attestation."
+  },
+  "held": [
+    "independent root/Sol/Astra source acceptance",
+    "Linux Python3.11/amd64 package/container build; root owns",
+    "actual device/firmware/transport qualification and current UTC/NTP semantics in target runtime",
+    "representative intended-use operator acceptance",
+    "all live BMC mutations, credentials, stage/commit/push/PR/merge/release/deployment"
+  ],
+  "publication_performed": false,
+  "production_frozen": true
+}
