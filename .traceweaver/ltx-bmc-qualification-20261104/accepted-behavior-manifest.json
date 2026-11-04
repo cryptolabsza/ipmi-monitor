@@ -1,0 +1,14 @@
+{
+  "src/ipmi_monitor/cli.py": "73bebbedb6b544a1828bd2a8f26793bbdfb24a4644fa051fa21d060d6ed541c4",
+  "src/ipmi_monitor/sel_management.py": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+  "src/ipmi_monitor/templates/dashboard.html": "d15c3f79fbd8ed8e4ee180dac5e385562513b0bd2f63824456e600d8488eb56e",
+  "src/ipmi_monitor/templates/server_detail.html": "389a4fe95be90b6a88d8173c24f1638c9e5ef19ac89367cdd1aacefae791bbfc",
+  "templates/dashboard.html": "96e76b4d4e9c156a480230b4519230102a408ad58646f18d93d728c116dfde8d",
+  "templates/server_detail.html": "eb6211e1b321b428b6cb43be6f412be77f08cb5d801a325fb56177234df563c8",
+  "tests/test_sel_management.py": "b57e392a58d53b7aa2796755bba2bbd7a5975f6e8cec8ab958f3919dff23bacf",
+  "src/ipmi_monitor/sel_qualifications.py": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+  "tests/fixtures/ltx_sel_reads_20261104.json": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d",
+  "tests/sel_qualification_linux.py": "fa40e6ed7f15a84e53236ba63fae5aa8531c517445cece3ded8dba29b7598083",
+  "tests/test_sel_persistent.py": "867ae07a2635684dfa00e15372edb458b3b1fc7409a9c6dc403cf391d5b93e46",
+  "tests/test_sel_qualifications.py": "24448e235b33d84307480dc684c73db4c68186fb9a18c2e9ff00550d0923aa5b"
+}

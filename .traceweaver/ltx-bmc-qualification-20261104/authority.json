@@ -1,0 +1,42 @@
+{
+  "schema": "ltx-sel-authority-projection/1",
+  "work_item_id": "WORK-LTX-SEL-20261104",
+  "created_at": "2026-11-04T14:38:21.920261+00:00",
+  "status": "approved_bounded_preimplementation_definition_only",
+  "source_baseline": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "released_source": "c632ad31adece259fe59e184608df4af3b05b8f4",
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-002",
+    "REQ-SEL-003",
+    "REQ-SEL-004",
+    "REQ-SEL-005"
+  ],
+  "unchanged_requirement_authority": ".traceweaver/sel-health-20261103/authority.json",
+  "owner_approval": "owner-approval.json",
+  "approved_plan_sha256": "3c842a38164347cda00737d7482b00fbd9c62405bd230903f41c2272ad0c2c13",
+  "profile_hash": "sha256:0a7de5d8833eb7db565e3038851846e048b940ee8d4deecaf3417ece1d2b74dc",
+  "authority_gate": {
+    "decision": "Proceed",
+    "allowed_now": [
+      "test and sanitized fixture authoring",
+      "scoped current authority and full L3 V&V definition",
+      "actual baseline and behavioral RED capture"
+    ],
+    "production_behavior": "held until root precode review plus review-passed capsule",
+    "scope_expansion": "none; existing REQ/TRACE/VER/VAL-SEL-001..005 unchanged"
+  },
+  "must_not_change": [
+    "production source/templates before root GO",
+    "requirements.md and old authority records",
+    "dependency/security/60s global deadline/lease design",
+    "credentials or target/BMC/network state",
+    "policy state, qualification activation or fabricated qualification",
+    "staging,commit,push,PR,version,deployment"
+  ],
+  "hardware_holds": [
+    "GAP-SEL-HARDWARE-001",
+    "GAP-SEL-ACCEPTANCE-002"
+  ],
+  "backup_waiver": "No production full-IPMI-DB backup/restore mandate; complete verified raw SEL archive before every clear remains mandatory."
+}

@@ -44,6 +44,11 @@ def sel_site(app_fixture, login_as, monkeypatch):
     monkeypatch.setattr(runtime.requests.sessions.Session, "request", no_network)
     monkeypatch.setattr(runtime, "get_ipmi_password", lambda ip: "synthetic-test-secret")
     monkeypatch.setattr(runtime, "get_ipmi_credentials", lambda ip: ("target-admin", "synthetic-test-secret"))
+    from ipmi_monitor.sel_management import IPMISELAdapter
+    def local_transport(adapter, reservation=None):
+        if adapter._shell is None:
+            adapter._shell = SimpleNamespace(raw=adapter._run_raw, close=lambda: None)
+    monkeypatch.setattr(IPMISELAdapter, 'open_session', local_transport)
     with app.app_context():
         db.session.add(models["Server"](
             bmc_ip=BMC, server_name="sel-contract-host", enabled=True, status="active", protocol="ipmi"
@@ -252,7 +257,7 @@ def qualified_site(sel_site, monkeypatch, tmp_path):
 
     def tls_boundary(url, **kwargs):
         assert url == f'https://{BMC}/redfish/v1/Managers/BMC/NetworkProtocol'
-        assert kwargs['verify'] == '/test/qualified-ca.pem'
+        assert kwargs['verify'] == str(tmp_path / 'trusted-ca.pem')
         assert kwargs['allow_redirects'] is False
         return SimpleNamespace(status_code=200, content=b'{}', json=lambda: {
             'NTP': {'ProtocolEnabled': state['ntp_enabled'], 'Status': {'Health': 'OK'}}})
@@ -269,18 +274,58 @@ def qualified_site(sel_site, monkeypatch, tmp_path):
         'enable': ['unrelated_bits_preserved', 'enabled_readback'],
         'clock': ['positive_offset', 'negative_offset', 'offset_restored', 'interrupted_write', 'trusted_reference', 'ntp_ownership', 'clock_readback'],
     }
+    from ipmi_monitor import sel_qualifications
+    # Only the external tool boundary is substituted in unit tests. Real root
+    # Linux/image checks separately exercise the actual binary/version/hash.
+    tool_bytes = b'unit-test-only-ipmitool-boundary'
+    monkeypatch.setattr(sel_qualifications, 'tool_identity', lambda: {
+        'tool_sha256': hashlib.sha256(tool_bytes).hexdigest(), 'tool_version': 'ipmitool version 1.8.19'})
     record = {'fingerprint': fingerprint, 'test_only': False, 'reviewer': 'synthetic-test-reviewer',
+        'runtime_identity': sel_qualifications.runtime_identity(),
         'approved_at': (utcnow() - timedelta(hours=1)).isoformat() + 'Z',
         'expires_at': (utcnow() + timedelta(hours=1)).isoformat() + 'Z',
         'firmware_identity_scope': fingerprint.get('firmware_identity_capability'),
-        'actions': {action: {'checks': dict.fromkeys(names, True), 'canary_operation_ids': ['synthetic-only'],
-                            'sha256': ['1' * 64]} for action, names in checks.items()},
+        'actions': {},
         'clock_semantics': 'local_epoch_with_utc_offset',
-        'ntp_probe': {'path': '/redfish/v1/Managers/BMC/NetworkProtocol', 'ca_file': '/test/qualified-ca.pem'}}
-    evidence = tmp_path / 'canary.json'
-    evidence.write_text(json.dumps({'synthetic_fixture_only': True, 'fingerprint': fingerprint, 'checks': checks}))
+        'ntp_probe': {'path': '/redfish/v1/Managers/BMC/NetworkProtocol', 'ca_file': 'trusted-ca.pem'},
+        'supporting_evidence': {}}
     record['record_id'] = '54f962a7-f5e0-4b34-b776-bae08729a541'
-    record['evidence_artifacts'] = [{'path': 'canary.json', 'sha256': hashlib.sha256(evidence.read_bytes()).hexdigest()}]
+    record['evidence_artifacts'] = []
+    # Producer-faithful evidence links in this temporary subprocess-only test
+    # installation. These local files are never production hardware evidence.
+    # Each action resolves both its digest and its exact canary operation ID.
+    for index, (action, names) in enumerate(checks.items(), 1):
+        operation_id = f'9da61ed4-e055-4672-bc57-{index:012d}'
+        evidence = tmp_path / f'{action}-canary.json'
+        evidence.write_text(json.dumps({
+            'record_id': record['record_id'], 'fingerprint': fingerprint,
+            'action': action, 'checks': dict.fromkeys(names, True),
+            'canary_operations': [{'operation_id': operation_id, 'action': action,
+                'observed_at': utcnow().isoformat() + 'Z', 'outcome': 'complete',
+                'raw_receipts': [{'command': [0x06, 0x01],
+                    'response': fingerprint['device_id_reply']}]}],
+        }, sort_keys=True))
+        evidence_sha = hashlib.sha256(evidence.read_bytes()).hexdigest()
+        record['evidence_artifacts'].append({'path': evidence.name, 'sha256': evidence_sha})
+        record['actions'][action] = {'checks': dict.fromkeys(names, True),
+            'canary_operation_ids': [operation_id], 'sha256': [evidence_sha]}
+    import certifi
+    import re
+    from pathlib import Path
+    public_ca = re.search(r'-----BEGIN CERTIFICATE-----.*?-----END CERTIFICATE-----',
+                         Path(certifi.where()).read_text(), re.S).group(0).encode() + b'\n'
+    (tmp_path / 'trusted-ca.pem').write_bytes(public_ca)
+    ca_digest = hashlib.sha256(public_ca).hexdigest()
+    record['ntp_probe']['ca_sha256'] = ca_digest
+    record['evidence_artifacts'].append({'path': 'trusted-ca.pem', 'sha256': ca_digest, 'kind': 'ca_certificate'})
+    for purpose in ('vendor', 'clock_ownership'):
+        path = tmp_path / (purpose + '.json')
+        path.write_text(json.dumps({'schema': 'sel-supporting-evidence/1', 'record_id': record['record_id'],
+            'fingerprint': fingerprint, 'action': 'clock', 'purpose': purpose,
+            'evidence': {'source': 'local synthetic subprocess fixture; never hardware qualification'}}))
+        support_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        record['evidence_artifacts'].append({'path': path.name, 'sha256': support_digest, 'kind': 'supporting_json'})
+        record['supporting_evidence'][purpose] = [support_digest]
     registry = tmp_path / 'qualifications.json'
     registry.write_text(json.dumps({'schema': 'sel-device-qualification/1', 'records': [record]}))
     monkeypatch.setenv('SEL_QUALIFICATIONS_FILE', str(registry))
@@ -299,6 +344,318 @@ def intent(client, bmc_ip=BMC):
     return ({'Origin': 'http://localhost', 'X-CSRF-Token': value['csrf_token']},
             {'target_id': value['target_id'], 'identity_revision': value['identity_revision'],
              'policy_revision': value['policies']['revision']})
+
+
+@pytest.fixture()
+def ltx_reads():
+    """Actual read-only producer replies; no credentials or routable target argv."""
+    import json
+    from pathlib import Path
+    return json.loads((Path(__file__).parent / 'fixtures/ltx_sel_reads_20261104.json').read_text())['targets']
+
+
+def replay_ltx(monkeypatch, runtime, receipts, failure=None):
+    """Replace only subprocess IO, preserving real raw adapter/collector/API."""
+    import subprocess
+    calls = []
+    replies = {tuple(int(v, 16) for v in row['raw']): row for row in receipts}
+
+    def boundary(argv, **kwargs):
+        values = tuple(int(v, 16) for v in argv[argv.index('raw') + 1:])
+        calls.append(values)
+        assert '-P' not in argv and argv[argv.index('-C') + 1] == '17' and '-E' in argv
+        row = failure if failure and values == failure['command'] else replies[values]
+        if row.get('timeout_expired'):
+            raise subprocess.TimeoutExpired(argv, kwargs['timeout'])
+        return SimpleNamespace(returncode=row['returncode'], stdout=row['stdout'], stderr=row['stderr'])
+
+    monkeypatch.setattr(runtime.subprocess, 'run', boundary)
+    return calls
+
+
+@pytest.mark.parametrize('device', ['full_device', 'partial_device'])
+def test_ltx_unqualified_native_epoch_never_asserts_five_hour_clock_fault(sel_site, monkeypatch, ltx_reads, device):
+    import ipmi_monitor.sel_management as sel
+    client, app, _db, _models, runtime, _commands = sel_site
+    rows = ltx_reads[device]
+    native = next(int.from_bytes(bytes.fromhex(row['stdout']), 'little') for row in rows if row['raw'] == ['0xa', '0x48'])
+    monkeypatch.delenv('SEL_QUALIFICATIONS_FILE', raising=False)
+    monkeypatch.delenv('SEL_QUALIFICATIONS_SHA256', raising=False)
+    monkeypatch.setattr(sel, 'trusted_reference', lambda _: {'utc': native, 'source': 'test-fresh-UTC'})
+    replay_ltx(monkeypatch, runtime, rows)
+    with app.app_context():
+        runtime.sel_manager.observe(BMC)
+    health = client.get(f'/api/server/{BMC}/sel/health').get_json()['health']
+    assert health['clock']['native_seconds'] == native
+    assert health['clock']['offset_minutes'] == -300
+    assert health.get('drift_seconds') is None, health
+    assert 'clock_incorrect' not in health['flags'], health
+    assert 'clock_unknown' in health['flags'], health
+
+
+@pytest.mark.parametrize('failed_command', [(6, 0x37), (10, 0x5c)])
+def test_ltx_optional_identity_or_offset_failure_preserves_independent_reads(sel_site, monkeypatch, ltx_reads, failed_command):
+    client, app, _db, _models, runtime, _commands = sel_site
+    failure = {'command': failed_command, 'returncode': 1, 'stdout': '',
+               'stderr': 'Unable to send RAW command: rsp=0xc1: Invalid command\n'}
+    replay_ltx(monkeypatch, runtime, ltx_reads['full_device'], failure)
+    with app.app_context():
+        runtime.sel_manager.observe(BMC)
+    body = client.get(f'/api/server/{BMC}/sel/health').get_json()
+    health = body['health']
+    assert health.get('info', {}).get('entries') == 3639, health
+    assert health['full'] is True and health['logging_enabled'] is True, health
+    assert health['capacity_observed_at'] and health['logging_observed_at']
+    assert (health.get('clock') or {}).get('native_seconds') == 1793793196, health
+    assert not body['capabilities']['clear']['available']
+
+
+@pytest.mark.parametrize('fixture,code', [('cipher_rejected', 'unsupported_cipher'),
+    ('role_rejected', 'role_or_auth_rejected'), ('session_rejected', 'rmcp_session_failed'), ('timeout', 'device_timeout')])
+def test_ltx_transport_failures_have_distinct_sanitized_reasons(sel_site, monkeypatch, ltx_reads, fixture, code):
+    from ipmi_monitor.sel_management import IPMISELAdapter, SELUnavailable
+    _client, _app, _db, _models, runtime, _commands = sel_site
+    calls = replay_ltx(monkeypatch, runtime, ltx_reads[fixture])
+    adapter = IPMISELAdapter(runtime, BMC, ('fixture-user', 'synthetic-secret'))
+    with pytest.raises(SELUnavailable) as caught:
+        adapter.fingerprint()
+    assert caught.value.code == code
+    assert calls == [(6, 1)]
+    assert 'synthetic-secret' not in str(caught.value)
+
+
+@pytest.mark.parametrize('policy', ['automatic_clear', 'automatic_clock'])
+def test_unqualified_policy_opt_in_is_denied_but_opt_out_remains_available(qualified_site, monkeypatch, policy):
+    (client, _app, _db, _models, _runtime, commands), _state, _registry = qualified_site
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: True}, headers=headers).status_code == 200
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', '0' * 64)
+    headers, data = intent(client)
+    disabled = client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: False}, headers=headers)
+    assert disabled.status_code == 200
+    assert disabled.get_json()['policies'][policy] is False
+    headers, data = intent(client)
+    refused = client.post(f'/api/server/{BMC}/sel/policy', json={**data, policy: True}, headers=headers)
+    assert refused.status_code == 409, refused.get_json()
+    assert commands == []
+
+
+def test_changed_qualification_bundle_revokes_queued_consent_before_dispatch(qualified_site, monkeypatch):
+    import hashlib
+    import json
+    from ipmi_monitor.sel_management import SELUnavailable
+    (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True}, headers=headers).status_code == 200
+    with app.app_context():
+        target = runtime.SELTarget.query.one()
+        operation = runtime.sel_manager.claim(target, 'clear', 'automatic-policy', True)
+        fingerprint = json.loads(target.fingerprint)
+        changed = json.loads(registry.read_bytes())
+        changed['records'][0]['reviewer'] = 'second-independent-synthetic-reviewer'
+        registry.write_text(json.dumps(changed))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        with pytest.raises(SELUnavailable, match='qualification|revoked'):
+            runtime.sel_manager.dispatch_intent(target, operation, runtime.sel_manager.adapter(target), fingerprint, {})
+
+
+def test_qualification_selected_before_claim_cannot_survive_a_changed_valid_bundle(qualified_site, monkeypatch):
+    import hashlib
+    import json
+    (client, _app, _db, _models, runtime, commands), _state, registry = qualified_site
+    claim = runtime.sel_manager.claim
+
+    def changed_claim(*args, **kwargs):
+        value = json.loads(registry.read_bytes())
+        value['records'][0]['clock_semantics'] = 'utc_epoch'
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        return claim(*args, **kwargs)
+
+    monkeypatch.setattr(runtime.sel_manager, 'claim', changed_claim)
+    headers, data = intent(client)
+    response = client.post(f'/api/server/{BMC}/sel/clock', json=data, headers=headers)
+    assert response.status_code == 409, response.get_json()
+    assert not any(tuple(int(v, 16) for v in argv[argv.index('raw')+1:argv.index('raw')+3])
+                   in {(10, 0x49), (10, 0x5d)} for argv, _ in commands if 'raw' in argv)
+
+
+@pytest.mark.parametrize('action', ['clear', 'clock'])
+@pytest.mark.parametrize('edit', ['threshold', 'other_off'])
+def test_unrelated_policy_edit_never_renews_changed_action_consent(qualified_site, monkeypatch, action, edit):
+    import hashlib
+    import json
+    (client, app, _db, _models, runtime, _commands), _state, registry = qualified_site
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+    value = json.loads(registry.read_bytes())
+    value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+    registry.write_text(json.dumps(value))
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+    headers, data = intent(client)
+    other = 'clock' if action == 'clear' else 'clear'
+    update = {'near_full_percent': 91} if edit == 'threshold' else {'automatic_' + other: False}
+    response = client.post(f'/api/server/{BMC}/sel/policy', json={**data, **update}, headers=headers)
+    assert response.status_code == 200
+    with app.app_context():
+        target = runtime.SELTarget.query.one()
+        assert getattr(target, 'auto_' + action) is False
+        assert not json.loads(target.consent_qualification).get(action)
+
+
+@pytest.mark.parametrize('action', ['clear', 'clock'])
+@pytest.mark.parametrize('unavailable', ['changed', 'invalid_pin'])
+def test_observed_qualification_revocation_survives_rollback_and_restore(qualified_site, monkeypatch, action, unavailable):
+    import hashlib
+    import json
+    from ipmi_monitor.sel_management import SELUnavailable
+    (client, app, db, _models, runtime, commands), _state, registry = qualified_site
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + action: True}, headers=headers).status_code == 200
+    original = registry.read_bytes()
+    if unavailable == 'changed':
+        value = json.loads(original)
+        value['records'][0]['reviewer'] = 'new-synthetic-reviewer'
+        registry.write_text(json.dumps(value))
+        pin = hashlib.sha256(registry.read_bytes()).hexdigest()
+    else:
+        pin = '0' * 64
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', pin)
+    with app.app_context():
+        with pytest.raises(SELUnavailable):
+            runtime.sel_manager.execute(runtime.SELTarget.query.one(), action, 'automatic-policy', True)
+        db.session.rollback()  # This must not roll back the safety revocation.
+    registry.write_bytes(original)
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(original).hexdigest())
+    with app.app_context():
+        target = runtime.SELTarget.query.one()
+        assert getattr(target, 'auto_' + action) is False
+        with pytest.raises(SELUnavailable):
+            runtime.sel_manager.claim(target, action, 'automatic-policy', True)
+        db.session.rollback()
+        assert runtime.SELOperation.query.count() == 0
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + action: True}, headers=headers).status_code == 200
+    with app.app_context():
+        operation = runtime.sel_manager.claim(runtime.SELTarget.query.one(), action, 'automatic-policy', True)
+        assert operation.state == 'queued'
+    assert not any('raw' in argv and tuple(int(v, 16) for v in argv[argv.index('raw')+1:argv.index('raw')+3])
+                   in {(10, 0x47), (10, 0x49), (10, 0x5d)} for argv, _ in commands)
+
+
+@pytest.mark.parametrize('action', ['clear', 'clock'])
+def test_other_action_off_preserves_unchanged_action_consent(qualified_site, action):
+    import json
+    (client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True, 'automatic_clock': True}, headers=headers).status_code == 200
+    with app.app_context():
+        original = json.loads(runtime.SELTarget.query.one().consent_qualification)[action]
+    headers, data = intent(client)
+    other = 'clock' if action == 'clear' else 'clear'
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_' + other: False}, headers=headers).status_code == 200
+    with app.app_context():
+        target = runtime.SELTarget.query.one()
+        assert getattr(target, 'auto_' + action) is True
+        assert json.loads(target.consent_qualification)[action] == original
+        assert not json.loads(target.consent_qualification).get(other)
+
+
+@pytest.mark.parametrize('phase,column', [('claim', 'policy_revision'), ('claim', 'revision'),
+    ('claim', 'snapshot_epoch'), ('expired_io', 'policy_revision'), ('expired_io', 'snapshot_epoch'), ('bulk', 'policy_revision')])
+def test_original_request_authority_survives_io_and_claim_refresh(qualified_site, monkeypatch, phase, column):
+    from sqlalchemy import text
+    from ipmi_monitor.sel_management import IPMISELAdapter
+    (client, app, db, _models, runtime, commands), state, _registry = qualified_site
+    changed = []
+    with app.app_context():
+        target_id = runtime.SELTarget.query.one().id
+    def revoke():
+        if not changed:
+            with db.engine.begin() as connection:
+                connection.execute(text(f'UPDATE sel_target SET {column}={column}+1 WHERE id=:id'), {'id': target_id})
+            changed.append(True)
+    if phase == 'expired_io':
+        original = IPMISELAdapter.fingerprint
+        def boundary(adapter):
+            revoke()
+            db.session.expire_all()
+            return original(adapter)
+        monkeypatch.setattr(IPMISELAdapter, 'fingerprint', boundary)
+    else:
+        original = runtime.sel_manager.claim
+        def boundary(*args, **kwargs):
+            revoke()
+            db.session.expire_all()
+            return original(*args, **kwargs)
+        monkeypatch.setattr(runtime.sel_manager, 'claim', boundary)
+    headers, data = intent(client)
+    response = client.post('/api/clear_all_sel' if phase == 'bulk' else f'/api/server/{BMC}/clear_sel',
+                           json={'targets': [data]} if phase == 'bulk' else data, headers=headers)
+    if phase == 'bulk':
+        assert response.status_code == 200
+        assert response.get_json()['operations'][0]['state'] == 'failed'
+    else:
+        assert response.status_code == 409, response.get_json()
+    with app.app_context():
+        assert runtime.SELOperation.query.count() == 0
+    assert state['cleared'] is False and changed
+
+
+def test_final_dispatch_observed_missing_qualification_durably_disarms(qualified_site, monkeypatch):
+    (client, app, _db, _models, runtime, _commands), state, _registry = qualified_site
+    headers, data = intent(client)
+    assert client.post(f'/api/server/{BMC}/sel/policy', json={**data, 'automatic_clear': True}, headers=headers).status_code == 200
+    dispatch = runtime.sel_manager.dispatch_intent
+    def invalidate(*args, **kwargs):
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', '0' * 64)
+        return dispatch(*args, **kwargs)
+    monkeypatch.setattr(runtime.sel_manager, 'dispatch_intent', invalidate)
+    with app.app_context():
+        operation = runtime.sel_manager.execute(runtime.SELTarget.query.one(), 'clear', 'automatic-policy', True)
+        assert operation.state == 'failed'
+        assert runtime.SELTarget.query.one().auto_clear is False
+    assert state['cleared'] is False
+
+
+@pytest.mark.parametrize('count,latency', [(885, 0), (3639, 0), (3639, 0.19)])
+def test_complete_chain_preserves_every_next_id_or_holds_within_existing_deadline(sel_site, monkeypatch, ltx_reads, count, latency):
+    """Actual capacity/latency, synthetic raw entries: not hardware/session proof."""
+    import ipmi_monitor.sel_management as sel
+    _client, _app, _db, _models, runtime, _commands = sel_site
+    clock, reads, tokens = [0.0], [], []
+    monkeypatch.setattr(sel.time, 'monotonic', lambda: clock[0])
+    rows = ltx_reads['partial_device' if count == 885 else 'full_device']
+    info = next(row['stdout'] for row in rows if row['raw'] == ['0xa', '0x40'])
+    allocation = next(row['stdout'] for row in rows if row['raw'] == ['0xa', '0x41'])
+
+    def boundary(argv, **kwargs):
+        values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+        clock[0] += latency
+        if values[:2] == [10, 0x40]:
+            return SimpleNamespace(returncode=0, stdout=info, stderr='')
+        if values[:2] == [10, 0x41]:
+            return SimpleNamespace(returncode=0, stdout=allocation, stderr='')
+        assert values[:2] == [10, 0x43], 'snapshot must never dispatch clear'
+        tokens.append(values[2:4])
+        requested = values[4] | values[5] << 8
+        actual = requested or 1
+        reads.append(actual)
+        next_id = actual + 1 if actual < count else 65535
+        raw = actual.to_bytes(2, 'little') + bytes(14)
+        return SimpleNamespace(returncode=0, stdout=(next_id.to_bytes(2, 'little') + raw).hex(' '), stderr='')
+
+    monkeypatch.setattr(runtime.subprocess, 'run', boundary)
+    adapter = sel.IPMISELAdapter(runtime, BMC, ('fixture-user', 'synthetic-secret'))
+    if latency:
+        with pytest.raises(sel.SELUnavailable, match='device_deadline_exceeded'):
+            adapter.snapshot(bytes.fromhex('3412'))
+        assert len(reads) < count and clock[0] <= 60 + latency
+    else:
+        snapshot = adapter.snapshot(bytes.fromhex('3412'))
+        assert snapshot['complete'] and len(snapshot['records']) == count
+        assert [row['record_id'] for row in snapshot['records']] == list(range(1, count + 1))
+    assert all(token == [0x34, 0x12] for token in tokens)
 
 
 def test_qualified_clear_archives_raw_before_same_reservation_dispatch(qualified_site):
@@ -706,6 +1063,20 @@ def test_auxiliary_firmware_changes_exact_identity_and_revokes_consent(qualified
         registry = json.loads(_registry.read_text())
         registry['records'][0]['fingerprint'] = first
         registry['records'][0]['firmware_identity_scope'] = first['firmware_identity_capability']
+        record = registry['records'][0]
+        for artifact in record['evidence_artifacts']:
+            if artifact.get('kind') == 'ca_certificate':
+                continue
+            evidence_path = _registry.parent / artifact['path']
+            evidence = json.loads(evidence_path.read_bytes())
+            evidence['fingerprint'] = first
+            evidence_path.write_text(json.dumps(evidence, sort_keys=True))
+            replacement_digest = hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+            for action in record['actions'].values():
+                action['sha256'] = [replacement_digest if old == artifact['sha256'] else old for old in action['sha256']]
+            for purpose, digests in record['supporting_evidence'].items():
+                record['supporting_evidence'][purpose] = [replacement_digest if old == artifact['sha256'] else old for old in digests]
+            artifact['sha256'] = replacement_digest
         _registry.write_text(json.dumps(registry))
         monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(_registry.read_bytes()).hexdigest())
         assert qualified(first, 'clear') is not None

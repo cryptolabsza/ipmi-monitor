@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sel_management.py::test_auxiliary_firmware_changes_exact_identity_and_revokes_consent"
+  ],
+  "exit_code": 0
+}

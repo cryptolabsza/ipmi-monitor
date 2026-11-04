@@ -1,0 +1,14 @@
+{
+  "command": [
+    "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "tests/test_sel_management.py"
+  ],
+  "cwd": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ltx-sel-qualification-20261104",
+  "exit_code": 1,
+  "seconds": 16.2954178750515,
+  "source": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]"
+}
