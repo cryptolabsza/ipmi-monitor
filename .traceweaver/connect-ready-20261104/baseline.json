@@ -1,0 +1,10 @@
+{
+  "requirements.md": "f6225261ed181955315bc58f56a01e7ca121173ba6c5b83afef5d6918bd4aced",
+  "traceability-matrix.md": "70ece227afbe93061af868a27e2b6f25bcfb7f0028a12bd3b0082396b6f8f51b",
+  ".traceweaver/intent-contract.yml": "93a464fb8553ea428f5f3a60939b25dd86f42f32f2d35b4f6752e0c5aea4c0f4",
+  "src/ipmi_monitor/account_link.py": "a736ca1377d710bde5bed60eaad14e57181b044f09b910e53ffbd87bbbfb919d",
+  "src/ipmi_monitor/templates/settings.html": "03f539d07dfe02a2f5232fe02408cbe3393787b6d4151aece78814658de89153",
+  "src/ipmi_monitor/templates/dashboard.html": "db8d51e766fe5e5944b344858e9f1c65a96bbf7839be3a9ddd3d4e575ac633b7",
+  "tests/test_settings_ai_controls.py": "2b94183476288c56552e5917620eb4a07d66402d15ea9ac1946083d30cc52283",
+  "tests/test_account_pairing.py": "e4feaf8b70b6dbc7f173198f9ba5ecc9f4d966dda9431753581617161a7317c8"
+}

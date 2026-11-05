@@ -373,6 +373,9 @@ def register_account_link(runtime):
         if validation:
             runtime.apply_license_validation(config, validation)
             runtime.record_verified_linked_account(stage['api_key'], validation)
+            # Explicit Connect starts syncing; an identity-only link does not
+            # enable uploads or manufacture service eligibility.
+            config.sync_enabled = True
         else:
             # Identity-only first/same-key link: no fabricated customer/service grant.
             if not existing:

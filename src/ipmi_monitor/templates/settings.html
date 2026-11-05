@@ -1938,8 +1938,10 @@
                     
                 </div>
                 
+                <p id="aiConnectionProgress" role="status" aria-live="polite"></p>
+                <button type="button" id="aiSyncRetry" class="btn btn-secondary" hidden>Retry sync</button>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="triggerAiSync()">🔄 Sync Now</button>
+                    <button class="btn btn-primary" id="aiSyncNow" onclick="triggerAiSync()">🔄 Sync Now</button>
                     <button class="btn btn-secondary" onclick="showAiSettings()">⚙️ Settings</button>
                     <a href="https://cryptolabs.co.za/account/" target="_blank" class="btn btn-secondary" style="text-decoration: none;">📊 View Account</a>
                 </div>
@@ -2170,7 +2172,10 @@
                 
                 document.getElementById('aiTierDisplay').textContent = tier;
                 document.getElementById('aiStatusMessage').textContent = serviceAvailable
-                    ? 'Connected to CryptoLabs AI' : 'Account linked. AI service is unavailable; check your plan or try again later.';
+                    ? (config.sync_enabled ? 'Connected to CryptoLabs AI' : 'Account linked. AI sync is paused. Resume it in Settings.')
+                    : 'Account linked. AI service is unavailable; check your plan or try again later.';
+                document.getElementById('aiSyncNow').disabled = !serviceAvailable || !config.sync_enabled || aiSyncInProgress;
+                document.getElementById('aiSyncRetry').disabled = !serviceAvailable || !config.sync_enabled || aiSyncInProgress;
                 document.getElementById('aiSyncStatus').textContent = config.sync_enabled ? '✅ Sync enabled' : '⏸️ Paused';
                 document.getElementById('aiSyncStatus').className = config.sync_enabled ? 'status-badge status-badge-success' : 'status-badge status-badge-warning';
                 
@@ -2244,7 +2249,8 @@
             dialog.className = 'account-pair-dialog';
             dialog.setAttribute('aria-labelledby', 'pairTitle');
             dialog.innerHTML = '<div class="pair-layout"><h2 id="pairTitle">Connect CryptoLabs</h2>' +
-                '<p>Open CryptoLabs to sign in or create an account. Compare the matching code and approve there, then confirm here.</p>' +
+                '<p>Open CryptoLabs to sign in or create an account. Compare the matching code and approve there, then confirm here to connect and enable AI sync.</p>' +
+                '<p class="pair-note">Connecting enables cloud sync and sends this installation’s server data to CryptoLabs. You can pause sync afterward in Settings.</p>' +
                 '<p><strong id="pairCode" class="pair-code">Preparing code…</strong></p>' +
                 '<form id="pairHandoff" method="post" target="_blank" rel="noopener noreferrer">' +
                 '<input type="hidden" name="action" value="begin">' +
@@ -2331,7 +2337,12 @@
                     phase = 'linked';
                     await close();
                     await loadAiConfig();
-                    showAlert('Connected as ' + result.account.email + '. Sync preferences were preserved.', 'success');
+                    if (result.service_status === 'available') {
+                        await triggerAiSync();
+                    } else {
+                        document.getElementById('aiConnectionProgress').textContent = 'Account connected. AI service is unavailable; check your plan or try again later.';
+                        showAlert('Account connected as ' + result.account.email + '. AI service is unavailable.', 'warning');
+                    }
                 } catch (_) {
                     // The server may have saved before the response was lost. Never replay commit.
                     phase = 'reconciling';
@@ -2370,9 +2381,9 @@
                         selectedAccount = result.account;
                         phase = result.can_commit === true ? 'ready' : 'blocked';
                         status.textContent = 'Selected account: ' + result.account.email + '. Service: ' + result.service_status +
-                            (phase === 'ready' ? '. Confirm to connect.' : '. Existing connection preserved. Resolve service access before replacing it.');
+                            (phase === 'ready' ? (result.service_status === 'available' ? '. Confirm to connect and enable AI sync.' : '. Confirm to link your account. AI service is unavailable.') : '. Existing connection preserved. Resolve service access before replacing it.');
                         confirmButton.disabled = phase !== 'ready';
-                        confirmButton.textContent = phase === 'ready' ? 'Connect this account' : 'Existing connection preserved';
+                        confirmButton.textContent = phase === 'ready' ? (result.service_status === 'available' ? 'Connect and enable AI sync' : 'Link account') : 'Existing connection preserved';
                     } else if (result.status === 'pending') {
                         interval = Number.isFinite(result.interval) ? Math.max(5, Math.min(300, result.interval)) : interval;
                         status.textContent = 'Waiting for approval on CryptoLabs. Compare the matching code before approving.';
@@ -2555,20 +2566,37 @@
             }
         }
         
+        let aiSyncInProgress = false;
         async function triggerAiSync() {
+            if (aiSyncInProgress) return;
+            aiSyncInProgress = true;
+            const progress = document.getElementById('aiConnectionProgress');
+            const retry = document.getElementById('aiSyncRetry');
+            const syncButton = document.getElementById('aiSyncNow');
+            progress.textContent = 'Account connected. Syncing server data…';
+            retry.hidden = true;
+            retry.onclick = triggerAiSync;
+            syncButton.disabled = true;
             try {
                 const response = await fetch(apiUrl('/api/ai/sync'), { method: 'POST' });
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    showAlert('Sync completed: ' + data.message, 'success');
+                    progress.textContent = 'AI ready. Server data synced.';
+                    showAlert('AI ready. ' + (data.message || 'Server data synced.'), 'success');
                 } else {
-                    showAlert('Sync failed: ' + (data.error || data.message || `HTTP ${response.status}`), 'error');
+                    progress.textContent = 'Account connected. Sync failed: ' + (data.error || data.message || `HTTP ${response.status}`);
+                    retry.hidden = false;
+                    showAlert(progress.textContent, 'error');
                 }
-                
-                loadAiConfig();
             } catch (e) {
-                showAlert('Sync error: ' + e.message, 'error');
+                progress.textContent = 'Account connected. Sync could not be confirmed: ' + e.message;
+                retry.hidden = false;
+                showAlert(progress.textContent, 'error');
+            } finally {
+                aiSyncInProgress = false;
+                syncButton.disabled = false;
+                await loadAiConfig();
             }
         }
         
