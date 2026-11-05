@@ -1,0 +1,30 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L3",
+  "work_item_id": "connect-ready-20261104",
+  "plan_ref": ".traceweaver/connect-ready-20261104/approved-plan.json",
+  "requirements": [
+    {
+      "req_id": "REQ-PAIR-004",
+      "trace_id": "TRACE-PAIR-004",
+      "ver_id": "VER-PAIR-004",
+      "val_id": "VAL-PAIR-004",
+      "verification_artifact": "tests/test_settings_ai_controls.py",
+      "red_evidence": ".traceweaver/connect-ready-20261104/red.log",
+      "validation_artifact": "docs/validation/connect-ready-20261104.md",
+      "matrix_row_ref": "TRACE-PAIR-004",
+      "reviews": [
+        {
+          "gate": "tw-code-review",
+          "id": "connect-ready-precode-review",
+          "status": "passed",
+          "evidence_path": ".traceweaver/connect-ready-20261104/precode-review.json"
+        }
+      ]
+    }
+  ],
+  "high_risk_controls": {
+    "rollback": "Discard local worktree patch; no DB schema or installed-state changes. Retain previous image for any future accepted release.",
+    "owner_decision": "Direct user Approved after explicit automatic-sync plan; no paid grants or live telemetry transmissions in this slice."
+  }
+}

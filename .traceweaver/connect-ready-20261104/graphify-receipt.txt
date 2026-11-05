@@ -1,0 +1,6 @@
+graphify_command=graphify update .
+graphify_root=/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104
+graphify_graph=/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/graphify-out/graph.json
+graphify_authority=derived_context_only
+code_graph_status=updated
+graphify_status=ready

@@ -1,0 +1,12 @@
+{
+  "reviewer": "connect_review native read-only correctness reviewer",
+  "initial_findings": [
+    {
+      "priority": "P2",
+      "issue": "Retry remained enabled after pause",
+      "resolution": "Same service/enabled/in-progress guard on Retry and Sync Now; existing saved-account test covers paused/unavailable."
+    }
+  ],
+  "final_findings": [],
+  "qualification": "Local source review only; no installed or model-attestation claim."
+}
