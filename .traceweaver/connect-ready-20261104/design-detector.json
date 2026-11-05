@@ -1,0 +1,372 @@
+[
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 1846,
+    "snippet": "border-left: 3px solid var(--accent-blue)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 2012,
+    "snippet": "border-left: 4px solid var(--accent-blue)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 2021,
+    "snippet": "border-left: 4px solid var(--accent-yellow)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 2030,
+    "snippet": "border-left: 4px solid var(--accent-green)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 2039,
+    "snippet": "border-left: 4px solid var(--accent-red)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 2048,
+    "snippet": "border-left: 4px solid var(--accent-purple)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 3724,
+    "snippet": "border-left: 4px solid ${roleColor}"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 5035,
+    "snippet": "border-left: 4px solid ${isHigh ? 'var(--accent-red)' : t.count_1h > 0 ? 'var(--accent-yellow)' : 'var(--accent-green)'}"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 5125,
+    "snippet": "border-left: 4px solid ${a.severity === 'critical' ? 'var(--accent-red)' : a.severity === 'warning' ? 'var(--accent-yellow)' : 'var(--accent-blue)'}"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 43,
+    "snippet": "font-family: 'Space Grotesk"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 8,
+    "snippet": "Google Fonts: space grotesk"
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 1024,
+    "snippet": "background-clip: text + gradient"
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 1036,
+    "snippet": "background-clip: text + gradient"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 615,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 1089,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "dark-glow",
+    "name": "Glowing shadow accents",
+    "description": "Colored glow shadows — a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background — are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/settings.html",
+    "line": 1879,
+    "snippet": "Colored box-shadow glow (#00d68f) on dark page"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 713,
+    "snippet": "border-left: 4px solid var(--accent-blue)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 721,
+    "snippet": "border-left: 4px solid var(--accent-red)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 729,
+    "snippet": "border-left: 4px solid var(--accent-yellow)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 745,
+    "snippet": "border-left: 4px solid var(--text-secondary)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 819,
+    "snippet": "border-left: 4px solid var(--text-secondary)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 829,
+    "snippet": "border-left: 4px solid var(--accent-green)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 842,
+    "snippet": "border-left: 4px solid var(--accent-yellow)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 1205,
+    "snippet": "border-left: 3px solid var(--accent-yellow)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 1945,
+    "snippet": "border-left: 3px solid var(--accent-green)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 2051,
+    "snippet": "border-left: 3px solid var(--accent-yellow)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 2101,
+    "snippet": "border-left: 3px solid var(--accent-red)"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 2381,
+    "snippet": "border-left: 3px solid var(--accent-yellow)"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 47,
+    "snippet": "font-family: 'Space Grotesk"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 8,
+    "snippet": "Google Fonts: space grotesk"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 1555,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 1858,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 2511,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 2526,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 2776,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "layout-transition",
+    "name": "Layout property animation",
+    "description": "Animating width, height, padding, or margin causes layout thrash and janky performance. Use transform and opacity instead, or grid-template-rows for height animations.",
+    "severity": "warning",
+    "category": "quality",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 4897,
+    "snippet": "transition: width"
+  },
+  {
+    "antipattern": "dark-glow",
+    "name": "Glowing shadow accents",
+    "description": "Colored glow shadows — a zero-offset chromatic halo (box- or text-shadow) on any background, or any colored blurred shadow on a dark background — are the default \"cool\" look of AI-generated UIs. Use neutral elevation shadows and subtle, purposeful lighting instead.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-connect-ready-20261104/src/ipmi_monitor/templates/dashboard.html",
+    "line": 331,
+    "snippet": "Colored box-shadow glow (#4a9eff) on dark page"
+  }
+]

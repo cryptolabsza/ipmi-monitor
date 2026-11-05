@@ -1,0 +1,36 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "task_id": "connect-ready-20261104",
+  "profile_revision": 1,
+  "profile_status": "planned",
+  "risk": "L3",
+  "selection_rationale": "Existing authenticated account commit enables outbound sync; branding touches first-party auth flow. No protocol/credential/entitlement changes.",
+  "selected_controls": [
+    "test-first actual Flask/SQLite and emitted JavaScript",
+    "preserve failed-attempt state and atomic commit",
+    "backend validation before enabling",
+    "bounded independent correctness review",
+    "local browser desktop/mobile proof",
+    "no live account, inference or publication"
+  ],
+  "child_roles": {
+    "builder": "main thread",
+    "reviewer": "connect_review read-only native reviewer"
+  },
+  "model_selection": {
+    "choice": "inherited active runtime",
+    "rationale": "Main-thread implementation with available native correctness reviewer; no served-model attestation claimed."
+  },
+  "reviewer_cap": 1,
+  "repair_cycle_cap": 2,
+  "requires_deploy": false,
+  "requires_chrome_dogfood": true,
+  "process_budget": {
+    "estimated_delivery_minutes": 60,
+    "estimated_process_target_minutes": 15,
+    "estimated_process_ceiling_minutes": 60
+  },
+  "authority_ref": ".traceweaver/connect-ready-20261104/approved-plan.json",
+  "formal_model_attestation": "held; no attested TraceWeaver native-child model compliance claimed",
+  "profile_hash": "3c0f1b31feed6b489ec12b2303db59f02d2cfb154846a827f8f6cfb350083989"
+}

@@ -1,0 +1,7 @@
+{
+  "reviewer": "connect_review native correctness reviewer",
+  "scope": "Precode verification review; no production changes at review time",
+  "findings": [],
+  "result": "passed",
+  "limits": "Synthetic responses do not prove installed sync or provider AI access. Retry and HTTP500 gaps strengthened before implementation; browser proof required."
+}
