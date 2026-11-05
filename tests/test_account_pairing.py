@@ -177,7 +177,7 @@ def test_outbound_pairing_stages_then_commits_without_browser_secrets(pairing, c
     assert_browser_safe(response, client, app, caplog)
     response = post(client, 'commit', {'attempt_id': attempt, 'confirm': True}, token)
     assert response.status_code == 200 and response.get_json()['status'] == 'linked'
-    assert saved(pairing)[:4] == (WIRE['success_response']['credential']['api_key'], False, True, 'standard')
+    assert saved(pairing)[:4] == (WIRE['success_response']['credential']['api_key'], True, True, 'standard')
     runtime.sync_to_cloud.assert_not_called()
     assert_browser_safe(response, client, app, caplog)
     for url, kwargs in remote.calls:

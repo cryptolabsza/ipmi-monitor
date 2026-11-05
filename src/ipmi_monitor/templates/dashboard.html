@@ -1783,6 +1783,10 @@
                     <p style="color: var(--text-secondary); margin: 0;">Loading AI features...</p>
                 </div>
                 
+                <div id="aiAccountState" hidden style="padding: 24px;">
+                    <p id="aiAccountNotice" role="status" aria-live="polite"></p>
+                    <a class="btn btn-secondary" href="{{ base_path }}/settings#ai">Open AI settings</a>
+                </div>
                 <!-- Upgrade Prompt for Free Users - ONLY shown when not subscribed, hidden by default until status loads -->
                 <div class="ai-upgrade-prompt" id="aiUpgradePrompt" style="padding: 0; flex: 1; display: none; flex-direction: column;">
                     <!-- Dynamic promotional iframe (loads from AI service, admin-editable) - src set by JS only when shown -->
@@ -3866,6 +3870,7 @@
         async function loadAiStatus() {
             try {
                 const response = await fetch(apiUrl('/api/ai/status'));
+                if (!response.ok) throw new Error('AI status unavailable');
                 const data = await response.json();
                 
                 aiEnabled = data.subscription_valid && data.enabled;
@@ -3874,6 +3879,9 @@
                 const upgradePrompt = document.getElementById('aiUpgradePrompt');
                 const results = document.getElementById('aiResults');
                 const loadingIndicator = document.getElementById('aiLoadingIndicator');
+                const accountState = document.getElementById('aiAccountState');
+                const accountNotice = document.getElementById('aiAccountNotice');
+                accountState.hidden = true;
                 
                 // Hide loading indicator
                 if (loadingIndicator) loadingIndicator.style.display = 'none';
@@ -3911,6 +3919,18 @@
                     results.style.display = 'flex';
                     updateSyncStatus(data);
                     loadCachedAiResults();
+                } else if (data.has_license || data.subscription_valid) {
+                    badge.textContent = data.subscription_valid
+                        ? getTierDisplayName(data.subscription_tier || 'standard') + ' · PAUSED' : 'ACCOUNT LINKED';
+                    badge.style.background = '';
+                    badge.style.color = '';
+                    upgradePrompt.style.display = 'none';
+                    results.classList.add('hidden');
+                    results.style.display = 'none';
+                    accountState.hidden = false;
+                    accountNotice.textContent = data.subscription_valid
+                        ? 'Your CryptoLabs account is connected. AI sync is paused. Open AI settings to resume.'
+                        : 'Your CryptoLabs account is linked. AI service access could not be verified. Check your plan or retry in AI settings.';
                 } else {
                     badge.textContent = 'FREE';
                     badge.style.background = '';
@@ -3931,20 +3951,14 @@
                 }
             } catch (e) {
                 console.error('Failed to load AI status:', e);
-                // Hide loading indicator on error, show promo as fallback
+                // A status failure is not evidence that the account needs a trial.
                 const loadingIndicator = document.getElementById('aiLoadingIndicator');
                 const upgradePrompt = document.getElementById('aiUpgradePrompt');
                 if (loadingIndicator) loadingIndicator.style.display = 'none';
-                if (upgradePrompt) {
-                    upgradePrompt.style.display = 'flex';
-                    upgradePrompt.style.flexDirection = 'column';
-                    upgradePrompt.style.flex = '1';
-                    // Lazy load the promo iframe only when shown
-                    const offerFrame = document.getElementById('aiOfferFrame');
-                    if (offerFrame && offerFrame.dataset.src && !offerFrame.src) {
-                        offerFrame.src = offerFrame.dataset.src;
-                    }
-                }
+                if (upgradePrompt) upgradePrompt.style.display = 'none';
+                document.getElementById('aiBadge').textContent = 'STATUS UNAVAILABLE';
+                document.getElementById('aiAccountState').hidden = false;
+                document.getElementById('aiAccountNotice').textContent = 'AI status could not be loaded. Check your connection and retry in AI settings.';
             }
         }
         

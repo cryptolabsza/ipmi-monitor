@@ -173,3 +173,13 @@ Owner-approved revision2 plan and frozen L3 profile: `.traceweaver/ltx-bmc-quali
 
 
 Current LTX source result (4 November 2026): `.traceweaver/ltx-bmc-qualification-20261104/root-source-acceptance.json` supersedes the preparation-only source holds above. Exact repair1 has382 full-suite passes (0skip),95 independent affected cases,16 independent adversarial cases plus12 retained normal checks,16 root adversarial cases and installed nonempty/fault/whole-bundle/Linux8 proofs. Both confirmed P1 families are closed. Current portable evidence and reviews are in the scoped evidence-index.json and reviews/. All REQ/TRACE/VER/VAL-SEL-001..005 retain their meaning and hardware/intended-use closure remains HELD. Revision2 U7/U8 authorizes the protected source-only M1 release/deployment route after separate current Git/CI/image/target gates; seven secure-access repairs and action qualification/opt-in remain incomplete.
+
+## Connect enables sync — owner-approved local repair, 4 November 2026
+
+Authority: `.traceweaver/connect-ready-20261104/approved-plan.json`; direct owner Approved after the revised automatic-sync plan. This updates only the earlier successful-connect preference-preservation choice. Failed/cancelled/expired pairing and service validation safeguards remain unchanged.
+
+Existing `TRACE-PAIR-004` / `VER-PAIR-004` / `VAL-PAIR-004`: `src/ipmi_monitor/account_link.py`, `src/ipmi_monitor/templates/settings.html`, `src/ipmi_monitor/templates/dashboard.html`; real Flask/SQLite tests `tests/test_account_pairing.py`, rendered-handler tests `tests/test_settings_ai_controls.py`, and existing race tests `tests/test_account_link_security.py`.
+
+Evidence: `.traceweaver/connect-ready-20261104/` contains genuine RED, precode reviewer record, checker-accepted full V&V definition and local GREEN. Validation definition: `docs/validation/connect-ready-20261104.md`. Existing approved PHP/Jinja unsupported-format manual trace route remains in force; a supported scanner pass does not claim coverage of those formats. Full requirement closure, attested model-routing compliance, installed target sync, provider inference and publication remain held.
+
+Publication route update, 5 November 2026: owner explicitly selected the normal protected PR/CI release and LTX Fleet Manager update. `.traceweaver/connect-ready-20261104/publication-owner-authorization-20261105.json` supersedes this task’s prior local-only publication restriction and optional reviewer-model attestation gate; it does not claim that attestation passed or waive source review, tests, required CI, artifact, health or rollback checks.

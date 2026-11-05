@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-04",
+  "owner": "Hannes Zietsman",
+  "approval": "Approved",
+  "approved_preceding_plan": "Connect links the account, enables sync, and starts first sync automatically; show progress then AI ready or specific error with retry. Pause remains explicit afterward; connected Enterprise must never fall back to Start Free Trial. Repair branded linking and clear continuation to IPMI.",
+  "amendment": "A successful explicitly confirmed available-service connection enables sync instead of preserving a previously false preference. Failed/cancelled/expired attempts and identity-only service-unavailable links retain existing state. No new entitlement is created.",
+  "source": "Current Codex conversation; overrides successful-connect preference preservation in the earlier 31 October plan only.",
+  "requirement_ids": [
+    "REQ-PAIR-004"
+  ],
+  "related_requirements": [
+    "REQ-PAIR-001",
+    "REQ-PAIR-005",
+    "REQ-PAIR-006"
+  ],
+  "allowed_paths": [
+    "src/ipmi_monitor/account_link.py",
+    "src/ipmi_monitor/templates/settings.html",
+    "src/ipmi_monitor/templates/dashboard.html",
+    "tests/test_settings_ai_controls.py",
+    "tests/test_account_pairing.py"
+  ],
+  "must_not_change": [
+    "credentials, grants, plan limits, provider calls or billing",
+    "session binding, CSRF, atomic one-use commit or explicit code consent",
+    "CI, release versions, installed runtime and live customer sync"
+  ],
+  "publication": "No commit/push/PR/deploy authorized in this local implementation slice.",
+  "supporting_test_fixture_adjustment": "tests/test_account_link_security.py adds only the new first-sync collaborator to its existing saving/race fixture; all original race/one-use/expiry assertions retained."
+}

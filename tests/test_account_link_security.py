@@ -352,6 +352,7 @@ const context = {
  setTimeout:(fn,ms)=>{const timer={fn,ms,active:true};timers.push(timer);return timer;},
  clearTimeout:timer=>{if(timer)timer.active=false;},
  loadAiConfig:async()=>{reloads++;if(input.kind==='lost_stalled_refresh')await new Promise(()=>{});},
+ triggerAiSync:async()=>alerts.push({message:'AI ready. Server data synced.',type:'success'}),
  showAlert:(message,type)=>alerts.push({message,type}),
  fetch:async(url,options={})=>{
   requests.push({url,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});

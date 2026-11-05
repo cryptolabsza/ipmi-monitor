@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-05",
+  "owner_instruction": "1. Use the normal protected PR and CI process, publish the update and then update LTX through Fleet Manager.",
+  "route": "Normal protected feature PR into dev, patch release into main, required CI, native publisher, verified artifact and LTX-only Fleet Manager update.",
+  "supersedes": "Prior local-only publication hold and optional TraceWeaver reviewer-model-attestation gate for this update; no claim of that attestation passing.",
+  "preserved": [
+    "independent code review and regression tests",
+    "protected branch process and required CI",
+    "version bumps only on release-to-main branches",
+    "organization secrets and approved disposable runner/publisher routes",
+    "Fleet-only LTX installed update with health and retained rollback",
+    "credentials, plan limits, customer data and unrelated services"
+  ],
+  "feature_branch": "fix/connect-ready-20261104",
+  "feature_base": "dev",
+  "release_base": "main",
+  "repository": "cryptolabsza/ipmi-monitor",
+  "remote": "git@github.com:cryptolabsza/ipmi-monitor.git"
+}
