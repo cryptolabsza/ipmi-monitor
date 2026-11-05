@@ -5,6 +5,12 @@ All notable changes to IPMI Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-11-05
+
+### Fixed
+- Connecting an eligible CryptoLabs account enables cloud sync and starts its first sync automatically, with progress and a retry on failure.
+- Linked or paused accounts and status errors no longer display the free-trial promotion.
+
 ## [1.1.1] - 2026-02-12
 
 ### Added
