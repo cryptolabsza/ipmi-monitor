@@ -1,0 +1,51 @@
+test_main_latest_publish_one_verified_digest_with_latest_last (test_image_transport.ImageBoundary.test_main_latest_publish_one_verified_digest_with_latest_last) ... FAIL
+test_main_latest_tags_do_not_leak_into_development (test_image_transport.ImageBoundary.test_main_latest_tags_do_not_leak_into_development) ... FAIL
+
+======================================================================
+FAIL: test_main_latest_publish_one_verified_digest_with_latest_last (test_image_transport.ImageBoundary.test_main_latest_publish_one_verified_digest_with_latest_last)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".github/tests/test_image_transport.py", line 86, in test_main_latest_publish_one_verified_digest_with_latest_last
+    self.assertEqual(plans[0]['destinations'],targets)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['ghc[67 chars]ipmi-monitor:main'] != ['ghc[67 chars]ipmi-monitor:main', 'ghcr.io/cryptolabsza/ipmi-monitor:latest']
+
+Second list contains 1 additional elements.
+First extra element 2:
+'ghcr.io/cryptolabsza/ipmi-monitor:latest'
+
+  ['ghcr.io/cryptolabsza/ipmi-monitor:sha-aaaaaaa',
+-  'ghcr.io/cryptolabsza/ipmi-monitor:main']
+?                                          ^
+
++  'ghcr.io/cryptolabsza/ipmi-monitor:main',
+?                                          ^
+
++  'ghcr.io/cryptolabsza/ipmi-monitor:latest']
+
+======================================================================
+FAIL: test_main_latest_tags_do_not_leak_into_development (test_image_transport.ImageBoundary.test_main_latest_tags_do_not_leak_into_development)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".github/tests/test_image_transport.py", line 60, in test_main_latest_tags_do_not_leak_into_development
+    self.assertEqual(m.image_tags(policy,'ipmi-monitor',{'branch':'main','head_sha':sha}),['latest','main','sha-'+sha[:7]])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['main', 'sha-aaaaaaa'] != ['latest', 'main', 'sha-aaaaaaa']
+
+First differing element 0:
+'main'
+'latest'
+
+Second list contains 1 additional elements.
+First extra element 2:
+'sha-aaaaaaa'
+
+- ['main', 'sha-aaaaaaa']
++ ['latest', 'main', 'sha-aaaaaaa']
+?  ++++++++++
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.030s
+
+FAILED (failures=2)

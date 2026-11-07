@@ -78,8 +78,8 @@ See [examples/ipmi-config.yaml](examples/ipmi-config.yaml) for a complete config
 Use `ipmi_monitor.image_tag: main` in your config. The CLI package and the running
 Docker image are separate: installing a newer CLI does not update an existing
 container. The published production image is `ghcr.io/cryptolabsza/ipmi-monitor:main`.
-The legacy `latest` and `dev` tags can point to older builds; do not use them for
-normal installations. As verified on 7 November 2026, `main` is version **1.4.2**
+The `latest` alias follows the same verified main image. Use `main` for an
+explicit production channel; `dev` is for development testing. As verified on 7 November 2026, `main` is version **1.4.2**
 (commit `de79838`); `sha-de79838` pins that same image. PyPI still serves 1.3.1,
 so install the CLI from GitHub `@main` rather than the unqualified PyPI package.
 
@@ -505,7 +505,8 @@ services:
 | `:main` | Published main branch (recommended) |
 | `:sha-de79838` | Verified 1.4.2 image, pinned to source commit |
 | `:dev` | Testing only; may lag main |
-| `:latest`, `:stable` | Legacy aliases; do not use for new installations |
+| `:latest` | Alias of the same verified main release image |
+| `:stable` | Legacy alias; not advanced by this publisher |
 
 ---
 

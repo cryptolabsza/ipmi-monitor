@@ -1,0 +1,18 @@
+{
+  "status": "immutable_activation_verified_locally",
+  "helper_commit": "223a4287de6644f9468a5caf1d7027975aa24f4c",
+  "recipe_commit": "327889745aafd0ab7656e3152e0a4da5bd3c0354",
+  "recipe_sha256": "c7e212d642acafbea447f87f6daac1bb5592b47edc2b54e20ba2530f453cf5bc",
+  "caller": ".github/workflows/docker-build.yml",
+  "source_guard": "current protected main",
+  "serialization": {
+    "group": "ipmi-monitor-main-image-publication",
+    "cancel-in-progress": false
+  },
+  "permissions": {
+    "contents": "read",
+    "actions": "read",
+    "packages": "write"
+  },
+  "actual_registry_acceptance": "pending official protected main run and anonymous readback"
+}

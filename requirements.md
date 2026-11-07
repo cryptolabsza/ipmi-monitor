@@ -136,3 +136,26 @@ source/channel/volume/port/config/shell checks and independent scoped review.
 Validation `VAL-IPMI-INSTALL-001`: public main source and image identify 1.4.2;
 all published normal-install guides select that main channel. Real customer
 installation is not claimed. See `.traceweaver/install-guides-20261107/scope.json`.
+
+## REQ-IPMI-LATEST-001 — verified main release aliases
+
+Owner instruction on 7 November 2026, after the diagnosis that the publisher
+updates main but leaves latest behind: “Please fix it.” The existing protected
+main publisher shall publish `latest` and `main` from the same verified OCI
+artifact digest, after publishing and verifying its immutable source SHA tag.
+Development builds shall not advance latest. Failed digest readback shall not
+be reported as successful publication.
+
+Scope: IPMI image tag planning, its immutable helper/recipe/caller activation
+pins, focused regression contracts and truthful alias documentation. Preserve
+producer identity, artifact/OCI verification, package identity/visibility, token
+permissions, runner admission and frozen helper restrictions. No application
+version/dependency/runtime change or broader infrastructure/credential access.
+The prior guides-only choice remains applicable to the separate installer fix.
+
+Trace TRACE-IPMI-LATEST-001; verification VER-IPMI-LATEST-001; validation
+VAL-IPMI-LATEST-001: an official protected main publisher run succeeds and
+anonymous registry readback shows main/latest have the same digest and1.4.2
+version. Scope, original RED, local verification and actual publication evidence
+are tracked in `.traceweaver/latest-alias-20261107/`. Publication follows the
+normal feature-to-dev and publisher-only main PR route already authorized.

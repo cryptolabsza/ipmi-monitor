@@ -1,0 +1,59 @@
+{
+  "reviewer": "correctness",
+  "scope": "REQ-IPMI-LATEST-001: main/latest alias rule, focused regression tests, frozen-boundary guard, scoped authority and proposed H1/H2/H3 activation",
+  "verification": {
+    "command": "/private/tmp/ipmi-report-css-20261102-venv/bin/python -m pytest -q .github/tests/test_image_transport.py .github/tests/test_local_publisher.py .github/tests/test_local_recipes.py",
+    "result": "14 passed, 3 subtests passed in0.18s",
+    "additional_evidence": "Root reports22 focused tests passing, original alias RED2 failures, repair-preimage RED2 failures, and source-anchor PASS0. Independent git diff --check passed.",
+    "test_value": "Two added cases meaningfully cover main/dev/feature isolation and actual prepare/hash/frozen-publish behavior through a boundary-only OCI stub; mismatch at latest fails. Tightened AST guard permits only the exact reviewed main tag-list expression while retaining all other transport semantics; other frozen helpers remain byte exact.",
+    "repair_contract": "Executed the actual YAML guard against faithful GitHub API boundary: current protected main passes; stale SHA and unprotected main fail. Recipe normalization asserts concurrency and guard shape while preserving baseline permissions and commands.",
+    "unchanged_boundaries": "No diff for application src, pyproject.toml, frozen image_publisher.py, frozen verify_artifact.py or build producer recipe."
+  },
+  "activation_conditions": [
+    "H1 must freeze the reviewed transport bytes in an immutable signed commit; preserve unchanged producer, verifier, OCI parser, tool and package-visibility boundaries.",
+    "H2 recipe must checkout H1, explicitly SHA256-check transport.py, and preserve all existing frozen helper checks. Local recipe PH and hash assertions must resolve the actual H1 Git object. Recipe normalization may allow only reviewed checkout/hash, exact concurrency group cancel-in-progress:false, and the literal protected-current-main guard; retain exact admission, permissions and credentials equality.",
+    "H3 caller must reference the actual immutable H2 recipe commit; local caller P assertion must resolve H2's real YAML object, retaining the unchanged producer pin and all other caller semantics.",
+    "Literal pins, receipts and hashes may reuse this accepted semantic review after root proves actual frozen helper bytes, recipe YAML and caller YAML implement this exact scope. Preserve reviewed concurrency and current-main guard before publication and all frozen verification checks; any additional behavioral change requires scoped review.",
+    "Protected feature-to-dev then publisher-only main PRs must retain application1.4.2 and main-only authority. Actual official publisher success plus anonymous main/latest digest and version readback is required before claiming fixed."
+  ],
+  "residual_risks": [
+    "H1/H2/H3 activation has not yet been implemented or independently resolved against actual commit objects.",
+    "Real registry publication and anonymous alias equality/version acceptance remain held. Local tests do not establish registry acceptance."
+  ],
+  "testing_gaps": [],
+  "decision": "ready_for_reviewed_source_freeze_and_mechanical_H1_H2_H3_activation",
+  "reviewer_actions": "Read-only source review and focused tests; only this report written. No source edits, staging, commits, pushes, PRs, merges, registry writes or further reviewers.",
+  "resolved_findings": [
+    {
+      "id": "LATEST-REVIEW-001",
+      "priority": "P2",
+      "confidence": 100,
+      "path": ".github/image-publisher/transport.py",
+      "line": 48,
+      "related_paths": [
+        ".github/workflows/ci-image-publish-recipe.yml",
+        ".github/workflows/docker-build.yml"
+      ],
+      "title": "Serialize publishers that advance main and latest",
+      "description": "The new alias is copied and verified after main, but neither the caller nor publisher recipe serializes concurrent publications. The verifier admits valid older ancestors of protected main. For two successful main builds A and B, A can verify main=A, B can publish and verify main=B/latest=B, then A can publish and verify latest=A. Both calls return success while final main=B/latest=A. This violates the stated same-image alias contract during ordinary overlapping main workflow runs.",
+      "reproduction": "Executed the unchanged frozen.publish with two valid archive plans and one independent digest-map registry. Its main-A digest read captured A and interleaved the complete B publication before returning; A then completed latest. Both calls returned published results; final main digest was sha256:bbbb... and latest was sha256:aaaa....",
+      "minimal_repair": "Serialize the main alias-mutating publisher job across runs without canceling an active publication, or provide equivalent serialization. Preserve admission, producer verification, permissions and credentials. Include the explicit serialization allowance in the recipe normalization contract and scoped activation plan.",
+      "resolution": "Publisher recipe job concurrency group ipmi-monitor-main-image-publication with cancel-in-progress:false serializes alias writers. After pinned helper/tool verification and before invoking publication, a literal protected-main API guard rejects a GITHUB_SHA that is no longer current. Existing contents:read job token only; no new inputs, admission, permissions or credentials. Exact recipe-normalization contract preserves baseline beyond explicitly reviewed concurrency, guard and immutable-helper activation changes."
+    }
+  ],
+  "findings": [],
+  "repair_cycle": "One identity-scoped repair reviewed; LATEST-REVIEW-001 resolved. No further semantic repair cycle.",
+  "reviewed_file_sha256": {
+    ".github/image-publisher/transport.py": "ab85855359c9bf2ccf35c23f27386286883906b9ddf2b17b4b814a0bf7d1a419",
+    ".github/tests/test_image_transport.py": "797a22a53d06b438639f90850b0dfbeac1a0b1495f4af3333e9b4674d6933b7b",
+    ".github/tests/test_local_publisher.py": "31caf3a84a24c2525ec92ed96770029499d4e716c242e9f46f7a56d000eeee5b",
+    ".github/tests/test_local_recipes.py": "471dd7617df5c68a39855399053278e1ca8a2934977e165ec7e38bb69da86803",
+    ".github/workflows/ci-image-publish-recipe.yml": "4ef7b6ae111aacb9a2fe189d7ea030c0cfa08e1231aa1dcfe111daf235b46fb0",
+    "README.md": "72c4e318f4f5bbdb65405d8a1da359bceb7c5af1dd277912942a7e8e21820799",
+    "RELEASING.md": "79da3465714fb8858550bfb3eaf12278f4519679d03ee729aadb3534271d9195",
+    "docker-compose.yml": "a7960d428a128d5f6d7b91b911d84fbaab87bfbebba90868dd632f37960e09bd",
+    "requirements.md": "8dfa9db18206b17ac8f5813c91215bdc486717d4dd42163c918773bc2247e9f6",
+    "traceability-matrix.md": "6865f051fb83619eca0d61324d0f5f389daf8c80483ce4fd4e303aedf837489a",
+    ".traceweaver/latest-alias-20261107/scope.json": "e8fb283338a5c788cf20c9777a9501587740b3c059d6409a85a0a4edc736952b"
+  }
+}
