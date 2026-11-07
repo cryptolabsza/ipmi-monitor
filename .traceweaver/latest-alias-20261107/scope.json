@@ -1,0 +1,55 @@
+{
+  "authority": "Owner: latest should point to latest; Please fix it. Existing prior instruction authorizes protected PR publication; no application version change requested.",
+  "requirement": "REQ-IPMI-LATEST-001",
+  "trace": "TRACE-IPMI-LATEST-001",
+  "verification": "VER-IPMI-LATEST-001",
+  "validation": "VAL-IPMI-LATEST-001",
+  "plan": [
+    "Reproduce missing latest in the existing image transport suite; protect dev isolation, immutable-source-first order, digest equality and refusal on mismatch.",
+    "Add latest only to verified main publication; freeze helper then recipe and activate immutable caller pin. Retain admission/credentials/payload/digest/visibility guards unchanged.",
+    "Independent security/correctness review, focused CI contracts, feature-to-dev and publisher-only main PRs; observe actual publisher PASS and anonymously verify main/latest digest equality and version1.4.2."
+  ],
+  "files": [
+    ".github/image-publisher/transport.py",
+    ".github/tests/test_image_transport.py",
+    ".github/tests/test_local_publisher.py",
+    ".github/tests/test_local_recipes.py",
+    ".github/workflows/ci-image-publish-recipe.yml",
+    ".github/workflows/docker-build.yml",
+    "requirements.md",
+    "traceability-matrix.md",
+    "README.md",
+    "RELEASING.md",
+    "docker-compose.yml"
+  ],
+  "must_not_change": [
+    "application Python/version/dependencies",
+    "build producer/verifier/OCI parser",
+    "runner groups/permissions/secrets/visibility",
+    "development image aliases",
+    "existing installer fix remains local"
+  ],
+  "validation_question": "After an official protected main publication, do latest and main anonymously resolve to the same verified1.4.2 OCI image?",
+  "profile": {
+    "schema": "tw-workflow-profile/1",
+    "risk": "L1",
+    "scope": "existing product publisher alias correction; no new credentials/routes",
+    "reviewer_cap": 1,
+    "repair_cycle_cap": 1,
+    "deploy": "official registry publication only",
+    "runtime_version": "retain1.4.2"
+  },
+  "authority_gate": "Proceed within explicit bounded defect fix and existing publication approval; unknown runtime/registry acceptance remains held until observed.",
+  "baseline": {
+    "dev": "caad37c70bc39049e95fc07b6b319108172fbc12",
+    "main": "a922022b6aa1635ef6df81ef248dff5969d0d8b0",
+    "intent_contract_sha256": "0bfc0fc2efbcce97ccd8c5376a07bf7e9615b928855398242e19bceeb48c0e88"
+  },
+  "review_repair": "Serialize main publisher jobs with cancel-in-progress false and require current protected main before registry mutation. GitHub may replace pending publication jobs; active publishers are not cancelled; producer jobs unchanged.",
+  "pin_rollout": [
+    "H1 reviewed helper/serialization source freeze",
+    "H2 immutable helper checkout=H1 plus transport checksum; PH contract=H1",
+    "H3 immutable caller recipe=H2; P contract=H2"
+  ],
+  "requirements_sha256": "8dfa9db18206b17ac8f5813c91215bdc486717d4dd42163c918773bc2247e9f6"
+}

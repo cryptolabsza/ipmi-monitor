@@ -1,3 +1,5 @@
+# TRACEWEAVER: file-role=latest-alias-regression; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001; ver=VER-IPMI-LATEST-001
+# TRACEWEAVER: verifies=VER-IPMI-LATEST-001; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001
 """Public image artifact boundary: real recipe shapes and package visibility continuity."""
 import importlib.util,json,sys,unittest,yaml
 from pathlib import Path
@@ -54,4 +56,37 @@ class ImageBoundary(unittest.TestCase):
   for name,j in d['jobs'].items():
    self.assertEqual(j['runs-on']['group'],'ci-publish-ephemeral');self.assertIn("github.ref == 'refs/heads/main'",j['if']);self.assertIn('github.ref_protected == true',j['if']);checkout=j['steps'][0];self.assertRegex(checkout['with']['ref'],r'^[0-9a-f]{40}$');self.assertFalse(checkout['with']['persist-credentials']);self.assertFalse(checkout['with']['sparse-checkout-cone-mode']);self.assertTrue(all(x.startswith('/.github/image-publisher/') for x in checkout['with']['sparse-checkout'].splitlines()))
    for forbidden in ['docker build','pip install','scripts/image_promotion.py','secrets.CR_PAT','secrets: inherit']:self.assertNotIn(forbidden,str(j))
+ def test_main_latest_tags_do_not_leak_into_development(self):
+  from types import SimpleNamespace
+  m=self.module();policy=SimpleNamespace(repository='cryptolabsza/ipmi-monitor');sha='a'*40
+  self.assertEqual(m.image_tags(policy,'ipmi-monitor',{'branch':'main','head_sha':sha}),['latest','main','sha-'+sha[:7]])
+  self.assertEqual(m.image_tags(policy,'ipmi-monitor',{'branch':'dev','head_sha':sha}),['dev','develop','sha-'+sha[:7]])
+  with self.assertRaises(m.Held):m.image_tags(policy,'ipmi-monitor',{'branch':'feature/untrusted','head_sha':sha})
+ def test_main_latest_publish_one_verified_digest_with_latest_last(self):
+  import hashlib,tempfile
+  from types import SimpleNamespace
+  from unittest.mock import patch
+  m=self.module();image='ghcr.io/cryptolabsza/ipmi-monitor';sha='a'*40;digest='sha256:'+'b'*64
+  policy=SimpleNamespace(repository='cryptolabsza/ipmi-monitor',repository_id=1109244855)
+  proof={'branch':'main','head_sha':sha,'run_id':17,'run_attempt':1}
+  context={'repository':policy.repository,'repository_id':policy.repository_id,'sha':sha,'branch':'main','run_id':17,'run_attempt':1}
+  targets=[image+':sha-'+sha[:7],image+':main',image+':latest']
+  class Registry:
+   def __init__(self,bad_latest=False):self.tags={};self.operations=[];self.bad_latest=bad_latest
+   def import_archive(self,target,archive,selection):self.operations.append(target);self.tags[target]=digest
+   def copy(self,source,target):
+    if source!=image+'@'+digest:raise AssertionError('aliases must copy the verified digest')
+    self.operations.append(target);self.tags[target]='sha256:'+'c'*64 if self.bad_latest and target.endswith(':latest') else digest
+   def digest(self,target):return self.tags[target]
+  with tempfile.TemporaryDirectory() as td:
+   files=Path(td);archive=files/'ipmi-monitor.tar';archive.write_bytes(b'verified archive boundary fixture')
+   receipt={'artifact_kind':'oci-archive','expected_image':image,'repository':policy.repository,'repository_id':policy.repository_id,'source_sha':sha,'run_id':'17','run_attempt':'1','filename':archive.name,'sha256':hashlib.sha256(archive.read_bytes()).hexdigest()}
+   archive.with_suffix('.json').write_text(json.dumps(receipt))
+   # Existing frozen OCI parser is unchanged; this case exercises alias planning,
+   # real archive hash checks and registry readback independently of OCI decoding.
+   with patch.object(m.frozen,'oci',return_value=(digest,'main')):plans=m.prepare(policy,['ipmi-monitor'],files,proof,context)
+   self.assertEqual(plans[0]['destinations'],targets)
+   client=Registry();result=m.frozen.publish(plans,client)
+   self.assertEqual(client.operations,targets);self.assertEqual(set(client.tags.values()),{digest});self.assertEqual(result[0]['published'],targets)
+   with self.assertRaises(m.Held):m.frozen.publish(plans,Registry(bad_latest=True))
 if __name__=='__main__':unittest.main()

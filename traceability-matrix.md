@@ -190,3 +190,10 @@ Existing `TRACE-PAIR-004` / `VER-PAIR-004` / `VAL-PAIR-004`: `src/ipmi_monitor/a
 Evidence: `.traceweaver/connect-ready-20261104/` contains genuine RED, precode reviewer record, checker-accepted full V&V definition and local GREEN. Validation definition: `docs/validation/connect-ready-20261104.md`. Existing approved PHP/Jinja unsupported-format manual trace route remains in force; a supported scanner pass does not claim coverage of those formats. Full requirement closure, attested model-routing compliance, installed target sync, provider inference and publication remain held.
 
 Publication route update, 5 November 2026: owner explicitly selected the normal protected PR/CI release and LTX Fleet Manager update. `.traceweaver/connect-ready-20261104/publication-owner-authorization-20261105.json` supersedes this task’s prior local-only publication restriction and optional reviewer-model attestation gate; it does not claim that attestation passed or waive source review, tests, required CI, artifact, health or rollback checks.
+
+
+## Main/latest image alias correction — 7 November 2026
+
+| Requirement | Trace | Implementation | Verification | Validation |
+| --- | --- | --- | --- | --- |
+| REQ-IPMI-LATEST-001 | TRACE-IPMI-LATEST-001 | .github/image-publisher/transport.py; .github/workflows/ci-image-publish-recipe.yml; .github/workflows/docker-build.yml | VER-IPMI-LATEST-001; .github/tests/test_image_transport.py; .github/tests/test_local_publisher.py; .github/tests/test_local_recipes.py; .traceweaver/latest-alias-20261107/red.txt; .traceweaver/latest-alias-20261107/green.txt | VAL-IPMI-LATEST-001: protected main publisher PASS and anonymous main/latest digest equality; actual registry acceptance pending until observed |
