@@ -71,18 +71,21 @@ IPMI Monitor works with any server that has an IPMI-compliant BMC (Baseboard Man
 
 ### Option 1: Quickstart Wizard (Recommended)
 
-The easiest way to get started is the interactive quickstart wizard:
+Install the CLI from GitHub `@main` and select Docker `:main`. Verified on 7 November 2026: main is **1.4.2**, commit `de79838`. The unqualified PyPI package and legacy Docker aliases can lag main. The configuration below explicitly selects main and self-signed HTTPS:
 
 ```bash
 # Install pipx (prerequisite)
-apt install pipx -y && pipx ensurepath
+sudo apt install pipx git -y
+pipx ensurepath
 source ~/.bashrc
 
 # Install the CLI tool
-pipx install ipmi-monitor
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
 
 # Run the wizard (use full path since pipx bin isn't in sudo PATH)
-sudo ~/.local/bin/ipmi-monitor quickstart
+printf 'ipmi_monitor:\n  image_tag: main\nssl:\n  mode: self_signed\n' > ipmi-config.yaml
+sudo "$HOME/.local/bin/ipmi-monitor" setup -c ipmi-config.yaml
 ```
 
 The wizard will:
@@ -90,7 +93,7 @@ The wizard will:
 2. **Add servers** - Link imported servers with BMC IPs, or add new ones
 3. **Configure credentials** - Set up IPMI and SSH authentication
 4. **SSH log collection** - Optionally enable SSH log collection (dmesg, syslog, GPU errors)
-5. **Deploy containers** - Set up ipmi-monitor + cryptolabs-proxy (cryptolabs-proxy deploys cryptolabs-watchtower for auto-updates)
+5. **Deploy containers** - Set up ipmi-monitor + cryptolabs-proxy (cryptolabs-proxy can deploy cryptolabs-watchtower; automatic IPMI updates require opting in)
 6. **Configure SSL** - Let's Encrypt with auto-renewal, or self-signed
 7. **Initial collection** - Fresh installs automatically collect data on first start
 
@@ -229,18 +232,19 @@ When an update is available, a popup shows:
 
 ### Manual Update
 
+Back up your existing data and configuration first. In the existing Compose file,
+set the IPMI Monitor image to `ghcr.io/cryptolabsza/ipmi-monitor:main`, retaining
+all volumes and settings. For the verified 1.4.2 image, `:sha-de79838` is the
+source pin. Use the actual Compose path from your deployment:
+
 ```bash
-# Pull the latest image
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
-
-# Restart with docker-compose
-docker-compose up -d --force-recreate ipmi-monitor
-
-# Or with docker run
-docker stop ipmi-monitor
-docker rm ipmi-monitor
-docker run -d ... ghcr.io/cryptolabsza/ipmi-monitor:latest
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml up -d ipmi-monitor
+sudo docker exec ipmi-monitor python -c "import os; print(os.environ.get('APP_VERSION'), os.environ.get('GIT_COMMIT'))"
 ```
+
+Expected for this release: `1.4.2` and `de79838`. Updating the CLI alone does not
+replace a running container. Do not rerun fresh setup over an existing deployment.
 
 ### API Endpoints
 
@@ -892,7 +896,7 @@ Store SSH keys centrally and assign them to servers:
 
 #### Quickstart SSH Key Options
 
-When running `ipmi-monitor quickstart`, you have multiple options for SSH authentication:
+When running `ipmi-monitor setup -c ipmi-config.yaml`, you have multiple options for SSH authentication:
 
 | Option | Description |
 |--------|-------------|

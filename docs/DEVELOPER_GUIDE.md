@@ -86,7 +86,7 @@ We use a simplified Git Flow with two main branches:
 
 | Branch | Purpose | Protected | Auto-Deploy |
 |--------|---------|-----------|-------------|
-| `main` | Production-ready stable code | ✅ Yes | `:latest` tag |
+| `main` | Released production code (currently 1.4.2) | ✅ Yes | `:main` and source SHA tag |
 | `dev` | Integration branch for features | ✅ Yes | `:dev` tag |
 | `feature/*` | Individual feature work | ❌ No | PR builds only |
 | `hotfix/*` | Emergency production fixes | ❌ No | - |
@@ -203,31 +203,15 @@ git branch -d feature/my-awesome-feature
 
 | Event | What Happens |
 |-------|--------------|
-| Push to `dev` | Build `:dev`, `:develop` tags |
-| Push to `main` | Build `:main` tag |
-| Push tag `v*` | Build `:v1.x.x`, `:latest`, `:stable` |
-| Pull Request | Build only (no push) |
-| Manual dispatch | Build with optional custom tag |
+| Push to `dev` | Build and verification; production publication remains restricted |
+| Push to protected `main` | Verify the exact build artifact and publish `:main` plus `:sha-<short-commit>` |
+| Version tag `v*` | Follow existing workflow admission; a tag alone does not guarantee image publication |
+| Pull Request | Build only; no production image publication |
+| Manual dispatch | Existing producer/publisher identity and admission checks still apply |
 
-### Pipeline File
-
-Located at: `.github/workflows/docker-build.yml`
-
-```yaml
-# Key sections:
-
-on:
-  push:
-    branches: [ main, master, develop ]
-    tags: [ 'v*' ]
-  pull_request:
-    branches: [ main, master, develop ]
-
-# Tags generated:
-# - develop → :dev, :develop
-# - main → :main
-# - v1.6.0 → :v1.6.0, :1.6.0, :1.6, :latest, :stable
-```
+The current workflow is `.github/workflows/docker-build.yml`. Its pinned build
+and publisher recipes are authoritative. Do not infer image tags from old
+metadata-action examples: IPMI's publisher explicitly publishes the main channel.
 
 ### Viewing Build Status
 
@@ -255,30 +239,28 @@ docker exec ipmi-monitor env | grep -E "GIT_|BUILD_|APP_"
 
 ### Available Tags
 
-| Tag | Source | Stability | Use Case |
-|-----|--------|-----------|----------|
-| `v1.1.1` | Git tag | ⭐ Stable | Production (pinned) |
-| `latest` | Latest release tag | ⭐ Stable | Production (auto-update) |
-| `stable` | Latest release tag | ⭐ Stable | Production alias |
-| `main` | main branch | 🔶 Pre-release | Staging |
-| `dev` | dev branch | ⚠️ Unstable | Development testing |
-| `sha-abc123` | Any commit | 🔍 Debug | Troubleshooting |
+Use **main 1.4.2** for normal installations (verified 7 November 2026, source
+`de79838`). The source package is installed from GitHub `@main`; the dashboard
+runs the separate Docker image `:main`.
+
+| Tag | Source | Use Case |
+|-----|--------|----------|
+| `main` | Released main branch | Production (recommended) |
+| `sha-de79838` | Verified main 1.4.2 source | Pin this release |
+| `dev`, `develop` | Development channels | Testing only; may lag main |
+| `latest`, `stable`, old version tags | Legacy aliases | Do not recommend for new installations |
 
 ### Pulling Images
 
 ```bash
-# Production (recommended)
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.1
+# Normal installation: released main, currently 1.4.2
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:main
 
-# Latest stable
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
-
-# Development build
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:dev
-
-# CryptoLabs Proxy (required for quickstart with HTTPS)
-docker pull ghcr.io/cryptolabsza/cryptolabs-proxy:latest
+# Pin the verified 1.4.2 release
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:sha-de79838
 ```
+
+For complete installation and data-preserving updates, follow the [user guide](user-guide.md).
 
 ---
 
@@ -367,7 +349,7 @@ git push origin v1.1.1
 
 ```bash
 # Check new image is available
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:v1.1.1
+docker pull ghcr.io/cryptolabsza/ipmi-monitor:main
 
 # Verify tags
 docker images | grep ipmi-monitor
@@ -486,22 +468,14 @@ open http://localhost:5002
 
 ### Rollback Procedure
 
-If a release has issues:
+Record and retain the deployed image digest and a consistent data backup before
+upgrading. To roll back, select the previously verified digest or source SHA in
+the existing Compose file, preserving volume identity and all settings. The
+moving `:main` channel is the forward-update target, not a rollback target.
 
-```bash
-# 1. Identify last good version
-docker images | grep ipmi-monitor
-
-# 2. Update docker-compose to previous version
-# image: ghcr.io/cryptolabsza/ipmi-monitor:v1.5.0
-
-# 3. Rollback
-docker-compose down
-docker-compose up -d
-
-# 4. Verify
-docker-compose logs -f
-```
+Use [RELEASING.md](../RELEASING.md#updating-an-existing-installation) for the
+update procedure. Restore data only through the deployment's compatible backup
+and migration plan; do not remove named volumes or guess an old version tag.
 
 ---
 

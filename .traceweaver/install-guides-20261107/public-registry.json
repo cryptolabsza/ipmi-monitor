@@ -1,0 +1,36 @@
+{
+  "checked": "2026-11-07",
+  "main_source": "de79838a29fb60fb6b4c8ac537bcf1c46d7412fb",
+  "source_version": "1.4.2",
+  "tags": {
+    "main": {
+      "version": "1.4.2",
+      "digest": "sha256:4030892b06ea80f94d703066cb12774ed425e4e6c85c4e7e6c8da6b93d891625"
+    },
+    "sha-de79838": {
+      "digest": "sha256:4030892b06ea80f94d703066cb12774ed425e4e6c85c4e7e6c8da6b93d891625"
+    },
+    "dev": {
+      "version": "1.1.9",
+      "revision": "da46180417f45c912a3266afc9c67f9cadce5898",
+      "built": "2026-09-21"
+    },
+    "latest": {
+      "version": "1.2.0",
+      "built": "2026-09-21"
+    },
+    "1.4.2": {
+      "status": 404
+    },
+    "v1.4.2": {
+      "status": 404
+    }
+  },
+  "pypi": "1.3.1",
+  "publisher_run": 41980530448,
+  "publisher_output_tags": [
+    "main",
+    "sha-de79838"
+  ],
+  "website_page_id": 517
+}

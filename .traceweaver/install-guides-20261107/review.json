@@ -1,0 +1,48 @@
+{
+  "reviewer": "correctness",
+  "review_type": "repaired_identity_scoped_documentation_review",
+  "authority": "requirements.md REQ-IPMI-INSTALL-001 and scope.json: owner selected Publish guides for main 1.4.2",
+  "scope": "Documentation, marketing sources and example configuration only; feature-to-dev and documentation-only release-to-main PRs",
+  "findings": [],
+  "resolved_findings": [
+    "INSTALL-PUB-001: all four marketing/WordPress sample mounts now target /app/data, matching released main DATA_DIR",
+    "INSTALL-PUB-002: developer rollback now requires a previously verified digest/SHA and compatible backup; moving main explicitly excluded",
+    "Developer branch table now identifies main/SHA publication",
+    "README no longer recommends the released CLI upgrade command that hardcodes retired latest; configured Compose pull/up is shown",
+    "INSTALL-GUIDES-003: final README explicitly uses manual Compose updates for main1.4.2, states automatic IPMI updates require opt-in plus Watchtower service, removes just-wait/CLI-upgrade instructions, and records manual updates in the transcript; index/user-guide text aligned"
+  ],
+  "verification": {
+    "independent": [
+      "git diff --check passed",
+      "No diff from origin/dev for src, tests, pyproject.toml, .github/workflows or .traceweaver/intent-contract.yml",
+      "Direct source read verified repaired sample mounts and rollback wording",
+      "Prior public-main Dockerfile verification establishes DATA_DIR=/app/data and container port5000",
+      "Prior focused runtime tests reused; no unrelated test reruns"
+    ],
+    "root_evidence": "checks.json records16 deterministic checks and public-registry.json records main1.4.2/source de79838/image digest4030892b06ea80f94d703066cb12774ed425e4e6c85c4e7e6c8da6b93d891625",
+    "bookkeeping": "Root owns the final deterministic check/hash refresh after source edits; review source identity recorded below."
+  },
+  "residual_risks": [
+    "Real customer installation and deployment remain unverified",
+    "Exact PR CI, merge gates and main-source documentation-only reconciliation remain root publication responsibilities"
+  ],
+  "testing_gaps": [],
+  "decision": "pass_no_remaining_scoped_publication_blockers",
+  "reviewer_actions": "No source edits, staging, commits, pushes, PRs, merges or deployments; only this portable report was written",
+  "reviewed_file_sha256": {
+    "README.md": "0a2e30cfd04b76d10c3e4e9686e2445e2cafb487d995d689be0512eb8046f781",
+    "RELEASING.md": "04dad774089b7e9fd1eccacefe44a924f12465cc42196253800bc6a561840ed8",
+    "docker-compose.yml": "459f11f3e06dd3b7913b5870b279860d22783b96e7b748cac388b31eced6f366",
+    "docker-compose.prod.yml": "27a65bcfa7bfea9020c8eb5a79d2ddb759e5f4a2f2f98050f45dddf98ac00458",
+    "examples/ipmi-config.yaml": "94b9d1373e99be95d5e675bfa8f75b10275ddc37ada12f352b0d356fbbaf7f47",
+    "docs/index.md": "10ea3e68d47934bbed22aa043f978a5a181baf231db4fb4c99c4e8d89c65dfee",
+    "docs/user-guide.md": "3d8cc33ec2b6c686db5ab70fe06c856d335f97679a0f9abfb9bca7be5f50ea1b",
+    "docs/DEVELOPER_GUIDE.md": "b22b51e91ef7c7b7cf5ff56f376a1cdae46f644b5f540b92f8c78d34d24d20a4",
+    "docs/wordpress/ipmi-setup-guide.html": "db497b54486de041af3b6a0f878cf4c4344195e68ba5d5f679addf5b44fae8f4",
+    "marketing-page.html": "f9ad9110e5b9368db9e7988d41c1067d9ef58e8a798dc978e35206d2d98f0718",
+    "wordpress-content.html": "a043c61efedb5a575f606c693d6558b8178bb5b20044db49b5ab3c1ed27948ab",
+    "wordpress-blog-post.html": "f719a00a89cbaa2be244410761008e8d2c9cf1343745cb6e0b5c2d3c61789eff",
+    "requirements.md": "9a368c3386fe17a616b6af7ee027d402bb50880e9f12ce6db311582a44959028",
+    "traceability-matrix.md": "071a651c261de4f28fd4cba4ad7cfd569d4e787089cf6f1cee801dbad2ad25cf"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": 517,
+  "modified": "2026-11-07T11:37:54",
+  "link": "https://www.cryptolabs.co.za/ipmi_setup_guide/",
+  "checks": "main CLI/main Docker/SSL config present; old package/systemctl/latest commands absent"
+}
