@@ -67,7 +67,7 @@ class LocalPublicationRecipeTests(unittest.TestCase):
      else:
       with self.assertRaises(verify_artifact.Refused):exec(compile(code,'publisher-current-main-guard','exec'),{})
 
-P='e3fc7a3e396045a92e458f3214e75f6b8c313a27'
+P='327889745aafd0ab7656e3152e0a4da5bd3c0354'
 P_BASE='3ebfad9db5c2a0734d34142d8bcc39faef0373c8'
 BR_REAL='a034e480f77032f3f9afdb079363dea23e48c87a'
 class LocalCallerTests(unittest.TestCase):
