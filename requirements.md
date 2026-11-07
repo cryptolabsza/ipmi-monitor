@@ -1,25 +1,5 @@
 # Requirements — scoped IPMI source integration
 
-## REQ-IPMI-INSTALL-001 — main 1.4.2 installation guides
-
-Owner instructions on 7 November 2026: “Yes get them all updated ASAP,”
-“They should all recommend main 1.4.2,” and the explicit publication choice
-“Publish guides for main 1.4.2.” All normal-install guidance shall recommend
-GitHub `@main` and Docker `:main`, verified as IPMI Monitor 1.4.2, while preserving
-existing deployment data and settings. Development testing may remain explicit.
-
-Scope: installation documentation, public content sources and example Compose/
-setup configuration only. No runtime Python, workflow, dependency, version,
-credential, runner, or installed customer configuration changes. Runtime
-installer improvements remain local in the separate feature worktree.
-
-Trace `TRACE-IPMI-INSTALL-001`; verification `VER-IPMI-INSTALL-001`: deterministic
-source/channel/volume/port/config/shell checks and independent scoped review.
-Validation `VAL-IPMI-INSTALL-001`: public main source and image identify 1.4.2;
-all published normal-install guides select that main channel. Real customer
-installation is not claimed. See `.traceweaver/install-guides-20261107/scope.json`.
-
-
 
 ## Scoped IPMI authority amendment — 26 October 2026 (IPMI-SCOPED-20261026-MONITOR)
 
@@ -130,3 +110,29 @@ Monitor shall detect impossible/uninitialized dates and configurable drift (defa
 Source: approved plan §5; implementation-clarifications.md offset restoration. Trace: TRACE-SEL-005; verification: VER-SEL-005; validation: VAL-SEL-005, shared `docs/validation/sel-health-20261103.md`. Authority approved for local implementation/build; preparation review and production GO pending; runtime verification/validation held.
 
 Boundaries: isolated feature worktree; no dependency/infrastructure/CI/version change; no live BMC actions, credentials, publication, merge, release or deployment. Exact firmware/transport mutation qualification and representative owner acceptance remain separate held gates. Unsupported devices retain useful read warnings. Lossy clear override, generic Redfish mutations and unrelated credential refactors are excluded.
+
+
+## Current SEL release approval projection — 4 November 2026
+
+The latest direct owner response “Approve and deploy” is retained byte-for-byte in `.traceweaver/sel-release-20261104/owner-approval.json`. Its bounded mechanical release projection is `.traceweaver/sel-release-20261104/release-scope.json`: dev `e6c63ef25aecdfcc856f3bff73cd19b31259e9d7`, main `cf79b1258e9b6c0daed8c9c998218e4fb48cc0db`, and release version `1.4.0`. Existing REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004 and REQ-SEL-005 and their reviewed behavior remain unchanged. This adds no normative requirement or workflow profile.
+
+This approval authorizes the protected dev-to-main release, required checks, verified image publication/tagging and one Fleet canary after verified database backup with migration-compatible rollback ready. Actual migration, retained history and warning UI must be observed before wider rollout. Earlier local-only/no-release statements record historical approval stages; they do not override this later scoped release approval. Required publication, artifact identity and target prerequisites remain gates. Automatic clearing and native-clock correction remain off/unqualified unless the exact BMC firmware/action is qualified; no hardware write or unobserved acceptance is authorized by this projection. Source verification does not close requirements or establish installed/runtime acceptance.
+
+## REQ-IPMI-INSTALL-001 — main 1.4.2 installation guides
+
+Owner instructions on 7 November 2026: “Yes get them all updated ASAP,”
+“They should all recommend main 1.4.2,” and the explicit publication choice
+“Publish guides for main 1.4.2.” All normal-install guidance shall recommend
+GitHub `@main` and Docker `:main`, verified as IPMI Monitor 1.4.2, while preserving
+existing deployment data and settings. Development testing may remain explicit.
+
+Scope: installation documentation, public content sources and example Compose/
+setup configuration only. No runtime Python, workflow, dependency, version,
+credential, runner, or installed customer configuration changes. Runtime
+installer improvements remain local in the separate feature worktree.
+
+Trace `TRACE-IPMI-INSTALL-001`; verification `VER-IPMI-INSTALL-001`: deterministic
+source/channel/volume/port/config/shell checks and independent scoped review.
+Validation `VAL-IPMI-INSTALL-001`: public main source and image identify 1.4.2;
+all published normal-install guides select that main channel. Real customer
+installation is not claimed. See `.traceweaver/install-guides-20261107/scope.json`.
