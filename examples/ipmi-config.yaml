@@ -44,7 +44,7 @@ ipmi_monitor:
   enable_ssh_inventory: true
   enable_ssh_logs: false
   web_port: 5000
-  image_tag: dev  # Options: latest, dev
+  image_tag: main  # Released main branch; use sha-<commit> to pin, dev only for testing
 
 # Auto-updates
 enable_watchtower: true

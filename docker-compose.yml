@@ -14,11 +14,11 @@ version: '3.8'
 services:
   ipmi-monitor:
     # Image tags available:
-    #   :latest  - Stable releases only (recommended for production)
-    #   :stable  - Same as :latest
-    #   :v1.0.0  - Specific version (pin to a release)
-    #   :dev     - Development builds (updates frequently, may be unstable)
-    image: ghcr.io/cryptolabsza/ipmi-monitor:latest
+    #   :main         - Published main branch (recommended)
+    #   :sha-de79838  - Immutable source tag for 1.4.2
+    #   :dev          - Testing only; may lag main
+    # Legacy :latest/:stable aliases are not the current release channel.
+    image: ghcr.io/cryptolabsza/ipmi-monitor:main
     # Or build locally:
     # build: .
     container_name: ipmi-monitor

@@ -1,5 +1,12 @@
 # Traceability — scoped IPMI source integration
 
+## Main 1.4.2 guide correction
+
+| Requirement | Trace | Artifacts | Verification | Validation |
+| --- | --- | --- | --- | --- |
+| REQ-IPMI-INSTALL-001 | TRACE-IPMI-INSTALL-001 | README.md; RELEASING.md; docker-compose.yml; docker-compose.prod.yml; examples/ipmi-config.yaml; docs/index.md; docs/user-guide.md; docs/DEVELOPER_GUIDE.md; docs/wordpress/ipmi-setup-guide.html; marketing-page.html; wordpress-content.html; wordpress-blog-post.html | VER-IPMI-INSTALL-001; .traceweaver/install-guides-20261107/checks.json; .traceweaver/install-guides-20261107/review.json | VAL-IPMI-INSTALL-001; public source/image1.4.2 and website517 readback; customer install held |
+
+
 
 ## Scoped IPMI authority amendment — 26 October 2026 (IPMI-SCOPED-20261026-MONITOR)
 

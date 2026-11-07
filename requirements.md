@@ -1,5 +1,25 @@
 # Requirements — scoped IPMI source integration
 
+## REQ-IPMI-INSTALL-001 — main 1.4.2 installation guides
+
+Owner instructions on 7 November 2026: “Yes get them all updated ASAP,”
+“They should all recommend main 1.4.2,” and the explicit publication choice
+“Publish guides for main 1.4.2.” All normal-install guidance shall recommend
+GitHub `@main` and Docker `:main`, verified as IPMI Monitor 1.4.2, while preserving
+existing deployment data and settings. Development testing may remain explicit.
+
+Scope: installation documentation, public content sources and example Compose/
+setup configuration only. No runtime Python, workflow, dependency, version,
+credential, runner, or installed customer configuration changes. Runtime
+installer improvements remain local in the separate feature worktree.
+
+Trace `TRACE-IPMI-INSTALL-001`; verification `VER-IPMI-INSTALL-001`: deterministic
+source/channel/volume/port/config/shell checks and independent scoped review.
+Validation `VAL-IPMI-INSTALL-001`: public main source and image identify 1.4.2;
+all published normal-install guides select that main channel. Real customer
+installation is not claimed. See `.traceweaver/install-guides-20261107/scope.json`.
+
+
 
 ## Scoped IPMI authority amendment — 26 October 2026 (IPMI-SCOPED-20261026-MONITOR)
 
