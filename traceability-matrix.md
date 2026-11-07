@@ -189,3 +189,9 @@ Existing `TRACE-PAIR-004` / `VER-PAIR-004` / `VAL-PAIR-004`: `src/ipmi_monitor/a
 Evidence: `.traceweaver/connect-ready-20261104/` contains genuine RED, precode reviewer record, checker-accepted full V&V definition and local GREEN. Validation definition: `docs/validation/connect-ready-20261104.md`. Existing approved PHP/Jinja unsupported-format manual trace route remains in force; a supported scanner pass does not claim coverage of those formats. Full requirement closure, attested model-routing compliance, installed target sync, provider inference and publication remain held.
 
 Publication route update, 5 November 2026: owner explicitly selected the normal protected PR/CI release and LTX Fleet Manager update. `.traceweaver/connect-ready-20261104/publication-owner-authorization-20261105.json` supersedes this task’s prior local-only publication restriction and optional reviewer-model attestation gate; it does not claim that attestation passed or waive source review, tests, required CI, artifact, health or rollback checks.
+
+## Main 1.4.2 guide correction
+
+| Requirement | Trace | Artifacts | Verification | Validation |
+| --- | --- | --- | --- | --- |
+| REQ-IPMI-INSTALL-001 | TRACE-IPMI-INSTALL-001 | README.md; RELEASING.md; docker-compose.yml; docker-compose.prod.yml; examples/ipmi-config.yaml; docs/index.md; docs/user-guide.md; docs/DEVELOPER_GUIDE.md; docs/wordpress/ipmi-setup-guide.html; marketing-page.html; wordpress-content.html; wordpress-blog-post.html | VER-IPMI-INSTALL-001; .traceweaver/install-guides-20261107/checks.json; .traceweaver/install-guides-20261107/review.json | VAL-IPMI-INSTALL-001; public source/image1.4.2 and website517 readback; customer install held |

@@ -1,0 +1,40 @@
+{
+  "status": "pass",
+  "checks": [
+    "README.md: main channel consistency pass",
+    "RELEASING.md: main channel consistency pass",
+    "docker-compose.yml: main channel consistency pass",
+    "docker-compose.prod.yml: main channel consistency pass",
+    "examples/ipmi-config.yaml: main channel consistency pass",
+    "docs/index.md: main channel consistency pass",
+    "docs/user-guide.md: main channel consistency pass",
+    "docs/DEVELOPER_GUIDE.md: main channel consistency pass",
+    "docs/wordpress/ipmi-setup-guide.html: main channel consistency pass",
+    "marketing-page.html: main channel consistency pass",
+    "wordpress-content.html: main channel consistency pass",
+    "wordpress-blog-post.html: main channel consistency pass",
+    "all marketing data mounts /app/data",
+    "production example main/5000 checks pass",
+    "customer Bash examples parse",
+    "runtime/tests/dependencies/workflows/version untouched",
+    "main historical requirements/matrix preserved verbatim before reviewed additive scope"
+  ],
+  "file_sha256": {
+    "README.md": "0a2e30cfd04b76d10c3e4e9686e2445e2cafb487d995d689be0512eb8046f781",
+    "RELEASING.md": "04dad774089b7e9fd1eccacefe44a924f12465cc42196253800bc6a561840ed8",
+    "docker-compose.yml": "459f11f3e06dd3b7913b5870b279860d22783b96e7b748cac388b31eced6f366",
+    "docker-compose.prod.yml": "27a65bcfa7bfea9020c8eb5a79d2ddb759e5f4a2f2f98050f45dddf98ac00458",
+    "examples/ipmi-config.yaml": "94b9d1373e99be95d5e675bfa8f75b10275ddc37ada12f352b0d356fbbaf7f47",
+    "docs/index.md": "10ea3e68d47934bbed22aa043f978a5a181baf231db4fb4c99c4e8d89c65dfee",
+    "docs/user-guide.md": "3d8cc33ec2b6c686db5ab70fe06c856d335f97679a0f9abfb9bca7be5f50ea1b",
+    "docs/DEVELOPER_GUIDE.md": "b22b51e91ef7c7b7cf5ff56f376a1cdae46f644b5f540b92f8c78d34d24d20a4",
+    "docs/wordpress/ipmi-setup-guide.html": "db497b54486de041af3b6a0f878cf4c4344195e68ba5d5f679addf5b44fae8f4",
+    "marketing-page.html": "f9ad9110e5b9368db9e7988d41c1067d9ef58e8a798dc978e35206d2d98f0718",
+    "wordpress-content.html": "a043c61efedb5a575f606c693d6558b8178bb5b20044db49b5ab3c1ed27948ab",
+    "wordpress-blog-post.html": "f719a00a89cbaa2be244410761008e8d2c9cf1343745cb6e0b5c2d3c61789eff",
+    "requirements.md": "e6b4ebf2986b5cfc8c681d59a69b17bc9d7e652b442e5e00da84a44561ba3465",
+    "traceability-matrix.md": "f8e1b76f28038b4c7906a440fef4fc821267cd309c277e2a2851c3cf0908a39c"
+  },
+  "test_value": "Documentation/example-only deterministic checks; required CI retained",
+  "held": "real customer installation"
+}

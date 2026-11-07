@@ -1,0 +1,392 @@
+
+<!-- IPMI Monitor Setup Guide Page -->
+<!-- WordPress page 517: /ipmi_setup_guide/; source captured 7 November 2026 -->
+
+<div style="max-width: 1000px;margin: 0 auto;font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+
+<!-- Header -->
+<div style="background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0f2849 100%);padding: 50px 40px;border-radius: 20px;text-align: center;color: white;margin-bottom: 40px">
+    <div style="font-size: 3rem;margin-bottom: 15px">📖</div>
+    <h1 style="font-size: 2.5rem;margin: 0 0 15px 0;color: white">IPMI Monitor Setup Guide</h1>
+    <p style="font-size: 1.2rem;color: #a0a0c0;margin: 0">
+        Get up and running in 5 minutes
+    </p>
+</div>
+
+<!-- Quick Navigation -->
+<div style="background: #f8f9fa;padding: 25px;border-radius: 12px;margin-bottom: 40px">
+    <h3 style="margin: 0 0 15px 0;font-size: 1.2rem">📋 Quick Navigation</h3>
+    <div style="gap: 10px;flex-wrap: wrap">
+        <a href="#pip-install" style="background: #28a745;color: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;font-weight: 600">⭐ pipx install (New!)</a>
+        <a href="#docker-compose" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">Docker Compose</a>
+        <a href="#configuration" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">Configuration</a>
+        <a href="#ssl-setup" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">SSL Setup</a>
+        <a href="#add-servers" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">Add Servers</a>
+        <a href="#ssh-setup" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">SSH Setup</a>
+        <a href="#ai-features" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">AI Features</a>
+        <a href="#troubleshooting" style="background: white;padding: 8px 16px;border-radius: 8px;text-decoration: none;color: #333;border: 1px solid #ddd">Troubleshooting</a>
+    </div>
+</div>
+
+<!-- Requirements -->
+<div id="requirements" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">📦 Requirements</h2>
+    <div style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));gap: 20px">
+        <div style="background: white;padding: 25px;border-radius: 12px;border: 1px solid #e0e0e0">
+            <h4 style="margin: 0 0 12px 0;color: #4a9eff">Host System</h4>
+            <ul style="margin: 0;padding-left: 20px;color: #333;line-height: 1.8">
+                <li>Linux (Ubuntu 20.04+, Debian, CentOS)</li>
+                <li>Python 3.9+ (for pipx install)</li>
+                <li>OR Docker &amp; Docker Compose</li>
+                <li>Network access to IPMI/BMC interfaces</li>
+            </ul>
+        </div>
+        <div style="background: white;padding: 25px;border-radius: 12px;border: 1px solid #e0e0e0">
+            <h4 style="margin: 0 0 12px 0;color: #00a86b">Your Servers</h4>
+            <ul style="margin: 0;padding-left: 20px;color: #333;line-height: 1.8">
+                <li>IPMI/BMC interface enabled</li>
+                <li>BMC IP accessible from host</li>
+                <li>IPMI credentials (username/password)</li>
+                <li>SSH access (optional, for enhanced monitoring)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Understanding IPs -->
+<div style="border: 2px solid #4a9eff;padding: 25px;border-radius: 12px;margin-bottom: 40px">
+    <h3 style="margin: 0 0 12px 0;color: #0066cc">💡 Understanding Server IP vs BMC IP</h3>
+    <p style="color: #333;margin: 0 0 15px 0">
+        Your server has <strong>two different IP addresses</strong> that serve different purposes:
+    </p>
+    <div style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));gap: 15px">
+        <div style="background: white;padding: 15px;border-radius: 8px;border: 1px solid #4a9eff">
+            <p style="margin: 0 0 8px 0;color: #4a9eff;font-weight: 600">🖥️ Server/SSH IP</p>
+            <p style="color: #444;margin: 0;font-size: 0.9rem">
+                The main OS IP address (e.g., 192.168.1.100)<br />
+                Used for: SSH, applications, normal access<br />
+                <strong>Enter this in the SSH Host field</strong>
+            </p>
+        </div>
+        <div style="background: white;padding: 15px;border-radius: 8px;border: 1px solid #00a86b">
+            <p style="margin: 0 0 8px 0;color: #00a86b;font-weight: 600">🔧 BMC/IPMI IP</p>
+            <p style="color: #444;margin: 0;font-size: 0.9rem">
+                Separate management interface (e.g., 192.168.1.101)<br />
+                Used for: Out-of-band management, power control<br />
+                <strong>Enter this in the BMC IP field</strong>
+            </p>
+        </div>
+    </div>
+</div>
+
+<div style="background: #fff8e1; padding: 20px; border-radius: 12px; margin-bottom: 24px; color: #333;">
+<h2>Choose the main release channel</h2>
+<p>Use <code>git+https://github.com/cryptolabsza/ipmi-monitor.git@main</code> for the CLI and <code>ghcr.io/cryptolabsza/ipmi-monitor:main</code> for Docker. Legacy <code>latest</code>, <code>stable</code> and <code>dev</code> Docker tags may contain older builds. The PyPI package currently lags main.</p>
+<p>For an existing installation, back up your data and configuration, change only the IPMI Monitor image in your existing Compose file to <code>ghcr.io/cryptolabsza/ipmi-monitor:main</code>, and preserve its volumes and settings. Then run <code>docker compose -f /path/to/your/docker-compose.yml pull ipmi-monitor</code> followed by <code>docker compose -f /path/to/your/docker-compose.yml up -d ipmi-monitor</code>. Do not run the fresh-install setup over an existing deployment.</p>
+<p>To pin the verified 1.4.2 image, use <code>ghcr.io/cryptolabsza/ipmi-monitor:sha-de79838</code>. After installation, check the dashboard or <code>docker exec ipmi-monitor python -c &quot;import os; print(os.environ.get('APP_VERSION'), os.environ.get('GIT_COMMIT'))&quot;</code>. Expected for this release: <code>1.4.2</code> and <code>de79838</code>.</p>
+</div>
+
+<!-- Option 1: pipx install (Recommended) -->
+<div id="pip-install" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">
+        ⭐ Option 1: pipx install <span style="background: #28a745;color: white;padding: 3px 10px;border-radius: 12px;font-size: 0.6em;margin-left: 10px">RECOMMENDED</span>
+    </h2>
+    <p style="color: #444;margin: 0 0 20px 0">
+        Install the setup CLI from the released GitHub main branch and select the main Docker image. Verified on 7 November 2026: main is IPMI Monitor 1.4.2 (commit de79838). The CLI and running Docker container are separate artifacts; updating the CLI alone does not update the dashboard.
+    </p>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white;margin-bottom: 20px">
+        <h4 style="margin: 0 0 15px 0;color: #00d68f">Step 1: Install &amp; Run Setup</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace">
+            <code style="color: #00d68f; overflow-wrap: anywhere">sudo apt install pipx git -y<br />pipx ensurepath<br />pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main<br />pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main<br /># New install: explicitly use the released main image<br />printf &#x27;ipmi_monitor:\n  image_tag: main\nssl:\n  mode: self_signed\n&#x27; &gt; ipmi-config.yaml<br />sudo &quot;$HOME/.local/bin/ipmi-monitor&quot; setup -c ipmi-config.yaml</code>
+        </div>
+        <p style="color: #c0c0d0;margin: 15px 0 0 0;font-size: 0.9rem">
+            The wizard will guide you through adding your first server. This config explicitly enables the CryptoLabs Proxy with self-signed HTTPS; use the dashboard URL printed by setup. For a public certificate, configure ssl.mode: letsencrypt with your domain and email.
+        </p>
+    </div>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white;margin-bottom: 20px">
+        <h4 style="margin: 0 0 15px 0;color: #4a9eff">Step 2: Add More Servers</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace">
+            <code style="color: #00d68f; overflow-wrap: anywhere">ipmi-monitor add-server --bmc-ip 192.168.1.10 --username admin --name server-01</code>
+        </div>
+    </div>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white">
+        <h4 style="margin: 0 0 15px 0;color: #4a9eff">Step 3: Open Dashboard</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace">
+            <code style="color: #4a9eff">Use the HTTPS dashboard URL printed by setup</code>
+        </div>
+    </div>
+</div>
+
+<!-- SSL Setup -->
+<div id="ssl-setup" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">🔐 Set Up SSL &amp; Branded Dashboard</h2>
+    <p style="color: #444;margin: 0 0 20px 0">
+        Set up HTTPS access with a beautiful landing page that links to all your monitoring services.
+    </p>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white;margin-bottom: 20px">
+        <h4 style="margin: 0 0 15px 0;color: #00d68f">Self-Signed Certificate (Quick Setup)</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace">
+            <pre style="margin: 0;color: #e0e0e0"><span style="color: #88aacc"># Basic setup (IP access only)</span>
+<span style="color: #00d68f">sudo ipmi-monitor setup-ssl</span>
+
+<span style="color: #88aacc"># With custom site name</span>
+<span style="color: #00d68f">sudo ipmi-monitor setup-ssl --site-name "My Server Fleet"</span>
+
+<span style="color: #88aacc"># Include DC Overview if installed</span>
+<span style="color: #00d68f">sudo ipmi-monitor setup-ssl --dc-overview --vastai</span></pre>
+        </div>
+    </div>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white;margin-bottom: 20px">
+        <h4 style="margin: 0 0 15px 0;color: #4a9eff">Let&#8217;s Encrypt Certificate (Production)</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace">
+            <pre style="margin: 0;color: #e0e0e0"><span style="color: #00d68f">sudo ipmi-monitor setup-ssl 
+  --domain ipmi.example.com 
+  --letsencrypt 
+  --email admin@example.com 
+  --dc-overview --vastai</span></pre>
+        </div>
+    </div>
+    
+    <div style="border: 2px solid #4a9eff;padding: 20px;border-radius: 12px">
+        <h4 style="margin: 0 0 10px 0;color: #0066cc">🌐 DNS Setup (for domain)</h4>
+        <p style="color: #333;margin: 0 0 10px 0">Add these DNS records pointing to your server IP:</p>
+        <table style="width: 100%;border-collapse: collapse;font-size: 0.9rem">
+            <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 8px 0"><strong>A</strong></td>
+                <td style="padding: 8px 0"><code>ipmi.example.com</code></td>
+                <td style="padding: 8px 0">→ &lt;server-ip&gt;</td>
+                <td style="padding: 8px 0;color: #666">Main dashboard</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #ddd">
+                <td style="padding: 8px 0"><strong>A</strong></td>
+                <td style="padding: 8px 0"><code>grafana.ipmi.example.com</code></td>
+                <td style="padding: 8px 0">→ &lt;server-ip&gt;</td>
+                <td style="padding: 8px 0;color: #666">If using DC Overview</td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<!-- Option 2: Docker Compose -->
+<div id="docker-compose" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">🐳 Option 2: Docker Compose</h2>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white;margin-bottom: 20px">
+        <h4 style="margin: 0 0 15px 0;color: #4a9eff">docker-compose.yml</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace;font-size: 0.9rem;line-height: 1.6">
+            <pre style="margin: 0;color: #e0e0e0">version: '3.8'
+
+services:
+  ipmi-monitor:
+    image: ghcr.io/cryptolabsza/ipmi-monitor:main
+    container_name: ipmi-monitor
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - APP_NAME=My Server Fleet        <span style="color: #88aacc"># Customize this</span>
+      - IPMI_USER=admin
+      - IPMI_PASS=YourIPMIPassword      <span style="color: #88aacc"># Your BMC password</span>
+      - ADMIN_PASS=changeme             <span style="color: #ff6b6b"># CHANGE THIS!</span>
+      - SECRET_KEY=change-this-to-random-string
+    volumes:
+      - ipmi_data:/app/data             <span style="color: #88aacc"># ⚠️ Persists your data!</span>
+      - ./keys:/app/keys:ro             <span style="color: #88aacc"># SSH keys (optional)</span>
+
+volumes:
+  ipmi_data:</pre>
+        </div>
+    </div>
+    
+    <div style="background: #1a1a2e;padding: 30px;border-radius: 16px;color: white">
+        <h4 style="margin: 0 0 15px 0;color: #4a9eff">Start the service</h4>
+        <div style="background: #0d0d1a;padding: 15px;border-radius: 8px;font-family: 'JetBrains Mono', 'Fira Code', monospace">
+            <code style="color: #00d68f; overflow-wrap: anywhere">docker compose up -d</code>
+        </div>
+    </div>
+</div>
+
+<!-- Data Persistence Warning -->
+<div style="border: 2px solid #e6a700;padding: 25px;border-radius: 12px;margin-bottom: 40px">
+    <h3 style="margin: 0 0 12px 0;color: #805600">⚠️ Important: Data Persistence (Docker)</h3>
+    <p style="color: #805600;margin: 0 0 15px 0">
+        <strong>Always use a named volume</strong> to preserve your data across container updates:
+    </p>
+    <div style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));gap: 15px">
+        <div style="padding: 15px;border-radius: 8px;border: 1px solid #00a86b">
+            <p style="margin: 0 0 8px 0;color: #006644;font-weight: 600">✅ CORRECT &#8211; Named volume</p>
+            <code style="color: #155724;font-size: 0.9rem">volumes:<br />&nbsp;&nbsp;- ipmi_data:/app/data</code>
+        </div>
+        <div style="padding: 15px;border-radius: 8px;border: 1px solid #dc3545">
+            <p style="margin: 0 0 8px 0;color: #a71d2a;font-weight: 600">❌ WRONG &#8211; No volume</p>
+            <code style="color: #721c24;font-size: 0.9rem"># (no volume specified)<br /># Data lost on rebuild!</code>
+        </div>
+    </div>
+</div>
+
+<!-- Add Servers -->
+<div id="add-servers" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">➕ Adding Servers</h2>
+    <div style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));gap: 20px">
+        <div style="background: white;padding: 25px;border-radius: 12px;border: 1px solid #e0e0e0">
+            <h4 style="margin: 0 0 12px 0;color: #4a9eff">Via Dashboard (Recommended)</h4>
+            <ol style="margin: 0;padding-left: 20px;color: #333;line-height: 2">
+                <li>Open IPMI Monitor in your browser</li>
+                <li>Click <strong>+ Add Server</strong></li>
+                <li>Enter a friendly name</li>
+                <li>Enter the <strong>BMC/IPMI IP</strong></li>
+                <li>Enter IPMI credentials</li>
+                <li>Click <strong>Add Server</strong></li>
+            </ol>
+        </div>
+        <div style="background: white;padding: 25px;border-radius: 12px;border: 1px solid #e0e0e0">
+            <h4 style="margin: 0 0 12px 0;color: #00a86b">Via CLI (pipx install)</h4>
+            <div style="background: #1a1a2e;padding: 15px;border-radius: 8px;font-family: monospace;font-size: 0.85rem;margin-top: 10px">
+                <code style="color: #00d68f; overflow-wrap: anywhere">ipmi-monitor add-server <br />
+&nbsp;&nbsp;--bmc-ip 192.168.1.10 <br />
+&nbsp;&nbsp;--username admin <br />
+&nbsp;&nbsp;--name server-01</code>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SSH Setup -->
+<div id="ssh-setup" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">🔐 SSH Configuration</h2>
+    <p style="color: #444;margin: 0 0 20px 0">
+        SSH access enables enhanced monitoring: system logs, GPU status, daemon logs (Vast.ai/RunPod), and detailed hardware inventory.
+    </p>
+    
+    <div style="padding: 20px;border-radius: 12px;border: 1px solid #00a86b">
+        <h4 style="margin: 0 0 10px 0;color: #006644">✅ SSH Enables These Features:</h4>
+        <ul style="margin: 0;padding-left: 20px;color: #333;line-height: 1.8;columns: 2">
+            <li>System/dmesg logs</li>
+            <li>GPU driver status</li>
+            <li>Vast.ai daemon logs</li>
+            <li>RunPod agent logs</li>
+            <li>Detailed RAM info</li>
+            <li>PCIe device inventory</li>
+            <li>Real-time GPU temps</li>
+            <li>Docker container status</li>
+        </ul>
+    </div>
+</div>
+
+<!-- AI Features -->
+<div id="ai-features" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">🤖 Enabling AI Features</h2>
+    <div style="background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 100%);padding: 30px;border-radius: 16px;color: white">
+        <p style="color: #c0c0d0;margin: 0 0 20px 0">
+            AI features provide intelligent analysis, natural language queries, and predictive maintenance.
+        </p>
+        <ol style="margin: 0;padding-left: 20px;color: #e0e0e0;line-height: 2.2">
+            <li>Go to <strong style="color: white">Settings</strong> → <strong style="color: white">AI Features</strong></li>
+            <li>Click <strong style="color: #00d68f">Start Free Trial</strong></li>
+            <li>Create an account at CryptoLabs</li>
+            <li>Verify your email</li>
+            <li>AI features activate automatically!</li>
+        </ol>
+        <div style="padding: 20px;border-radius: 10px;margin-top: 20px">
+            <h4 style="margin: 0 0 12px 0;color: #4a9eff">🧠 AI-Powered Features:</h4>
+            <ul style="margin: 0;padding-left: 20px;color: #c0c0d0;line-height: 1.8">
+                <li><strong style="color: white">Natural Language Chat</strong> &#8211; Ask questions in plain English</li>
+                <li><strong style="color: white">Fleet Summary</strong> &#8211; AI-generated overview</li>
+                <li><strong style="color: white">Anomaly Detection</strong> &#8211; Automatic pattern identification</li>
+                <li><strong style="color: white">Maintenance Predictions</strong> &#8211; Proactive alerts</li>
+            </ul>
+        </div>
+        <div style="margin-top: 25px;text-align: center">
+            <a href="https://www.cryptolabs.co.za/ipmi_signup/" style="background: linear-gradient(135deg, #00d68f 0%, #00b377 100%);color: white;padding: 14px 32px;border-radius: 10px;text-decoration: none;font-weight: 600">
+                🚀 Start Free Trial (1 Month)
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Updates -->
+<div id="updates" style="margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.8rem;border-bottom: 2px solid #eee;padding-bottom: 10px">🔄 Keeping Up to Date</h2>
+    
+    <div style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));gap: 20px">
+        <div style="background: #1a1a2e;padding: 25px;border-radius: 12px;color: white">
+            <h4 style="margin: 0 0 15px 0;color: #00d68f">pipx install</h4>
+            <div style="background: #0d0d1a;padding: 12px;border-radius: 8px;font-family: monospace;font-size: 0.9rem">
+                <code style="color: #00d68f; overflow-wrap: anywhere">pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main<br />pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main<br />sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor<br />sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml up -d ipmi-monitor</code>
+            </div>
+        </div>
+        
+        <div style="background: #1a1a2e;padding: 25px;border-radius: 12px;color: white">
+            <h4 style="margin: 0 0 15px 0;color: #4a9eff">Docker</h4>
+            <div style="background: #0d0d1a;padding: 12px;border-radius: 8px;font-family: monospace;font-size: 0.9rem">
+                <code style="color: #00d68f; overflow-wrap: anywhere">docker compose -f /path/to/your/docker-compose.yml pull ipmi-monitor<br />docker compose -f /path/to/your/docker-compose.yml up -d ipmi-monitor</code>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Troubleshooting -->
+<div id="troubleshooting" style="background: #f0f2f5;padding: 30px;border-radius: 16px;margin-bottom: 40px">
+    <h2 style="margin: 0 0 20px 0;font-size: 1.5rem;color: #222">🔧 Troubleshooting</h2>
+    
+    <div style="margin-bottom: 20px">
+        <h4 style="margin: 0 0 8px 0;color: #222">Can&#8217;t connect to IPMI/BMC?</h4>
+        <p style="color: #444;margin: 0">Make sure the BMC IP is reachable from your host:</p>
+        <div style="background: #1a1a2e;padding: 12px;border-radius: 6px;font-family: monospace;font-size: 0.85rem;margin-top: 8px">
+            <code style="color: #00d68f; overflow-wrap: anywhere">ping &lt;BMC_IP&gt;<br />ipmitool -I lanplus -H &lt;BMC_IP&gt; -U admin -P password chassis status</code>
+        </div>
+    </div>
+    
+    <div style="margin-bottom: 20px">
+        <h4 style="margin: 0 0 8px 0;color: #222">SSH connection fails?</h4>
+        <p style="color: #444;margin: 0">Check that:<br />
+        • SSH Host is the server OS IP, not the BMC IP<br />
+        • SSH key has correct permissions (600)<br />
+        • For Docker: keys are mounted correctly</p>
+    </div>
+    
+    <div>
+        <h4 style="margin: 0 0 8px 0;color: #222">Need more help?</h4>
+        <p style="color: #444;margin: 0">
+            Join our <a href="https://discord.gg/7yeHdf5BuC" target="_blank" style="color: #5865F2;font-weight: 600">Discord community</a> or 
+            <a href="https://github.com/cryptolabsza/ipmi-monitor/issues" target="_blank" style="color: #222;font-weight: 600">open a GitHub issue</a>.
+        </p>
+    </div>
+</div>
+
+<!-- Cross-promotion: DC Overview -->
+<div style="background: linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%);padding: 30px;border-radius: 16px;margin-bottom: 40px;color: white">
+    <div style="gap: 20px;align-items: center;flex-wrap: wrap">
+        <div style="font-size: 3rem">📊</div>
+        <div style="flex: 1;min-width: 250px">
+            <h3 style="margin: 0 0 8px 0;color: white">Also check out DC Overview</h3>
+            <p style="color: #c0c0d0;margin: 0">
+                Complete GPU monitoring with Grafana dashboards, Prometheus metrics, VRAM temps, and Vast.ai integration. 
+                <strong>Works great alongside IPMI Monitor!</strong>
+            </p>
+        </div>
+        <div>
+            <a href="https://www.cryptolabs.co.za/dc-overview/" style="background: #e94560;color: white;padding: 12px 24px;border-radius: 8px;text-decoration: none;font-weight: 600">
+                Learn More →
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Footer Links -->
+<div style="text-align: center;padding: 30px 0;border-top: 1px solid #eee">
+    <div style="gap: 20px;justify-content: center;flex-wrap: wrap">
+        <a href="https://www.cryptolabs.co.za/ipmi-monitor/" style="color: #4a9eff;text-decoration: none;font-weight: 500">← Back to Product Page</a>
+        <a href="https://github.com/cryptolabsza/ipmi-monitor" target="_blank" style="color: #222;text-decoration: none;font-weight: 500">GitHub Repository</a>
+        <a href="https://discord.gg/7yeHdf5BuC" target="_blank" style="color: #5865F2;text-decoration: none;font-weight: 500">Discord Community</a>
+    </div>
+</div>
+
+</div>
+
+

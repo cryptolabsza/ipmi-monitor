@@ -1,3 +1,4 @@
+<!-- Installation recommendation: GitHub main and Docker main, verified IPMI Monitor 1.4.2 on 7 November 2026. -->
 <!-- 
     IPMI Monitor - WordPress Blog Post
     ===================================
@@ -142,8 +143,8 @@ docker run -d \
   -e IPMI_PASS=YourIPMIPassword \
   -e ADMIN_USER=admin \
   -e ADMIN_PASS=YourSecurePassword \
-  -v ipmi_data:/app/instance \
-  ghcr.io/jjziets/ipmi-monitor:latest
+  -v ipmi_data:/app/data \
+  ghcr.io/cryptolabsza/ipmi-monitor:main
 
 <span style="color: #6a9955;"># Access at http://localhost:5001</span></code>
 </pre>
@@ -155,7 +156,7 @@ docker run -d \
 <span style="color: #9cdcfe;">version</span>: <span style="color: #ce9178;">'3.8'</span>
 <span style="color: #9cdcfe;">services</span>:
   <span style="color: #9cdcfe;">ipmi-monitor</span>:
-    <span style="color: #9cdcfe;">image</span>: ghcr.io/jjziets/ipmi-monitor:latest
+    <span style="color: #9cdcfe;">image</span>: ghcr.io/cryptolabsza/ipmi-monitor:main
     <span style="color: #9cdcfe;">container_name</span>: ipmi-monitor
     <span style="color: #9cdcfe;">restart</span>: unless-stopped
     <span style="color: #9cdcfe;">ports</span>:
@@ -167,7 +168,7 @@ docker run -d \
       - ADMIN_PASS=${ADMIN_PASS}
       - SECRET_KEY=${SECRET_KEY}
     <span style="color: #9cdcfe;">volumes</span>:
-      - ipmi_data:/app/instance
+      - ipmi_data:/app/data
 
 <span style="color: #9cdcfe;">volumes</span>:
   <span style="color: #9cdcfe;">ipmi_data</span>:</code>
@@ -228,9 +229,9 @@ use_nvidia_password = true  <span style="color: #6a9955;"># For DGX/HGX systems<
 <p>IPMI Monitor is open source under the MIT License. We welcome contributions!</p>
 
 <ul>
-<li><strong>GitHub:</strong> <a href="https://github.com/jjziets/ipmi-monitor" target="_blank">github.com/jjziets/ipmi-monitor</a></li>
-<li><strong>Docker Image:</strong> <code>ghcr.io/jjziets/ipmi-monitor:latest</code></li>
-<li><strong>Issues & Feature Requests:</strong> <a href="https://github.com/jjziets/ipmi-monitor/issues" target="_blank">GitHub Issues</a></li>
+<li><strong>GitHub:</strong> <a href="https://github.com/cryptolabsza/ipmi-monitor" target="_blank">github.com/jjziets/ipmi-monitor</a></li>
+<li><strong>Docker Image:</strong> <code>ghcr.io/cryptolabsza/ipmi-monitor:main</code></li>
+<li><strong>Issues & Feature Requests:</strong> <a href="https://github.com/cryptolabsza/ipmi-monitor/issues" target="_blank">GitHub Issues</a></li>
 </ul>
 
 <hr style="margin: 3em 0; border: none; border-top: 1px solid #eee;" />
@@ -238,8 +239,8 @@ use_nvidia_password = true  <span style="color: #6a9955;"># For DGX/HGX systems<
 <p style="font-size: 1.1em;"><strong>Ready to monitor your server fleet?</strong> Deploy IPMI Monitor today and get visibility into your hardware health like never before.</p>
 
 <p style="margin-top: 2em;">
-<a href="https://github.com/jjziets/ipmi-monitor" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #00e5c7, #3d8bff); color: #000; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-right: 10px;">⬇️ Get Started on GitHub</a>
-<a href="https://github.com/jjziets/ipmi-monitor#readme" target="_blank" style="display: inline-block; background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">📖 Read Documentation</a>
+<a href="https://github.com/cryptolabsza/ipmi-monitor" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #00e5c7, #3d8bff); color: #000; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; margin-right: 10px;">⬇️ Get Started on GitHub</a>
+<a href="https://github.com/cryptolabsza/ipmi-monitor#readme" target="_blank" style="display: inline-block; background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">📖 Read Documentation</a>
 </p>
 
 <!--

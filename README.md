@@ -65,33 +65,47 @@
 Deploy everything with a single command using a config file:
 
 ```bash
-# Install from dev branch (latest features)
-pip install git+https://github.com/cryptolabsza/cryptolabs-proxy.git@dev --break-system-packages
-pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
+# Install the released main branch
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
 
 # Deploy with config file (no prompts)
-sudo ipmi-monitor setup -c /path/to/config.yaml -y
+sudo "$(command -v ipmi-monitor)" setup -c /path/to/config.yaml -y
 ```
 
 See [examples/ipmi-config.yaml](examples/ipmi-config.yaml) for a complete config template.
+
+Use `ipmi_monitor.image_tag: main` in your config. The CLI package and the running
+Docker image are separate: installing a newer CLI does not update an existing
+container. The published production image is `ghcr.io/cryptolabsza/ipmi-monitor:main`.
+The legacy `latest` and `dev` tags can point to older builds; do not use them for
+normal installations. As verified on 7 November 2026, `main` is version **1.4.2**
+(commit `de79838`); `sha-de79838` pins that same image. PyPI still serves 1.3.1,
+so install the CLI from GitHub `@main` rather than the unqualified PyPI package.
 
 ### Interactive Setup
 
 **Ubuntu 24.04+ / Python 3.12+** (uses pipx):
 ```bash
-apt install pipx -y && pipx ensurepath
+sudo apt install pipx git -y
+pipx ensurepath
 source ~/.bashrc
-pipx install ipmi-monitor
-sudo ipmi-monitor setup
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
+# New install: explicitly select main, including with the 1.4.2 setup wizard
+printf 'ipmi_monitor:\n  image_tag: main\nssl:\n  mode: self_signed\n' > ipmi-config.yaml
+sudo "$(command -v ipmi-monitor)" setup -c ipmi-config.yaml
 ```
 
 **Ubuntu 22.04 / Python 3.10**:
 ```bash
-pipx install ipmi-monitor
-sudo ipmi-monitor setup
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
+printf 'ipmi_monitor:\n  image_tag: main\nssl:\n  mode: self_signed\n' > ipmi-config.yaml
+sudo "$(command -v ipmi-monitor)" setup -c ipmi-config.yaml
 ```
 
-> **Note:** This automatically deploys [cryptolabs-proxy](https://github.com/cryptolabsza/cryptolabs-proxy) as the unified entry point and authentication layer.
+> **Note:** The fresh-install config above explicitly enables self-signed HTTPS and deploys [cryptolabs-proxy](https://github.com/cryptolabsza/cryptolabs-proxy) as the unified entry point and authentication layer.
 
 **That's it!** Answer a few questions and Docker containers are deployed automatically:
 
@@ -121,18 +135,17 @@ Step 1: Add Servers to Monitor
 Step 2-4: Web Settings, Password, AI Features...
 
 Step 5: Auto-Updates
-? Enable automatic updates? (recommended) [Y/n]: y
+✓ IPMI updates: Manual with this configuration
 
 Step 5b: SSH Log Collection (Optional)
 ? Enable SSH log collection? [y/N]: y
 
 Step 6: Image Channel
-? Docker image channel: stable (latest)
+✓ Image channel: main (from config)
 
 Step 7: HTTPS Access (Optional)
-? Set up HTTPS reverse proxy? [Y/n]: y
-? Domain name: ipmi.example.com
-? Use Let's Encrypt? [Y/n]: y
+✓ HTTPS proxy: Enabled (from config)
+✓ SSL mode: self_signed (use ssl.mode: letsencrypt plus domain/email for a public certificate)
 
 Step 8: Deploying IPMI Monitor
   ✓ SSH key copied: default-key
@@ -142,15 +155,15 @@ Step 8: Deploying IPMI Monitor
   ✓ IPMI Monitor image pulled
   ✓ CryptoLabs Proxy image pulled
   ✓ IPMI Monitor started
-  ✓ Let's Encrypt certificate obtained
+  ✓ Self-signed HTTPS proxy configured
 
 ╭──────────────────────────────────────────────────╮
 │              ✓ Setup Complete!                   │
 ╰──────────────────────────────────────────────────╯
-Web Interface: https://ipmi.example.com/
+Web Interface: https://<your-server-ip>/
 Servers Monitored: 3
 HTTPS: Enabled ✓
-Auto-Updates: Enabled ✓ (Watchtower)
+IPMI Updates: Manual (automatic updates are opt-in)
 ```
 
 ### After Setup
@@ -162,8 +175,9 @@ ipmi-monitor status
 # View logs
 ipmi-monitor logs -f
 
-# Upgrade to latest version
-ipmi-monitor upgrade
+# Pull and recreate the configured main image
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml up -d ipmi-monitor
 
 # Stop/start containers
 ipmi-monitor stop
@@ -223,10 +237,10 @@ global:root,sshpassword
 For complete GPU datacenter monitoring, combine with [DC Overview](https://github.com/cryptolabsza/dc-overview):
 
 ```bash
-# On master server - install from dev branch
-pip install git+https://github.com/cryptolabsza/cryptolabs-proxy.git@dev --break-system-packages
-pip install git+https://github.com/cryptolabsza/dc-overview.git@dev --break-system-packages
-pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev --break-system-packages
+# On master server - install from the released main branches
+pip install git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main --break-system-packages
+pip install git+https://github.com/cryptolabsza/dc-overview.git@main --break-system-packages
+pip install git+https://github.com/cryptolabsza/ipmi-monitor.git@main --break-system-packages
 
 # Deploy dc-overview (includes Grafana + Prometheus + GPU metrics + IPMI Monitor)
 sudo dc-overview setup -c /path/to/config.yaml -y
@@ -289,7 +303,7 @@ secret file read-only into both services and explicitly set the authority.
 
 ```bash
 # Setup (recommended)
-sudo ipmi-monitor setup    # Interactive Docker deployment
+sudo "$HOME/.local/bin/ipmi-monitor" setup -c ipmi-config.yaml  # Select main explicitly
 
 # Container management
 ipmi-monitor status             # Show container status
@@ -298,7 +312,8 @@ ipmi-monitor logs -f            # Follow logs
 ipmi-monitor stop               # Stop containers
 ipmi-monitor start              # Start containers
 ipmi-monitor restart            # Restart containers
-ipmi-monitor upgrade            # Pull latest image & restart
+docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor
+docker compose -f /etc/ipmi-monitor/docker-compose.yml up -d ipmi-monitor
 
 # Server management
 ipmi-monitor add-server         # Add a server interactively
@@ -327,7 +342,7 @@ version: '3.8'
 
 services:
   ipmi-monitor:
-    image: ghcr.io/cryptolabsza/ipmi-monitor:latest
+    image: ghcr.io/cryptolabsza/ipmi-monitor:main
     container_name: ipmi-monitor
     restart: unless-stopped
     ports:
@@ -373,7 +388,7 @@ docker run -d \
   -e SECRET_KEY=YOUR_RANDOM_SECRET_KEY \
   -v ipmi_data:/app/data \
   --restart unless-stopped \
-  ghcr.io/cryptolabsza/ipmi-monitor:latest
+  ghcr.io/cryptolabsza/ipmi-monitor:main
 ```
 
 ---
@@ -432,30 +447,46 @@ ai:
 
 ### Setup Deployment (Recommended)
 
-If you used `sudo ipmi-monitor setup` with the HTTPS proxy (cryptolabs-proxy), updates are automatic via **cryptolabs-watchtower** (deployed by cryptolabs-proxy):
+For main 1.4.2, use the explicit Compose commands below to update IPMI Monitor.
+Automatic IPMI updates require opting in with `enable_watchtower_all: true` (or
+the IPMI container's Watchtower label) and a configured Watchtower service.
+The fresh-install configuration above does not enable automatic IPMI updates.
 
 ```bash
-# Check for updates manually
-ipmi-monitor upgrade
+# Pull and recreate the configured main image manually
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml up -d ipmi-monitor
 
-# Or just wait - cryptolabs-watchtower checks every 5 minutes
+# Preserve the existing Compose image selection and data volumes
 ```
 
 ### CLI Update
 
 ```bash
-pipx upgrade ipmi-monitor
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
 ```
 
 ### Docker Manual Update
 
-```bash
-# Pull the latest image
-docker pull ghcr.io/cryptolabsza/ipmi-monitor:latest
+For an existing installation on `dev`, `latest`, or `stable`, first back up the
+database and configuration, then change only the `ipmi-monitor` service's image
+in its existing Compose file to `ghcr.io/cryptolabsza/ipmi-monitor:main`. Keep all
+volumes, environment settings, and credentials. Upgrades preserve the configured
+tag; pulling `main` alone does not switch a container configured for `dev`.
 
-# Recreate the container (preserves data volume)
-cd /etc/ipmi-monitor && docker compose up -d
+```bash
+# Use the actual Compose path from your existing deployment
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor
+sudo docker compose -f /etc/ipmi-monitor/docker-compose.yml up -d ipmi-monitor
+
+# Verify the running image, not just the CLI version
+sudo docker exec ipmi-monitor python -c "import os; print(os.environ.get('APP_VERSION'), os.environ.get('GIT_COMMIT'))"
 ```
+
+For the verified 1.4.2 release, expect `1.4.2` and commit `de79838`. To pin that
+image, use `ghcr.io/cryptolabsza/ipmi-monitor:sha-de79838`. Do not rerun fresh
+setup on an existing deployment or remove its data volume during this repair.
 
 ### Automatic Updates with cryptolabs-watchtower
 
@@ -471,9 +502,10 @@ services:
 
 | Tag | Description |
 |-----|-------------|
-| `:latest` | Latest stable release (recommended) |
-| `:develop` | Development builds (testing new features) |
-| `:v1.1.1` | Specific version (pin for stability) |
+| `:main` | Published main branch (recommended) |
+| `:sha-de79838` | Verified 1.4.2 image, pinned to source commit |
+| `:dev` | Testing only; may lag main |
+| `:latest`, `:stable` | Legacy aliases; do not use for new installations |
 
 ---
 

@@ -25,34 +25,43 @@ Collect System Event Logs (SEL), monitor sensors, track ECC errors, gather SSH s
 
 ---
 
-## 🚀 Quick Start (v1.1.1)
+## 🚀 Quick Start
 
 ### Automated Deployment (Recommended)
 
 Deploy everything with a single command using a config file:
 
 ```bash
-# Install from dev branch (latest features)
-pipx install git+https://github.com/cryptolabsza/ipmi-monitor.git@dev
+# Install from the released main branch
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
 
 # Deploy with config file (no prompts)
-sudo ipmi-monitor quickstart -c /path/to/config.yaml -y
+sudo "$(command -v ipmi-monitor)" setup -c /path/to/config.yaml -y
 ```
 
 See [examples/ipmi-config.yaml](https://github.com/cryptolabsza/ipmi-monitor/blob/main/examples/ipmi-config.yaml) for a complete config template.
+
+Set `ipmi_monitor.image_tag: main` in your config. Install the CLI from GitHub
+`@main` and deploy `ghcr.io/cryptolabsza/ipmi-monitor:main`; these are separate
+artifacts. Verified on 7 November 2026: main is **1.4.2**, commit `de79838`.
+Legacy `latest`/`dev` image tags and the unqualified PyPI package lag main.
 
 ### Interactive Setup
 
 ```bash
 # Install pipx (prerequisite)
-apt install pipx -y && pipx ensurepath
+sudo apt install pipx git -y
+pipx ensurepath
 source ~/.bashrc
 
 # Install the CLI tool
-pipx install ipmi-monitor
+pipx install --force git+https://github.com/cryptolabsza/ipmi-monitor.git@main
+pipx inject --force ipmi-monitor git+https://github.com/cryptolabsza/cryptolabs-proxy.git@main
 
 # Run the quickstart wizard (use full path since pipx bin isn't in sudo PATH)
-sudo ~/.local/bin/ipmi-monitor quickstart
+printf 'ipmi_monitor:\n  image_tag: main\nssl:\n  mode: self_signed\n' > ipmi-config.yaml
+sudo "$(command -v ipmi-monitor)" setup -c ipmi-config.yaml
 ```
 
 **That's it!** The wizard will:
@@ -60,8 +69,8 @@ sudo ~/.local/bin/ipmi-monitor quickstart
 - ✅ Detect or manually add your servers with BMC IPs
 - ✅ Configure IPMI and SSH credentials  
 - ✅ Deploy Docker containers (ipmi-monitor + cryptolabs-proxy; cryptolabs-proxy deploys cryptolabs-watchtower for auto-updates)
-- ✅ Set up SSL with Let's Encrypt (with auto-renewal)
-- ✅ Enable automatic updates via Watchtower
+- ✅ Set up self-signed HTTPS; use `ssl.mode: letsencrypt` with domain/email for a public certificate
+- ✅ Support optional automatic IPMI updates with `enable_watchtower_all: true` and Watchtower
 - ✅ Trigger initial data collection on first start
 
 ### Docker Run (Alternative)
@@ -75,7 +84,7 @@ docker run -d \
   -e IPMI_PASS=YOUR_BMC_PASSWORD \
   -e ADMIN_PASS=YOUR_ADMIN_PASSWORD \
   -e SECRET_KEY=YOUR_RANDOM_SECRET_KEY \
-  ghcr.io/cryptolabsza/ipmi-monitor:latest
+  ghcr.io/cryptolabsza/ipmi-monitor:main
 ```
 
 Then open **http://localhost:5000** and add your servers!
@@ -90,13 +99,13 @@ After installation, use the `ipmi-monitor` CLI:
 
 | Command | Description |
 |---------|-------------|
-| `sudo ipmi-monitor quickstart` | ⚡ One-command Docker deployment (recommended) |
+| `sudo ~/.local/bin/ipmi-monitor setup -c ipmi-config.yaml` | ⚡ Docker deployment using the selected main channel |
 | `ipmi-monitor status` | Show container status |
 | `ipmi-monitor logs [-f]` | View container logs |
 | `ipmi-monitor start` | Start containers |
 | `ipmi-monitor stop` | Stop containers |
 | `ipmi-monitor restart` | Restart containers |
-| `ipmi-monitor upgrade` | Pull latest image & restart |
+| `docker compose -f /etc/ipmi-monitor/docker-compose.yml pull ipmi-monitor` followed by `up -d ipmi-monitor` | Update the configured main image |
 | `ipmi-monitor add-server` | Add a server interactively |
 | `ipmi-monitor list-servers` | List configured servers |
 | `ipmi-monitor setup-ssl` | Set up HTTPS reverse proxy |

@@ -1,0 +1,39 @@
+{
+  "authority": [
+    "Yes get them all updated ASAP",
+    "They should all recommend main 1.4.2",
+    "Publish guides for main 1.4.2"
+  ],
+  "mode": "documentation_only_publication",
+  "repository": "cryptolabsza/ipmi-monitor",
+  "route": "feature PR to dev, then documentation-only release PR to main",
+  "runtime_version": "retain existing main1.4.2; no Python/default code changes",
+  "requirement": "REQ-IPMI-INSTALL-001",
+  "trace": "TRACE-IPMI-INSTALL-001",
+  "verification": "VER-IPMI-INSTALL-001",
+  "validation": "VAL-IPMI-INSTALL-001",
+  "files": [
+    "README.md",
+    "RELEASING.md",
+    "docker-compose.yml",
+    "docker-compose.prod.yml",
+    "examples/ipmi-config.yaml",
+    "docs/index.md",
+    "docs/user-guide.md",
+    "docs/DEVELOPER_GUIDE.md",
+    "docs/wordpress/ipmi-setup-guide.html",
+    "marketing-page.html",
+    "wordpress-content.html",
+    "wordpress-blog-post.html",
+    "requirements.md",
+    "traceability-matrix.md"
+  ],
+  "requirements_sha256": "e6b4ebf2986b5cfc8c681d59a69b17bc9d7e652b442e5e00da84a44561ba3465",
+  "historical_intent_contract": "unchanged; this explicit owner-approved documentation defect has separate scoped authority",
+  "held": [
+    "real customer deployment",
+    "runtime installer fix remains uncommitted in separate feature worktree"
+  ],
+  "reviews": "independent scoped review of repaired guides; see review.json",
+  "main_baseline_preservation": "main-baseline-preservation.json; reviewed guide scope unchanged, historical main records retained"
+}
