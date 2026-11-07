@@ -22,7 +22,7 @@ class LocalBuildRecipeTests(unittest.TestCase):
   self.assertEqual(normal['jobs']['build']['timeout-minutes'],120);normal['jobs']['build']['timeout-minutes']=45
   self.assertEqual(normal,baseline)
 
-PH='2cb6726b3497755ec60fbbb5938d054e36787968'
+PH='223a4287de6644f9468a5caf1d7027975aa24f4c'
 PH_BASE='927b6572263cf158ffa2e7b2b78704667cbb9fcd'
 class LocalPublicationRecipeTests(unittest.TestCase):
  def test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes(self):
@@ -39,6 +39,9 @@ class LocalPublicationRecipeTests(unittest.TestCase):
    oldhash='54bd08ddf7e59e755c0f21b3413699459cb837d152ff4b57716660f2ff71c7c3';newhash=hashlib.sha256(subprocess.check_output(['git','show',PH+':.github/image-publisher/verify_artifact.py'],cwd=ROOT)).hexdigest();extra=''
    for filename in ('local_artifact.py','local_artifact_routes.py'):
     raw=subprocess.check_output(['git','show',PH+':.github/image-publisher/'+filename],cwd=ROOT);extra+="echo '"+hashlib.sha256(raw).hexdigest()+'  publisher/.github/image-publisher/'+filename+"' | sha256sum --check -\n"
+   transport=subprocess.check_output(['git','show',PH+':.github/image-publisher/transport.py'],cwd=ROOT)
+   self.assertEqual(transport,(ROOT/'.github/image-publisher/transport.py').read_bytes())
+   extra+="echo '"+hashlib.sha256(transport).hexdigest()+"  publisher/.github/image-publisher/transport.py' | sha256sum --check -\n"
    self.assertEqual(verify['run'],previous['run'].replace(oldhash,newhash)+extra)
    normal['jobs'][name]['steps'][0]['with']=copy.deepcopy(old['steps'][0]['with'])
    next(s for s in normal['jobs'][name]['steps'] if s.get('name')==verify['name'])['run']=previous['run']

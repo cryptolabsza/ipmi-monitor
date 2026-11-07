@@ -34,7 +34,7 @@ jobs:
       uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       with:
         repository: cryptolabsza/ipmi-monitor
-        ref: 2cb6726b3497755ec60fbbb5938d054e36787968
+        ref: 223a4287de6644f9468a5caf1d7027975aa24f4c
         persist-credentials: false
         fetch-depth: 1
         path: publisher
@@ -67,6 +67,9 @@ jobs:
         | sha256sum --check -
 
         echo ''ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7  publisher/.github/image-publisher/local_artifact_routes.py''
+        | sha256sum --check -
+
+        echo ''ab85855359c9bf2ccf35c23f27386286883906b9ddf2b17b4b814a0bf7d1a419  publisher/.github/image-publisher/transport.py''
         | sha256sum --check -
 
         '

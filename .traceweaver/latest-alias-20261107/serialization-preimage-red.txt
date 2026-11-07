@@ -1,0 +1,25 @@
+test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes (test_local_recipes.LocalPublicationRecipeTests.test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes) ... FAIL
+test_serialized_publisher_rejects_stale_or_unprotected_main (test_local_recipes.LocalPublicationRecipeTests.test_serialized_publisher_rejects_stale_or_unprotected_main) ... FAIL
+
+======================================================================
+FAIL: test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes (test_local_recipes.LocalPublicationRecipeTests.test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".github/tests/test_local_recipes.py", line 31, in test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes
+    self.assertEqual(job.get('concurrency'),{'group':'ipmi-monitor-main-image-publication','cancel-in-progress':False})
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: None != {'group': 'ipmi-monitor-main-image-publication', 'cancel-in-progress': False}
+
+======================================================================
+FAIL: test_serialized_publisher_rejects_stale_or_unprotected_main (test_local_recipes.LocalPublicationRecipeTests.test_serialized_publisher_rejects_stale_or_unprotected_main)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File ".github/tests/test_local_recipes.py", line 53, in test_serialized_publisher_rejects_stale_or_unprotected_main
+    self.assertEqual(len(guards),1);guard=guards[0]
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: 0 != 1
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.024s
+
+FAILED (failures=2)
