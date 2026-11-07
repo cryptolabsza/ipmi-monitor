@@ -17,7 +17,7 @@ services:
     #   :main         - Published main branch (recommended)
     #   :sha-de79838  - Immutable source tag for 1.4.2
     #   :dev          - Testing only; may lag main
-    # Legacy :latest/:stable aliases are not the current release channel.
+    # :latest follows the same verified main image; :stable remains legacy.
     image: ghcr.io/cryptolabsza/ipmi-monitor:main
     # Or build locally:
     # build: .

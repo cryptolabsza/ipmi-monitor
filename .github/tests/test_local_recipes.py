@@ -1,3 +1,5 @@
+# TRACEWEAVER: file-role=latest-alias-activation-contract; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001; ver=VER-IPMI-LATEST-001
+# TRACEWEAVER: verifies=VER-IPMI-LATEST-001; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001
 """Immutable local build recipe changes only artifact transport steps."""
 import copy,hashlib,json,subprocess,unittest,yaml
 from pathlib import Path
@@ -26,6 +28,11 @@ class LocalPublicationRecipeTests(unittest.TestCase):
  def test_publisher_recipe_uses_exact_real_common_snapshot_without_permission_changes(self):
   path='.github/workflows/ci-image-publish-recipe.yml';actual=yaml.safe_load((ROOT/path).read_text());baseline=yaml.safe_load(subprocess.check_output(['git','show',PH_BASE+':'+path],cwd=ROOT));normal=copy.deepcopy(actual)
   for name,job in actual['jobs'].items():
+   self.assertEqual(job.get('concurrency'),{'group':'ipmi-monitor-main-image-publication','cancel-in-progress':False})
+   normal['jobs'][name].pop('concurrency')
+   guard=next(s for s in job['steps'] if s['name']=='Require current protected main before alias publication')
+   self.assertEqual(guard['env'],{'GH_TOKEN':'${{ github.token }}'})
+   normal['jobs'][name]['steps'].remove(guard)
    old=baseline['jobs'][name];checkout=job['steps'][0];self.assertEqual(checkout['with']['ref'],PH)
    sparse=checkout['with']['sparse-checkout'].splitlines();self.assertIn('/.github/image-publisher/local_artifact.py',sparse);self.assertIn('/.github/image-publisher/local_artifact_routes.py',sparse)
    verify=next(s for s in job['steps'] if s.get('name')=='Verify frozen upstream verifier and OCI parser');previous=next(s for s in old['steps'] if s.get('name')==verify['name'])
@@ -36,6 +43,26 @@ class LocalPublicationRecipeTests(unittest.TestCase):
    normal['jobs'][name]['steps'][0]['with']=copy.deepcopy(old['steps'][0]['with'])
    next(s for s in normal['jobs'][name]['steps'] if s.get('name')==verify['name'])['run']=previous['run']
   self.assertEqual(normal,baseline)
+ def test_serialized_publisher_rejects_stale_or_unprotected_main(self):
+  import os,sys,types
+  from unittest.mock import patch
+  sys.path.insert(0,str(ROOT/'.github/image-publisher'))
+  import verify_artifact
+  job=yaml.safe_load((ROOT/'.github/workflows/ci-image-publish-recipe.yml').read_text())['jobs']['publish']
+  guards=[s for s in job['steps'] if s['name']=='Require current protected main before alias publication']
+  self.assertEqual(len(guards),1);guard=guards[0]
+  code=guard['run'].split("<<'PY'\n",1)[1].rsplit('\nPY',1)[0]
+  for protected,head,passes in [(True,'a'*40,True),(True,'b'*40,False),(False,'a'*40,False)]:
+   with self.subTest(protected=protected,head=head):
+    stub=types.ModuleType('verify_artifact');stub.require=verify_artifact.require
+    def api(path):
+     self.assertEqual(path,'/repos/cryptolabsza/ipmi-monitor/branches/main')
+     return {'protected':protected,'commit':{'sha':head}}
+    stub.gh_json=api
+    with patch.dict(sys.modules,{'verify_artifact':stub}),patch.dict(os.environ,{'GITHUB_SHA':'a'*40}),patch.object(sys,'path',sys.path.copy()):
+     if passes:exec(compile(code,'publisher-current-main-guard','exec'),{})
+     else:
+      with self.assertRaises(verify_artifact.Refused):exec(compile(code,'publisher-current-main-guard','exec'),{})
 
 P='e3fc7a3e396045a92e458f3214e75f6b8c313a27'
 P_BASE='3ebfad9db5c2a0734d34142d8bcc39faef0373c8'

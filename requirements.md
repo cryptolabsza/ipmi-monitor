@@ -130,3 +130,27 @@ Monitor shall detect impossible/uninitialized dates and configurable drift (defa
 Source: approved plan §5; implementation-clarifications.md offset restoration. Trace: TRACE-SEL-005; verification: VER-SEL-005; validation: VAL-SEL-005, shared `docs/validation/sel-health-20261103.md`. Authority approved for local implementation/build; preparation review and production GO pending; runtime verification/validation held.
 
 Boundaries: isolated feature worktree; no dependency/infrastructure/CI/version change; no live BMC actions, credentials, publication, merge, release or deployment. Exact firmware/transport mutation qualification and representative owner acceptance remain separate held gates. Unsupported devices retain useful read warnings. Lossy clear override, generic Redfish mutations and unrelated credential refactors are excluded.
+
+
+## REQ-IPMI-LATEST-001 — verified main release aliases
+
+Owner instruction on 7 November 2026, after the diagnosis that the publisher
+updates main but leaves latest behind: “Please fix it.” The existing protected
+main publisher shall publish `latest` and `main` from the same verified OCI
+artifact digest, after publishing and verifying its immutable source SHA tag.
+Development builds shall not advance latest. Failed digest readback shall not
+be reported as successful publication.
+
+Scope: IPMI image tag planning, its immutable helper/recipe/caller activation
+pins, focused regression contracts and truthful alias documentation. Preserve
+producer identity, artifact/OCI verification, package identity/visibility, token
+permissions, runner admission and frozen helper restrictions. No application
+version/dependency/runtime change or broader infrastructure/credential access.
+The prior guides-only choice remains applicable to the separate installer fix.
+
+Trace TRACE-IPMI-LATEST-001; verification VER-IPMI-LATEST-001; validation
+VAL-IPMI-LATEST-001: an official protected main publisher run succeeds and
+anonymous registry readback shows main/latest have the same digest and1.4.2
+version. Scope, original RED, local verification and actual publication evidence
+are tracked in `.traceweaver/latest-alias-20261107/`. Publication follows the
+normal feature-to-dev and publisher-only main PR route already authorized.

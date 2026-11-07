@@ -1,5 +1,7 @@
+# TRACEWEAVER: file-role=latest-alias-frozen-boundary; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001; ver=VER-IPMI-LATEST-001
+# TRACEWEAVER: verifies=VER-IPMI-LATEST-001; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001
 """Public publisher swaps only the independently verified transport bytes."""
-import hashlib,json,subprocess,sys,unittest
+import ast,hashlib,json,subprocess,sys,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 BR='a034e480f77032f3f9afdb079363dea23e48c87a'
@@ -11,7 +13,15 @@ class LocalPublisherTests(unittest.TestCase):
   self.assertEqual(actual,dict(schema=2,recipe='cryptolabsza/ipmi-monitor'+'/.github/workflows/ci-image-build-recipe.yml@'+BR,default=1))
   origin=json.loads((ROOT/'.github/image-publisher/publisher-origin.json').read_text())
   for name,digest in origin['files'].items():self.assertEqual(hashlib.sha256((ROOT/'.github/image-publisher'/name).read_bytes()).hexdigest(),digest)
- def test_public_package_registry_tags_and_promotion_code_are_unchanged(self):
+ def test_frozen_helpers_and_all_transport_but_reviewed_alias_rule_are_unchanged(self):
   for name in ('transport.py','image_publisher.py','image_promotion.py','bootstrap_tools.py','tools.json'):
    path='.github/image-publisher/'+name
-   if (ROOT/path).exists():self.assertEqual((ROOT/path).read_bytes(),subprocess.check_output(['git','show',ORIGINAL_BR+':'+path],cwd=ROOT))
+   if not (ROOT/path).exists():continue
+   original=subprocess.check_output(['git','show',ORIGINAL_BR+':'+path],cwd=ROOT)
+   if name=='transport.py':
+    current=ast.parse((ROOT/path).read_bytes());baseline=ast.parse(original)
+    tags=next(n for n in baseline.body if isinstance(n,ast.FunctionDef) and n.name=='image_tags')
+    main_tags=next(n for n in ast.walk(tags) if isinstance(n,ast.IfExp))
+    main_tags.body=ast.parse("['latest','main','sha-'+proof['head_sha'][:7]]",mode='eval').body
+    self.assertEqual(ast.dump(current),ast.dump(baseline))
+   else:self.assertEqual((ROOT/path).read_bytes(),original)

@@ -1,3 +1,4 @@
+# TRACEWEAVER: file-role=verified-main-latest-alias; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001; ver=VER-IPMI-LATEST-001
 """Fixed public-repository artifact transport; no application execution or visibility mutation."""
 import argparse,base64,json,os,re,tempfile,tomllib,urllib.error,urllib.parse,urllib.request
 from pathlib import Path
@@ -39,10 +40,12 @@ def source_version(policy,source_sha,api=gh_json):
     project=tomllib.loads(data.decode())['project'];require(project['name']==policy.repository.split('/')[1] and re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)',project['version']),'project identity/version')
     return project['version']
 
+# TRACEWEAVER: entrypoint=image_tags; req=REQ-IPMI-LATEST-001; trace=TRACE-IPMI-LATEST-001; ver=VER-IPMI-LATEST-001
 def image_tags(policy,image,proof,api=gh_json):
     require(proof['branch'] in {'main','dev'},'source branch')
     if policy.repository.endswith('/ipmi-monitor'):
-        branch=proof['branch'];return [branch,'sha-'+proof['head_sha'][:7]] if branch=='main' else ['dev','develop','sha-'+proof['head_sha'][:7]]
+        # prepare reverses these: verify the source tag, then main, then latest.
+        branch=proof['branch'];return ['latest','main','sha-'+proof['head_sha'][:7]] if branch=='main' else ['dev','develop','sha-'+proof['head_sha'][:7]]
     import image_promotion as promotion
     result=promotion.build_tags('ghcr.io/cryptolabsza/'+image,'refs/heads/'+proof['branch'],proof['head_sha'],proof['event'],version=source_version(policy,proof['head_sha'],api),override='')
     return [tag.rsplit(':',1)[1] for tag in result['tags']]

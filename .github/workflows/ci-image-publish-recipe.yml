@@ -17,8 +17,9 @@ permissions:
   packages: write
 jobs:
   publish:
-    if: github.repository_id == '1109244855' && github.ref_protected == true && github.ref == 'refs/heads/main' && (github.event_name
-      == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.repository_id == '1109244855' && github.ref_protected == true && github.ref
+      == 'refs/heads/main' && (github.event_name == 'push' || github.event_name ==
+      'workflow_dispatch')
     runs-on:
       group: ci-publish-ephemeral
       labels:
@@ -71,10 +72,31 @@ jobs:
         '
     - name: Install verified normal-user official tools
       run: python3 publisher/.github/image-publisher/bootstrap_tools.py
+    - name: Require current protected main before alias publication
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: 'python3 - <<''PY''
+
+        import os, sys
+
+        sys.path.insert(0, ''publisher/.github/image-publisher'')
+
+        from verify_artifact import gh_json, require
+
+        head = gh_json(''/repos/cryptolabsza/ipmi-monitor/branches/main'')
+
+        require(head.get(''protected'') is True and head[''commit''][''sha''] == os.environ[''GITHUB_SHA''],
+        ''source is no longer current protected main'')
+
+        PY'
     - name: Verify actual producer and publish exact artifact bytes
       env:
         GH_TOKEN: ${{ github.token }}
         PRODUCER_RUN_ID: ${{ inputs.producer_run_id }}
         PRODUCER_ATTEMPT: ${{ inputs.producer_attempt }}
         ARTIFACT_ID: ${{ inputs.artifact_id }}
-      run: python3 publisher/.github/image-publisher/policy.py publish "$PRODUCER_RUN_ID" "$PRODUCER_ATTEMPT" "$ARTIFACT_ID"
+      run: python3 publisher/.github/image-publisher/policy.py publish "$PRODUCER_RUN_ID"
+        "$PRODUCER_ATTEMPT" "$ARTIFACT_ID"
+    concurrency:
+      group: ipmi-monitor-main-image-publication
+      cancel-in-progress: false
