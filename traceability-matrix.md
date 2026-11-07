@@ -195,3 +195,9 @@ Publication route update, 5 November 2026: owner explicitly selected the normal 
 | Requirement | Trace | Artifacts | Verification | Validation |
 | --- | --- | --- | --- | --- |
 | REQ-IPMI-INSTALL-001 | TRACE-IPMI-INSTALL-001 | README.md; RELEASING.md; docker-compose.yml; docker-compose.prod.yml; examples/ipmi-config.yaml; docs/index.md; docs/user-guide.md; docs/DEVELOPER_GUIDE.md; docs/wordpress/ipmi-setup-guide.html; marketing-page.html; wordpress-content.html; wordpress-blog-post.html | VER-IPMI-INSTALL-001; .traceweaver/install-guides-20261107/checks.json; .traceweaver/install-guides-20261107/review.json | VAL-IPMI-INSTALL-001; public source/image1.4.2 and website517 readback; customer install held |
+
+## Main/latest image alias correction — 7 November 2026
+
+| Requirement | Trace | Implementation | Verification | Validation |
+| --- | --- | --- | --- | --- |
+| REQ-IPMI-LATEST-001 | TRACE-IPMI-LATEST-001 | .github/image-publisher/transport.py; .github/workflows/ci-image-publish-recipe.yml; .github/workflows/docker-build.yml | VER-IPMI-LATEST-001; .github/tests/test_image_transport.py; .github/tests/test_local_publisher.py; .github/tests/test_local_recipes.py; .traceweaver/latest-alias-20261107/red.txt; .traceweaver/latest-alias-20261107/green.txt | VAL-IPMI-LATEST-001: protected main publisher PASS and anonymous main/latest digest equality; actual registry acceptance pending until observed |

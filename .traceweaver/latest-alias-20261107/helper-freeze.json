@@ -1,0 +1,15 @@
+{
+  "helper_commit": "223a4287de6644f9468a5caf1d7027975aa24f4c",
+  "sha256": {
+    ".github/image-publisher/bootstrap_tools.py": "d8d23db8d0d61f136c5116faa8e1cb3830350e0b5a31e71fea9e171ad662d690",
+    ".github/image-publisher/image_publisher.py": "ef55392ffcdf59a30a232c436520e10b318a3895e139f0c40904e33f7dccd2a8",
+    ".github/image-publisher/policy.py": "86f4b48b0ae38fc4372be6e802e3ec0227c8db83bb44403e9e78ea6b0f901a90",
+    ".github/image-publisher/tools.json": "06bba45e4d5a38be306c132f95081899da50a8d73462e256e2114f4a349abae0",
+    ".github/image-publisher/transport.py": "ab85855359c9bf2ccf35c23f27386286883906b9ddf2b17b4b814a0bf7d1a419",
+    ".github/image-publisher/verify_artifact.py": "48dfdb3b21447397f24c5450417c2f88d81f08c6d79ad6957928d8e31671eab2",
+    ".github/image-publisher/local_artifact.py": "d3a0f0ce8482e12404ad0fc8c9228100d863fcab28b986ec3c0b1c165e48cefb",
+    ".github/image-publisher/local_artifact_routes.py": "ac0096956e71204b59f80f12753a245ccff918ef0c812d301b092d7d84ccb0e7"
+  },
+  "review": "review.json; exact reviewed helper bytes, unchanged remaining helpers",
+  "no_authority_change": true
+}

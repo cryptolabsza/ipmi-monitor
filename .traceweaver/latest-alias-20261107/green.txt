@@ -1,0 +1,13 @@
+test_actual_403_shapes_are_not_absence_and_new_package_stays_private (test_image_transport.ImageBoundary.test_actual_403_shapes_are_not_absence_and_new_package_stays_private) ... ok
+test_existing_visibility_and_id_are_preserved_for_all_visibility_modes (test_image_transport.ImageBoundary.test_existing_visibility_and_id_are_preserved_for_all_visibility_modes) ... ok
+test_immutable_publisher_has_only_literal_helpers_and_no_application_execution (test_image_transport.ImageBoundary.test_immutable_publisher_has_only_literal_helpers_and_no_application_execution) ... ok
+test_main_latest_publish_one_verified_digest_with_latest_last (test_image_transport.ImageBoundary.test_main_latest_publish_one_verified_digest_with_latest_last) ... ok
+test_main_latest_tags_do_not_leak_into_development (test_image_transport.ImageBoundary.test_main_latest_tags_do_not_leak_into_development) ... ok
+test_metadata_main_guard_reuses_frozen_tag_policy (test_image_transport.ImageBoundary.test_metadata_main_guard_reuses_frozen_tag_policy) ... ok
+test_partial_promotion_retains_exact_operations_and_always_upload (test_image_transport.ImageBoundary.test_partial_promotion_retains_exact_operations_and_always_upload) ... ok
+test_real_producer_exports_complete_oci_images_without_authority (test_image_transport.ImageBoundary.test_real_producer_exports_complete_oci_images_without_authority) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.034s
+
+OK
