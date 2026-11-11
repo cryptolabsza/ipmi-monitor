@@ -1,0 +1,26 @@
+{
+  "status": "pass",
+  "version": "1.4.1",
+  "release_full_suite": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "382",
+    "time": "149.142",
+    "timestamp": "2026-11-04T18:33:21.358191+02:00",
+    "hostname": "Mac"
+  },
+  "wheel_sha256": "2503181656349cb06fcd8c17cbc395be2e46fd070ae60542b9585178df899778",
+  "sdist_sha256": "c46ea2df3b09f95ed5b0451947b463fabe75d5a769c8b8642451f42edf42df26",
+  "runtime_members": {
+    "sel_management.py": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+    "sel_qualifications.py": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+    "cli.py": "73bebbedb6b544a1828bd2a8f26793bbdfb24a4644fa051fa21d060d6ed541c4",
+    "__init__.py": "7c13cce97e59fb08e8cf124d1e570af9b73cc18753f5313cc9a9b1d01e817a7f",
+    "templates/dashboard.html": "d15c3f79fbd8ed8e4ee180dac5e385562513b0bd2f63824456e600d8488eb56e",
+    "templates/server_detail.html": "389a4fe95be90b6a88d8173c24f1638c9e5ef19ac89367cdd1aacefae791bbfc"
+  },
+  "source_code_12_files": "byte-identical to accepted repair1",
+  "scope": "Local Linux release package payload proof, not official published image/target acceptance"
+}
