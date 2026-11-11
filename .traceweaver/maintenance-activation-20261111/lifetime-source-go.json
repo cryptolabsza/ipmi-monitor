@@ -1,0 +1,29 @@
+{
+  "id": "ROOT-GO-SEL-PROMOTION-LIFETIME-20261111",
+  "utc": "2026-11-11T19:19:49.646639+00:00",
+  "decision": "PROCEED_BOUNDED_LIFETIME_REPAIR_WITHIN_APPROVED_ACTIVATION",
+  "authority": "Existing current owner activation instruction, REQ-SEL-003 durable operation/independent audit and unchanged existing retention; root source-go remains base",
+  "accepted_design": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-maintenance-activation-20261111/astra-promotion-lifetime.json",
+  "accepted_design_sha256": "1bfbeb916c34ba4db065a9593fbcc944018b18fefc54ef64f1a8a4b8dd770eba",
+  "reason": "Ordinary historical scope/raw archive expiry must not become undisclosed currentautomaticqualification expiry; preserve honest first-admission proof and retention",
+  "allowed": [
+    "Retired V2manual scope checked at actual durableclaimtime, currentautoapproval/scopeexpiry strictNOW; v1unchanged",
+    "Full actual localcommission op/raw/dualarchive/audit/ordinarycollection validation at first promotion whileavailable",
+    "Under existing SQLiteauthorityfence durable rootprivate exclusive/fsynced/readback acceptance in EXISTING transitions history beforepointerpublish",
+    "Receipt exactpointer/envelope/registry/record/action/runtime/GUID/commission/parent/originalbinding + immutablelocalop/audit canonicalhashes and archivedproofdigest",
+    "Laterlookups require currentbundle/source/fingerprint/liveexpiry + matchingprivateacceptance+actualretainedop/audithashes; originalrawcopiesmayexpireunderexistingretention",
+    "Directv2autoenvironmentsrefuse; untrustedacceptance-shapedJSONcannotauthorizeinitialautomaticinstall",
+    "Explicit carryforward of byte-identical acceptedadmission into newpointerboundreceipt aftervalidatingexistingtrustedreceipt/localfacts; changedadmissionrequiresfullproof",
+    "Faults beforepointerleaveinactivereceipt, afterpointerreconcilestatuswithoutreplay; allautosoff/noactiveunknown/pointerCAS/freshconsent unchanged",
+    "Tiny two-template availability/message correction rootapprovedsourcecontractphase-truthfulUI underexistingmanual/browserequivalence route"
+  ],
+  "files": "Existing approved manager/loader/tests/twoSELtemplates and scoped operator/evidence docs only; no newtable/service/deps/auth bypass",
+  "red_green": "Small actual component Linux/SQLite/files/API roundtrip RED thenGREEN for historicalexpiry and normalarchivecleanup, receipt tamper/firstpromotionexpired/dormantreceipt; existingcoverage reused",
+  "holds": [
+    "No livewrite/publication frombuilder",
+    "Finalsourcewholecurrent regressions+Linux+independentreviews/rootacceptance",
+    "Actualclocktrust/adminsession input pending",
+    "CCC94 excluded;no retentionsettingchange"
+  ],
+  "profile": "workflow-profile-root.json same roles/caps, necessary defect repair within current builder timebox; no optionalreviewadded"
+}

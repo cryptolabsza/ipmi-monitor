@@ -1,0 +1,56 @@
+{
+  "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+  "utc": "2026-11-11T18:40:11.577126+00:00",
+  "decision": "PROCEED_BOUNDED_SOURCE_ONLY",
+  "requirements_quality": "Accepted unchanged REQ/TRACE/VER/VAL-SEL-001..005; latest explicit activation instruction extends permitted outcome, not backup/security/ownership meaning",
+  "baseline": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "reviewed": [
+    "source/plan.json",
+    "source/validation.md",
+    "source/provenance.json",
+    "source/test-value.json",
+    "source/vv-capsule.json",
+    "source/red-activation.log",
+    "source/worktree-red.log",
+    "astra-commissioning-contract.json",
+    "astra-probe-practical.json"
+  ],
+  "verified": [
+    "Root inspected exact authored tests; use existing real admin/session/SQLite boundary and actual adapter-produced archive payloads, synthetic external subprocess clearly labeled",
+    "Baseline3 controls PASS; root independently reran same3 new tests on unchanged production: expected genuine missing v2 admission and clear file/clock backup failures",
+    "Canonical user files remain untouched; exact isolateddev49c85af worktree only",
+    "No hardware evidence, policy activation, target acceptance or publication inferred from fixtures or precode review"
+  ],
+  "scope": "Same plan2..7 including minimal v2 admission/oneuse/replacement/promotion and current fullraw DB+file barriers; existing API no bypass",
+  "clarifications": [
+    "No permanent probe CLI or production IPMI command whitelist change required: separate fixed reviewed one-off non-destructive operations script accepted by Astra",
+    "owner_scope evidence kind strict scope/digest; not firmware truth",
+    "LTX trusted UTC now PASS; Charlotte sole kernelmaxerror threshold intermittenthold; retain thresholds, no OS clock change",
+    "Additional race/CAS/promotion/failure tests must demonstrate relevant old-slice failure BEFORE each corresponding production slice; record exact old baseline/state and rerun sameGREEN",
+    "Additive requirement/intent evidence projections preserve normative meaning and historical records; no version/deps/CIinfra changes",
+    "Do not add app.py or cli.py behavior unless exact path requires it; qualificationCLI already lives sel_qualifications.main",
+    "Per-target hardware qualification/clocktrust/externalwriter evidence remainheld until real proof"
+  ],
+  "allowed_files": [
+    "src/ipmi_monitor/sel_management.py",
+    "src/ipmi_monitor/sel_qualifications.py",
+    "tests/test_sel_activation.py",
+    "tests/test_sel_management.py",
+    "tests/test_sel_qualifications.py",
+    "tests/test_sel_persistent.py",
+    "tests/sel_qualification_linux.py",
+    "docs/sel-commissioning.md",
+    "docs/validation/sel-maintenance-activation-20261111.md",
+    ".traceweaver/maintenance-activation-20261111/",
+    ".traceweaver/intent-contract.yml",
+    "traceability-matrix.md",
+    "requirements.md additivecurrentauthorityonly"
+  ],
+  "must_not_change": [
+    "All original contracts inclv1 strict checks",
+    "no source worker staging/commit/push/merge/deploy/BMC operations",
+    "No unqualified auto, fake receipt, None offset=>0, TLS bypass, savedhistorydeletion",
+    "No CCC94 operation or30daymutechange"
+  ],
+  "reviewed_plan_sha256": "2c2e52ec44ab38c4a60db0a729afd8ba13bb39d06200cc14858d9b6d80f2c7da"
+}

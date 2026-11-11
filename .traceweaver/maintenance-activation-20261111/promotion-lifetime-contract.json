@@ -1,0 +1,62 @@
+{
+  "utc": "2026-11-11T19:18:27.506714+00:00",
+  "decision": "PASS_DURABLE_PROMOTION_ACCEPTANCE_DESIGN_ONLY",
+  "source_examined": "Current maintenance worktree sel_qualifications.py verify_promotions/validate_registry/operator_state/install_bundle and sel_management.py cleanup_archives; mutable working tree, not final source acceptance.",
+  "finding": {
+    "confidence": 100,
+    "evidence": "validate_registry unconditionally calls verify_promotions; verify_promotions reopens parent bundle and requires sel_archive plus sel-archives file; cleanup_archives legitimately removes completed-operation archives by existing cutoff.",
+    "effect": "Runtime qualification currently depends on expired historical authorizations and ordinary-retention data. This incorrectly turns retention into an undisclosed qualification expiry."
+  },
+  "choice": {
+    "recommended": "Retain a root-private, exclusively created, fsynced acceptance receipt inside the EXISTING sel-qualifications/transitions history. Write it under the existing SQLite BEGIN IMMEDIATE authority fence AFTER full local proof validation and BEFORE active-pointer publication. No new table/service/framework and no archive retention extension.",
+    "why": "Existing install_bundle keeps one database authority transaction open until pointer publication then rolls it back. A root-owned history receipt can become durable while that same fence remains held. An INSERT into sel_audit that is later rolled back cannot serve as acceptance.",
+    "audit_only_alternative": "A sel_audit qualification_promoted row is sufficient as an application-trusted acceptance fact if only the reviewed installer can create it, it pins the complete binding below, and it is durably committed before publication. COMMIT releases the fence: reacquire BEGIN IMMEDIATE and recheck all policies/operations/current pointer/runtime/local fact hashes before publishing. This is safe but more lifecycle complexity than an existing private history file. Never publish while the only receipt is an uncommitted DB row."
+  },
+  "minimal_receipt": {
+    "schema": "sel-promotion-acceptance/1",
+    "receipt_id": "Deterministic SHA256 of canonical binding or random UUID with candidate/action lookup; duplicates/conflicting receipts fail closed.",
+    "accepted_at": "Installer observed UTC, not envelope-provided time.",
+    "candidate_pointer_sha256": "Exact canonical new pointer bytes, including predecessor; computed before publication.",
+    "candidate_envelope_sha256": "Exact candidate envelope digest.",
+    "candidate_registry_sha256": "Exact registry digest.",
+    "record_id_and_digest": "Candidate record UUID and canonical original record digest; canonical hashing must exclude loader-only normalization/internal cache fields consistently.",
+    "action_and_admission_digest": "clear or clock and exact candidate action admission digest.",
+    "target_binding": "target_id, exact fingerprint digest including GUID, identity_revision, exact runtime_identity.",
+    "commission_binding": "commission_id, original operation_id, original qualification_binding, parent envelope and parent pointer digests, admitted commissioning_result digest.",
+    "local_facts": "Canonical SHA256 of retained terminal commissioning operation fields/evidence plus each referenced dispatch/completion/ordinary-collection audit row (ID, target, operation, action, subject, created_at, evidence). Include IDs separately so later loaders fetch exact rows and rehash.",
+    "accepted_archive_proof": "Archive ID, SHA256, target/operation, generation/epoch/reservation binding and digest of the dual-copy validation result. These are a durable record of proof checked at acceptance, not a promise the raw copies are retained forever.",
+    "acceptance_context": "Source verifier/runtime identity and evidence schema version. No caller boolean accepted=true can replace install-time proof."
+  },
+  "installation_and_crash_order": [
+    "1. Structural/digest/custody validation is separable from historical full proof and from runtime accepted-proof lookup. A structurally valid automatic record is never itself executable or eligible for initial install.",
+    "2. For first promotion, obtain existing authority fence; require all auto policies OFF, no active or unresolved operations, exact expected old pointer, current runtime identity and real local target. Fully validate original local commissioning operation/raw receipts/audit/dual archives/ordinary collection while those original archives still exist. If they expired BEFORE first acceptance, refuse promotion; no reconstruction from assertions.",
+    "3. Build exact candidate pointer bytes. Write private immutable acceptance receipt to existing transition history using O_EXCL/no-follow, approved owner/mode, fsync file and directory, then read back and verify. Retain the pointer history and transition intent. Receipt is bound to the candidate pointer hash and cannot authorize another envelope/record/action.",
+    "4. Recheck runtime/deadline/expected active pointer under the still-held fence. Atomically rename staged active pointer and fsync directory. Record existing published transition result. Release DB authority lock. No policy is armed by this transition.",
+    "5. Crash before receipt durable: no accepted promotion. Crash after receipt but before pointer publication: dormant receipt authorizes nothing because active pointer still differs. Crash after pointer rename with missing result: status reconciles exact active pointer, durable acceptance and retained local facts; do not replay pointer publication. Receipt absence/corruption or missing/mismatched local rows means warning-only refusal, not full-proof fallback silently creating acceptance.",
+    "6. Existing no-retired-pointer-reactivation rule remains. If orphan history/receipt causes normal replace refusal after a prepublication crash, report held and use explicit reviewed reconciliation; do not loosen replay protection to make retry convenient."
+  ],
+  "later_runtime_validation": [
+    "Continue current automatic record and owner-scope expiry checks against NOW; current fingerprint/GUID/action/runtime/tool identity and exact installed pointer/bundle custody remain mandatory.",
+    "Require exact trusted acceptance receipt for current pointer/envelope/record/action/commission binding. Read the retained terminal local operation and referenced independent audit rows and compare canonical hashes with acceptance. The operation must still be complete, correct outcome, manual, matching original commission/action/target/qualification binding. Missing rows, altered evidence or changed target identity revoke eligibility.",
+    "Do NOT require historical raw archive DB row/file after acceptance and do NOT extend their retention. Do not silently rerun full historical proof on every qualification_state. Archive integrity was a time-of-acceptance obligation, recorded by the trusted installer.",
+    "Retain commissioning operation and dispatch/completion/collection/acceptance audit facts under existing durable audit semantics. Do not include mutable current collection_state or target health in historical hash; normal later collections/policy revisions must not invalidate accepted history. Current identity checks remain separate.",
+    "A new envelope containing unchanged already-promoted records needs an explicit new pointer-bound receipt. It may derive those unchanged admissions from an existing verified acceptance plus retained local facts; it must not demand expired archives or re-promote against a retired manual parent. Changed target/action/commission/evidence requires fresh full admission, never blind inheritance. This is a bounded carry-forward rule within existing replace, not automatic renewal.",
+    "Environment mode cannot gain automatic v2 authorization from acceptance-shaped JSON. Minimal rule: v2 automatic qualification requires managed operator pointer and matching trusted local acceptance; preserve v1 behavior. Direct automatic initial installation remains forbidden.",
+    "This protects against untrusted bundle assertions and ordinary data mutation, not an administrator able to rewrite all private files and the DB together. Do not claim cryptographic tamper-proofing or rollback detection beyond the existing trusted local custody model."
+  ],
+  "historical_parent_time": [
+    "Validate retired/manual parent record and its owner-scope approval/expiry at the actual durable local operation claim timestamp, not caller-selected observed_at and not current wall time. Require approval <= claim < expiry; verify record/action/commission/runtime and original binding exactly.",
+    "Historical evaluation is a private v2 verification context only, never a global now override, never returned as an executable currently qualified record. Leave v1 parser/AST behavior unchanged.",
+    "Promotion candidate automatic record/scope still validates against NOW at installation and every runtime lookup. Expiry of the old one-use scope after its valid consumption does not revoke successful historical evidence; expiry of the current automatic scope does revoke automatic qualification.",
+    "An expired old manual pointer may be structurally/custody-valid as the expected predecessor for this explicit promotion. The installer must validate it using the completed local operation historical context without granting new manual dispatch authority. Do not call the normal current-authority operator_state path and require the old manual record to remain unexpired merely to replace it."
+  ],
+  "minimum_tests": [
+    "Genuine Linux/SQLite/API roundtrip: commission inside manual validity, advance past parent expiry, full-proof promotion succeeds while current automatic record is valid; advance past automatic expiry and it refuses.",
+    "After successful acceptance, run actual cleanup_archives with normal cutoff so both commissioning raw copies are deleted; qualification remains valid, fresh consent and eligible automatic dispatch still use current fresh dual archives. Operation/audit receipts survive.",
+    "Delete/mutate acceptance receipt, referenced local operation/audit row, candidate/source/action binding or original commission ID: runtime refuses. A fabricated acceptance JSON in the untrusted candidate does not pass.",
+    "Attempt first promotion after original archives expired with no prior trusted acceptance: refuses. Direct automatic initial install and expired-at-claim parent also refuse.",
+    "Fault injection at receipt-before-pointer and pointer-before-result boundaries: former inactive, latter status reconciles; no implicit retry, no policy rearming or historical-pointer resurrection.",
+    "Carry forward unchanged accepted automatic action into an explicit later bundle after old archives expire; preserve phase/identity/receipt binding and require fresh consent. Changed admission cannot borrow old receipt."
+  ],
+  "scope": "Architecture clarification only. No source edits, tests executed, BMC actions or publication. Root owns final source GO and hardware acceptance; retained probe evidence is not replaced by fixtures."
+}

@@ -1,0 +1,28 @@
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+[2026-11-11 19:35:37,541] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 19:35:37,541] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/candidate/tests/test_sel_activation.py", line 582, in <module>
+    print(json.dumps(run_managed_promotion_round_trip(manual, patcher, action), sort_keys=True))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/candidate/tests/test_sel_activation.py", line 493, in run_managed_promotion_round_trip
+    q.install_bundle(promoted, q.sha(promoted), q.sha(pointer))
+  File "/candidate/tests/../src/ipmi_monitor/sel_qualifications.py", line 1057, in install_bundle
+    proof = next(p for p in verify_promotions([record], expected_active_pointer, connection)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/candidate/tests/../src/ipmi_monitor/sel_qualifications.py", line 602, in verify_promotions
+    raise Refused('promotion_local_operation_mismatch')
+ipmi_monitor.sel_qualifications.Refused: promotion_local_operation_mismatch

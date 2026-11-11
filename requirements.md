@@ -206,3 +206,12 @@ anonymous registry readback shows main/latest have the same digest and1.4.2
 version. Scope, original RED, local verification and actual publication evidence
 are tracked in `.traceweaver/latest-alias-20261107/`. Publication follows the
 normal feature-to-dev and publisher-only main PR route already authorized.
+
+
+## Owner-directed maintenance activation — 11 November 2026
+
+The current owner instruction “We really can turn on the clock correction and auto clear” authorizes bounded work toward eligible activation while retaining REQ-SEL-001..005 and their existing TRACE/VER/VAL identifiers. Root source GO and the reviewed architecture are referenced in `.traceweaver/maintenance-activation-20261111/authority.json`; historical authority above remains intact.
+
+The current source work separates qualified one-use manual commissioning from automatic qualification. A first manual operation remains qualified before dispatch by exact hardware applicability and genuine vendor/native evidence, source guard verification and separate owner scope. Source test results never certify firmware. Every clear and clock write preserves the complete current raw snapshot as byte-identical database and fsynced file representations, verified at the final barrier; the two copies share a volume. Saved history retains its existing retention. A consumed commissioning UUID remains durable even if the attempt fails. Promotion requires the actual local successful operation, original binding, dual archive, audit/raw readback and subsequent genuine collection; supported pointer replacement requires autos off/no unresolved operation, exact pointer CAS and fresh consent afterward. Existing strict v1 qualification, unknown offset/mapping refusal, TLS/reference/ownership and security controls remain. Source acceptance, physical qualification and intended-use acceptance are separate. CCC94 is excluded; no currently unsupported clock is thereby qualified.
+
+The accepted lifetime refinement in `.traceweaver/maintenance-activation-20261111/lifetime-source-go.json` records successful first-promotion proof in private pointer-bound existing transition history. Later eligibility verifies current scope/runtime/identity and retained immutable local operation/audit facts; ordinary raw archive retention is unchanged. Historical one-use scope is checked at actual consumption time, while current automatic scope expiry remains current-time authority. No environment assertion or dormant receipt grants automatic permission.

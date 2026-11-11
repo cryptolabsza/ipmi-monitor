@@ -1,0 +1,22 @@
+{
+  "source_scope_manifest_sha256": "49527b5a5e99910bbdd6147b5f67e737e6cd0100fd7d22ae984d731c5714a374",
+  "evidence": {
+    "repair1-full-suite.txt": "e2750c6a50d918390a21bba2db14f50e52a3ce31b6abe2396d30e63fbdd96a0c",
+    "repair1-clock-red.txt": "cc4fcd068e6b689aa7c8de6f07dd3a4c137e9ce88764cf84873caec6910b6d9d",
+    "repair1-clock-green.txt": "daa03a6dbe90db28a56e52d0f58bafd81d9d3d27eee8db057c3de907f33ca66e",
+    "repair1-clear-cas.txt": "9e5d5a5eca7b34def9ed0fcbca179409086ac748504f3b8eec02767185f2db3e",
+    "browser-phase-green.txt": "1a4463542663eeff8f5bea9e391d2ba413a0f74aff3f7d2ff6c3b98b3cab95fd",
+    "independent-linux.txt": "eb22abc3a7cc8c64dfb807b1ec3c2663605a646224f634e5b9bfdcef75450f3f",
+    "independent-ui.txt": "791417a976cef5bcd33bf896cc71155c1505ce5028686533f5b4b9179d0b99ba",
+    "independent-focused.txt": "aefe7868cb2c83eca2a97cafaaf2ce981ecf3299e77c2f2185b5803c6e45fc19",
+    "independent-trust.txt": "1028f74523049a2249ce7986dabe4d54d59027a8accb2f0a0bbd731d7367a36d",
+    "astra-final.json": "e0f1ee3dfc3e5f4164a696a8d2792fd4e68d957e8390412d710039db05307226",
+    "astra-repair1.json": "acc5d46c1af266d5910895c1eb80ded06db7f101744031566b89cd56afcd429c",
+    "independent-result.json": "09614f5fe1a6c81fa4974ead5768542cb3f25f26dd78646bae6ae3057f69c6c4",
+    "independent-source-integrity.json": "f8dac7fb5a07e355a4e14d7afeb5ff6080b348cc20e085ae28afc9e4c7b3bdf4",
+    "frozen-repair1-manifest.json": "0116e34d155f0cc36f501529f701971dc4b8078beeefbc51721c0e8790b395b8",
+    "precode-red.log": "33ed3b08a6356c1bf1e5e281bd3003a93c414d8417bed0b96182cbb675d90797"
+  },
+  "hardware": "No physical target qualification packet included or inferred; source external-device boundaries synthetic; target receipts root-owned separately",
+  "review_identity": "Root mechanically packaged byte-identical raw evidence and acceptance projections; code/test/semantic scope unchanged"
+}

@@ -1,0 +1,27 @@
+{
+  "status": "owner_approved_bounded_source_root_GO",
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-002",
+    "REQ-SEL-003",
+    "REQ-SEL-004",
+    "REQ-SEL-005"
+  ],
+  "baseline": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "owner_instruction": "We really can turn on the clock correction and auto clear",
+  "root_source_go": "root-source-go.json",
+  "root_source_go_sha256": "568d5616dfec439a46207f3d4f0f381f1c42db90fc1d6040b29444a1bbc1a6bc",
+  "design_contract_path": ".traceweaver/maintenance-activation-20261111/commissioning-contract.json",
+  "design_contract_sha256": "cc9911a02fe84477a0faf41b00070a62ef253557a0a785acb02370fb910fbac9",
+  "boundary": "Qualified one-use manual commissioning is narrower permission, never unqualified override. Existing REQ/TRACE/VER/VAL semantics, historical scopes and target prerequisites retained. Builder has no live/publication authority.",
+  "held": [
+    "final independent source reviews/root acceptance",
+    "protected source publication/CI/release",
+    "genuine per-target vendor/native/trust/clock qualification",
+    "CCC93 finite root live GO and actual acceptance",
+    "all unsupported clocks and CCC94"
+  ],
+  "scope_refinement": ".traceweaver/maintenance-activation-20261111/scope-refinement-ui.json",
+  "lifetime_refinement": ".traceweaver/maintenance-activation-20261111/lifetime-source-go.json",
+  "lifetime_design": ".traceweaver/maintenance-activation-20261111/promotion-lifetime-contract.json"
+}

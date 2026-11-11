@@ -1,0 +1,18 @@
+# SEL maintenance activation validation definition
+
+Status: planned; no operational acceptance. Existing VAL-SEL-001..005 retained.
+
+Owner/rater: Hannes Zietsman / release root; builder is not the acceptance rater. Independent Astra assesses architecture/adverse scenarios, fresh Sol verifies final source, root decides acceptance.
+
+Need: safely reclaim BMC SEL space after verified complete backup while saved monitoring history remains under existing retention; correct only genuinely qualified device clocks and activate independent policies after evidence.
+
+Source verification: same authored tests must fail on exact old source and pass final artifact. Record source/runtime/tool hashes, test IDs, raw logs, fixture construction and environment. Real Flask admin/session intent and SQLite/file copies exercise application guards; synthetic subprocess/native receipts never prove firmware. Require file/DB byte identity at actual dispatch, no command on final corruption, one consumed UUID under race/restart, and v1 unchanged.
+
+Target acceptance held for root: before a CCC93 manual clear record is installed or consumed, independently review exact vendor conditional erase/insertion/competing-reservation applicability and genuine target native guard receipts; source tests cannot fill these claims. Pilot at most one CCC93 clear using one owner-approved commission UUID. Retain original full snapshot twice, unchanged saved history, command/reservation/dispatch/audit receipts, actual bounded completion and readback; new post-clear events are valid. Ordinary subsequent collection must genuinely persist and bind its receipt before promotion. Replacement requires current pointer CAS, autos off/no unresolved ownership, retained history and fresh independent policy consent. No autonomous failed or unknown retry.
+
+Clock remains separate: only exact semantics, all external writer ownership, trusted CA-authenticated current management status, trusted fresh UTC, known offset and readback/offset restoration can qualify a one-use action. Four CCC90–93 unknown-offset clocks stay held. Fresh target evidence governs reference/trust. The initial audit reference holds were historical: LTX trusted UTC has since passed; Charlotte kernel maxerror can intermittently hold. Mapping, CA and external-writer ownership remain independently required; this source does not change thresholds or normalize unknown facts. CCC94 is excluded.
+
+Evidence path: root-owned artifacts/ipmi-maintenance-activation-20261111/ target acceptance record identifying immutable artifact, target GUID, operation/commission IDs, archives/digests, source/vendor/native roles and rater decision. Trigger: final source accepted + genuine exact target packet + finite root live GO. Missing target evidence holds that target/action only; no source pass may claim deployment or requirement closure.
+
+
+Accepted lifetime refinement: `.traceweaver/maintenance-activation-20261111/lifetime-source-go.json` preserves historical one-use approval at actual consumed claim time while enforcing current automatic expiry now. First acceptance proves actual dual archives under the authority fence; a durable pointer-bound private transition receipt retains immutable local operation/audit hashes so normal raw archive TTL can proceed. The retained Linux lane covers ordinary cleanup, missing first-admission raw proof, dormant prepublication receipt, receipt/op tamper, exact unchanged carry-forward, current owner/record expiry, fresh consent and automatic fresh backup. This is source integration with synthetic external tool/TLS, never target evidence.

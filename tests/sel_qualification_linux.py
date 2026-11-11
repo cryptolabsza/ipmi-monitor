@@ -55,6 +55,66 @@ class InstalledDataContract(unittest.TestCase):
             q.sys.stdin = old_stdin
         return code, json.loads(output.getvalue())
 
+    def replace(self, payload, pointer):
+        old_stdin = q.sys.stdin
+        q.sys.stdin = io.TextIOWrapper(io.BytesIO(payload), encoding='utf-8')
+        output = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(output):
+                code = q.main(['replace', '--expected-sha256', q.sha(payload),
+                    '--expected-active-pointer-sha256', pointer])
+        finally:
+            q.sys.stdin = old_stdin
+        return code, json.loads(output.getvalue())
+
+    def test_replace_uses_exact_pointer_cas_and_preserves_history(self):
+        self.assertEqual(self.invoke()[0], 0)
+        active = self.root / 'sel-qualifications/active.json'
+        before = active.read_bytes()
+        candidate = json.loads(self.envelope)
+        registry = b'{"schema":"sel-device-qualification/1", "records":[]}'
+        candidate['registry_sha256'] = q.sha(registry)
+        candidate['files']['registry.json'] = base64.b64encode(registry).decode()
+        candidate = json.dumps(candidate).encode()
+        code, result = self.replace(candidate, '0' * 64)
+        self.assertEqual((code, result['reason']), (1, 'active_pointer_changed'))
+        self.assertEqual(active.read_bytes(), before)
+        with sqlite3.connect(self.root / 'ipmi_events.db') as db:
+            db.execute('UPDATE sel_target SET auto_clock=1')
+        self.assertEqual(self.replace(candidate, q.sha(before))[1]['reason'], 'automation_or_operation_active')
+        with sqlite3.connect(self.root / 'ipmi_events.db') as db:
+            db.execute('UPDATE sel_target SET auto_clock=0')
+        code, result = self.replace(candidate, q.sha(before))
+        self.assertEqual((code, result['outcome']), (0, 'replaced'), result)
+        after = active.read_bytes()
+        self.assertEqual(json.loads(after)['previous_pointer_sha256'], q.sha(before))
+        self.assertEqual((active.parent / 'pointers' / (q.sha(before) + '.json')).read_bytes(), before)
+        self.assertEqual((active.parent / 'pointers' / (q.sha(after) + '.json')).read_bytes(), after)
+        self.assertEqual(self.replace(candidate, q.sha(before))[1]['reason'], 'active_pointer_changed')
+        self.assertEqual(active.read_bytes(), after)
+        next_registry = registry + b'\n'
+        next_envelope = json.loads(candidate)
+        next_envelope['registry_sha256'] = q.sha(next_registry)
+        next_envelope['files']['registry.json'] = base64.b64encode(next_registry).decode()
+        next_envelope = json.dumps(next_envelope).encode()
+        from unittest.mock import patch
+        actual_replace, actual_fsync = q.os.replace, q.os.fsync
+        published = []
+        def publication(*args, **kwargs):
+            result = actual_replace(*args, **kwargs)
+            published.append(True)
+            return result
+        def fsync(fd):
+            if published:
+                raise OSError('publication durability reply unavailable')
+            return actual_fsync(fd)
+        with patch.object(q.os, 'replace', publication), patch.object(q.os, 'fsync', fsync):
+            self.assertEqual(self.replace(next_envelope, q.sha(after))[1]['outcome'], 'outcome_unknown')
+        self.assertEqual(q.qualification_state()['envelope_sha256'], q.sha(next_envelope))
+        current = active.read_bytes()
+        self.assertEqual(self.replace(candidate, q.sha(current))[1]['reason'], 'retired_bundle_reactivation')
+        self.assertEqual(active.read_bytes(), current)
+
     def test_install_reopen_idempotence_and_zero_policy_effect(self):
         code, result = self.invoke()
         self.assertEqual((code, result['outcome']), (0, 'installed'), result)
