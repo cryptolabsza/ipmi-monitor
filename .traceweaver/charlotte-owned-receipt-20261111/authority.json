@@ -1,0 +1,21 @@
+{
+  "schema": "charlotte-owned-receipt-authority/1",
+  "authority_status": "Owner-approved bounded Charlotte repair; root technical mapping and accepted tests/source review",
+  "parent_plan": ".traceweaver/charlotte-sel-20261111/approved-plan.txt",
+  "parent_plan_sha256": "c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de",
+  "owner_receipt": ".traceweaver/charlotte-sel-20261111/owner-approval.json",
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-003",
+    "REQ-SEL-004"
+  ],
+  "meaning_unchanged": true,
+  "scope": "Retry only the exact current process owner acknowledgement of an expired read with positively captured terminal child through existing finish/CAS; no reclaim of foreign/live owner through general recovery and no hardware write changes.",
+  "test_value": "Real SQLite and kernel-process lost-receipt regression plus nine refusal cases; no existing protection removed.",
+  "source_result": ".traceweaver/charlotte-owned-receipt-20261111/root-source-acceptance.json",
+  "held": [
+    "Actual corrected immutable artifact and Charlotte two-cycle acceptance",
+    "All physical maintenance qualification and auto-policy arming",
+    "No generic deadline or unknown historical root-cause guarantee"
+  ]
+}

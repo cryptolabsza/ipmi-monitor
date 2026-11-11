@@ -1,0 +1,113 @@
+{
+  "schema": "charlotte-owned-receipt-source-result/1",
+  "utc": "2026-11-11T08:42:01.648871+00:00",
+  "status": "SOURCE_FROZEN_LOCAL_VALIDATION_PASS; independent review/Linux/site acceptance remain root gates",
+  "authority": "Original owner plan c1b0ef34 and REQ-SEL-001/003/004 unchanged; same qualified 15-minute incident packet; root-source-GO.json",
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-owned-receipt-20261111",
+  "branch": "fix/charlotte-sel-owned-receipt-20261111",
+  "head": "df41c736268b49c3dfc34967f39baf9c6f50e168",
+  "version": "1.2.0 unchanged",
+  "implementation": {
+    "files": [
+      "src/ipmi_monitor/sel_management.py"
+    ],
+    "behavior": "Before ordinary begin, exact current PID/start/boot/namespace and PROCESS_INSTANCE may acknowledge only its own expired failed read through existing finish_collection/CAS, with positive captured child running/reaped proven absent, UTC age >READ+REAP and monotonic >deadline+REAP, and no active write. Failed acknowledgement keeps old lease and blocks new begin.",
+    "unchanged": [
+      "recover_collection death-only rules",
+      "app.py",
+      "sel_collection.py",
+      "qualifiers",
+      "clear/clock mutation semantics",
+      "dependencies",
+      "CI",
+      "versions"
+    ],
+    "diff_numstat": "manager28added5removed; tests134added",
+    "source_frozen": true
+  },
+  "tests": {
+    "added_cases": 10,
+    "removed_or_weakened": 0,
+    "value": "One actual SQLite+kernel-process lost terminal receipt regression and nine requested safety holds; existing child/recovery/mutation/late-ticket protections retained.",
+    "actual_red": "Real SQLite writer spans failed reaped callback and both finish attempts, retaining running captured child ticket although waited child absent and owner alive; after grace periods current source rejects second begin. RED at existing API, not missing interface, and not proof of live CCC98 cause.",
+    "new_safety": [
+      "none",
+      "launching",
+      "live_child",
+      "foreign_instance",
+      "actual_foreign_live_owner",
+      "UTC_grace",
+      "monotonic_grace",
+      "active_unknown_write",
+      "real_SQLite_failure_ack_busy"
+    ],
+    "boundary_substitutes": "Only test UTC/monotonic clocks. Actual macOS kernel process identities, actual subprocess wait, real SQLite transactions. Existing fixture BMC/synthetic credentials; no hardware qualification."
+  },
+  "validation": [
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py -k same_owner_retries_expired_terminal_read_receipt",
+      "stage": "pre-production-source RED",
+      "result": "1 intended failure at second begin,61 deselected,3.86s",
+      "log": "red.txt"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py -k \"expired_read_owner or live_owned_child or real_process_owner or child_receipt_database\"",
+      "result": "7 passed,55 deselected,2.92s",
+      "log": "baseline-safety.txt"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py -k \"same_owner_retries or expired_read_owner or live_owned_child or real_process_owner or child_receipt_database\"",
+      "result": "8 passed,54 deselected,6.40s",
+      "log": "green-initial.txt"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py tests/test_sel_management.py",
+      "result": "177 passed,1788 warnings,110.58s",
+      "log": "focused.txt"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests",
+      "result": "484 passed,3858 warnings,162.74s",
+      "log": "full-tests.txt"
+    },
+    {
+      "command": "Python ast.parse feature_version=(3,9), git diff --check, unchanged pyproject version check",
+      "result": "PASS",
+      "log": "deterministic-checks.json"
+    }
+  ],
+  "environment": "macOS, /opt/homebrew/bin/python3.14; authorized escalation required for actual kernel identity and browser subprocess checks. Initial sandbox first-begin identity error was discarded as non-target proof.",
+  "hashes": {
+    "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+    "tests/test_sel_collection_state.py": "8b93b98866ae9c049ccc770096cafc2212b43f0411d4adbbdbca2254acdcd765",
+    "src/ipmi_monitor/app.py": "b913978de0e6cdeaaa4304e3b1c0ec87f35dac6d57586db75b147f5c257b232a",
+    "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+    "pyproject.toml": "d2e1f577bca4c34fc13f057dabe5603263b6507326205ef4a7867c68414b3f16"
+  },
+  "raw_evidence_sha256": {
+    "red.txt": "980c6690bbeee997dea1639298ee99c75dfb1b794292dd3b47fe8b3dd42d8b7b",
+    "baseline-safety.txt": "b1dac4c6fc59f8f83b4556cc7cbf212a0203924f5a7f9de14f06a7d1b3f4e2e3",
+    "green-initial.txt": "b3a1906af3bc82b080a93dc6ab59c6e0ad733b3a95bd8da518b341798e24d83d",
+    "focused.txt": "b05b514dc22f2b7db0da862dab0639b34235fc7440fe17a89aabc2fd8337bed6",
+    "full-tests.txt": "22e9faa6143efaa1a215327f4d5c0ea9e3a9f0106212383aee4e011dd42c8572",
+    "deterministic-checks.json": "f4a55854c6f6f30a7934de157bf539939326d539c014edcefef2b9584de0dbcb"
+  },
+  "budget": {
+    "qualified_packet_plan_utc": "2026-11-11T08:31:09.685200+00:00",
+    "completed_utc": "2026-11-11T08:42:01.663187+00:00",
+    "ceiling_minutes": 15,
+    "accounting": "Same packet, no reset; root owns authoritative cumulative ledger."
+  },
+  "held": [
+    "Independent Astra code review",
+    "Actual current Linux official image verification",
+    "Protected Git publication/release",
+    "Conditional deployment and CCC98 native/two-cycle acceptance",
+    "Requirements/validation closure"
+  ],
+  "no_actions": [
+    "No stage/commit/push/PR/version bump",
+    "No production host/BMC/external-network access or service restart/deployment; full suite uses local loopback browser fixtures",
+    "No general owner-death recovery change"
+  ]
+}

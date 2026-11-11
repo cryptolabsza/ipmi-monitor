@@ -1,0 +1,46 @@
+{
+  "id": "CHARLOTTE-OWNED-RECEIPT-20261111",
+  "utc": "2026-11-11T08:33:55.620995+00:00",
+  "stage": "tests-only RED; production GO held",
+  "authority": "Original plan c1b0ef34; REQ-SEL-001/003/004 unchanged; owned-receipt-incident/plan.json and profile-amendment.json",
+  "plan": [
+    "Reuse collection_site and real child identity/process wait, actual SQLite BEGIN IMMEDIATE writer spanning reaped callback and both finish lock attempts.",
+    "Demonstrate existing begin_collection rejects exact live owner despite captured child proven absent and elapsed read+reap budget; preserve general recover_collection live-owner rejection.",
+    "After root+Astra GO only, add bounded same-owner terminal expired read acknowledgement via existing common finish/CAS before normal begin; add safety negatives, run focused and full suites."
+  ],
+  "failure_distinction": {
+    "actual_existing_failure": "Real SQLite writer prevents durable reaped callback and both finish attempts; log SEL collection failure receipt unavailable; active ticket remains running with captured actual child PID absent and actual owner alive. Once writer released and both clocks expired, existing begin_collection raises collection_busy_or_maintenance.",
+    "planned_interface": "No new API or missing method. Existing begin_collection behavior is expected to call existing finish_collection for only its exact expired terminal read, then create fresh ticket; test spies common finish without replacing it.",
+    "cause_limit": "This reproduces a credible lost receipt path, not proof SQLite contention caused live CCC98 incident."
+  },
+  "boundaries": [
+    "Exact PID/start/boot/namespace owner AND PROCESS_INSTANCE; captured non-null child in running/reaped durable state and child_is_terminal actual absence.",
+    "Require read deadline plus REAP_SECONDS expired; hold none/launching/unknown/live child and foreign/live owner or process_instance.",
+    "General recover_collection death-only semantics unchanged.",
+    "Common finish transactional ticket CAS only; late old snapshot must neither persist nor release fresh ticket.",
+    "No mutation/clear/clock lease release, new qualification, hardware command or runtime restart."
+  ],
+  "coverage": {
+    "new": "test_same_owner_retries_expired_terminal_read_receipt_before_next_begin",
+    "value": "Protect live-process read liveness after bounded DB receipt loss while proving late-ticket fencing and no event/alert success fabrication.",
+    "reuse": [
+      "test_child_receipt_database_contention_is_bounded_and_does_not_change_mutation_timeout",
+      "test_live_owned_child_prevents_finish_and_lease_release",
+      "test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish",
+      "test_real_process_owner_proof_holds_live_owner_and_unreaped_child"
+    ],
+    "minimum_additional_after_GO": "Same owner foreign-process-instance/live-child/unknown-spawn and expiry guard negatives, preserving existing general recovery and mutation barrier coverage."
+  },
+  "validation": {
+    "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py -k same_owner_retries_expired_terminal_read_receipt",
+    "result": "1 failed,61 deselected in3.86s; exact intended failure at fresh=manager.begin_collection(BMC): collection_busy_or_maintenance",
+    "platform": "macOS Python3.14; actual kernel process identities/subprocess wait and real SQLite. Test-only UTC/monotonic clocks substituted. Initial sandbox kernel-process read denied; authorized escalated test produced authentic RED. No hardware qualification."
+  },
+  "source_unchanged": true,
+  "version": "1.2.0 unchanged",
+  "hashes": {
+    "src/ipmi_monitor/sel_management.py": "e71009abfe6323c9f2a4afa07dbed3cfa63cf7477bbba9846f22ef56bb7182dc",
+    "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+    "tests/test_sel_collection_state.py": "c93abf3becb46bb3e58316408a8acf1dda2dbc63828aaf302702ca397edf4243"
+  }
+}
