@@ -51,5 +51,6 @@
     "H2 immutable helper checkout=H1 plus transport checksum; PH contract=H1",
     "H3 immutable caller recipe=H2; P contract=H2"
   ],
-  "requirements_sha256": "8dfa9db18206b17ac8f5813c91215bdc486717d4dd42163c918773bc2247e9f6"
+  "requirements_sha256": "f643321ff637f19582f4846431f468b5fe8fb4d3753b6dfd4ba173bffbb59716",
+  "main_baseline_preservation": "main-baseline-preservation.json"
 }
