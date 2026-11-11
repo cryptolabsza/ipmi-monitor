@@ -25,6 +25,7 @@ DECODED_LIMIT = 32 * 1024 * 1024
 REGISTRY_LIMIT = 1024 * 1024
 EVIDENCE_LIMIT = 4 * 1024 * 1024
 POINTER_LIMIT = 16384
+SUPPORTED_RECORD_TRANSPORTS = frozenset({'lanplus-cipher17-admin', 'lanplus-cipher3-admin'})
 CHECKS = {
     'clear': {'same_reservation', 'insertion_invalidates', 'competing_reservation', 'complete_raw_backup', 'completion_readback', 'new_events_survive'},
     'enable': {'unrelated_bits_preserved', 'enabled_readback'},
@@ -150,7 +151,11 @@ def tool_identity():
 
 
 def runtime_identity():
-    """Hash actual installed source/tool bytes; unknown identity grants nothing."""
+    """Hash installed source/tool bytes; transport names the adapter default.
+
+    Each record's fingerprint binds its actual supported transport separately.
+    Unknown or changed runtime identity still grants nothing.
+    """
     return {'adapter_version': 'sel-raw-v3-persistent', 'transport': 'lanplus-cipher17-admin',
             'adapter_sha256': sha(Path(__file__).with_name('sel_management.py').read_bytes()),
             'loader_sha256': sha(Path(__file__).read_bytes()), **tool_identity()}
@@ -189,7 +194,7 @@ def validate_registry(value, files, identity):
                     if key not in {'aux_firmware_present', 'aux_firmware'})):
             raise Refused('invalid_fingerprint_types')
         if (record['fingerprint']['adapter'] != identity['adapter_version'] or
-                record['fingerprint']['transport'] != identity['transport'] or record['fingerprint']['log'] != 'ipmi:sel'):
+                record['fingerprint']['transport'] not in SUPPORTED_RECORD_TRANSPORTS or record['fingerprint']['log'] != 'ipmi:sel'):
             raise Refused('invalid_record_applicability')
         if 'ntp_probe' in record:
             fields(record['ntp_probe'], {'path', 'ca_file', 'ca_sha256'})

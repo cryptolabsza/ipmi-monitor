@@ -1,0 +1,116 @@
+{
+  "CHANGED": {
+    "scope": "Truthful explicit cipher3 action-evidence admission under unchanged REQ-SEL-004; source-only no-publication worker",
+    "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+    "production": [
+      "src/ipmi_monitor/sel_qualifications.py"
+    ],
+    "tests": [
+      "tests/test_sel_qualifications.py",
+      "tests/test_sel_management.py"
+    ],
+    "trace": [
+      "traceability-matrix.md",
+      ".traceweaver/ccc90-cipher3-20261111/"
+    ],
+    "behavior": "Closed code-owned supported record transports17/3 replaces equality to default17. Runtime/envelope source/tool equality, fingerprint/GUID/action/evidence and pre-I/O explicit bound read profile controls remain intact. Default17 metadata documented.",
+    "no_changes": [
+      "Production sel_management",
+      "Requirements",
+      "Version/dependencies/CI",
+      "Registry/pointer/policies",
+      "Hardware/SSH/container/deployment"
+    ],
+    "diffstat": "src/ipmi_monitor/sel_qualifications.py |   9 ++-\n tests/test_sel_management.py           | 100 ++++++++++++++++++++++++++++++++-\n tests/test_sel_qualifications.py       |  66 +++++++++++++++++++++-\n traceability-matrix.md                 |  19 +++++++\n 4 files changed, 187 insertions(+), 7 deletions(-)"
+  },
+  "VERIFIED": {
+    "source_hashes": {
+      "src/ipmi_monitor/sel_qualifications.py": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+      "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+      "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+      "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7",
+      "requirements.md": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4",
+      "pyproject.toml": "d2e1f577bca4c34fc13f057dabe5603263b6507326205ef4a7867c68414b3f16"
+    },
+    "RED": {
+      "result": "4 intended failures /14 passing controls in4.03s",
+      "path": "evidence/red.txt",
+      "old_loader_sha256": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+      "failures": [
+        "truthful cipher3 registry",
+        "mixed17/3 registry",
+        "cipher3 clear-only admission/action separation",
+        "guarded Flask/raw cipher3 clear"
+      ]
+    },
+    "GREEN": {
+      "result": "18 passed /114 deselected in3.71s",
+      "path": "evidence/green.txt"
+    },
+    "focused_sandbox": {
+      "result": "143 passed /70 failed in104.81s",
+      "path": "evidence/focused.txt",
+      "limitation": "Sandbox denied boot/process identity inspection and loopback HTTP bind; required process/collection/browser tests were not weakened. Full suite subsequently requested with escalation."
+    },
+    "full_suite": {
+      "status": "pass",
+      "path": "evidence/full-tests.txt",
+      "environment": "macOS26.6.2 ARM64 Python3.14.6 with actual local process/boot inspection and loopback Chromium; subprocess/TLS synthetic BMC boundaries only",
+      "result": "502 passed,0failed,0skipped in169.24s",
+      "command": "python3 -m pytest tests -q",
+      "sandbox_escalation": "Allowed local boot/process identity inspection and loopback HTTP/Chromium required by existing tests; no code/test repairs, skips or weakened assertions."
+    },
+    "deterministic": "evidence/deterministic-checks.json: unchanged requirements/version/deps/adapter, compile and diffcheck pass",
+    "VV": "evidence/vv-check.txt: pass0findings; actual root exact precodeGO plus prior Astra same-contract plan",
+    "trace": "evidence/trace.jsonl and trace.md: implementation codeanchor scanner pass0findings; existing matching anchors retained, matrix append adds current evidence",
+    "Astra_review": {
+      "result": "PASS_NARROW_CCC90_TRANSPORT_IMPLEMENTATION; no findings",
+      "path": "evidence/astra-code-review.json",
+      "scope": "Independent exact3file diff and authority/evidence review; observed full suite still running at review snapshot, not reviewer full-suite attestation"
+    },
+    "Linux_candidate_overlay": {
+      "result": "201 passed,12 browsercases failed due missing Chromium in unchanged official1.4.5 image environment",
+      "result_path": "evidence/linux-result.json",
+      "raw_path": "evidence/linux-tests.txt",
+      "owner": "Root actualLinux runner; frozen3file overlays and kernel/persistent guards tested",
+      "limitation": "No allLinuxpass claim. Same full browser lanes pass in actual fullMac502. New official artifact proof remains root-owned."
+    }
+  },
+  "CLAIMED": {
+    "status": "Bounded local source compatibility verified; independent exactdiff Astra PASS; root final acceptance/publication/deployment remains separate",
+    "qualification_boundary": "Synthetic temporary registry and raw subprocess evidence verifies application contract only; no real target or firmware is qualified.",
+    "regression_coverage": "14 additional parametrized cases across reused tests/fixtures; no tests removed/skipped and no existing assertions weakened. Exact default17, wrongtool/runtime/custody, wrongfingerprint/action/evidence, readprofilealone and both None-offset semantics remain protected.",
+    "runtime_compatibility": "Loader source hash intentionally changes; pre-upgrade envelopes/records remain invalid until independently rebuilt/reviewed against current runtime. No automatic relabel/rebind activation."
+  },
+  "BLOCKED": [
+    {
+      "claim": "Physical clear/enable/clock qualification and automatic arming",
+      "owner": "Hannes/root",
+      "next_trigger": "Actual approved exact-device/action native/vendor evidence plus archive/identity/reservation/ownership/consent gates; no synthetic fixture installation"
+    },
+    {
+      "claim": "Unknown-offset clock correction",
+      "owner": "Hannes/root",
+      "next_trigger": "Separate reviewed capability and trustworthy exact native semantics/hardware evidence; neither utc_epoch nor transport3 bypasses offset restoration"
+    },
+    {
+      "claim": "Source publication/deployed LTX target acceptance",
+      "owner": "Root",
+      "next_trigger": "Independent exact-source review, current Linux/artifact proof and protected publication/immutable deployment and preservation/collection receipts"
+    },
+    {
+      "claim": "CCC94 recovery",
+      "owner": "Root diagnostic workstream",
+      "next_trigger": "Fresh bounded diagnosis; no cause/recovery inference from this source change"
+    }
+  ],
+  "PROMOTE": {
+    "next": "Root final evidence acceptance and protected publication capsule for exactfinaltree, followed by required official-artifact and authorized LTX deployment acceptance.",
+    "source_GO": "Actual precode-review.json; no stage/commit/push/PR/merge/tag/deploy authority to worker",
+    "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ccc90-cipher3-20261111",
+    "branch": "fix/ccc90-cipher3-20261111",
+    "repair_cycles_used": 0,
+    "frozen_production_sha256": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+    "source_freeze_utc": "2026-11-11T14:54:06.960076+00:00"
+  }
+}

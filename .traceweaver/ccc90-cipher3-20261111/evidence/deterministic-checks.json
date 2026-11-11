@@ -1,0 +1,21 @@
+{
+  "utc": "2026-11-11T14:51:01.559489+00:00",
+  "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.6"
+  },
+  "diff_check": 0,
+  "requirements_unchanged": true,
+  "version_dependencies_unchanged": true,
+  "production_adapter_unchanged": true,
+  "source_scope": [
+    "src/ipmi_monitor/sel_qualifications.py"
+  ],
+  "test_scope": [
+    "tests/test_sel_qualifications.py",
+    "tests/test_sel_management.py"
+  ],
+  "compile_check": "python3 -m compileall -q src/ipmi_monitor/sel_qualifications.py tests/test_sel_qualifications.py tests/test_sel_management.py passed",
+  "publication_mutations": "No stage/commit/push/PR/merge/tag/deploy. One root-issued branch capsule consumed for local isolated branch/worktree only."
+}

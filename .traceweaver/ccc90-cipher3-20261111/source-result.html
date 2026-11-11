@@ -1,0 +1,110 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>CCC90 transport compatibility source result</title><style>body{font:16px/1.55 system-ui;max-width:1100px;margin:40px auto;padding:0 24px;color:#1c2530;background:#faf9f6}h1{font-size:30px}h2{font-size:20px;border-top:1px solid #ccc;padding-top:18px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#efeee9;padding:18px;border-radius:8px;font:13px/1.5 ui-monospace}p{max-width:850px}</style><h1>CCC90 transport compatibility</h1><p>Frozen source: closed cipher17/3 evidence admission; full Mac 502 passed. Physical qualification, unknown-offset clock correction, CCC94 recovery and deployed acceptance remain held.</p><h2>CHANGED</h2><pre>{
+  &quot;scope&quot;: &quot;Truthful explicit cipher3 action-evidence admission under unchanged REQ-SEL-004; source-only no-publication worker&quot;,
+  &quot;baseline&quot;: &quot;70f1c3627c6eef4d4ccf73800e986fad1ae188f5&quot;,
+  &quot;production&quot;: [
+    &quot;src/ipmi_monitor/sel_qualifications.py&quot;
+  ],
+  &quot;tests&quot;: [
+    &quot;tests/test_sel_qualifications.py&quot;,
+    &quot;tests/test_sel_management.py&quot;
+  ],
+  &quot;trace&quot;: [
+    &quot;traceability-matrix.md&quot;,
+    &quot;.traceweaver/ccc90-cipher3-20261111/&quot;
+  ],
+  &quot;behavior&quot;: &quot;Closed code-owned supported record transports17/3 replaces equality to default17. Runtime/envelope source/tool equality, fingerprint/GUID/action/evidence and pre-I/O explicit bound read profile controls remain intact. Default17 metadata documented.&quot;,
+  &quot;no_changes&quot;: [
+    &quot;Production sel_management&quot;,
+    &quot;Requirements&quot;,
+    &quot;Version/dependencies/CI&quot;,
+    &quot;Registry/pointer/policies&quot;,
+    &quot;Hardware/SSH/container/deployment&quot;
+  ],
+  &quot;diffstat&quot;: &quot;src/ipmi_monitor/sel_qualifications.py |   9 ++-\n tests/test_sel_management.py           | 100 ++++++++++++++++++++++++++++++++-\n tests/test_sel_qualifications.py       |  66 +++++++++++++++++++++-\n traceability-matrix.md                 |  19 +++++++\n 4 files changed, 187 insertions(+), 7 deletions(-)&quot;
+}</pre><h2>VERIFIED</h2><pre>{
+  &quot;source_hashes&quot;: {
+    &quot;src/ipmi_monitor/sel_qualifications.py&quot;: &quot;88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1&quot;,
+    &quot;src/ipmi_monitor/sel_management.py&quot;: &quot;ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4&quot;,
+    &quot;tests/test_sel_qualifications.py&quot;: &quot;ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a&quot;,
+    &quot;tests/test_sel_management.py&quot;: &quot;5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7&quot;,
+    &quot;requirements.md&quot;: &quot;213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4&quot;,
+    &quot;pyproject.toml&quot;: &quot;d2e1f577bca4c34fc13f057dabe5603263b6507326205ef4a7867c68414b3f16&quot;
+  },
+  &quot;RED&quot;: {
+    &quot;result&quot;: &quot;4 intended failures /14 passing controls in4.03s&quot;,
+    &quot;path&quot;: &quot;evidence/red.txt&quot;,
+    &quot;old_loader_sha256&quot;: &quot;b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17&quot;,
+    &quot;failures&quot;: [
+      &quot;truthful cipher3 registry&quot;,
+      &quot;mixed17/3 registry&quot;,
+      &quot;cipher3 clear-only admission/action separation&quot;,
+      &quot;guarded Flask/raw cipher3 clear&quot;
+    ]
+  },
+  &quot;GREEN&quot;: {
+    &quot;result&quot;: &quot;18 passed /114 deselected in3.71s&quot;,
+    &quot;path&quot;: &quot;evidence/green.txt&quot;
+  },
+  &quot;focused_sandbox&quot;: {
+    &quot;result&quot;: &quot;143 passed /70 failed in104.81s&quot;,
+    &quot;path&quot;: &quot;evidence/focused.txt&quot;,
+    &quot;limitation&quot;: &quot;Sandbox denied boot/process identity inspection and loopback HTTP bind; required process/collection/browser tests were not weakened. Full suite subsequently requested with escalation.&quot;
+  },
+  &quot;full_suite&quot;: {
+    &quot;status&quot;: &quot;pass&quot;,
+    &quot;path&quot;: &quot;evidence/full-tests.txt&quot;,
+    &quot;environment&quot;: &quot;macOS26.6.2 ARM64 Python3.14.6 with actual local process/boot inspection and loopback Chromium; subprocess/TLS synthetic BMC boundaries only&quot;,
+    &quot;result&quot;: &quot;502 passed,0failed,0skipped in169.24s&quot;,
+    &quot;command&quot;: &quot;python3 -m pytest tests -q&quot;,
+    &quot;sandbox_escalation&quot;: &quot;Allowed local boot/process identity inspection and loopback HTTP/Chromium required by existing tests; no code/test repairs, skips or weakened assertions.&quot;
+  },
+  &quot;deterministic&quot;: &quot;evidence/deterministic-checks.json: unchanged requirements/version/deps/adapter, compile and diffcheck pass&quot;,
+  &quot;VV&quot;: &quot;evidence/vv-check.txt: pass0findings; actual root exact precodeGO plus prior Astra same-contract plan&quot;,
+  &quot;trace&quot;: &quot;evidence/trace.jsonl and trace.md: implementation codeanchor scanner pass0findings; existing matching anchors retained, matrix append adds current evidence&quot;,
+  &quot;Astra_review&quot;: {
+    &quot;result&quot;: &quot;PASS_NARROW_CCC90_TRANSPORT_IMPLEMENTATION; no findings&quot;,
+    &quot;path&quot;: &quot;evidence/astra-code-review.json&quot;,
+    &quot;scope&quot;: &quot;Independent exact3file diff and authority/evidence review; observed full suite still running at review snapshot, not reviewer full-suite attestation&quot;
+  },
+  &quot;Linux_candidate_overlay&quot;: {
+    &quot;result&quot;: &quot;201 passed,12 browsercases failed due missing Chromium in unchanged official1.4.5 image environment&quot;,
+    &quot;result_path&quot;: &quot;evidence/linux-result.json&quot;,
+    &quot;raw_path&quot;: &quot;evidence/linux-tests.txt&quot;,
+    &quot;owner&quot;: &quot;Root actualLinux runner; frozen3file overlays and kernel/persistent guards tested&quot;,
+    &quot;limitation&quot;: &quot;No allLinuxpass claim. Same full browser lanes pass in actual fullMac502. New official artifact proof remains root-owned.&quot;
+  }
+}</pre><h2>CLAIMED</h2><pre>{
+  &quot;status&quot;: &quot;Bounded local source compatibility verified; independent exactdiff Astra PASS; root final acceptance/publication/deployment remains separate&quot;,
+  &quot;qualification_boundary&quot;: &quot;Synthetic temporary registry and raw subprocess evidence verifies application contract only; no real target or firmware is qualified.&quot;,
+  &quot;regression_coverage&quot;: &quot;14 additional parametrized cases across reused tests/fixtures; no tests removed/skipped and no existing assertions weakened. Exact default17, wrongtool/runtime/custody, wrongfingerprint/action/evidence, readprofilealone and both None-offset semantics remain protected.&quot;,
+  &quot;runtime_compatibility&quot;: &quot;Loader source hash intentionally changes; pre-upgrade envelopes/records remain invalid until independently rebuilt/reviewed against current runtime. No automatic relabel/rebind activation.&quot;
+}</pre><h2>BLOCKED</h2><pre>[
+  {
+    &quot;claim&quot;: &quot;Physical clear/enable/clock qualification and automatic arming&quot;,
+    &quot;owner&quot;: &quot;Hannes/root&quot;,
+    &quot;next_trigger&quot;: &quot;Actual approved exact-device/action native/vendor evidence plus archive/identity/reservation/ownership/consent gates; no synthetic fixture installation&quot;
+  },
+  {
+    &quot;claim&quot;: &quot;Unknown-offset clock correction&quot;,
+    &quot;owner&quot;: &quot;Hannes/root&quot;,
+    &quot;next_trigger&quot;: &quot;Separate reviewed capability and trustworthy exact native semantics/hardware evidence; neither utc_epoch nor transport3 bypasses offset restoration&quot;
+  },
+  {
+    &quot;claim&quot;: &quot;Source publication/deployed LTX target acceptance&quot;,
+    &quot;owner&quot;: &quot;Root&quot;,
+    &quot;next_trigger&quot;: &quot;Independent exact-source review, current Linux/artifact proof and protected publication/immutable deployment and preservation/collection receipts&quot;
+  },
+  {
+    &quot;claim&quot;: &quot;CCC94 recovery&quot;,
+    &quot;owner&quot;: &quot;Root diagnostic workstream&quot;,
+    &quot;next_trigger&quot;: &quot;Fresh bounded diagnosis; no cause/recovery inference from this source change&quot;
+  }
+]</pre><h2>PROMOTE</h2><pre>{
+  &quot;next&quot;: &quot;Root final evidence acceptance and protected publication capsule for exactfinaltree, followed by required official-artifact and authorized LTX deployment acceptance.&quot;,
+  &quot;source_GO&quot;: &quot;Actual precode-review.json; no stage/commit/push/PR/merge/tag/deploy authority to worker&quot;,
+  &quot;worktree&quot;: &quot;/Users/hanneszietsman/CrypotAI/ipmi-monitor-ccc90-cipher3-20261111&quot;,
+  &quot;branch&quot;: &quot;fix/ccc90-cipher3-20261111&quot;,
+  &quot;repair_cycles_used&quot;: 0,
+  &quot;frozen_production_sha256&quot;: &quot;88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1&quot;,
+  &quot;source_freeze_utc&quot;: &quot;2026-11-11T14:54:06.960076+00:00&quot;
+}</pre></html>

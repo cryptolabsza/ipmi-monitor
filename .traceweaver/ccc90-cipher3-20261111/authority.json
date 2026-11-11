@@ -1,0 +1,40 @@
+{
+  "id": "CCC90-CIPHER3-20261111",
+  "owner_request": "Ok addrss ccc90 and ccc94. The also delpoy on ltx",
+  "root_delegation": "Bounded source transport compatibility only; root owns operations/publication",
+  "status": "Proceed_bounded_source_per_actual_root_precode_acceptance",
+  "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "requirements": [
+    "REQ-SEL-004"
+  ],
+  "retained_invariants": [
+    "REQ-SEL-005"
+  ],
+  "trace": [
+    "TRACE-SEL-004"
+  ],
+  "verification": "VER-SEL-004",
+  "validation": "VAL-SEL-004",
+  "normative_requirements_unchanged": true,
+  "requirements_sha256": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4",
+  "allowed_source": [
+    "src/ipmi_monitor/sel_qualifications.py"
+  ],
+  "allowed_tests": [
+    "tests/test_sel_qualifications.py",
+    "tests/test_sel_management.py"
+  ],
+  "allowed_docs": [
+    ".traceweaver/ccc90-cipher3-20261111",
+    "traceability-matrix.md"
+  ],
+  "must_not_change": [
+    "No credential/security downgrade or TLS bypass",
+    "No automatic policy arming or fabricated hardware qualification",
+    "No BMC/chassis reset, power, firmware or destructive negative test inferred",
+    "No offset=None coercion or skipping restoration",
+    "No unrelated services/runner infrastructure/user dirty files changes"
+  ],
+  "publication_permission": false,
+  "gate": "Actual root-source-GO and authentic4FAIL14PASS reviewed; require VVchecker before production mutation"
+}

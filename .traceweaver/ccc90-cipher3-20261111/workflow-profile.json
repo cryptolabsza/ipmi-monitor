@@ -1,0 +1,45 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "task_id": "WORK-CCC90-CIPHER3-20261111",
+  "profile_revision": 1,
+  "profile_status": "frozen_for_bounded_source",
+  "risk": "L3",
+  "selection_rationale": "Qualification admission security boundary can enable separately authorized external destructive actions; source-only child has no external action permission.",
+  "selected_controls": [
+    "Exact approved REQ-SEL-004 authority and whole source/tool/envelope equality",
+    "Authentic old-source RED before production mutation; reviewed full V&V",
+    "Closed code-owned17/3 membership; exact fingerprint/GUID/action/evidence and explicit read profile",
+    "Preserve both None-offset clock holds and archive/dispatch controls",
+    "Root plus one Astra independent source review; one repair max",
+    "Root owns all publication, release, target deployment and acceptance"
+  ],
+  "child_roles": {
+    "builder": "Current parent-dispatched Sol worker",
+    "reviewer": "Root plus Astra final narrow review",
+    "deployer": "Root only"
+  },
+  "model_routing": {
+    "available": [
+      "gpt-6.1-sol",
+      "gpt-6-astra"
+    ],
+    "selected": "Parent native Orchestra dispatch; no external backend or runtime configuration changes",
+    "rationale": "Owner-directed orchestration; no served-model attestation inferred"
+  },
+  "reviewer_cap": 1,
+  "repair_cycle_cap": 1,
+  "requires_deploy": true,
+  "requires_browser_dogfood": false,
+  "deploy_requirement": "Root-owned exact immutable LTX artifact and preservation/collection acceptance; child no deploy",
+  "dogfood_requirement": "Root acceptance plus independently retained target receipts; physical qualification stays held",
+  "process_budget": {
+    "estimated_delivery_minutes": 28,
+    "estimated_process_target_minutes": 7,
+    "estimated_process_ceiling_minutes": 28,
+    "builder_timebox_minutes_max": 35,
+    "target_ratio": 0.25,
+    "hard_ceiling_ratio": 1
+  },
+  "immutable_after_building": true,
+  "profile_hash": "sha256:bdba18f0516f224fdc4119396fe6b372ad4d5b28cc9aa2d97185f52266de355e"
+}

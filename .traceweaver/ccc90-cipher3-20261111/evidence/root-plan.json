@@ -1,0 +1,63 @@
+{
+  "utc": "2026-11-11T14:43:38.669462+00:00",
+  "owner_request": "Ok addrss ccc90 and ccc94. The also delpoy on ltx",
+  "approved_outcome": "Bounded CCC90 compatibility repair, CCC94 cause diagnosis/recovery within existing authority, reviewed IPMI deployment on LTX",
+  "plan": [
+    {
+      "step": 1,
+      "files": "astra-ccc90-plan.json/html, ccc94/*, ltx/*",
+      "action": "Refresh current live state and independently review CCC90 exact source transport contract; diagnose CCC94 using managed read-only access."
+    },
+    {
+      "step": 2,
+      "files": "isolated ipmi-monitor-ccc90-cipher3-20261111: src/ipmi_monitor/sel_qualifications.py, minimal existing tests and scoped trace records",
+      "action": "Preserve all write/evidence guards while allowing truthful explicit cipher3 action evidence. Authentic RED then focused and full regression."
+    },
+    {
+      "step": 3,
+      "files": "source review, official protected dev/main release records",
+      "action": "Root inspect frozen diff/raw evidence; Astra review narrow security boundary; publish through existing approved feature PR/dev/release main route."
+    },
+    {
+      "step": 4,
+      "files": "ltx/* fresh checkpoint, immutable artifact/selection proof, one native submit and acceptance",
+      "action": "Deploy once using existing server-owned fixed broker after fresh preservation guards. Verify actual artifact, history, configuration, unrelated services and scheduled collections."
+    },
+    {
+      "step": 5,
+      "files": "ccc94/*, final status/report",
+      "action": "Apply only approved bounded recovery supported by fresh findings; retain any physical reset or missing qualification as explicit unresolved boundary."
+    }
+  ],
+  "must_not_change": [
+    "No credential/security downgrade or TLS bypass",
+    "No automatic policy arming or fabricated hardware qualification",
+    "No BMC/chassis reset, power, firmware or destructive negative test inferred",
+    "No offset=None coercion or skipping restoration",
+    "No unrelated services/runner infrastructure/user dirty files changes"
+  ],
+  "budget": {
+    "old_attempts_reusable": false,
+    "new_ltx_native_submit_max": 1,
+    "new_ltx_native_submit_consumed": 0,
+    "physical_maintenance_writes": 0,
+    "new_charlotte_native_submit_max": 1,
+    "new_charlotte_native_submit_consumed": 0
+  },
+  "delegation": {
+    "architecture": "Astra prior narrow review completed",
+    "ccc90_source": "Sol isolated worker",
+    "ccc94": "Sol read-only diagnostic worker",
+    "ltx": "Sol read-only operational preparation",
+    "root": "authority, acceptance, integration and actual deployment"
+  },
+  "risk": "Transport admission is security sensitive; exact tool/source/envelope/fingerprint/GUID/action/evidence checks remain mandatory. Runtime hash changes invalidate old bundles. LTX observed1.4.2 not oldNov4baseline.",
+  "deployment_clarification": "Latestowner asks addressCCC90/94 on Charlotte and also deployLTX: one reviewed immutable IPMI update on each site if source compatibility changes, fresh guards and separate per-site attempt reservations; no double-rollout planned.",
+  "fresh_ltx": {
+    "hostname": "mon-01",
+    "source": "de79838a29fb60fb6b4c8ac537bcf1c46d7412fb",
+    "version": "1.4.2",
+    "selection_sha256": "29eaf18cbfaf3b67233990d40361cd2da0cd7e96c8b575cf2a75b864440f977b",
+    "free_docker_bytes": 96430510080
+  }
+}

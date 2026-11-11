@@ -1,0 +1,39 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L3",
+  "work_item_id": "WORK-CCC90-CIPHER3-20261111",
+  "plan_ref": ".traceweaver/ccc90-cipher3-20261111/plan.json",
+  "authority_ref": ".traceweaver/ccc90-cipher3-20261111/authority.json",
+  "baseline_ref": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "profile_hash": "sha256:bdba18f0516f224fdc4119396fe6b372ad4d5b28cc9aa2d97185f52266de355e",
+  "requirements": [
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "ver_id": "VER-SEL-004",
+      "val_id": "VAL-SEL-004",
+      "verification_artifact": "tests/test_sel_qualifications.py",
+      "red_evidence": ".traceweaver/ccc90-cipher3-20261111/evidence/red.txt",
+      "validation_artifact": "docs/validation/sel-health-20261103.md",
+      "matrix_row_ref": "traceability-matrix.md / REQ-SEL-004",
+      "reviews": [
+        {
+          "gate": "tw-code-review and tw-doc-review",
+          "id": "CCC90-PRECODE-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ccc90-cipher3-20261111/precode-review.json"
+        },
+        {
+          "gate": "tw-doc-review",
+          "id": "ASTRA-CCC90-PLAN-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/ccc90-cipher3-20261111/evidence/astra-ccc90-plan.json"
+        }
+      ]
+    }
+  ],
+  "high_risk_controls": {
+    "rollback": "No physical or registry actions. Root owns protected immutable old-image rollback preserving volume and history; no old pointer rebind or automatic arming. Reconcile ambiguous external effects; no blind retry.",
+    "owner_decision": "Owner request authorizes narrow compatibility/LTX outcome; root source GO plus independent final review still required. All physical qualifications and no-offset clock semantics remain held."
+  }
+}
