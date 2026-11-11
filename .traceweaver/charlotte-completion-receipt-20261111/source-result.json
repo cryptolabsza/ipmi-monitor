@@ -1,0 +1,142 @@
+{
+  "schema": "charlotte-completion-receipt-source-result/1",
+  "utc": "2026-11-11T12:09:56.016087+00:00",
+  "status": "FROZEN_MAC_AND_ROOT_LINUX_EVIDENCE_PASS; independent exact-diff review/publication/live acceptance remain root gates",
+  "authority": {
+    "root_source_GO": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/root-source-GO.json",
+    "root_source_GO_sha256": "69babb0f81e33dacfca1b3364ff48f98b47be3e907e9ec270f9e87f227f50198",
+    "plan": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/collector-followup-plan.json",
+    "review": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/collector-plan-review.json",
+    "requirements": "REQ-SEL-001/003/004 and original c1b0ef34 unchanged; qualified new completion-receipt packet; old budgets remain consumed"
+  },
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-completion-receipt-20261111",
+  "branch": "fix/charlotte-completion-receipt-20261111",
+  "base": "c1a51286592883c7be83529389d986c40066a333",
+  "version": "1.2.0 unchanged",
+  "implementation": {
+    "production_files": [
+      "src/ipmi_monitor/app.py"
+    ],
+    "test_files": [
+      "tests/test_sel_collection_state.py"
+    ],
+    "scope": "App-local observer catches only actual manager SELUnavailable at reaped callback. It never upgrades snapshot by flags/counts: the original acquisition must finish traversal, stable final info/fingerprint, deadline and decoding without error. Physical close/wait errors still fail, and prior acquisition errors remain dominant over cleanup. Existing save/common finish remains sole durable success/lease route.",
+    "unchanged": [
+      "sel_management.py including finish/recovery/CAS/child/write guards",
+      "sel_collection.py",
+      "tests/test_sel_persistent.py fixture",
+      "requirements normatives",
+      "transport and qualification/source hash guards",
+      "dependencies",
+      "CI",
+      "versions"
+    ],
+    "diff": {
+      "app_added": 13,
+      "app_removed": 2,
+      "test_added": 85,
+      "test_removed": 0
+    },
+    "source_corrections_after_initial_implementation": 0,
+    "frozen": true
+  },
+  "test_value": {
+    "added_cases": 4,
+    "removed_cases": 0,
+    "weakened_cases": 0,
+    "cases": [
+      "Uncontended actual PTY producer persists all3records and durable success with no historical alerts",
+      "Actual SQLite writer only around actual reaped callback; release BEFORE real save; validated3record read persists through unchanged finish actual child/CAS checks",
+      "Fully populated native snapshot followed by actual final fingerprint mismatch + same reaped receipt contention remains failed/0persisted and retains acquisition reason",
+      "Physical wait boundary raises same generic SELUnavailable code after actually waiting child; remains failed/0persisted, proving origin not code controls handoff"
+    ],
+    "actual_boundaries": "Actual existing child_tool fake executable and PTY; added only fixed readonly DeviceID/GUID replies; actual kernel process identities and wait; actual SQLite writer/timeout. No handcrafted EventBatch or manual finish snapshot. No clock substitute. Physical wait error is an explicit boundary substitute raised after actual wait.",
+    "reuse": "Existing collection, persistent PTY, raw/generation, late/stale/rebound ticket, owner/child, storage rollback, security, deadline and clear/clock barriers retained and run focused/full.",
+    "red_distinction": "Retained old-source RED fails at expected observable persistence result after completed3record snapshot, both actual fingerprint calls and actual waited/captured child absence. Uncontended control and physical wait negative pass on old source. The prior acquisition-error negative separately proves old cleanup overwrites final fingerprint reason. Initial tests-only placement NameError corrected before retained authentic RED; it is not defect evidence.",
+    "cause_limit": "This demonstrates a sufficient source mechanism, not historical proof that SQLite contention caused CCC98 failures or that907counts implied complete validation."
+  },
+  "validation": [
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_persistent.py tests/test_sel_collection_state.py -k \"complete_snapshot_and_clear or live_owned_child or child_receipt_database or same_owner_retries\"",
+      "exit_code": 0,
+      "result": "5 passed,72 deselected,71 warnings in6.38s",
+      "raw_log": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/baseline.txt",
+      "raw_sha256": "dfa4c543d5f29b649185c537a429c976ba6eaac62242cf71feb8f758671f05f4"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py -k validated_producer_completion",
+      "exit_code": 1,
+      "result": "2 intended failures,2 passed,71 deselected,71 warnings in4.21s; old source loses complete read and overwrites earlier acquisition reason",
+      "raw_log": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/red.txt",
+      "raw_sha256": "eb9095d8d27b5478a9d3955a4c6757552e1e59c76ed14975fbb21853979cf6ba"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py -k validated_producer_completion",
+      "exit_code": 0,
+      "result": "4 passed,71 deselected,71 warnings in4.29s",
+      "raw_log": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/green.txt",
+      "raw_sha256": "4a98559daf8373be8039635fbb9eece89fd54e0e1063df162c8e1665bc935608"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py tests/test_sel_persistent.py tests/test_sel_collection_regressions.py tests/test_sel_management.py",
+      "exit_code": 0,
+      "result": "207 passed,1844 warnings in116.72s",
+      "raw_log": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/focused.txt",
+      "raw_sha256": "7f449de1379efe3c6a2db01d9aff15fcf7ccc670be2c41d65065742ee8fd8bfb"
+    },
+    {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests",
+      "exit_code": 0,
+      "result": "488 passed,3887 warnings in166.29s",
+      "raw_log": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/full-tests.txt",
+      "raw_sha256": "0d5d3d774cb132998375b17deca24504ac509b446a35c8e7324a9ef032e16b0e"
+    }
+  ],
+  "deterministic_checks": {
+    "path": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/deterministic-checks.json",
+    "sha256": "3df0abfed19a2d38eaf15334e7b293ecd33859b1ba6acf50cc9e7d74b74697ff",
+    "result": "Python3.9 AST, git diff --check, tracked scope, baseline manager/collection hashes and actual unchanged version all PASS"
+  },
+  "environment": {
+    "python": "3.14.6 [Clang21.0.0]",
+    "platform": "macOS26.6.2 arm64",
+    "permissions": "Authorized local test escalation for actual kernel process identity and browser subprocesses; no production access. Full suite uses local loopback browser fixtures.",
+    "full_suite_runs": 1
+  },
+  "root_independent_Linux": {
+    "ownership": "Root executed; worker read retained evidence only",
+    "initial_result": "4newcases failed before child launch because synthetic /tmp executable was denied; root retained errno13/noexec proof. Old91cases passed. Not a candidate product defect.",
+    "noexec_proof": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/linux/diagnostic/noexec-proof.stdout",
+    "corrected_environment_result": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/linux/exec-fixture-correction/result.json",
+    "corrected_result_sha256": "77d1a51f808ba4fad1e5d2b2dab42caf63ec1ba5b4912a4375fc2c4868a94bed",
+    "result": "95 passed24.61s,exit0; actual image SQLAlchemy2.1.8/Gunicorn27, exact frozen app/test overlay hashes; root-owned synthetic fixture exec mount correction, no source or assertion change",
+    "raw_log": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-maintenance-qualification-20261111/linux/exec-fixture-correction/tests.txt",
+    "raw_log_sha256": "b6e30650c7290386cedd3d134729dcaf9ab64ceadc27d012c9d28d44d293ed0d",
+    "qualification": "Not hardware/production qualification"
+  },
+  "frozen_sha256": {
+    "src/ipmi_monitor/app.py": "1f6ba5f3f46a6f0c17ce53e3548337c0ad780cd51570df402cd99c42c61daad8",
+    "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+    "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+    "tests/test_sel_collection_state.py": "3a681cf1a3cad9444e83420db2892c9d3acea245ac782ba39a8c2b268899d913",
+    "tests/test_sel_persistent.py": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e",
+    "pyproject.toml": "d2e1f577bca4c34fc13f057dabe5603263b6507326205ef4a7867c68414b3f16"
+  },
+  "budget": {
+    "packet_GO_utc": "2026-11-11T11:58:25.007735+00:00",
+    "finished_utc": "2026-11-11T12:09:56.026913+00:00",
+    "ceiling_minutes": 25,
+    "accounting": "One qualified packet; no reset of old budgets; root owns cumulative source/publication/operation ledger."
+  },
+  "held": [
+    "Independent Astra exact-code review",
+    "Protected feature/dev/main publication and official artifact proof",
+    "Any production adoption/current quiescence guard and two ordinary cycles",
+    "Hardware/clock/clear/enable qualification and requirements closure"
+  ],
+  "no_actions": [
+    "No stage/commit/push/PR/merge/version bump",
+    "No SSH/BMC/productionDocker/network access, HUP, restart, power or maintenance command",
+    "No direct lease update, timeout extension or guard relaxation"
+  ]
+}

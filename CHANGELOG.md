@@ -5,6 +5,12 @@ All notable changes to IPMI Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-11-11
+
+### Fixed
+- Retain validated native SEL reads when only the reaped-child receipt fails, with actual child termination and ticket ownership verified before persistence.
+- Preserve the original acquisition error when cleanup also fails.
+
 ## [1.4.4] - 2026-11-11
 
 ### Fixed

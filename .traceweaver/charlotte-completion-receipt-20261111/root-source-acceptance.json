@@ -1,0 +1,54 @@
+{
+  "utc": "2026-11-11T12:11:06.740747+00:00",
+  "decision": "PASS_SCOPED_COMPLETION_RECEIPT_SOURCE",
+  "source_sha256": {
+    "src/ipmi_monitor/app.py": "1f6ba5f3f46a6f0c17ce53e3548337c0ad780cd51570df402cd99c42c61daad8",
+    "tests/test_sel_collection_state.py": "3a681cf1a3cad9444e83420db2892c9d3acea245ac782ba39a8c2b268899d913",
+    "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4"
+  },
+  "changed_functions": [
+    "collect_ipmi_sel only"
+  ],
+  "root_verified": "Read actual15lineappdiff,85linetestdiff,authenticREDatfailedpersistenceandmaskedprioridentityreason; actualfull488PASS androotLinux95PASSrawlogs; exactAstrareview/no blockers; finish/recovery/qualificationsunchanged",
+  "tests": {
+    "full_Mac": {
+      "passed": 488,
+      "seconds": 166.29
+    },
+    "focused_Mac": {
+      "passed": 207,
+      "seconds": 116.72
+    },
+    "root_actual_Linux": {
+      "passed": 95,
+      "seconds": 24.61,
+      "SQLAlchemy": "2.1.8",
+      "Gunicorn": "27.0.0",
+      "synthetic_actual_PTY_child_and_SQLite": true
+    }
+  },
+  "Linux_harness_correction": "Original /tmp noexec denied generatedfake tool(errno13); ownedisolatedtesttmpfs exec restoredintendedfixtureexecution, no source/assertion/securityguardchange; originalfailedtestlogsretainedprivately",
+  "test_delta": {
+    "added": 4,
+    "removed": 0,
+    "weakened": 0
+  },
+  "Astra": "PASS_REVIEW_SCOPE exactsource/testhashes",
+  "cause_limit": "Sufficient sourcecounterexample,notproofhistoricalSQLitecause orcomplete907readonlivefailedattempt",
+  "allowed": "Protectedfeaturedev thencompatible1.4.5mainrelease andscopednativeadoptionwithfreshguards; nohardwarewrites/automaticarming",
+  "all_requirements_closed": false,
+  "evidence_sha256": {
+    "red.txt": "eb9095d8d27b5478a9d3955a4c6757552e1e59c76ed14975fbb21853979cf6ba",
+    "green.txt": "4a98559daf8373be8039635fbb9eece89fd54e0e1063df162c8e1665bc935608",
+    "focused.txt": "7f449de1379efe3c6a2db01d9aff15fcf7ccc670be2c41d65065742ee8fd8bfb",
+    "full-tests.txt": "0d5d3d774cb132998375b17deca24504ac509b446a35c8e7324a9ef032e16b0e",
+    "deterministic-checks.json": "3df0abfed19a2d38eaf15334e7b293ecd33859b1ba6acf50cc9e7d74b74697ff",
+    "collector-plan-review.json": "dc7afbca28a3dc7f4ea8152c492ffb5a0bc30959f0a6754b325f1b74a79c085f",
+    "collector-code-review.json": "a2d3d91f43767ccb9e83e0b7aab8976fcc5148ed587688a23c9b194eb0a69c9e",
+    "trace.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "trace.md": "935fc2451a3da397394fe8b7f0c9624ae7dfc6782a92db7e839ddde478bc548d",
+    "linux-result.json": "77d1a51f808ba4fad1e5d2b2dab42caf63ec1ba5b4912a4375fc2c4868a94bed",
+    "linux-tests.txt": "b6e30650c7290386cedd3d134729dcaf9ab64ceadc27d012c9d28d44d293ed0d",
+    "linux-noexec-proof.json": "c062bb844daad68f0d07b3331862d24dde0fd3bba5750804da6e03e446219e7d"
+  }
+}

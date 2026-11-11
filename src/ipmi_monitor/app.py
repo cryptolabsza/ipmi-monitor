@@ -6405,7 +6405,17 @@ def collect_ipmi_sel(bmc_ip, server_name):
                 return EventBatch(values, ticket=ticket, snapshot=snapshot, error=error)
             adapter = sel_manager.adapter(target)
             adapter.deadline = ticket['deadline']
-            adapter.child_observer = lambda state, child=None: sel_manager.collection_child(ticket, state, child)
+            def observe_child(state, child=None):
+                try:
+                    sel_manager.collection_child(ticket, state, child)
+                except SELUnavailable:
+                    if state != 'reaped':
+                        raise
+                    # Physical close/wait already completed before this callback.
+                    # Common finish independently proves the captured child absent
+                    # and fences the same ticket before any records can commit.
+                    app.logger.warning('SEL reaped-child receipt unavailable; common finish will verify child')
+            adapter.child_observer = observe_child
             # No DB write lock crosses network IO; the lease itself is durable.
             db.session.rollback()
             adapter.open_session()
@@ -6435,7 +6445,8 @@ def collect_ipmi_sel(bmc_ip, server_name):
                 try:
                     adapter.close()
                 except Exception:
-                    error = 'collection_child_identity_unavailable'
+                    if error is None:
+                        error = 'collection_child_identity_unavailable'
             db.session.rollback()
         if error and adapter is not None:
             snapshot = {'complete': False, 'native_expected': getattr(adapter, 'native_expected', None),

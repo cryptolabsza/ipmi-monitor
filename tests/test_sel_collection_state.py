@@ -15,6 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 from ipmi_monitor import sel_management as sel
+from tests.test_sel_persistent import child_tool
 
 
 BMC = '192.0.2.40'
@@ -72,6 +73,90 @@ def test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent(nati
     with pytest.raises(sel.SELUnavailable) as caught:
         adapter.snapshot(bytes.fromhex('3412'))
     assert caught.value.code == 'rmcp_session_failed'
+
+
+@pytest.mark.parametrize('fault', ['none', 'reaped_receipt_busy', 'final_identity_and_receipt_busy', 'physical_wait'])
+def test_validated_producer_completion_survives_only_reaped_receipt_loss(
+        collection_site, child_tool, tmp_path, monkeypatch, fault):
+    """Actual PTY producer + real SQLite writer at only the post-wait receipt."""
+    app, db, models, runtime, alerts = collection_site
+    make, children = child_tool
+    adapter = make()
+    executable = tmp_path / 'ipmitool'
+    # Extend the existing real-child fixture with only fixed read-only identity replies.
+    source = executable.read_text().replace('def response(values):', '''device_reads = 0
+def response(values):
+    global device_reads
+    if values[:2] == [6,1]:
+        device_reads += 1
+        device = bytes.fromhex(DEVICE_REPLY)
+        return bytes([device[0] ^ 1]) + device[1:] if IDENTITY_FAULT and device_reads > 1 else device
+    if values[:2] == [6,55]: return bytes.fromhex(GUID_REPLY)'''
+        .replace('DEVICE_REPLY', repr(DEVICE.hex())).replace('GUID_REPLY', repr(GUID.hex()))
+        .replace('IDENTITY_FAULT', repr(fault == 'final_identity_and_receipt_busy')))
+    executable.write_text(source)
+    monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+    snapshots, fingerprints, receipts = [], [], []
+    original_snapshot, original_fingerprint = adapter.snapshot, adapter.fingerprint
+    def observe_snapshot(reservation):
+        result = original_snapshot(reservation)
+        snapshots.append(deepcopy(result))
+        return result
+    def observe_fingerprint():
+        result = original_fingerprint()
+        fingerprints.append(result)
+        return result
+    monkeypatch.setattr(adapter, 'snapshot', observe_snapshot)
+    monkeypatch.setattr(adapter, 'fingerprint', observe_fingerprint)
+    original_child = runtime.sel_manager.collection_child
+    def receive_child(ticket, state, child=None):
+        if fault == 'physical_wait' and state == 'running':
+            original_wait = child.wait
+            def physical_wait(*args, **kwargs):
+                original_wait(*args, **kwargs)
+                # Same code as a receipt failure must not imply the same provenance.
+                raise sel.SELUnavailable('collection_child_identity_unavailable')
+            monkeypatch.setattr(child, 'wait', physical_wait)
+        if state != 'reaped' or fault not in {'reaped_receipt_busy', 'final_identity_and_receipt_busy'}:
+            return original_child(ticket, state, child)
+        blocker = db.engine.connect()
+        try:
+            blocker.exec_driver_sql('BEGIN IMMEDIATE')
+            try:
+                return original_child(ticket, state, child)
+            except sel.SELUnavailable as exc:
+                receipts.append(exc.code)
+                raise
+        finally:
+            blocker.rollback(); blocker.close()  # Writer is gone before real save/common finish.
+    monkeypatch.setattr(runtime.sel_manager, 'collection_child', receive_child)
+    with app.app_context():
+        events = runtime.collect_ipmi_sel(BMC, 'fixture-host')
+        assert len(children) == 1 and children[0].poll() is not None
+        assert snapshots[0]['complete'] and len(snapshots[0]['records']) == 3
+        assert len(fingerprints) == 2, 'both actual fingerprint calls completed before cleanup'
+        state = json.loads(runtime.sel_manager.target(BMC).collection_state)
+        assert state['active_ticket']['child']['pid'] == children[0].pid
+        from ipmi_monitor.sel_collection import child_is_terminal
+        assert child_is_terminal(state['active_ticket']), 'actual captured child is waited absent'
+        if 'receipt_busy' in fault:
+            assert receipts == ['collection_child_identity_unavailable']
+            assert state['active_ticket']['child_state'] == 'running'
+        result = runtime.save_events_to_db(BMC, 'fixture-host', events)
+        db.session.remove()
+        state = json.loads(runtime.sel_manager.target(BMC).collection_state)
+        count = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).count()
+        if fault in {'none', 'reaped_receipt_busy'}:
+            assert result['outcome'] == 'persisted', (result, state)
+            assert count == state['native_persisted'] == 3
+            assert state['last_complete_success_at'] and state['receipt_digest']
+        else:
+            assert result['outcome'] == 'failed' and count == 0
+            expected = 'collection_identity_changed' if fault == 'final_identity_and_receipt_busy' else 'collection_child_identity_unavailable'
+            assert state['safe_reason'] == expected
+            assert state['last_complete_success_at'] is None
+        assert state['active_attempt_id'] is None
+        assert alerts == [], 'historical imports cannot replay incident alerts'
 
 
 @pytest.fixture()
