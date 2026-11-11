@@ -11,7 +11,7 @@ import json
 from click.testing import CliRunner
 import pytest
 
-from tests.test_sel_management import qualified_site, sel_site
+from tests.test_sel_management import qualified_site, qualification_transport, sel_site
 
 
 def test_fixed_qualification_cli_exposes_only_install_and_status(monkeypatch):
@@ -48,7 +48,7 @@ def test_registry_and_evidence_cannot_enter_through_symlink(qualified_site, monk
     assert qualification_records() == []
 
 
-@pytest.mark.parametrize('unsafe', ['hardlink', 'writable', 'source_mismatch'])
+@pytest.mark.parametrize('unsafe', ['hardlink', 'writable', 'source_mismatch', 'tool_mismatch'])
 def test_real_registry_custody_and_runtime_applicability_fail_closed(qualified_site, monkeypatch, unsafe):
     from ipmi_monitor.sel_management import qualification_records
     _site, _state, registry = qualified_site
@@ -59,7 +59,10 @@ def test_real_registry_custody_and_runtime_applicability_fail_closed(qualified_s
         registry.chmod(0o666)
     else:
         value = json.loads(registry.read_bytes())
-        value['records'][0]['runtime_identity'] = {'adapter_sha256': '0' * 64}
+        if unsafe == 'tool_mismatch':
+            value['records'][0]['runtime_identity']['tool_sha256'] = '0' * 64
+        else:
+            value['records'][0]['runtime_identity'] = {'adapter_sha256': '0' * 64}
         registry.write_text(json.dumps(value))
         monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
     assert qualification_records() == []
@@ -125,3 +128,60 @@ def test_boolean_identity_fields_cannot_be_replaced_by_equal_json_integers(quali
     registry.write_text(json.dumps(value))
     monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
     assert qualification_records() == []
+
+
+@pytest.mark.parametrize('transport', ['lanplus-cipher3-admin', 'lanplus-cipher17-admin'])
+def test_supported_transports_retain_exact_fingerprint_action_and_evidence(
+        qualified_site, qualification_transport, monkeypatch, transport):
+    from ipmi_monitor.sel_management import qualification_records, qualified
+    record = qualification_transport(transport)
+    assert len(qualification_records()) == 1
+    assert qualified(record['fingerprint'], 'clear')['record_id'] == record['record_id']
+    for key, wrong in [('transport', 'lanplus-cipher8-admin'), ('guid', 'ff' * 16),
+                       ('aux_firmware', 'ff' * 4), ('firmware', 'different')]:
+        assert qualified(dict(record['fingerprint'], **{key: wrong}), 'clear') is None
+    assert qualified(record['fingerprint'], 'unsupported_action') is None
+    _site, _state, registry = qualified_site
+    # A truthful record cannot borrow differently bound evidence.
+    value = json.loads(registry.read_bytes())
+    value['records'][0]['fingerprint']['guid'] = 'ff' * 16
+    registry.write_text(json.dumps(value))
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+    assert qualification_records() == []
+
+
+def test_mixed_supported_transports_resolve_independently(qualified_site, qualification_transport):
+    from ipmi_monitor.sel_management import qualification_records, qualified
+    cipher3 = qualification_transport('lanplus-cipher3-admin', append=True)
+    records = qualification_records()
+    assert len(records) == 2
+    cipher17 = next(record for record in records if record['fingerprint']['transport'] == 'lanplus-cipher17-admin')
+    assert qualified(cipher3['fingerprint'], 'clear')['record_id'] == cipher3['record_id']
+    assert qualified(cipher17['fingerprint'], 'clear')['record_id'] == cipher17['record_id']
+
+
+@pytest.mark.parametrize('transport', ['lanplus-cipher8-admin', 'lan-cipher3-admin', 'arbitrary'])
+def test_unsupported_record_transport_is_refused(qualification_transport, transport):
+    from ipmi_monitor.sel_management import qualification_records
+    qualification_transport(transport)
+    assert qualification_records() == []
+
+
+
+def test_cipher3_clear_evidence_cannot_authorize_other_actions(
+        qualified_site, qualification_transport, monkeypatch):
+    from ipmi_monitor.sel_management import qualified
+    qualification_transport('lanplus-cipher3-admin')
+    _site, _state, registry = qualified_site
+    value = json.loads(registry.read_bytes())
+    record = value['records'][0]
+    record['actions'] = {'clear': record['actions']['clear']}
+    record['evidence_artifacts'] = [artifact for artifact in record['evidence_artifacts']
+                                    if artifact['sha256'] in record['actions']['clear']['sha256']]
+    for key in ('clock_semantics', 'ntp_probe', 'supporting_evidence'):
+        record.pop(key)
+    registry.write_text(json.dumps(value))
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+    assert qualified(record['fingerprint'], 'clear') is not None
+    assert qualified(record['fingerprint'], 'enable') is None
+    assert qualified(record['fingerprint'], 'clock') is None

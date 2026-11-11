@@ -1,0 +1,23 @@
+..................                                                       [100%]
+=============================== warnings summary ===============================
+tests/test_sel_qualifications.py::test_real_registry_custody_and_runtime_applicability_fail_closed[hardlink]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ccc90-cipher3-20261111/tests/../src/ipmi_monitor/app.py:3289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_qualifications.py: 148 warnings
+tests/test_sel_management.py: 70 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_qualifications.py: 11 warnings
+tests/test_sel_management.py: 7 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ccc90-cipher3-20261111/tests/../src/ipmi_monitor/app.py:6664: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_qualifications.py: 11 warnings
+tests/test_sel_management.py: 7 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-ccc90-cipher3-20261111/tests/../src/ipmi_monitor/app.py:6668: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+18 passed, 114 deselected, 255 warnings in 3.71s

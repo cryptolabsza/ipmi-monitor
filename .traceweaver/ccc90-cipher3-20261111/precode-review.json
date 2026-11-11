@@ -1,0 +1,35 @@
+{
+  "utc": "2026-11-11T14:47:39.991362+00:00",
+  "decision": "GO_BOUNDED_CCC90_TRANSPORT_ADMISSION_REPAIR",
+  "authority": "root-plan.json; owner20261111 addressCCC90/94+deployLTX; unchanged REQ-SEL-004 and retained005",
+  "review": "Root independently inspected test diff, portable plan/authority/frozenprofile/VV and authenticRED; Astra plan PASS narrowcapability exactsame contract",
+  "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "profile_hash": "sha256:bdba18f0516f224fdc4119396fe6b372ad4d5b28cc9aa2d97185f52266de355e",
+  "red": {
+    "path": "source/red.txt",
+    "sha256": "e4b122023624f12287e0d7622ee9f4d97335259f277f5aac8a503ea1f1f9ceaf",
+    "result": "4 intendedFAIL,14PASS; truthful3/mixed/guarded3/clearonly3 admission positives fail;17/profileonly/wrongtool/unknownoffsetcontrolsPASS"
+  },
+  "reviewed_test_sha256": {
+    "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+    "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7"
+  },
+  "allowed_production": [
+    "src/ipmi_monitor/sel_qualifications.py"
+  ],
+  "contract": [
+    "Closed code-owned supportedrecordtransports17and3 only; default17metadata retained",
+    "Exact runtime/tool/envelope source/evidence/fingerprint/GUID/action guards unchanged; profilealone grants zero writes",
+    "No adapter negotiation/fallback or clock semantics changes; both unknownoffsetholds retained",
+    "Full relevant regression and rootactualLinuxartifact proof plus oneAstra finalexactdiff review beforepublication"
+  ],
+  "gate": "Worker must pass actual V&V checker with this real root precode acceptance + Astra before source mutation",
+  "publication_or_live_write_permission_for_worker": false,
+  "held": [
+    "Physical hardware qualification",
+    "CCC94native recovery",
+    "Any automaticpolicyarming",
+    "Liveartifact acceptance"
+  ],
+  "refinement": "Root accepted minimum same-contract clear-only action separation and same-shape tool hash mismatch controls; source unchanged before this refreshed GO; freeze test scope now."
+}

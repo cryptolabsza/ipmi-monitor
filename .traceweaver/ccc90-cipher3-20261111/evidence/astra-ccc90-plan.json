@@ -1,0 +1,171 @@
+{
+  "CHANGED": {
+    "scope": "Single read-only architecture/security review under latest owner request to address CCC90/CCC94 and deploy reviewed update on LTX. No disposable board designation inferred.",
+    "start_utc": "2026-11-11T14:37:28Z",
+    "finish_utc": "2026-11-11T14:40:17.133251+00:00",
+    "budget_minutes_max": 6,
+    "written": [
+      "astra-ccc90-plan.json",
+      "astra-ccc90-plan.html"
+    ],
+    "product_or_operational_changes": false,
+    "prior_budgets": "Remain consumed; no source/deployment/HUP budget reuse. Root owns new plan, source GO and actual actions."
+  },
+  "VERIFIED": {
+    "source_revision": "fec2a7d7d54efe093bf51a6631428fefd13cd9c9",
+    "version_context": "1.4.5 accepted on Charlotte per parent; source read through git show only, dirty canonical untouched.",
+    "source_hashes": {
+      "src/ipmi_monitor/sel_qualifications.py": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+      "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+      "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "tests/test_sel_qualifications.py": "24448e235b33d84307480dc684c73db4c68186fb9a18c2e9ff00550d0923aa5b",
+      "tests/test_sel_management.py": "a3bd857bb4fb788d597e5495d4220fed2c475318aebe38a1030f938ce8487484"
+    },
+    "facts": [
+      {
+        "anchor": "src/ipmi_monitor/sel_qualifications.py:152",
+        "fact": "Global runtime identity includes adapter/loader/tool hashes and transport=lanplus-cipher17-admin. Envelope and record runtime_identity equality are enforced independently."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_qualifications.py:191",
+        "fact": "Registry currently rejects any fingerprint transport unequal to global default, including genuine cipher3 evidence. Fingerprint already has a separate transport field; every action has its own checks, evidence digests and operation IDs."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:596",
+        "fact": "Selection matches whole fingerprint including GUID, raw Device ID/firmware/aux, adapter and transport plus requested action; current source/record/action binding is rechecked at claim and dispatch."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:1116",
+        "fact": "Adapter selects explicit per-target read_profile cipher before identity network I/O; the profile itself is bound to server_id/binding/IP/raw Device ID/GUID. Default remains17. No automatic fallback exists."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:1497",
+        "fact": "execute identifies on the selected transport, then requires exact action qualification before claim or any write. Existing shared adapter does not need a second action-only transport picker to support CCC90."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:374",
+        "fact": "Unsupported Get SEL UTC Offset becomes offset_minutes=None with independent unsupported_command reason. This differs from zero offset."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:507",
+        "fact": "sync_clock requires a numeric offset for both local_epoch_with_utc_offset and utc_epoch, and always issues Set SEL Time then Set SEL UTC Offset and verifies both."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:1578",
+        "fact": "execute independently refuses offset=None before clock dispatch, even with utc_epoch record. observe at1205 also requires offset for derived drift. A transport compatibility fix alone cannot enable offset-unsupported clocks."
+      }
+    ],
+    "retained_live_evidence": "Prior supplied current-state.stdout at11:51:38 records CCC90 cipher3, CCC91 cipher17, both Get SEL UTC Offset unsupported with offset=None; CCC94 fingerprint null/native device_timeout or device_stream_closed. These are historical receipts, not refreshed current-state claims.",
+    "existing_test_contracts": [
+      "tests/test_sel_qualifications.py:68 synthetic action evidence admission; :85 exact artifact/operation mismatch refusal; :105 CA/ownership binding; :52 source/custody failures.",
+      "tests/test_sel_collection_state.py:test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch covers cipher3/17 selection and identity binding.",
+      "tests/test_sel_management.py:690 positive/negative offset restoration; :703 interrupted/external authority failures; :901 unspecified offset causes no write.",
+      "tests/test_sel_persistent.py real shell verifies selected cipher and secret channel."
+    ],
+    "no_test_execution": "This reviewer inspected source/contracts only. Prior488/full and95/Linux evidence may be reused for unchanged behavior context; changed qualification admission needs fresh relevant tests."
+  },
+  "CLAIMED": {
+    "verdict": "PASS_NARROW_TRANSPORT_CAPABILITY_PLAN; PHYSICAL_CLOCK_ACTIONS_HELD",
+    "minimal_design": "Use the existing v1 record fingerprint.transport as the actual per-device/action transport evidence. Keep global runtime/envelope identity shape and exact identity equality, explicitly documenting global transport17 as the default adapter profile metadata, not a claim that every record used17. Replace only record transport equality-to-default with membership in a closed code-owned supported set {lanplus-cipher17-admin,lanplus-cipher3-admin}. Preserve adapter-version/log/full-fingerprint/action/evidence validation. No record rewriting, guessed negotiated cipher, broad fallback or data-selected supported set.",
+    "format_compatibility": "Schema/shape compatible: no new record/envelope field required; valid current-runtime cipher17 records still pass, and current-runtime cipher3 action records become admissible only with their own exact evidence. Existing pre-upgrade bundles are NOT guaranteed runnable: loader source hash changes intentionally invalidate runtime-bound records/envelopes. Do not auto-relabel old identities or silently reactivate an old pointer.",
+    "transport_before_io": "Retain current explicit bound read-profile selection before identity I/O. Require the observed fingerprint and requested action to match an independently admitted record before writes. Profile alone, missing record/action, wrong GUID/firmware/cipher or mismatched evidence must fail closed. No retry at a different cipher after a rejected call.",
+    "scope_adequacy": "This repairs the concrete false refusal of truthful cipher3 action evidence. It does not prove firmware behavior, resolve CCC90/91 missing offset semantics, fix CCC94 network/authentication, or authorize policy arming."
+  },
+  "BLOCKED": [
+    {
+      "id": "C90-01",
+      "confidence": 100,
+      "blocker": "No physical exact-target/action evidence, no safe matching board or reviewed first-canary runner identified.",
+      "anchors": [
+        "src/ipmi_monitor/sel_qualifications.py:28",
+        "src/ipmi_monitor/sel_qualifications.py:232",
+        "src/ipmi_monitor/sel_qualifications.py:607"
+      ],
+      "implication": "Synthetic test fixtures remain isolated; do not install a registry, mark checks=true or treat CCC90/94 as test boards. Same-firmware lab proof supports applicability but does not replace per-GUID target acceptance."
+    },
+    {
+      "id": "C90-02",
+      "confidence": 100,
+      "blocker": "CCC90 and CCC91 offset unsupported is a separate current action capability/semantics gap. utc_epoch does not currently mean no-offset-write.",
+      "anchors": [
+        "src/ipmi_monitor/sel_management.py:507",
+        "src/ipmi_monitor/sel_management.py:1578",
+        "src/ipmi_monitor/sel_management.py:1205"
+      ],
+      "implication": "Keep unsupported/unknown offset refusal. Never coerce None to0, infer UTC from a displayed suffix, skip offset restoration merely because utc_epoch is selected, or mark positive/negative/restore canaries passed when commands are unsupported. A future no-offset contract requires verified vendor/native semantics, explicit capability/evidence representation and safe hardware proof before source design; this narrow transport patch should not invent it."
+    },
+    {
+      "id": "C90-03",
+      "confidence": 100,
+      "blocker": "Trusted BMC TLS CA, complete external-time ownership and fresh reference evidence remain action prerequisites.",
+      "anchors": [
+        "src/ipmi_monitor/sel_qualifications.py:279",
+        "src/ipmi_monitor/sel_management.py:488",
+        "src/ipmi_monitor/sel_management.py:562"
+      ],
+      "implication": "No verify=False, CA bypass or NTP setting changes. NTP.ProtocolEnabled=false alone does not exclude BIOS/host/vendor time writers. Maintain managed-clock refusal and independent retained evidence."
+    },
+    {
+      "id": "C94-01",
+      "confidence": 75,
+      "blocker": "Existing CCC94 timeout/closed stream gives no verified cause or stable native identity.",
+      "anchors": [
+        "artifacts/charlotte-maintenance-qualification-20261111/current-state.stdout"
+      ],
+      "implication": "Root should first refresh explicit secure transport, current managed credential source/role, routing and sanitized protocol response through bounded read-only diagnostics. Do not add cipher3 profile without exact identity evidence, broad cipher/role fallback, credential rotation, BMC reset/power/firmware change or false empty/native-health result. Addressing CCC94 does not mean it is approved for destructive tests."
+    },
+    {
+      "id": "DEPLOY-01",
+      "confidence": 100,
+      "blocker": "New loader hash changes runtime qualification applicability; LTX deployment and registry state must be observed independently.",
+      "anchors": [
+        "src/ipmi_monitor/sel_qualifications.py:177",
+        "src/ipmi_monitor/sel_qualifications.py:438",
+        "src/ipmi_monitor/sel_qualifications.py:568"
+      ],
+      "implication": "Owner requested LTX deployment, but root must inspect current image/config/history/policies/qualification mode/pointer and use protected immutable artifact route. Existing different pointer replacement remains refused; no silent pointer deletion/rebinding or policy arming. Prior LTX hardware holds do not become passes on deployment."
+    }
+  ],
+  "PROMOTE": {
+    "files": [
+      {
+        "path": "src/ipmi_monitor/sel_qualifications.py",
+        "change": "Add closed supported record transports and narrowly change record applicability; document global default metadata versus actual fingerprint transport. Keep exact runtime identity hashes/envelope shape/evidence checks unchanged."
+      },
+      {
+        "path": "tests/test_sel_qualifications.py",
+        "change": "Extend existing qualified_site/registry tests for truthful cipher3 and mixed17/3 records; preserve custody/source/evidence mismatch negatives."
+      },
+      {
+        "path": "tests/test_sel_management.py",
+        "change": "Reuse actual admin action route/raw adapter tests with exact bound cipher3 profile and synthetic qualification to prove transport selection plus no-write holds; parameterize existing offset=None hold for both clock semantics."
+      },
+      {
+        "path": "scoped verification/docs/traceability",
+        "change": "Record additive capability boundary, honest no-offset/hardware holds and test evidence. No runtime/dependency/policy/registry or broad adapter redesign."
+      }
+    ],
+    "minimum_RED_contracts": [
+      "Against exact1.4.5, a truthful current-runtime cipher3 record with all fixture fingerprint/evidence transports consistently3 fails current applicability; same current-runtime cipher17 control passes. After change both pass and mixed records resolve exact fingerprints/actions independently.",
+      "Wrong/unsupported transport, record/evidence mismatch, wrong GUID/aux firmware, missing requested action and changed runtime/tool hash remain refused. Reuse current validators; do not bypass them in the test.",
+      "Actual guarded action with explicit bound cipher3 profile plus matching admitted synthetic action record selects -C3 before identity reads and uses3 for every write; default17 remains17. No automatic retry/fallback. Test uses synthetic credentials/raw boundary only, never physical BMC.",
+      "Same cipher3 profile with no qualification or only a mismatched17 record performs no mutation; stale profile binding/GUID rejects before nonidentity BMC commands. A clear-only record cannot authorize clock or enable. Existing claim/dispatch revocation tests retain their protection.",
+      "Offset=None for BOTH utc_epoch and local_epoch_with_utc_offset yields clock_mapping_unknown and no Set SEL Time/Set UTC Offset; preserve existing positive/negative numeric-offset restoration and interrupted-write holds. This is retained behavior, not a new success requirement."
+    ],
+    "execution_order": [
+      "Root freezes this bounded transport-capability contract and new authority/budgets; isolated feature worktree, authentic RED before source change.",
+      "Implement only the admission compatibility change and minimal meaningful tests/docs; focused custody/action/transport tests plus required regressions and exact Linux artifact verification. No registry installation or automatic policy change.",
+      "Root continues independent read-only CCC94 cause diagnosis and resource/vendor/TLS discovery for90/91. If a new no-offset capability is needed, retain it as an explicit evidence-gated plan; do not smuggle it into transport allowlist repair.",
+      "Publish through protected dev/main release workflow and deploy reviewed IPMI artifact to requested LTX using current backups/preservation/quiescence/rollback guards and newly recorded caps; do not repeat Charlotte adoption without root scope decision.",
+      "Report source compatibility, site native collection, physical qualification and clock correction as separate outcomes. All absent hardware evidence and automatic arming holds remain visible."
+    ],
+    "alternatives_rejected": [
+      "Changing global runtime transport to3 would displace valid17 records and misdescribe mixed deployments.",
+      "Trusting a bundle-supplied arbitrary transport or relaxing whole-fingerprint equality would widen authority unnecessarily.",
+      "Choosing a write cipher from unqualified read-profile data alone would bypass the action evidence gate.",
+      "Adding a second transport negotiation/fallback framework is unnecessary: current adapter selection already precedes I/O.",
+      "Assuming utc_epoch permits unsupported-offset correction would violate current evidence checks and canary meaning."
+    ],
+    "stop": "One read-only review complete. No source implementation, registry install, policy arm, BMC/SSH command or Git mutation performed; root owns final plan and execution."
+  }
+}

@@ -1,0 +1,114 @@
+........................................................................ [ 33%]
+...............................................FFFFFFFFFFFF............. [ 67%]
+.....................................................................    [100%]
+=================================== FAILURES ===================================
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-admin-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-/fleet/ipmi] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-readonly-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-/fleet/ipmi] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-admin-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-/fleet/ipmi] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-readonly-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-/fleet/ipmi] _
+tests/test_sel_management.py:1272: in test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls
+    assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+E   AssertionError: Real Chromium required for complete-page SEL regression
+E   assert False
+E    +  where False = is_file()
+E    +    where is_file = PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell').is_file
+E    +      where PosixPath('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell') = <class 'pathlib.Path'>('/root/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell')
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-/fleet/ipmi]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-/fleet/ipmi]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-/fleet/ipmi]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-/fleet/ipmi]
+12 failed, 201 passed in 119.14s (0:01:59)

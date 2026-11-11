@@ -1,0 +1,116 @@
+{
+  "reviewer": "security",
+  "findings": [],
+  "residual_risks": [
+    "The loader source hash changes intentionally. Previously runtime-bound records and envelopes become inapplicable; do not relabel or reactivate pointers automatically.",
+    "Synthetic qualification fixtures prove source admission and dispatch contracts, not physical firmware qualification or safe target use.",
+    "CCC90/91 unknown-offset clock holds, CCC94 native recovery, qualification installation, policy arming and LTX deployment acceptance remain separate root-owned outcomes."
+  ],
+  "testing_gaps": [
+    "Full macOS suite was still running at review snapshot; full-tests.txt had reached 86 percent without a terminal summary. No full-suite pass is claimed.",
+    "The retained earlier focused run reports 143 passed and 70 failed; parent attributes failures to sandbox sysctl/HTTP bind restrictions. This reviewer does not convert those failures into passes.",
+    "Actual Linux artifact-overlay verification is parent-owned and was not independently observed complete by this reviewer."
+  ],
+  "CHANGED": {
+    "scope": "One final bounded exact-diff architecture/security review; no production, test, registry, operational or Git mutation.",
+    "written": [
+      "source/astra-code-review.json",
+      "source/astra-code-review.html"
+    ],
+    "finish_utc": "2026-11-11T14:52:43.951193+00:00",
+    "scope_control": "Reviewed only the requested CCC90 transport admission patch, related tests and portable trace/profile/VV artifacts. No additional planning or optional review round."
+  },
+  "VERIFIED": {
+    "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-ccc90-cipher3-20261111",
+    "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+    "sha256": {
+      "src/ipmi_monitor/sel_qualifications.py": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+      "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+      "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7",
+      "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+      "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "requirements.md": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4"
+    },
+    "unchanged_from_baseline": [
+      "requirements.md",
+      "src/ipmi_monitor/sel_management.py",
+      "src/ipmi_monitor/sel_collection.py"
+    ],
+    "anchors": [
+      {
+        "path": "src/ipmi_monitor/sel_qualifications.py:28",
+        "confidence": 100,
+        "fact": "Supported actual record transports are a fixed code-owned frozenset of lanplus cipher17 and cipher3 only."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_qualifications.py:153",
+        "confidence": 100,
+        "fact": "Runtime identity retains default17 metadata and hashes actual adapter, loader and tool bytes. The docstring distinguishes default metadata from the per-record actual transport."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_qualifications.py:184",
+        "confidence": 100,
+        "fact": "Exact record runtime identity equality remains mandatory; only actual fingerprint transport applicability changes from default equality to fixed-set membership."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_qualifications.py:211",
+        "confidence": 100,
+        "fact": "Evidence path/digest checks, exact evidence fingerprint and record ID, action/check/operation-ID linkage, supporting evidence and CA checks remain unchanged."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_qualifications.py:443",
+        "confidence": 100,
+        "fact": "Envelope schema and exact identity/digest verification remain unchanged; installation rechecks runtime identity and refuses different active-pointer replacement."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_management.py:596",
+        "confidence": 100,
+        "fact": "Qualification selection requires equality of the entire observed fingerprint plus the requested action. Source, record and action form the rechecked selection binding."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_management.py:1116",
+        "confidence": 100,
+        "fact": "Explicit read profile selects the cipher before identity I/O; profile binding and actual Device ID/GUID validation remain required. No fallback or second transport negotiation was introduced."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_management.py:1497",
+        "confidence": 100,
+        "fact": "Execution identifies the target and obtains exact action qualification before claim; dispatch retains qualification/identity/policy checks and durable archive safeguards."
+      },
+      {
+        "path": "src/ipmi_monitor/sel_management.py:1578",
+        "confidence": 100,
+        "fact": "Unknown offset refuses clock dispatch. The existing refusal test now covers both admitted clock semantics and excludes both Set Time and Set Offset writes."
+      }
+    ],
+    "test_value": "The helper rewrites temporary synthetic fingerprints and their evidence digests while using the real loader. Added cases cover the actual false refusal, mixed-record separation, exact guarded transport dispatch, profile-only denial, wrong tool identity and clear-only action separation. Existing unknown-offset protection is parameterized rather than duplicated. No removed assertions, skipped checks or relaxed gates were observed.",
+    "evidence": {
+      "red": {
+        "sha256": "e4b122023624f12287e0d7622ee9f4d97335259f277f5aac8a503ea1f1f9ceaf",
+        "observed_summary": "4 failed, 14 passed; four failures are the intended new cipher3/mixed admission positives"
+      },
+      "green": {
+        "sha256": "bf3c439ae73471b3f7150ca5310b470d21a294721430dbc31bb98355ea61e7f6",
+        "observed_summary": "18 passed, 114 deselected"
+      },
+      "vv": "Retained vv-check.txt reports vv_capsule_status=pass and zero findings; root precode acceptance and profile are linked.",
+      "independent_execution": "This reviewer inspected source and retained logs; did not rerun tests or perform BMC/SSH actions."
+    },
+    "documentation": "Matrix append, authority, frozen profile and VV retain unchanged REQ-SEL-004/005 meaning and expressly hold physical qualification, policy arming and target acceptance."
+  },
+  "CLAIMED": {
+    "verdict": "PASS_EXACT_DIFF_ARCHITECTURE_SECURITY_REVIEW",
+    "confidence": 100,
+    "meaning": "No actionable exploitable regression or contract break found in the reviewed change. The implementation matches the previously reviewed narrow design; this is source review acceptance, not completed regression, release or operational acceptance.",
+    "necessary_source_remediation": []
+  },
+  "BLOCKED": [
+    "Unfinished full macOS and actual Linux validation cannot be claimed passing by this review. Root must retain their terminal results against these exact hashes.",
+    "Physical per-GUID/firmware/transport/action evidence, trusted time ownership and offset prerequisites remain mandatory before applicable physical actions.",
+    "No publication, deployment, registry activation, pointer replacement or automatic policy arming is authorized by this artifact."
+  ],
+  "PROMOTE": {
+    "recommendation": "Root may accept this exact source review once the required independent regression and Linux artifact receipts pass; preserve separate publication and live acceptance gates.",
+    "stop": "Final single review complete; no further reviewer work or optional source changes requested."
+  }
+}

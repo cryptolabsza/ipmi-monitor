@@ -1,0 +1,8 @@
+{
+  "src/ipmi_monitor/sel_qualifications.py": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+  "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+  "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+  "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7",
+  "requirements.md": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4",
+  "pyproject.toml": "d2e1f577bca4c34fc13f057dabe5603263b6507326205ef4a7867c68414b3f16"
+}
