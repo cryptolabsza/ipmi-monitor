@@ -1,0 +1,11 @@
+{
+  "exit": 0,
+  "SQLAlchemy": "2.1.8",
+  "gunicorn": "27.0.0",
+  "app_sha256": "1f6ba5f3f46a6f0c17ce53e3548337c0ad780cd51570df402cd99c42c61daad8",
+  "test_sha256": "3a681cf1a3cad9444e83420db2892c9d3acea245ac782ba39a8c2b268899d913",
+  "actual_kernel_owner_child_and_real_SQLite_producer_cases": true,
+  "base_image": "ghcr.io/cryptolabsza/ipmi-monitor@sha256:48405ad1b05501fe6174a7a47e9691374baff68f4eae6aef18b2520118c35a64",
+  "candidate_overlays": 2,
+  "production_access": false
+}

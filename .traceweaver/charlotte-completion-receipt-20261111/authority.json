@@ -1,0 +1,16 @@
+{
+  "id": "CHARLOTTE-COMPLETION-RECEIPT-20261111",
+  "owner_approval": "Yes approved and deploy when doen",
+  "approved_plan_sha256": "c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de",
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-003",
+    "REQ-SEL-004"
+  ],
+  "normative_requirements_unchanged": true,
+  "scope": "Qualified new collector completion-receipt defect discovered during owner-approved continuation; no hardware or policy qualification change",
+  "accepted_source_baseline": "09f309712e0205839d7b978e1a2ff15e16da5da1",
+  "publication_scope": "Protected featurePRdev thencompatible1.4.5mainpatch;actualartifactandCharlotteIPMI-onlynewguardedjobafterexactgates",
+  "prior_attempt_budgets_not_reused": true,
+  "held": "Physicalclear/clock/enablequalification,automaticarming,CCC94nativeaccess,fullrequirementsclosure"
+}

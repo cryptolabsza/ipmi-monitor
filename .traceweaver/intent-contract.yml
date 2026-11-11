@@ -155,3 +155,12 @@ charlotte_owned_receipt_20261111:
   status: source_verified_independently_reviewed_target_held
   publication_scope: protected_feature_to_dev_then_compatible_1.4.4_main_patch
   held: corrected_artifact_live_acceptance_physical_qualification_and_policy_arming
+
+# Qualified completion-receipt follow-up under the existing Charlotte outcome.
+charlotte_completion_receipt_20261111:
+  authority: .traceweaver/charlotte-completion-receipt-20261111/authority.json
+  source_result: .traceweaver/charlotte-completion-receipt-20261111/root-source-acceptance.json
+  requirements: [REQ-SEL-001, REQ-SEL-003, REQ-SEL-004]
+  status: scoped_source_verified_independently_reviewed_target_held
+  publication_scope: protected_feature_to_dev_then_compatible_1.4.5_main_patch
+  held: official_artifact_live_acceptance_physical_qualification_and_policy_arming

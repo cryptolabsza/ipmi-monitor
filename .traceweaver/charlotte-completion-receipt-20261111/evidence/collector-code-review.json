@@ -1,0 +1,110 @@
+{
+  "CHANGED": {
+    "review": "One final exact-source pass under new collector-followup budget; maximum six minutes, no optional cycle.",
+    "start_utc": "2026-11-11T12:03:26Z",
+    "finish_utc": "2026-11-11T12:04:58.150756+00:00",
+    "writes": [
+      "collector-code-review.json",
+      "collector-code-review.html"
+    ],
+    "reviewer_product_tests_or_operational_mutations": false,
+    "budget": "Old source/native/HUP budgets remain consumed; this review does not reset or grant deployment attempts."
+  },
+  "VERIFIED": {
+    "head": "c1a51286592883c7be83529389d986c40066a333",
+    "hashes_before": {
+      "src/ipmi_monitor/app.py": "1f6ba5f3f46a6f0c17ce53e3548337c0ad780cd51570df402cd99c42c61daad8",
+      "tests/test_sel_collection_state.py": "3a681cf1a3cad9444e83420db2892c9d3acea245ac782ba39a8c2b268899d913",
+      "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+      "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "src/ipmi_monitor/sel_qualifications.py": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17"
+    },
+    "hashes_after": {
+      "src/ipmi_monitor/app.py": "1f6ba5f3f46a6f0c17ce53e3548337c0ad780cd51570df402cd99c42c61daad8",
+      "tests/test_sel_collection_state.py": "3a681cf1a3cad9444e83420db2892c9d3acea245ac782ba39a8c2b268899d913",
+      "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+      "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "src/ipmi_monitor/sel_qualifications.py": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17"
+    },
+    "frozen_hashes_match": true,
+    "static_checks": {
+      "git_diff_check": 0,
+      "only_changed_top_level_app_definition": [
+        "collect_ipmi_sel"
+      ],
+      "manager_collection_qualification_byte_unchanged": true
+    },
+    "artifact_hashes": {
+      "collector-followup-plan.json": "7da7cbbc281011fc9388fe7be5ccf985c9b38f91589151450cf9d9913133a723",
+      "collector-plan-review.json": "dc7afbca28a3dc7f4ea8152c492ffb5a0bc30959f0a6754b325f1b74a79c085f",
+      "root-source-GO.json": "69babb0f81e33dacfca1b3364ff48f98b47be3e907e9ec270f9e87f227f50198",
+      "red.txt": "eb9095d8d27b5478a9d3955a4c6757552e1e59c76ed14975fbb21853979cf6ba",
+      "green.txt": "4a98559daf8373be8039635fbb9eece89fd54e0e1063df162c8e1665bc935608",
+      "focused.txt": "7f449de1379efe3c6a2db01d9aff15fcf7ccc670be2c41d65065742ee8fd8bfb"
+    },
+    "guard_review": [
+      {
+        "anchor": "src/ipmi_monitor/app.py:6408",
+        "result": "Recovery is tied to the native producer local observer invocation of manager.collection_child. Only SELUnavailable raised within this call when state is reaped is suppressed; launching/running/none exceptions propagate. No arbitrary error-string classification or caller-provided completed flag."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:237",
+        "result": "Unchanged real shell close performs PTY close and process poll/terminate/wait before the reaped observer. The observer cannot turn an earlier physical wait exception into a callback success. Constructor acquisition failure still reraises its original exception after cleanup."
+      },
+      {
+        "anchor": "src/ipmi_monitor/app.py:6427",
+        "result": "Complete snapshot does not alone admit persistence. Final fingerprint equality, original deadline and decoding remain sequential in the acquisition try; exceptions set error and empty events. Reaped callback suppression does not clear that error."
+      },
+      {
+        "anchor": "src/ipmi_monitor/app.py:6445",
+        "result": "Physical adapter.close exception still makes otherwise valid acquisition fail. An earlier acquisition error is preserved instead of being overwritten; no error is changed into success."
+      },
+      {
+        "anchor": "src/ipmi_monitor/app.py:7520",
+        "result": "EventBatch still uses actual save_events_to_db -> unchanged finish_collection. No alternate record or success persistence path added."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:863",
+        "result": "Common finish remains byte-identical: exact active ticket/CAS, actual durable child absence, binding/revision/fingerprint/generation/epoch, active mutation and deadline checks precede raw-record validation and atomic persistence. Deadline is rechecked after flush. Stale/rebound/unknown/live-child failures cannot gain success from observer handling."
+      },
+      {
+        "anchor": "tests/test_sel_collection_state.py:78",
+        "result": "Four cases reuse actual PTY child and actual collector/save with real SQLite writer at reaped callback. Three fixed native records and actual identity responses; writer released before save. Physical-wait case deliberately raises the same safe code after actual wait, proving provenance rather than error string decides recoverability."
+      }
+    ],
+    "test_receipts_read": {
+      "red": "2 failed,2 passed,71 deselected in4.21s: recoverable reaped receipt discarded valid snapshot; combined final-identity and receipt failure masked prior identity error. Failures occur at intended output assertions.",
+      "green": "4 passed,71 deselected in4.29s; includes no-contention control, real receipt contention, prior identity failure plus contention, physical wait failure.",
+      "focused": "207 passed in116.72s; terminal supplied focused.txt read. Reviewer did not execute this run.",
+      "full_regression": "Not reviewed/accepted here; root owns terminal result.",
+      "actual_Linux_immutable_runtime": "Pending independent root evidence; not inferred from Mac tests."
+    }
+  },
+  "CLAIMED": {
+    "verdict": "PASS_REVIEW_SCOPE",
+    "blocking_findings": [],
+    "reason": "The exact 15-line app-only change implements the agreed provenance boundary and preserves the existing validation/persistence fences. No concrete blocking defect found in this bounded pass.",
+    "scope_limit": "This is source review acceptance only. Historical CCC98 failure is consistent with this mechanism but SQLite causality and fully validated prior live payload are not established.",
+    "coverage_value": "One parameterized producer regression covers two authentic failures and two controls. Existing critical regression tests are retained; no test removal, weakened assertion or policy/deadline/ownership relaxation observed."
+  },
+  "BLOCKED": {
+    "source_review_blockers": [],
+    "remaining_external_gates": [
+      "Root terminal full-suite acceptance.",
+      "Independent actual Linux immutable candidate/artifact validation including new real PTY/SQLite producer case.",
+      "Protected publication, official artifact identity and bounded native adoption approval/guards.",
+      "Actual installed payload/preservation and two ordinary successful cycles per accessible host."
+    ],
+    "unrelated_holds": "QualificationCQ01..06, firmware evidence, manual maintenance prerequisites and automatic arming remain held/out of scope. No qualification, cipher transport, action policy, version or dependency behavior changed."
+  },
+  "PROMOTE": {
+    "decision": "Promote this exact frozen app/test pair to root verification/publication consideration after remaining gates pass. No additional source correction or optional review loop requested.",
+    "must_retain": [
+      "Preserve exact reviewed hashes and immutable official artifact binding.",
+      "Use existing finish/recovery and held-child/late-ticket/active-write regressions; do not claim universal deadline or guaranteed success for every contended poll.",
+      "Keep native policies OFF and no BMC maintenance/HUP as a collector-fix shortcut.",
+      "Reconcile unknown operational outcomes without blind retry; old budgets remain consumed."
+    ],
+    "stop": "Review complete after one pass. Root owns full verification, publication and operational decision."
+  }
+}

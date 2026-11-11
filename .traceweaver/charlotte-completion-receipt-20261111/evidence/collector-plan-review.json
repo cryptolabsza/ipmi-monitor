@@ -1,0 +1,110 @@
+{
+  "CHANGED": {
+    "scope": "One new qualified collector completion incident plan review; maximum four minutes; no optional correction loop.",
+    "start_utc": "2026-11-11T11:56:07Z",
+    "finish_utc": "2026-11-11T11:58:10.636919+00:00",
+    "writes": [
+      "collector-plan-review.json",
+      "collector-plan-review.html"
+    ],
+    "product_or_operational_changes": false,
+    "old_budgets": "Remain consumed; no reuse. Qualification CQ01..06 are unchanged and outside this collector correction."
+  },
+  "VERIFIED": {
+    "source_revision": "09f309712e0205839d7b978e1a2ff15e16da5da1",
+    "exact_git_source_hashes": {
+      "src/ipmi_monitor/app.py": "b913978de0e6cdeaaa4304e3b1c0ec87f35dac6d57586db75b147f5c257b232a",
+      "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+      "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "tests/test_sel_collection_state.py": "8b93b98866ae9c049ccc770096cafc2212b43f0411d4adbbdbca2254acdcd765",
+      "tests/test_sel_persistent.py": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e"
+    },
+    "evidence_sha256": {
+      "collector-followup-plan.json": "7da7cbbc281011fc9388fe7be5ccf985c9b38f91589151450cf9d9913133a723",
+      "collector-liveness-diagnosis.json": "e7e216d81cca5a1d6e581cb03f7cbe1447ea03296e84cd8a5db9ddca61465076",
+      "current-state.stdout": "c77086f0117e5d59d9c272c28fe081d93e986635c58861a3b518a3dd9ea31c66"
+    },
+    "current_failure": "Supplied11:51:38 evidence: CCC98 latest11:50:07 attempt907expected/907received/0persisted; three failures since11:37; previous success11:31; null active read ticket and operation. This is distinct from the prior stranded live-owner lease.",
+    "source_mechanism": [
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:237",
+        "fact": "IPMIShellSession.close closes PTY and waits/reaps child before calling child_observer(reaped). The callback can fail after physical cleanup completed."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:799",
+        "fact": "collection_child collapses SQL/commit/owner-CAS and other Exception failures to collection_child_identity_unavailable; that string does not identify the failing stage."
+      },
+      {
+        "anchor": "src/ipmi_monitor/app.py:6417",
+        "fact": "snapshot exists before final fingerprint/deadline/decode checks. snapshot.complete/count equality alone cannot authorize success."
+      },
+      {
+        "anchor": "src/ipmi_monitor/app.py:6433",
+        "fact": "Any adapter.close exception overwrites error; subsequent code replaces snapshot with incomplete counts-only metadata."
+      },
+      {
+        "anchor": "src/ipmi_monitor/app.py:7510",
+        "fact": "Actual producer save routes EventBatch through common finish_collection; no separate insert route is required."
+      },
+      {
+        "anchor": "src/ipmi_monitor/sel_management.py:863",
+        "fact": "Common finish validates captured immutable ticket against durable active ticket, child terminal proof, configured identity/revision/generation/epoch, active mutation and deadlines, then validates raw records and atomically inserts/baselines/success. Deadline is checked again after flush."
+      }
+    ],
+    "existing_coverage": "Read existing real PTY child fixture in tests/test_sel_persistent.py and exact collection source/contracts; diagnosis identifies reusable collection_site, SQLite contention, late-ticket, live-child and producer tests. No test executed by this reviewer."
+  },
+  "CLAIMED": {
+    "verdict": "PASS_REVIEW_SCOPE_WITH_PREIMPLEMENTATION_CONTRACT",
+    "interpretation": "A failed redundant durable reaped-state receipt may be handed to the unchanged common finish, which independently proves the already captured child is actually absent and the same acquisition still owns the lease. This is not permitting physical cleanup failure or promoting incomplete data.",
+    "cause_limit": "This source path is a sufficient candidate mechanism, not proof of historical SQLite contention or fully validated snapshot on the failed live attempts. Counters907/907 alone do not establish final validation.",
+    "source_go": "Root must first accept the exact contract and authentic isolated RED. No implementation/deployment/hardware acceptance is granted by this plan review."
+  },
+  "BLOCKED": [
+    {
+      "id": "CF-P01",
+      "confidence": 100,
+      "severity": "required_contract",
+      "quote": "except Exception: error = collection_child_identity_unavailable",
+      "finding": "Generic close exception or matching error-code string cannot distinguish physical PTY/terminate/wait failure from failed reaped acknowledgement. A broad ignore would exceed the proposed scope.",
+      "required": "Recognize the failure at the actual reaped observer invocation, after existing close control flow has successfully waited the exact child. Prefer an app-local observer wrapper around manager.collection_child whose handling is restricted to state reaped and the internal callback exception. Launching/running/none failures propagate. Physical close/terminate/kill/wait exceptions remain fatal even if another callback failure was observed. Do not trust caller-supplied snapshot flags, error strings or operation JSON as stage proof."
+    },
+    {
+      "id": "CF-P02",
+      "confidence": 100,
+      "severity": "required_contract",
+      "quote": "snapshot = adapter.snapshot(reservation) precedes after_identity = adapter.fingerprint()",
+      "finding": "Complete snapshot can still be followed by identity change, deadline expiry or decode error. Retaining it on complete=True alone can upgrade a real failed acquisition.",
+      "required": "Preserve only the original local snapshot/events after successful completion of ALL acquisition validation/decode and error is None. If acquisition had failed, retain its original safe reason and incomplete outcome regardless of reaped callback behavior. Close error must never overwrite or erase earlier acquisition failure. No synthetic complete=True or reconstructed snapshot."
+    },
+    {
+      "id": "CF-P03",
+      "confidence": 75,
+      "severity": "preimplementation_gate",
+      "quote": "plan: authentic minimal realSQLite/child regression first",
+      "finding": "The live generic reason does not identify exact cause, and no authentic producer+PTY+SQLite RED is yet provided to this review.",
+      "required": "Run the minimal reproduction below against exact1.4.4 before source edit. A mock-only raised SELUnavailable or manager.finish called with a handcrafted complete snapshot is insufficient. Preserve actual RED and unchanged no-contention control."
+    }
+  ],
+  "PROMOTE": {
+    "exact_guard_contract": [
+      "Keep the callback stage distinction local to the native producer/adapter lifecycle. The captured ticket comes from the same successful begin_collection call; never reconstruct owner/ticket from current DB state or accept a caller-created receipt marker.",
+      "Only the actual reaped observer failure is potentially recoverable. Existing shell close reaches it after successful wait; common finish still independently validates durable positive child identity/absence. No launching/unknown/no-child/live-child bypass is added.",
+      "Require error=None after complete native traversal, stable final SEL info, before/after fingerprint equality, original deadline and successful record decoding. Preserve the same raw snapshot unmodified. Prior errors/incomplete data remain errors.",
+      "Do not commit in the callback or introduce a new persistence path. Existing save_events_to_db -> finish_collection remains sole record/baseline/success/lease transition, with immutable ticket, active-child proof and identity/revision/generation/epoch/write/deadline checks unchanged.",
+      "If common finish still encounters storage failure or cannot prove actual absence/ownership, remain failed/held with zero new events. No timeout extension, extra acquisition, time-only recovery, lease edit or success fabricated from count equality.",
+      "Reuse existing snapshot baseline/dedup/alert semantics. No notification replay, hardware writes, clock/clear/enable qualification changes, policy changes, dependency or CI changes."
+    ],
+    "minimum_meaningful_regression": {
+      "fixture": "Reuse collection_site and real child_tool PTY boundary. Add only fixed read-only Device ID/GUID/SEL-info/raw-entry replies needed for a small three-record complete chain; actual subprocess/kernel identity and process wait retained. No BMC/network/real credential access.",
+      "entrypoints": "Call actual collect_ipmi_sel and actual save_events_to_db/common finish, not a manually constructed EventBatch or stubbed open_session/close.",
+      "failure_injection": "Synchronize a real separate SQLite BEGIN IMMEDIATE writer only across actual manager.collection_child(reaped). Let it exceed the existing bounded child-receipt wait, then release before actual save/common finish. Do not replace the callback with an exception stub. Actual child has been waited absent while durable ticket may still say running.",
+      "red": "Exact1.4.4 must first obtain the fully valid snapshot, then return counts-only incomplete/error after the callback fails, finally persist0 and commit failed/nulllease. Assert failure at intended persistence contract, not initial fixture/kernel permission failure.",
+      "green": "Same execution after minimal correction persists all three actual records with matching digest/counts and success receipt, no active lease, no replayed historical alerts; unchanged no-contention execution passes.",
+      "minimum_new_negative": "Use the same producer path with a fully populated snapshot followed by final fingerprint mismatch (or post-read deadline expiry), plus reaped callback contention: it must remain failed/0persisted with acquisition reason retained. Include generic physical close/wait error after otherwise valid acquisition: it must not be reclassified as receipt-only.",
+      "reuse_safety": "Run existing actual live-child/unknown-child, late-old-ticket/replacement/rebind, generation/epoch, active mutation, storage rollback and deadline cases; extend only where they do not exercise the modified handoff. Keep recovered callback path subject to those same finish fences. Foreign/stale ticket must never gain success by a callback marker."
+    },
+    "minimal_files": "app.py can distinguish callback provenance through its native observer closure; manager API/recovery need not change. If a typed exception is instead introduced in sel_management.py, add only that narrow file scope to the root-approved contract before editing; no finish/recovery relaxation.",
+    "validation_then_release": "After authentic RED and root GO, one minimal implementation, focused/full regression, actual immutable Linux producer/PTY/SQLite check and exact diff review. Protected release/deployment and live two-cycle acceptance remain separate root gates within new explicitly recorded caps.",
+    "stop": "Plan review complete. Root owns source GO, exact guard/test acceptance and any subsequent operational actions; this reviewer stops after this report."
+  }
+}
