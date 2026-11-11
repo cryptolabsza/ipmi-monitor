@@ -1,0 +1,18 @@
+{
+  "id": "OWNER-SEL-RELEASE-DEPLOY-20261104",
+  "recorded_at": "2026-11-04T03:59:02.119810+00:00",
+  "literal_reply": "Approve and deploy",
+  "approved_preceding_plan": [
+    "Release dev to main with version bump and required checks",
+    "Verify image publication and tagging",
+    "Deploy immutable image to one Fleet canary after database backup with rollback ready",
+    "Verify migration, retained history and warnings before wider rollout"
+  ],
+  "preserved_limits": [
+    "Automatic clearing and clock correction remain off unless exact BMC firmware/action qualified",
+    "No bypass of CI, publisher or Fleet deployment controls",
+    "No unrelated changes or existing dirty checkout edits"
+  ],
+  "source_revision": "e6c63ef25aecdfcc856f3bff73cd19b31259e9d7",
+  "repository": "cryptolabsza/ipmi-monitor"
+}

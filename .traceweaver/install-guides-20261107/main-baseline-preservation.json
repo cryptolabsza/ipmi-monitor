@@ -1,0 +1,18 @@
+{
+  "route": "mechanical_closure",
+  "reason": "Preserve main-only historical release records while adding the already-reviewed installation-guide scope. Customer guide/configuration bytes unchanged.",
+  "files": {
+    "requirements.md": {
+      "base_sha256": "9a112dbcbfba5918ace1d9d7c708f00abf84c670ef459bb17870dff91c1bbcf9",
+      "preserved_base_prefix": true,
+      "reviewed_scope_sha256": "6934f4f458f263508c3e4aa201ab8ac330415013d872e43ab8d93b42bf566a08",
+      "new_sha256": "e6b4ebf2986b5cfc8c681d59a69b17bc9d7e652b442e5e00da84a44561ba3465"
+    },
+    "traceability-matrix.md": {
+      "base_sha256": "5b1874b8eb3cdd4ce3f2338e7ccfe02dc0c64aff9af43670a7eb116437e52d02",
+      "preserved_base_prefix": true,
+      "reviewed_scope_sha256": "cf747c10e238ed1481f85792d6db37a17b5206d08143030b47109cf103ad942f",
+      "new_sha256": "f8e1b76f28038b4c7906a440fef4fc821267cd309c277e2a2851c3cf0908a39c"
+    }
+  }
+}
