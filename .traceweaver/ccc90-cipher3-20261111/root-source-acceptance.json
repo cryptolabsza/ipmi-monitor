@@ -1,0 +1,21 @@
+{
+  "decision": "PASS_BOUNDED_CCC90_SOURCE_FOR_PROTECTED_PUBLICATION",
+  "utc": "2026-11-11T14:55:19.833062+00:00",
+  "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "source_sha256": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+  "evidence": [
+    "source/source-result.json",
+    "source/astra-code-review.json",
+    "source/red.txt",
+    "source/linux/tests.txt"
+  ],
+  "tests": "502fullMacPASS/0skip,18focusedGREEN;201actualLinuxcontractsPASS,12unavailablebrowserenvironmentfailures retained and coveredbyfullMacbrowserlane",
+  "requirements_unchanged": true,
+  "root_checked": "Actualdiff, frozenmanifestbytes, raw terminalfulltestlog, actualLinuxresultandcauses, exactAstrahashes andnophysicalqualificationclaims",
+  "held": [
+    "OfficialimmutableartifactQA",
+    "Actualsiteupdate+preservation+scheduledcollections",
+    "CCC94recovery",
+    "Hardwarequalificationandautomaticarming"
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "id": "WORK-CCC90-CIPHER3-20261111",
+  "utc": "2026-11-11T14:46:38.338693+00:00",
+  "mode": "Implementation Gate Mode, no-publication child",
+  "baseline": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "accepted_requirement": "REQ-SEL-004 / TRACE-SEL-004 / VER-SEL-004 / VAL-SEL-004; unchanged accepted Charlotte cipher3 and qualification safeguards",
+  "authority_sources": [
+    "requirements.md",
+    ".traceweaver/intent-contract.yml",
+    ".traceweaver/charlotte-sel-20261111/authority.json",
+    ".traceweaver/ccc90-cipher3-20261111/evidence/root-plan.json",
+    ".traceweaver/ccc90-cipher3-20261111/evidence/astra-ccc90-plan.json"
+  ],
+  "steps": [
+    {
+      "n": 1,
+      "files": [
+        "tests/test_sel_qualifications.py",
+        "tests/test_sel_management.py"
+      ],
+      "action": "Reuse real synthetic registry/raw subprocess/Flask/SQLite fixture; derive truthful3/mixed admission and guarded3 write-path RED, retain17 control and profile-only refusal; parameterize existing None-offset hold both semantics."
+    },
+    {
+      "n": 2,
+      "files": [
+        ".traceweaver/ccc90-cipher3-20261111/vv-capsule.json",
+        ".traceweaver/ccc90-cipher3-20261111/authority.json"
+      ],
+      "action": "Root review actual RED/test hashes and V&V; checker requires passed precode review before production mutation."
+    },
+    {
+      "n": 3,
+      "files": [
+        "src/ipmi_monitor/sel_qualifications.py"
+      ],
+      "action": "Closed supported transport set17/3 only; document runtime identity transport as default metadata; preserve full source/tool/envelope equality and all exact evidence validation."
+    },
+    {
+      "n": 4,
+      "files": [
+        "traceability-matrix.md",
+        ".traceweaver/ccc90-cipher3-20261111/evidence/*",
+        ".traceweaver/ccc90-cipher3-20261111/source-result.json"
+      ],
+      "action": "Run focused relevant tests then one frozen full suite; scanner on source/tests; append trace evidence without requirements change. Root+Astra final review."
+    }
+  ],
+  "dependencies": "No new dependencies/version/CI/infrastructure or sel_management production changes",
+  "risk": "Loader hash intentionally changes and invalidates old runtime-bound bundles; do not relabel/rebind/activate existing registry; physical clock actions stay held.",
+  "must_not_change": [
+    "No credential/security downgrade or TLS bypass",
+    "No automatic policy arming or fabricated hardware qualification",
+    "No BMC/chassis reset, power, firmware or destructive negative test inferred",
+    "No offset=None coercion or skipping restoration",
+    "No unrelated services/runner infrastructure/user dirty files changes"
+  ],
+  "verification": {
+    "method": "test",
+    "environment": "Local macOS Python3.14; real Flask/SQLite/registry/adapter with only subprocess and TLS boundaries substituted; not firmware proof",
+    "red_command": "python3 -m pytest tests/test_sel_qualifications.py tests/test_sel_management.py -k 'supported_transports or mixed_supported or unsupported_record_transport or guarded_action_uses_bound or unspecified_utc_offset or cipher3_clear_evidence or real_registry_custody' -q",
+    "green_command": "python3 -m pytest tests/test_sel_qualifications.py tests/test_sel_management.py tests/test_sel_collection_state.py tests/test_sel_persistent.py -q",
+    "full_command": "python3 -m pytest tests -q",
+    "expected": "Exactly truthful3 and mixed admission plus guarded matching3 change RED to GREEN;17/unsupported/mismatched/profile-only/None-offset controls remain passing",
+    "evidence": "evidence/red.txt,green.txt,focused.txt,full-tests.txt; source/test sha256 records"
+  },
+  "validation_question": "Can exact truthful3 action evidence be admitted while a profile alone or mismatched hardware/action/runtime evidence grants nothing, and unknown-offset clocks remain unavailable?",
+  "validation_artifact": "docs/validation/sel-health-20261103.md",
+  "validation_hold": {
+    "owner": "Hannes / root",
+    "trigger": "Independently reviewed actual safe hardware/action evidence and authorized intended-use operator session",
+    "required": "Exact GUID/firmware/transport/tool/action physical canaries, full archives, TLS trust/external writer ownership, immutable deployed candidate receipts",
+    "claim": "Local synthetic verification is not hardware qualification or requirement closure"
+  },
+  "review_status": "Root actual precode acceptance in precode-review.json; same bounded Astra contract",
+  "profile_hash": "sha256:bdba18f0516f224fdc4119396fe6b372ad4d5b28cc9aa2d97185f52266de355e"
+}

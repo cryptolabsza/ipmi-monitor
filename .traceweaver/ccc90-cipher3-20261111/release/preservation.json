@@ -1,0 +1,190 @@
+{
+  "decision": "PASS_MECHANICAL_146_RELEASE_INTEGRATION",
+  "main": "fec2a7d7d54efe093bf51a6631428fefd13cd9c9",
+  "dev": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "merge_base": "70f1c3627c6eef4d4ccf73800e986fad1ae188f5",
+  "preserved_main_files": {
+    ".github/ci-build-timeout-policy.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "6466ce578150abda3e5f33c471bfbd2e330ac9f6426adff06ca4b1f6f8a52e2d",
+      "release_sha256": "6466ce578150abda3e5f33c471bfbd2e330ac9f6426adff06ca4b1f6f8a52e2d"
+    },
+    ".traceweaver/charlotte-completion-receipt-20261111/release/preservation.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "9d01bd749f02381dd2ad97d422d3a416d096b549b0ed3c6dc04c9dff831aa30d",
+      "release_sha256": "9d01bd749f02381dd2ad97d422d3a416d096b549b0ed3c6dc04c9dff831aa30d"
+    },
+    ".traceweaver/charlotte-owned-receipt-20261111/release/preservation.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "c9d8808a520dcdd4e516b5e1687c3b66a676128624a394d75def372c989c8782",
+      "release_sha256": "c9d8808a520dcdd4e516b5e1687c3b66a676128624a394d75def372c989c8782"
+    },
+    ".traceweaver/charlotte-sel-20261111/release/main-baseline-preservation.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "d35ef63e0ea41600a01813a80e00e62e48c91c174ee5f344034c85fd450089f9",
+      "release_sha256": "d35ef63e0ea41600a01813a80e00e62e48c91c174ee5f344034c85fd450089f9"
+    },
+    ".traceweaver/install-guides-20261107/checks.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "63bc6537da12b8b6a819a71469127ec42281ff4a663b7f233170ef52e3dacc02",
+      "release_sha256": "63bc6537da12b8b6a819a71469127ec42281ff4a663b7f233170ef52e3dacc02"
+    },
+    ".traceweaver/install-guides-20261107/main-baseline-preservation.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "a314b38c5c3d37c46cc6fcf84ba1a713b1eedb6d82ec9a8240a48e1cc850efee",
+      "release_sha256": "a314b38c5c3d37c46cc6fcf84ba1a713b1eedb6d82ec9a8240a48e1cc850efee"
+    },
+    ".traceweaver/install-guides-20261107/scope.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "ccc8f5963fe7784356763f598e640aabaef84bec17e6bf2342ecf0fcdba40a48",
+      "release_sha256": "ccc8f5963fe7784356763f598e640aabaef84bec17e6bf2342ecf0fcdba40a48"
+    },
+    ".traceweaver/intent-contract.yml": {
+      "classification": "allmainlinesretainedordered;additiveCCC90evidenceonly",
+      "main_sha256": "8f307cc4a7ba9a29d7974528eb9bc15439159132f33e0d31fa94076971e1fb9d",
+      "release_sha256": "8f307cc4a7ba9a29d7974528eb9bc15439159132f33e0d31fa94076971e1fb9d"
+    },
+    ".traceweaver/latest-alias-20261107/main-baseline-preservation.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "26f21b6e97fe06aec34d7591cf52f69480be2d43116b7dec36fb1d27477363ea",
+      "release_sha256": "26f21b6e97fe06aec34d7591cf52f69480be2d43116b7dec36fb1d27477363ea"
+    },
+    ".traceweaver/latest-alias-20261107/main-integration.txt": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "2d64f5efe68cd5c5f52e1e95217950d8dfe7c265a675f984d0161b62df17dee8",
+      "release_sha256": "2d64f5efe68cd5c5f52e1e95217950d8dfe7c265a675f984d0161b62df17dee8"
+    },
+    ".traceweaver/latest-alias-20261107/scope.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "97fae1a0ff85ffe7c384d56d73a9773359c8b299e418b3ce189695b3f31f0f94",
+      "release_sha256": "97fae1a0ff85ffe7c384d56d73a9773359c8b299e418b3ce189695b3f31f0f94"
+    },
+    ".traceweaver/ltx-bmc-qualification-20261104/release/full-suite.stdout": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "27967be8489f322d8a9641bc6690aea9bde5fee177ca90b7f2331885aef6f2cc",
+      "release_sha256": "27967be8489f322d8a9641bc6690aea9bde5fee177ca90b7f2331885aef6f2cc"
+    },
+    ".traceweaver/ltx-bmc-qualification-20261104/release/release-scope.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "3978b6875da290441e3a3146f3a9b6b2ab4fc538c727af08c2b19031b47dc328",
+      "release_sha256": "3978b6875da290441e3a3146f3a9b6b2ab4fc538c727af08c2b19031b47dc328"
+    },
+    ".traceweaver/ltx-bmc-qualification-20261104/release/validation.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "8407b1d0e55e12c2910b3acefc3cd8e4bb1edb7d6fb198a497f17b2a881bcf5a",
+      "release_sha256": "8407b1d0e55e12c2910b3acefc3cd8e4bb1edb7d6fb198a497f17b2a881bcf5a"
+    },
+    ".traceweaver/sel-release-20261104/owner-approval.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "2c9af5bbab2b522bab6ecba6c5e1bc7c6b49123a654e643e38ca0f204f02b0a5",
+      "release_sha256": "2c9af5bbab2b522bab6ecba6c5e1bc7c6b49123a654e643e38ca0f204f02b0a5"
+    },
+    ".traceweaver/sel-release-20261104/release-scope.json": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "abbcac9d29b5c8aac27030aad567e59efe0b390d1c5ef4185adb09aabe3b49e3",
+      "release_sha256": "abbcac9d29b5c8aac27030aad567e59efe0b390d1c5ef4185adb09aabe3b49e3"
+    },
+    "CHANGELOG.md": {
+      "classification": "allpriorentriesbyteexact;newpatchentry",
+      "main_sha256": "0074fe9c82542ebbb35ea9a87bbca06366d004ec37f26c860b0c5fae89bb28ae",
+      "release_sha256": "4f98b7a59e7faff57aa72093650fece7f914a73bf68ee13066415a69bb689882"
+    },
+    "pyproject.toml": {
+      "classification": "version-only1.4.5to1.4.6",
+      "main_sha256": "1a0fc826701fb8790d61d7fd3dcee50d867b38d3b72e91d6622777dc5e6cb9d5",
+      "release_sha256": "3105299980def1072e84b25d5aaecd4b6b5768cf4749301100fd7bcbe84d13cd"
+    },
+    "requirements.md": {
+      "classification": "byteidenticalmain",
+      "main_sha256": "a03e083fb518df87346d718b473398baa55ba8f8ad3547167152e4e557c1af63",
+      "release_sha256": "a03e083fb518df87346d718b473398baa55ba8f8ad3547167152e4e557c1af63"
+    },
+    "src/ipmi_monitor/__init__.py": {
+      "classification": "version-only1.4.5to1.4.6",
+      "main_sha256": "b1a916802a883feb26451e85d2312d9d015fc35dc69ff8e0a93b85f70ec3fc4b",
+      "release_sha256": "b2b904e9da229513caef1adc61467653ed8b32608b10be9478eb9ca1784426d0"
+    },
+    "traceability-matrix.md": {
+      "classification": "allmainlinesretainedordered;additiveCCC90evidenceonly",
+      "main_sha256": "b8f4e7b6958ac915eff2e1aa9862160406797a2cb0d87a5382bfe776e44e9df1",
+      "release_sha256": "c44508348a8a1b216756c2b51c9993cb1130af6ecb9ad79e2955c6cdb16a8972"
+    }
+  },
+  "reviewed_feature": "9787cd5c178ba689aa6e954732f5591ec84ba683",
+  "full_dev_source_sha256": "ca9f1a695c885c21a6584a09dadf2405912caa150b6e866ae1faa2781c0902d6",
+  "full_reviewed_source_files": {
+    "src/ipmi_monitor.egg-info/PKG-INFO": "97c5b9d7478094af4578a05400895842c7a03abec2cb91dd4c93fc26e3e90f27",
+    "src/ipmi_monitor.egg-info/SOURCES.txt": "3138a4dc7d122bfb70b9c370599e462acf0153d5aebff387ab9c6a3135f39c2d",
+    "src/ipmi_monitor.egg-info/dependency_links.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "src/ipmi_monitor.egg-info/entry_points.txt": "a91613f4be4778807e57569cb22821e93ed6cf3adb2d66e979b8930791cd3f5d",
+    "src/ipmi_monitor.egg-info/requires.txt": "2b357b805adaf26d7512a553126cc3be4602ad795676741e79f86e90f63074ec",
+    "src/ipmi_monitor.egg-info/top_level.txt": "5044883554b885ae2c013648d9db4aa66b0eb684264f1acce73ff13f074f4f66",
+    "src/ipmi_monitor/__init__.py": "b2b904e9da229513caef1adc61467653ed8b32608b10be9478eb9ca1784426d0",
+    "src/ipmi_monitor/account_link.py": "deb027c34494b06d2554c0e1ec0b8ff501eea09f3ba9d510790bff98854cd3ef",
+    "src/ipmi_monitor/alerts.py": "c8520e2b1ca2a20a2cbf1efa97174ec8cd244fe078cfbfcb51fbc1d8bded1faf",
+    "src/ipmi_monitor/app.py": "1f6ba5f3f46a6f0c17ce53e3548337c0ad780cd51570df402cd99c42c61daad8",
+    "src/ipmi_monitor/build_info.json": "2a5f0c201c3e84d99f5d4fac0540c84edbf14780b1e033c8f24a5d688fa77c53",
+    "src/ipmi_monitor/build_info.py": "5bbe252ac81a197d93ba6b524f0de01c3f716b6b0742bae52492cc4df42ad881",
+    "src/ipmi_monitor/cli.py": "73bebbedb6b544a1828bd2a8f26793bbdfb24a4644fa051fa21d060d6ed541c4",
+    "src/ipmi_monitor/config.py": "5fcc4471f618917bf49c9ff4f275129eb056c7d4c619a88ad54fc52ded3a0819",
+    "src/ipmi_monitor/quickstart.py": "7cedb92e5c07bffa187778538d789e2a8d27209748d8e5ba856e028675817c9e",
+    "src/ipmi_monitor/reverse_proxy.py": "f7b708fff2badbaa9780b927c4508460dfd73681e199153849ef7d2ed19a00b4",
+    "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+    "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+    "src/ipmi_monitor/sel_qualifications.py": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+    "src/ipmi_monitor/service.py": "8a3266c670443a1b6e747faeed86b428625f28c840d75f5bccb4266062dcf28f",
+    "src/ipmi_monitor/static/favicon.png": "63895d14c075c7c1b9f1358eb8ca1206fc73ea9f42e216d64d13947420e34c0f",
+    "src/ipmi_monitor/templates/change_password.html": "2f80b4127142d1f2b19a392194eb7bea9cc959ea7cfe3833441481a05922fc7d",
+    "src/ipmi_monitor/templates/dashboard.html": "b3c3cc8fde013a5890085269aafa5e2ece4e656026bdffd4b7abe5bde363139b",
+    "src/ipmi_monitor/templates/docker-compose.yml.j2": "10c88b755f32838c943e1b0018b51f15a40191f20b13631a940a43fd39bdf34a",
+    "src/ipmi_monitor/templates/docs.html": "89719dc2cae927fe9cf0fd9d5ad3a4d68cf35177d5e26a12b88d56de46a5d836",
+    "src/ipmi_monitor/templates/landing.html.j2": "79968bf12e863883e7635ded54e759031771179440fecef0564a24df3bc2875d",
+    "src/ipmi_monitor/templates/login.html": "a061129989271b88a97a517df90644a46b7cc8050217af24dccc9cce669586c4",
+    "src/ipmi_monitor/templates/nginx-docker.conf.j2": "359b15df02f72ce7f1987779f49224b54c63703eb30bad5c7165638fc3217ba9",
+    "src/ipmi_monitor/templates/nginx.conf.j2": "489fd887804bee18e54488bdb097d302a06fe9ac69bbeced54ab88401e80d450",
+    "src/ipmi_monitor/templates/server_detail.html": "bcf90213b90da5aa5e4ff9236dad04090f22d85cfac01d41cdb61526ac221393",
+    "src/ipmi_monitor/templates/settings.html": "682ea965f3a54aed18180215886dd15f67fe34a877ca9ff1bf04e79b80a1cd0d",
+    "src/ipmi_monitor/templates/setup.html": "f156459fc117f25a689f5935fc6c013a71258f5ca7260a4fb5c7af36bd789a7d",
+    "src/ipmi_monitor/wizard.py": "9612ce9cbf2d31032921d8c904f1fdbd16fd76541539a1603f3cf660f8edf8f0",
+    "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tests/conftest.py": "e8a269a0ce972c0de4dc233c5b939be7c1d5952442cc07484890adaee7492740",
+    "tests/fixtures/charlotte_sel_native_prefix.json": "a62b24cd84cb9a4a19013cb856a496f6afc8ae17b610bac69c27fd40ec52b026",
+    "tests/fixtures/ltx_sel_reads_20261104.json": "3e2529fb085f4a75978d7c6aeabc0f1d8a3c35c818823b04ec3d21f3dfc9421d",
+    "tests/fixtures/pairing-producer-v1.json": "d58a17f90c33e935b4307b5816e462d0445ee984b72e1d03948dfa3cd9d9404d",
+    "tests/fixtures/pairing-wire-v1.json": "8ccd5db5c28c55da4e9118c7f913e45532e3213007b8e98a4af214f4bb20d652",
+    "tests/quickstart_test_matrix.md": "dd3f3d125712594d6563aa8efbace3b80114ea8ebb8a59ed5012e99a285b2b55",
+    "tests/sel_qualification_linux.py": "fa40e6ed7f15a84e53236ba63fae5aa8531c517445cece3ded8dba29b7598083",
+    "tests/test_account_link_security.py": "e30ebcd06ea72425bd7523d172cb1db09ede848b3bb41402929203524d7883dc",
+    "tests/test_account_pairing.py": "e4feaf8b70b6dbc7f173198f9ba5ecc9f4d966dda9431753581617161a7317c8",
+    "tests/test_admin_command_audit.py": "0e669477006cb7a5750a29de0891f0fa23f4d75040e99103875b15421f07131c",
+    "tests/test_alerts.py": "fd2f62a57dfe232e842b526cce8f277f36e31be13d61a8813b5008ea6a93f262",
+    "tests/test_api_servers.py": "4c5d5d16f31b4b85335231158e22b9d96443095447d185373c1104d14deb4d9c",
+    "tests/test_auth.py": "446251e59073bf68f4cca1ce355a2980a3110d4cd3a25a8a3fdee10ec124fd04",
+    "tests/test_classify_severity.py": "f66dc4ba6023f94a5d4a7cc40cef0c00c50cd6985b625acee8ca0958fd57e9e0",
+    "tests/test_cloud_inventory_payload.py": "218266092c361b67dda06d992bcea7e22a9a8a99e8147dfcfc9f8eb2c330835b",
+    "tests/test_collection_workers.py": "edfd751da97dbb72030465f9bf9e83593ab0f55d5109be9816cea251be199dc7",
+    "tests/test_dashboard_ai_reports.py": "fbca6b02c3eedfb2789bd64fdf84f696031bab2fc9a74f731cd8fa8ec01519b2",
+    "tests/test_health.py": "f9e2ba232b8ecb4cd8b3b09558db4f672937fb8299060bc97ef155cd063c13ba",
+    "tests/test_inventory_metrics.py": "93379430a9f046cfb2020280da55cadf92f11f6483514413d99369b74d1df64c",
+    "tests/test_inventory_reconcile.py": "763343a6650c937e21ef361f00e71222fe78f794010a05d3d8bd38769e7f9b0a",
+    "tests/test_retention_cleanup.py": "9a6ddb29126ceee118730415900f0fbd1740c0837addc5afc81bad3522c561cd",
+    "tests/test_runtime_entrypoint.py": "4a3914fc2e2dcae8c6076ec2d5d0e80bba6a6a9778d5cb46c1ae7c18ea955674",
+    "tests/test_sel_collection_regressions.py": "25219f126f80aa0d513f9d8d5f8991e4389d3f94afff87d6d5a77e0757fdc128",
+    "tests/test_sel_collection_state.py": "3a681cf1a3cad9444e83420db2892c9d3acea245ac782ba39a8c2b268899d913",
+    "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7",
+    "tests/test_sel_persistent.py": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e",
+    "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+    "tests/test_settings_ai_controls.py": "07c080ce9937dc3dd946d968ce4ccd4f3003ce236a0923fa4daee21b326dc682",
+    "tests/test_version_metadata.py": "639d14210e59b800866b16f7b9e2c0be50f51894db16f90a8f8ddbb34989bc80"
+  },
+  "full_reviewed_source_sha256": "742a765f75541889eee3d2107c83cbc1473c3af5e7a3da206919246401255828",
+  "version": "1.4.6 release branch only; dev version unchanged",
+  "normative_requirements_exact_main": true,
+  "source_evidence": "502 fullMac passed;18 narrowGREEN; Astra exactsourcePASS; Linux201PASS+12missingChromium, no allLinuxpassclaim",
+  "held": [
+    "Required protectedmain CI and official artifact",
+    "Actual LTX artifact/deployment/preservation/collection acceptance",
+    "Physical action qualification and automatic arming"
+  ],
+  "no_git_index_or_publication_mutations": true
+}

@@ -336,6 +336,93 @@ def qualified_site(sel_site, monkeypatch, tmp_path):
     return sel_site, state, registry
 
 
+
+@pytest.fixture()
+def qualification_transport(qualified_site, monkeypatch):
+    """Rewrite only temporary synthetic evidence, preserving real loader checks."""
+    import hashlib
+    import json
+    import uuid
+    from copy import deepcopy
+    _site, _state, registry = qualified_site
+
+    def rewrite(transport, append=False):
+        value = json.loads(registry.read_bytes())
+        record = deepcopy(value['records'][0])
+        record['fingerprint']['transport'] = transport
+        if append:
+            record['record_id'] = str(uuid.uuid4())
+        remap = {}
+        for artifact in record['evidence_artifacts']:
+            path = registry.parent / artifact['path']
+            content = path.read_bytes()
+            if artifact.get('kind') != 'ca_certificate':
+                body = json.loads(content)
+                body.update(record_id=record['record_id'], fingerprint=record['fingerprint'])
+                content = json.dumps(body, sort_keys=True).encode()
+            if append:
+                artifact['path'] = 'copy-' + artifact['path']
+                path = registry.parent / artifact['path']
+            path.write_bytes(content)
+            remap[artifact['sha256']] = hashlib.sha256(content).hexdigest()
+            artifact['sha256'] = remap[artifact['sha256']]
+        for evidence in record['actions'].values():
+            evidence['sha256'] = [remap[digest] for digest in evidence['sha256']]
+        for purpose, digests in record['supporting_evidence'].items():
+            record['supporting_evidence'][purpose] = [remap[digest] for digest in digests]
+        record['ntp_probe']['ca_sha256'] = remap[record['ntp_probe']['ca_sha256']]
+        if append:
+            record['ntp_probe']['ca_file'] = 'copy-' + record['ntp_probe']['ca_file']
+            value['records'].append(record)
+        else:
+            value['records'][0] = record
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        return record
+    return rewrite
+
+
+@pytest.mark.parametrize('cipher,qualification', [(3, 'matching'), (17, 'matching'),
+    (3, 'different_transport'), (3, 'absent'), (17, 'absent')])
+def test_guarded_action_uses_bound_transport_and_requires_action_evidence(
+        qualified_site, qualification_transport, monkeypatch, tmp_path, cipher, qualification):
+    import json
+    (client, app, _db, _models, runtime, commands), state, _registry = qualified_site
+    record_cipher = 17 if qualification == 'different_transport' else cipher
+    record = qualification_transport(f'lanplus-cipher{record_cipher}-admin')
+    if qualification == 'absent':
+        monkeypatch.delenv('SEL_QUALIFICATIONS_FILE')
+        monkeypatch.delenv('SEL_QUALIFICATIONS_SHA256')
+    if cipher == 3:
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            profile = {'server_id': target.server_id, 'binding': target.binding, 'bmc_ip': BMC,
+                       'cipher': cipher, 'device_id_reply': record['fingerprint']['device_id_reply'],
+                       'guid': record['fingerprint']['guid']}
+        path = tmp_path / 'read-profile.json'
+        path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [profile]}))
+        path.chmod(0o600)
+        monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+    else:
+        monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+    with app.app_context():
+        runtime.sel_manager.observe(BMC)
+    commands.clear()
+    headers, data = intent(client)
+    response = client.post(f'/api/server/{BMC}/clear_sel', json=data, headers=headers)
+    raw = [argv for argv, _kwargs in commands if 'raw' in argv]
+    assert raw and all(argv[argv.index('-C') + 1] == str(cipher) for argv in raw)
+    assert [int(v, 16) for v in raw[0][raw[0].index('raw') + 1:]] == [6, 1]
+    allowed = qualification == 'matching' or (qualification == 'different_transport' and cipher == 17)
+    assert state['cleared'] is allowed, response.get_json()
+    if allowed:
+        assert response.status_code == 200 and response.get_json()['state'] == 'complete'
+    else:
+        assert response.status_code == 409, response.get_json()
+        # Only identity reads are allowed; a read profile grants no mutation.
+        assert all([int(v, 16) for v in argv[argv.index('raw') + 1:]] in ([6, 1], [6, 0x37]) for argv in raw)
+
+
 def intent(client, bmc_ip=BMC):
     """Consume the real API producer for token and current identity/policy versions."""
     response = client.get(f'/api/server/{bmc_ip}/sel/health')
@@ -898,14 +985,23 @@ def test_unknown_native_timestamp_remains_raw_and_unknown_in_real_api(sel_site):
     assert item['raw_entry'] == line
 
 
-def test_unspecified_utc_offset_produces_no_clock_write(qualified_site):
+@pytest.mark.parametrize('semantics', ['local_epoch_with_utc_offset', 'utc_epoch'])
+def test_unspecified_utc_offset_produces_no_clock_write(qualified_site, monkeypatch, semantics):
+    import hashlib
+    import json
+    registry = qualified_site[2]
+    value = json.loads(registry.read_bytes())
+    value['records'][0]['clock_semantics'] = semantics
+    registry.write_text(json.dumps(value))
+    monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
     (client, _app, _db, _models, _runtime, commands), state, _registry = qualified_site
     state['offset'] = 2047  # IPMI 0x07ff, not signed -2048.
     headers, data = intent(client)
     response = client.post(f'/api/server/{BMC}/sel/clock', json=data, headers=headers)
     assert response.status_code == 202
     assert response.get_json()['outcome'] == 'clock_mapping_unknown'
-    assert not any('0x49' in argv[argv.index('raw') + 1:] for argv, _ in commands if 'raw' in argv)
+    assert not any([int(v, 16) for v in argv[argv.index('raw') + 1:]][:2] in ([10, 0x49], [10, 0x5d])
+                   for argv, _ in commands if 'raw' in argv)
 
 
 def test_managed_credential_revocation_is_preserved(sel_site, monkeypatch):

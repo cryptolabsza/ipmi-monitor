@@ -1,0 +1,12 @@
+{
+  "exit": 1,
+  "source_sha256": {
+    "src/ipmi_monitor/sel_qualifications.py": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+    "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+    "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7"
+  },
+  "SQLAlchemy": "2.1.8",
+  "base_image": "ghcr.io/cryptolabsza/ipmi-monitor@sha256:78aff4914df0aee6e4e273d0aa08e46faab12fbc6d5d97c5d1a09264809ac1d8",
+  "candidate_overlays": 3,
+  "no_production_or_BMC_access": true
+}

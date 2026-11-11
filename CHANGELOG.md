@@ -5,6 +5,12 @@ All notable changes to IPMI Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.6] - 2026-11-11
+
+### Fixed
+- Admit exact action qualification evidence for explicitly bound cipher3 transports while retaining source, hardware identity, evidence and dispatch safeguards.
+- Keep unknown-offset clock correction unavailable under both supported clock semantics.
+
 ## [1.4.5] - 2026-11-11
 
 ### Fixed

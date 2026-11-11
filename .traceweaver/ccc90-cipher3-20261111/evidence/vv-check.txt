@@ -1,0 +1,3 @@
+vv_capsule_status=pass
+vv_capsule_capsule=.traceweaver/ccc90-cipher3-20261111/vv-capsule.json
+vv_capsule_findings=0

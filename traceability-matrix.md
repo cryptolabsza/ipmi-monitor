@@ -224,3 +224,22 @@ Current Charlotte source result (11 November2026): `.traceweaver/charlotte-sel-2
 Current Charlotte owned-receipt correction (11 November2026): `.traceweaver/charlotte-owned-receipt-20261111/root-source-acceptance.json` links existing REQ-SEL-001/003/004 and TRACE-SEL-001/003/004 to the same `sel_management.py`/`test_sel_collection_state.py` artifacts. Only exact current-owner expired read failure completion changes; general recovery and mutation gates remain unchanged. Authentic real-SQLite/process RED→GREEN,484 full macOS tests,91 current Linux cases and independent Astra code review passed. Protected release1.4.4, corrected artifact/live two-cycle acceptance and physical maintenance qualification remain separate held gates. No requirement closure or automatic-policy arming.
 
 Current Charlotte completion-receipt correction (11 November2026): `.traceweaver/charlotte-completion-receipt-20261111/root-source-acceptance.json` links unchanged REQ-SEL-001/003/004 and TRACE-SEL-001/003/004 to `app.py:collect_ipmi_sel` and `tests/test_sel_collection_state.py`. Only a failed reaped-child receipt hands off to unchanged common finish; full acquisition validation, actual child absence and ticket/CAS remain mandatory. Prior acquisition errors remain dominant; physical cleanup failures remain fatal. Authentic actual-PTY/SQLite RED,488 full Mac tests,95 current Linux cases and independent Astra source review passed. Compatible1.4.5 artifact/live acceptance, physical maintenance qualification and automatic arming remain held. No normative requirement closure.
+
+
+## CCC90 explicit transport compatibility — 11 November 2026
+
+Current bounded authority: `.traceweaver/ccc90-cipher3-20261111/authority.json`,
+plan/profile and authentic precode acceptance in the same directory. Existing
+REQ/TRACE/VER/VAL-SEL-004 meaning and all REQ-SEL-005 unknown-offset safeguards
+remain unchanged. This is source compatibility evidence, not physical firmware
+qualification, policy consent, target acceptance or requirement closure.
+
+| Trace | Requirement | Implementation / verification | Evidence | Validation / held outcome |
+| --- | --- | --- | --- | --- |
+| TRACE-SEL-004 | REQ-SEL-004 | `src/ipmi_monitor/sel_qualifications.py`: closed supported record transport set17/3; existing full runtime/source/tool and exact fingerprint/action/evidence matching. `tests/test_sel_qualifications.py`; `tests/test_sel_management.py`: truthful/mixed admission, exact guarded transport dispatch, profile-alone/mismatch and action separation refusals. | `.traceweaver/ccc90-cipher3-20261111/evidence/red.txt`; `evidence/green.txt`; `evidence/focused.txt`; `evidence/full-tests.txt`; `evidence/trace.jsonl` (abbreviated paths relative to scoped directory). Existing source/test anchors retained; scanner passes without authoring. | VAL-SEL-004: `docs/validation/sel-health-20261103.md`; independent exact-device/action hardware and intended-use validation HELD; root owns target receipts. |
+| TRACE-SEL-005 | REQ-SEL-005 | Unchanged `src/ipmi_monitor/sel_management.py`; existing unspecified-offset test now covers both clock semantics and absence of Set Time/Set Offset. | Same frozen scoped regression logs. | VAL-SEL-005 physical clock/external-writer/offset qualification remains HELD; no no-offset clock capability added. |
+
+Runtime identity still names cipher17 as the adapter default. Each admitted record
+binds its actual supported transport. Loader hash changes intentionally invalidate
+old runtime-bound envelopes/records; no relabeling, pointer replacement, registry
+activation, automatic fallback or policy arming is authorized by this evidence.
