@@ -1,0 +1,62 @@
+.F..                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-None] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b1a03e0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10608/test_managed_read_profile_sele1')
+cipher = 3, mismatch = None
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+                with pytest.raises(sel.SELUnavailable):
+                    runtime.sel_manager.adapter(target).fingerprint()
+            else:
+                fingerprint = runtime.sel_manager.adapter(target).fingerprint()
+                assert calls and all(argv[argv.index('-C') + 1] == str(cipher) for argv, _kw in calls)
+                assert fingerprint['transport'] == f'lanplus-cipher{cipher}-admin'
+                observed = runtime.sel_manager.observe(BMC)
+>               assert observed['probes']['identity']['profile'] == f'lanplus-cipher{cipher}-admin'
+E               AssertionError: assert 'lanplus-cipher17-admin' == 'lanplus-cipher3-admin'
+E                 
+E                 - lanplus-cipher3-admin
+E                 ?               ^
+E                 + lanplus-cipher17-admin
+E                 ?               ^^
+
+tests/test_sel_collection_state.py:231: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[17-None]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3287: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 70 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-None]
+1 failed, 3 passed, 35 deselected, 71 warnings in 0.99s

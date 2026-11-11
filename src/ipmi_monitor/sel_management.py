@@ -19,6 +19,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 
+from .sel_collection import (READ_SECONDS, REAP_SECONDS, PROCESS_INSTANCE, process_identity,
+    owner_status, child_is_terminal, read_profile, native_digest, decode_record)
+
 from flask import jsonify, request, session
 from sqlalchemy import event, inspect, text
 from sqlalchemy.schema import CreateTable, CreateIndex
@@ -50,6 +53,27 @@ class SELUnavailable(Exception):
     def __init__(self, code):
         super().__init__(code)
         self.code = code
+
+
+def safe_collection_error(code):
+    allowed = {'device_timeout', 'device_deadline_exceeded', 'device_transport_unavailable',
+        'redfish_read_unavailable', 'device_command_failed', 'device_stream_closed', 'device_stream_or_response_failure',
+        'unsupported_cipher', 'role_or_auth_rejected', 'rmcp_session_failed', 'unsupported_command',
+        'malformed_device_response', 'hardware_identity_unknown', 'hardware_reservation_unavailable',
+        'snapshot_changed', 'reservation_invalid', 'incomplete_record_chain', 'incomplete_raw_record',
+        'native_count_mismatch', 'native_duplicate_record', 'native_snapshot_incomplete',
+        'collection_identity_changed', 'native_history_changed', 'collection_child_not_reaped', 'collection_storage_failed', 'collection_child_identity_unavailable',
+        'target_credentials_unavailable', 'configured_active_target_required', 'configured_identity_changed',
+        'read_profile_unavailable', 'read_profile_custody', 'read_profile_invalid_or_stale',
+        'read_profile_identity_mismatch', 'skipped_unreachable', 'sel_info_unknown'}
+    return code if isinstance(code, str) and code in allowed else 'native_collection_failed'
+
+
+def collection_ticket_matches(active, ticket):
+    # The durable capture is authoritative; a producer cannot relabel old bytes.
+    keys = ('attempt_id', 'target_id', 'bmc_ip', 'binding', 'revision', 'fingerprint',
+            'generation', 'snapshot_epoch', 'started_at', 'deadline', 'owner', 'process_instance')
+    return all(key in active and key in ticket and active[key] == ticket[key] for key in keys)
 
 
 class ReservationLost(SELUnavailable):
@@ -112,10 +136,19 @@ class IPMIShellSession:
                 termios.tcsetattr(slave, termios.TCSANOW, attributes)
                 env = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C', 'TERM': 'dumb',
                        'IPMI_PASSWORD': adapter.secret}
-                self.process = adapter.runtime.subprocess.Popen([tool, '-I', 'lanplus', '-C', '17',
-                    '-L', 'ADMINISTRATOR', '-H', adapter.bmc_ip, '-U', adapter.user, '-E',
-                    '-N', '1', '-R', '1', 'shell'], stdin=slave, stdout=slave, stderr=slave,
-                    env=env, close_fds=True, shell=False)
+                if adapter.child_observer:
+                    adapter.child_observer('launching')
+                try:
+                    self.process = adapter.runtime.subprocess.Popen([tool, '-I', 'lanplus', '-C', str(adapter.cipher),
+                        '-L', 'ADMINISTRATOR', '-H', adapter.bmc_ip, '-U', adapter.user, '-E',
+                        '-N', '1', '-R', '1', 'shell'], stdin=slave, stdout=slave, stderr=slave,
+                        env=env, close_fds=True, shell=False, start_new_session=True)
+                except BaseException:
+                    if adapter.child_observer:
+                        adapter.child_observer('none')
+                    raise
+                if adapter.child_observer:
+                    adapter.child_observer('running', self.process)
                 env.clear()
             finally:
                 os.close(slave)
@@ -180,6 +213,8 @@ class IPMIShellSession:
                 response = '\n'.join(lines[1:]).strip()
             parts = response.split()
             if not parts or len(parts) > 512 or any(not re.fullmatch('[0-9a-fA-F]{2}', value) for value in parts):
+                if re.search(r'rsp\s*=\s*0xcb\b', response, re.I):
+                    raise SELUnavailable('record_not_present')
                 if re.search(r'rsp\s*=\s*0xc5\b', response, re.I):
                     raise ReservationLost('reservation_invalid')
                 raise SELUnavailable('malformed_device_response')
@@ -191,8 +226,9 @@ class IPMIShellSession:
             return result
         except ReservationLost:
             raise
-        except SELUnavailable:
-            self.close()
+        except SELUnavailable as exc:
+            if exc.code != 'record_not_present':
+                self.close()
             raise
         except (OSError, UnicodeError):
             self.close()
@@ -212,6 +248,8 @@ class IPMIShellSession:
                     self.process.wait(timeout=1)
             else:
                 self.process.wait()
+            if self.adapter.child_observer:
+                self.adapter.child_observer('reaped')
 
 
 class IPMISELAdapter:
@@ -225,6 +263,9 @@ class IPMISELAdapter:
         self.deadline = time.monotonic() + MAX_SECONDS
         self.terminal_error = None
         self._shell = None
+        self.cipher, self.read_profile = 17, None
+        self.profile_verified = False
+        self.child_observer = None
 
     def open_session(self, reservation=None):
         if self._shell is None:
@@ -236,6 +277,8 @@ class IPMISELAdapter:
             self._shell = None
 
     def raw(self, netfn, command, *data):
+        if self.read_profile and not self.profile_verified and (netfn, command) not in {(6, 1), (6, 0x37)}:
+            raise SELUnavailable('read_profile_identity_mismatch')
         if self._shell is not None:
             return self._shell.raw(netfn, command, *data)
         return self._run_raw(netfn, command, *data)
@@ -246,7 +289,7 @@ class IPMISELAdapter:
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise SELUnavailable('device_deadline_exceeded')
-        argv = ['/usr/bin/ipmitool', '-I', 'lanplus', '-C', '17', '-L', 'ADMINISTRATOR', '-H', self.bmc_ip,
+        argv = ['/usr/bin/ipmitool', '-I', 'lanplus', '-C', str(self.cipher), '-L', 'ADMINISTRATOR', '-H', self.bmc_ip,
                 '-U', self.user, '-E', 'raw'] + [hex(v) for v in (netfn, command, *data)]
         env = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C', 'IPMI_PASSWORD': self.secret}
         try:
@@ -260,6 +303,8 @@ class IPMISELAdapter:
             raise SELUnavailable('device_transport_unavailable') from None
         if result.returncode:
             # No external command body, argv or exception is returned/logged.
+            if re.search(r'(?:rsp\s*=\s*0x|completion code.*0x)cb\b', result.stderr or '', re.I):
+                raise SELUnavailable('record_not_present')
             if re.search(r'(?:rsp\s*=\s*0x|completion code.*0x)c5\b', result.stderr or '', re.I):
                 raise ReservationLost('reservation_invalid')
             stderr = (result.stderr or '').lower()
@@ -286,13 +331,16 @@ class IPMISELAdapter:
         guid = self.raw(0x06, 0x37)
         if len(device) not in (11, 15) or len(guid) != 16 or guid in (bytes(16), bytes([255]) * 16):
             raise SELUnavailable('hardware_identity_unknown')
+        if self.read_profile and (device.hex() != self.read_profile['device_id_reply'] or guid.hex() != self.read_profile['guid']):
+            raise SELUnavailable('read_profile_identity_mismatch')
+        self.profile_verified = True
         return {'manufacturer': device[6:9].hex(), 'product': device[9:11].hex(),
                 'firmware': device[2:4].hex(), 'device_id_reply': device.hex(),
                 'aux_firmware_present': len(device) == 15,
                 'aux_firmware': device[11:15].hex() if len(device) == 15 else None,
                 'firmware_identity_capability': 'get-device-id-' + str(len(device)),
                 'guid': guid.hex(), 'log': 'ipmi:sel',
-                'adapter': ADAPTER_VERSION, 'transport': TRANSPORT}
+                'adapter': ADAPTER_VERSION, 'transport': f'lanplus-cipher{self.cipher}-admin'}
 
     def info(self):
         value = self.raw(0x0a, 0x40)
@@ -348,33 +396,64 @@ class IPMISELAdapter:
     def snapshot(self, reservation):
         self.open_session(reservation)
         before = self.info()
+        self.native_expected, self.native_received = before['entries'], 0
         if not before['supports_reserve']:
             raise SELUnavailable('hardware_reservation_unavailable')
-        records, seen, actual_ids, record_id = [], set(), set(), 0
+        records, seen, by_id, record_id = [], set(), {}, 0
+        def read_record(requested):
+            if time.monotonic() >= self.deadline:
+                raise SELUnavailable('device_deadline_exceeded')
+            response = self.raw(0x0a, 0x43, *reservation, requested & 255, requested >> 8, 0, 255)
+            if len(response) != 18:
+                raise SELUnavailable('incomplete_raw_record')
+            next_id, raw = int.from_bytes(response[:2], 'little'), response[2:]
+            actual = int.from_bytes(raw[:2], 'little')
+            if actual in {0, 65535} or (requested and actual != requested):
+                raise SELUnavailable('incomplete_record_chain')
+            row = {'record_id': actual, 'raw': raw.hex()}
+            if actual in by_id and by_id[actual] != row:
+                raise SELUnavailable('incomplete_record_chain')
+            by_id[actual] = row
+            self.native_received = len(by_id)
+            return next_id, actual
         if before['entries']:
             while True:
-                if record_id in seen or len(records) >= MAX_RECORDS:
+                if record_id in seen or len(by_id) >= MAX_RECORDS:
                     raise SELUnavailable('incomplete_record_chain')
                 seen.add(record_id)
-                response = self.raw(0x0a, 0x43, *reservation, record_id & 255, record_id >> 8, 0, 255)
-                if len(response) != 18:
-                    raise SELUnavailable('incomplete_raw_record')
-                next_id = int.from_bytes(response[:2], 'little')
-                raw = response[2:]
-                actual = int.from_bytes(raw[:2], 'little')
-                if actual in actual_ids or (record_id and actual != record_id):
+                next_id, actual = read_record(record_id)
+                if len(by_id) != len(seen):
                     raise SELUnavailable('incomplete_record_chain')
-                actual_ids.add(actual)
-                records.append({'record_id': actual, 'raw': raw.hex()})
                 if next_id == 65535:
                     break
                 record_id = next_id
+            deficit = before['entries'] - len(by_id)
+            if deficit > 0:
+                # At most128 live candidate reads. Gaps and nearest predecessors
+                # are hints only; absence is only an explicit CB completion.
+                ordered = sorted(by_id)
+                candidates = []
+                for low, high in zip(ordered, ordered[1:]):
+                    candidates.extend(range(low + 1, min(high, low + 129)))
+                    if len(candidates) >= 128:
+                        break
+                candidates = candidates[:128]
+                room = 128 - len(candidates)
+                candidates.extend(range(ordered[0] - 1, max(0, ordered[0] - room - 1), -1))
+                for candidate in candidates:
+                    if len(by_id) == before['entries']:
+                        break
+                    if candidate in by_id:
+                        continue
+                    try:
+                        read_record(candidate)
+                    except SELUnavailable as exc:
+                        if exc.code != 'record_not_present':
+                            raise
         after = self.info()
-        if before != after or len(records) != before['entries']:
+        if before != after or len(by_id) != before['entries']:
             raise ReservationLost('snapshot_changed')
-        # Validate the reservation even for empty snapshots. Get SEL Entry on an
-        # empty SEL cannot validate it; a zero-count snapshot is not a clear trigger.
-        return {'complete': True, 'records': records, 'info': after,
+        return {'complete': True, 'records': [by_id[k] for k in sorted(by_id)], 'info': after,
                 'reservation': reservation.hex(), 'collected_at': stamp(utcnow())}
 
     def clear(self, reservation):
@@ -533,6 +612,17 @@ def register_sel_management(runtime):
     """Register durable models and the narrow API against the real application."""
     app, db = runtime.app, runtime.db
 
+    def restore_collection_timeout(connection, record):
+        # Read-only collection transactions have a short lock wait. Return the
+        # exact original pool setting so mutation/other callers retain their policy.
+        previous = record.info.pop('sel_collection_busy_timeout', None)
+        if connection is not None and previous is not None:
+            connection.execute('PRAGMA busy_timeout = ' + str(int(previous)))
+
+    with app.app_context():
+        if db.engine.dialect.name == 'sqlite':
+            event.listen(db.engine, 'checkin', restore_collection_timeout)
+
     class SELTarget(db.Model):
         id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
         server_id = db.Column(db.Integer, unique=True, nullable=False)
@@ -542,6 +632,7 @@ def register_sel_management(runtime):
         fingerprint = db.Column(db.Text)
         generation = db.Column(db.Integer, nullable=False, default=0)
         snapshot_epoch = db.Column(db.Integer, nullable=False, default=0)
+        collection_state = db.Column(db.Text)
         health = db.Column(db.Text)
         observed_at = db.Column(db.DateTime)
         active_operation = db.Column(db.String(36))
@@ -598,6 +689,360 @@ def register_sel_management(runtime):
         setattr(runtime, model.__name__, model)
 
     class Manager:
+        def collection_state(self, target):
+            state = json.loads(target.collection_state or '{}')
+            for name in ('last_attempt_at', 'last_complete_success_at', 'outcome', 'safe_reason',
+                         'native_expected', 'native_received', 'native_persisted', 'receipt_digest'):
+                state.setdefault(name, None)
+            state.setdefault('baseline_complete', False)
+            return state
+
+        def collection_view(self, target):
+            state = self.collection_state(target)
+            value = {key: state[key] for key in ('last_attempt_at', 'last_complete_success_at',
+                'outcome', 'safe_reason', 'native_expected', 'native_received', 'native_persisted',
+                'receipt_digest', 'baseline_complete')}
+            for key in ('last_attempt_expected', 'last_attempt_received', 'last_attempt_persisted',
+                        'consecutive_failures', 'failure_since'):
+                value[key] = state.get(key)
+            value['stale'] = (self.collection_stale(state) or
+                              state.get('baseline_generation') != target.generation)
+            value['in_progress'] = bool(state.get('active_attempt_id'))
+            rf = state.get('redfish', {})
+            value['redfish'] = {key:rf.get(key) for key in ('last_attempt_at','last_success_at',
+                'received','persisted','outcome','safe_reason','native_completeness','baseline_complete','service')}
+            value['redfish']['stale'] = (self.collection_stale({'last_complete_success_at':rf.get('last_success_at')}) or
+                                         rf.get('generation') != target.generation)
+            return value
+
+        def collection_stale(self, state):
+            try:
+                age = (utcnow() - datetime.fromisoformat(state['last_complete_success_at'].rstrip('Z'))).total_seconds()
+                return not 0 <= age <= max(120, 2 * runtime.POLL_INTERVAL + READ_SECONDS)
+            except (ValueError, TypeError, KeyError, AttributeError):
+                return True
+
+        def collection_lock(self, target_id):
+            db.session.rollback()
+            if db.engine.dialect.name != 'sqlite':
+                raise SELUnavailable('serialized_dispatch_unavailable')
+            connection = db.session.connection()
+            previous = connection.exec_driver_sql('PRAGMA busy_timeout').scalar_one()
+            connection.info.setdefault('sel_collection_busy_timeout', previous)
+            connection.exec_driver_sql('PRAGMA busy_timeout = 1000')
+            db.session.execute(text('BEGIN IMMEDIATE'))
+            db.session.expire_all()
+            return db.session.get(SELTarget, target_id)
+
+        # TRACEWEAVER: entrypoint=begin_collection; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-004; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-004; ver=VER-CHARLOTTESEL-001,VER-CHARLOTTESEL-002,VER-CHARLOTTESEL-004
+        def begin_collection(self, bmc_ip):
+            target = self.target(bmc_ip)
+            target_id = target.id
+            state = self.collection_state(target)
+            if state.get('active_attempt_id'):
+                # Recovery inspects actual local owner/child identities outside a write lock.
+                try:
+                    self.recover_collection(bmc_ip, state['active_attempt_id'])
+                except SELUnavailable:
+                    db.session.rollback()
+                    raise SELUnavailable('collection_busy_or_maintenance') from None
+            try:
+                target = self.collection_lock(target_id)
+                server = self.current_server(bmc_ip)
+                state = self.collection_state(target)
+                if self.binding(server) != target.binding or target.active_operation or state.get('active_attempt_id'):
+                    raise SELUnavailable('collection_busy_or_maintenance')
+                owner = process_identity(os.getpid())
+                ticket = {'attempt_id': str(uuid.uuid4()), 'target_id': target.id,
+                          'bmc_ip': bmc_ip, 'binding': target.binding, 'revision': target.revision,
+                          'fingerprint': target.fingerprint, 'generation': target.generation,
+                          'snapshot_epoch': target.snapshot_epoch, 'started_at': stamp(utcnow()),
+                          'owner': owner, 'process_instance': PROCESS_INSTANCE,
+                          'child': None, 'child_state': 'none',
+                          'deadline': time.monotonic() + READ_SECONDS}
+                state.update(active_attempt_id=ticket['attempt_id'], active_ticket=ticket,
+                             last_attempt_at=ticket['started_at'], outcome='in_progress', safe_reason=None)
+                target.collection_state = json.dumps(state, sort_keys=True)
+                db.session.commit()
+                return json.loads(json.dumps(ticket))
+            except SELUnavailable:
+                db.session.rollback()
+                raise
+            except Exception:
+                db.session.rollback()
+                raise SELUnavailable('collection_store_unavailable') from None
+
+        def collection_child(self, ticket, state_name, child=None):
+            """Durably associate only this lease's exact child before issuing BMC IO."""
+            try:
+                target = self.collection_lock(ticket['target_id'])
+                state = self.collection_state(target)
+                active = state.get('active_ticket', {})
+                if (state.get('active_attempt_id') != ticket['attempt_id'] or
+                        active.get('owner') != ticket['owner'] or active.get('process_instance') != PROCESS_INSTANCE):
+                    raise SELUnavailable('collection_owner_changed')
+                if state_name == 'none' and active.get('child') is not None:
+                    raise SELUnavailable('collection_child_identity_unavailable')
+                active['child_state'] = state_name
+                if child is not None:
+                    active['child'] = process_identity(child.pid)
+                    if active['child'].get('ppid') != os.getpid():
+                        raise SELUnavailable('collection_child_identity_unavailable')
+                state['active_ticket'] = active
+                target.collection_state = json.dumps(state, sort_keys=True)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise SELUnavailable('collection_child_identity_unavailable') from None
+
+        def collection_degraded(self, bmc_ip, reason):
+            reason = safe_collection_error(reason)
+            app.logger.warning('SEL collection degraded: %s', reason)
+            if getattr(runtime, '_ALERTS_AVAILABLE', False):
+                try:
+                    runtime._alerts_module.get_alert_manager().send_alert(
+                        alert_type='warning_event', title='SEL collection degraded',
+                        message='Native SEL collection failed: ' + reason,
+                        server_id=bmc_ip, severity='warning')
+                except Exception:
+                    app.logger.debug('SEL degradation alert unavailable')
+
+        def collection_owner_status(self, ticket):
+            return owner_status(ticket)
+
+        def recover_collection(self, bmc_ip, attempt_id):
+            target = self.target(bmc_ip)
+            target_id = target.id
+            state = self.collection_state(target)
+            ticket = state.get('active_ticket', {})
+            try:
+                expired = (utcnow() - datetime.fromisoformat(ticket['started_at'].rstrip('Z'))).total_seconds() > READ_SECONDS + REAP_SECONDS
+            except (ValueError, KeyError, TypeError):
+                expired = False
+            db.session.rollback()
+            if (state.get('active_attempt_id') != attempt_id or not expired or
+                    self.collection_owner_status(ticket) != 'dead_child_reaped'):
+                raise SELUnavailable('collection_owner_not_recoverable')
+            try:
+                target = self.collection_lock(target_id)
+                state = self.collection_state(target)
+                if state.get('active_attempt_id') != attempt_id or state.get('active_ticket') != ticket:
+                    raise SELUnavailable('collection_owner_changed')
+                state.update(active_attempt_id=None, active_ticket=None, outcome='failed',
+                             safe_reason='collection_owner_lost', continuity=False)
+                target.collection_state = json.dumps(state, sort_keys=True)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise SELUnavailable('collection_owner_not_recoverable') from None
+
+        # TRACEWEAVER: entrypoint=finish_collection; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004; ver=VER-CHARLOTTESEL-001,VER-CHARLOTTESEL-002,VER-CHARLOTTESEL-003,VER-CHARLOTTESEL-004
+        def finish_collection(self, ticket, snapshot=None, error=None):
+            """Fence ownership and persist records, baseline and success in one commit."""
+            new_events = []
+            reason = None
+            expected = received = None
+            try:
+                target = self.collection_lock(ticket['target_id'])
+                state = self.collection_state(target)
+                active = state.get('active_ticket') or {}
+                if (state.get('active_attempt_id') != ticket['attempt_id'] or
+                        not collection_ticket_matches(active, ticket)):
+                    db.session.rollback()
+                    return {'outcome': 'failed', 'safe_reason': 'collection_owner_changed'}
+                if not child_is_terminal(active):
+                    state.update(outcome='failed', safe_reason='collection_child_not_reaped', continuity=False)
+                    target.collection_state = json.dumps(state, sort_keys=True)
+                    db.session.commit()
+                    self.collection_degraded(target.bmc_ip, 'collection_child_not_reaped')
+                    return {'outcome': 'failed', 'safe_reason': 'collection_child_not_reaped'}
+                server = self.current_server(target.bmc_ip)
+                if (self.binding(server) != ticket['binding'] or target.active_operation or
+                        any(getattr(target, key) != ticket[key] for key in
+                            ('binding', 'revision', 'fingerprint', 'generation', 'snapshot_epoch'))):
+                    reason = 'collection_identity_changed'
+                elif ((utcnow() - datetime.fromisoformat(ticket['started_at'].rstrip('Z'))).total_seconds() > READ_SECONDS or
+                      time.monotonic() > ticket['deadline']):
+                    reason = 'device_deadline_exceeded'
+                elif error:
+                    reason = safe_collection_error(error)
+                    if snapshot:
+                        expected, received = snapshot.get('native_expected'), snapshot.get('native_received')
+                elif not snapshot or (snapshot.get('complete') is not True and not
+                        (server.protocol == 'redfish' and snapshot.get('source') == 'redfish' and snapshot.get('read_ok') is True)):
+                    reason = 'native_snapshot_incomplete'
+                if not reason:
+                    if snapshot.get('source') == 'redfish':
+                        if server.protocol != 'redfish':
+                            raise SELUnavailable('collection_identity_changed')
+                        return self.finish_redfish_locked(target, server, state, ticket, snapshot)
+                    expected = snapshot['info']['entries']
+                    records = snapshot['records']
+                    received = len(records)
+                    marker = state.get('generation_erase')
+                    if marker is not None and marker != snapshot['info']['last_erase']:
+                        raise SELUnavailable('native_history_changed')
+                    if type(expected) is not int or not 0 <= expected < MAX_RECORDS or expected != received:
+                        raise SELUnavailable('native_count_mismatch')
+                    ids = set()
+                    decoded = []
+                    for record in records:
+                        value = decode_record(record)
+                        if record['record_id'] in ids:
+                            raise SELUnavailable('native_duplicate_record')
+                        ids.add(record['record_id'])
+                        decoded.append(value)
+                    fingerprint = snapshot.get('fingerprint')
+                    if fingerprint:
+                        old = json.loads(target.fingerprint or '{}')
+                        keys = ('device_id_reply', 'guid')
+                        if old and any(old.get(key) != fingerprint.get(key) for key in keys):
+                            raise SELUnavailable('collection_identity_changed')
+                        target.fingerprint = json.dumps(fingerprint, sort_keys=True)
+                    continuity = bool(state.get('baseline_complete') and state.get('continuity') and
+                                      state.get('baseline_generation') == target.generation and
+                                      state.get('baseline_process_instance') == PROCESS_INSTANCE and not self.collection_stale(state))
+                    for value in decoded:
+                        row = runtime.IPMIEvent(bmc_ip=target.bmc_ip, server_name=server.server_name, **value)
+                        row.sel_target_id, row.sel_generation = target.id, target.generation
+                        row.record_digest = native_digest(row.raw_entry)
+                        row.collected_at = utcnow()
+                        exists = runtime.IPMIEvent.query.filter_by(sel_target_id=target.id,
+                            sel_generation=target.generation, sel_id=row.sel_id, record_digest=row.record_digest).first()
+                        if not exists:
+                            db.session.add(row)
+                            new_events.append(row)
+                    db.session.flush()  # An insert failure must precede success acknowledgement.
+                    if time.monotonic() > ticket['deadline']:
+                        raise SELUnavailable('device_deadline_exceeded')
+                    state.update(last_complete_success_at=stamp(utcnow()), outcome='persisted', safe_reason=None,
+                        native_expected=expected, native_received=received, native_persisted=received,
+                        receipt_digest=digest({'domain': 'native-sel-receipt-v1', 'generation': target.generation,
+                            'fingerprint': target.fingerprint, 'info': snapshot['info'],
+                            'records': sorted(records, key=lambda r: r['record_id'])}),
+                        baseline_complete=True, baseline_generation=target.generation,
+                        baseline_process_instance=PROCESS_INSTANCE, continuity=True,
+                        generation_erase=snapshot['info']['last_erase'], last_native_info=snapshot['info'],
+                        last_attempt_expected=expected, last_attempt_received=received,
+                        last_attempt_persisted=received, consecutive_failures=0, failure_since=None)
+                    state.update(active_attempt_id=None, active_ticket=None)
+                    target.collection_state = json.dumps(state, sort_keys=True)
+                    db.session.commit()
+                    if continuity:
+                        for row in new_events:
+                            if row.severity in {'warning', 'critical'} and row.event_direction == 'Asserted':
+                                try:
+                                    runtime._send_sel_event_alert(target.bmc_ip, server.server_name, row)
+                                except Exception:
+                                    app.logger.debug('SEL alert delivery unavailable')
+                    return {'outcome': 'persisted', 'native_expected': expected, 'native_received': received,
+                            'native_persisted': received, 'new_records': len(new_events)}
+            except SELUnavailable as exc:
+                reason = safe_collection_error(exc.code)
+                db.session.rollback()
+            except Exception:
+                reason = 'collection_storage_failed'
+                db.session.rollback()
+            # Failure receipt is separate after rollback; the old complete-success is retained.
+            try:
+                target = self.collection_lock(ticket['target_id'])
+                state = self.collection_state(target)
+                active = state.get('active_ticket') or {}
+                if (state.get('active_attempt_id') == ticket['attempt_id'] and
+                        collection_ticket_matches(active, ticket)):
+                    if not child_is_terminal(active):
+                        state.update(outcome='failed', safe_reason='collection_child_not_reaped', continuity=False)
+                        target.collection_state = json.dumps(state, sort_keys=True)
+                        db.session.commit()
+                        self.collection_degraded(target.bmc_ip, 'collection_child_not_reaped')
+                        return {'outcome': 'failed', 'safe_reason': 'collection_child_not_reaped'}
+                    if reason == 'native_history_changed':
+                        target.generation += 1
+                        target.snapshot_epoch += 1
+                        state['generation_erase'] = snapshot['info']['last_erase']
+                    state.update(active_attempt_id=None, active_ticket=None, outcome='failed',
+                                 safe_reason=reason, continuity=False, last_attempt_persisted=0,
+                                 consecutive_failures=state.get('consecutive_failures', 0) + 1,
+                                 failure_since=state.get('failure_since') or stamp(utcnow()))
+                    if snapshot and snapshot.get('source') == 'redfish':
+                        rf = state.get('redfish', {})
+                        rf.update(last_attempt_at=ticket['started_at'], outcome='failed',
+                                  safe_reason=reason, continuity=False, received=len(snapshot.get('records', [])), persisted=0)
+                        state['redfish'] = rf
+                    state['last_attempt_expected'] = expected
+                    state['last_attempt_received'] = received
+                    target.collection_state = json.dumps(state, sort_keys=True)
+                    db.session.commit()
+                    self.collection_degraded(target.bmc_ip, reason)
+                else:
+                    db.session.rollback()
+            except Exception:
+                db.session.rollback()
+                app.logger.warning('SEL collection failure receipt unavailable')
+            return {'outcome': 'failed', 'safe_reason': reason}
+
+# TRACEWEAVER: entrypoint=finish_redfish_locked; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
+        def finish_redfish_locked(self, target, server, state, ticket, snapshot):
+            """Commit a bounded RF view under the existing lease; never native proof."""
+            records = snapshot['records']
+            if len(records) > MAX_RECORDS:
+                raise SELUnavailable('redfish_read_unavailable')
+            rf = state.get('redfish', {})
+            previous = rf.get('records', {})
+            current, new_events = {}, []
+            maximum = None
+            for value in records:
+                key, raw = value.get('sel_id'), value.get('raw_entry')
+                if not isinstance(key, str) or not key or not isinstance(raw, str) or not raw or len(raw) > 65536:
+                    raise SELUnavailable('redfish_read_unavailable')
+                raw_digest = digest(['redfish-sel-v1', raw])
+                if key in current and current[key] != raw_digest:
+                    raise SELUnavailable('redfish_read_unavailable')
+                current[key] = raw_digest
+                value = dict(value)
+                value['time_quality'] = value.get('time_quality') or 'redfish-unknown'
+                if not value['time_quality'].startswith('redfish-'):
+                    value['time_quality'] = 'redfish-' + value['time_quality']
+                row = runtime.IPMIEvent(bmc_ip=target.bmc_ip, server_name=server.server_name, **value)
+                row.sel_target_id, row.sel_generation, row.record_digest = target.id, target.generation, raw_digest
+                row.collected_at = utcnow()
+                maximum = max(maximum or row.event_date, row.event_date)
+                if not runtime.IPMIEvent.query.filter_by(sel_target_id=target.id, sel_generation=target.generation,
+                        sel_id=key, record_digest=raw_digest).first():
+                    db.session.add(row); new_events.append(row)
+            continuous = bool(previous and rf.get('continuity') and rf.get('generation') == target.generation and
+                rf.get('process_instance') == PROCESS_INSTANCE and rf.get('service') == snapshot.get('service') and
+                snapshot.get('service') and all(current.get(key) == value for key,value in previous.items()))
+            try:
+                age = (utcnow() - datetime.fromisoformat(rf['last_success_at'].rstrip('Z'))).total_seconds()
+                continuous &= 0 <= age <= max(120, 2 * runtime.POLL_INTERVAL + READ_SECONDS)
+            except (KeyError, ValueError, TypeError):
+                continuous = False
+            db.session.flush()
+            if time.monotonic() > ticket['deadline']:
+                raise SELUnavailable('device_deadline_exceeded')
+            old_maximum = rf.get('maximum_event_date')
+            rf.update(last_attempt_at=ticket['started_at'], last_success_at=stamp(utcnow()),
+                received=len(records), persisted=len(records), outcome='persisted_diagnostic',
+                safe_reason=None, native_completeness='unverified', baseline_complete=True,
+                generation=target.generation, process_instance=PROCESS_INSTANCE, continuity=True,
+                service=snapshot.get('service'), records=current,
+                maximum_event_date=maximum.isoformat() if maximum else None)
+            state.update(redfish=rf, active_attempt_id=None, active_ticket=None,
+                         outcome='redfish_diagnostic', safe_reason='native_completeness_unverified')
+            target.collection_state = json.dumps(state, sort_keys=True)
+            db.session.commit()
+            if continuous and old_maximum:
+                for row in new_events:
+                    if row.sel_id not in previous and row.event_date.isoformat() > old_maximum and row.severity in {'warning','critical'}:
+                        try:
+                            if 'deassert' not in (row.event_description or '').lower():
+                                runtime._send_sel_event_alert(target.bmc_ip, server.server_name, row)
+                        except Exception:
+                            app.logger.debug('SEL alert delivery unavailable')
+            return {'outcome':'persisted_diagnostic', 'source':'redfish', 'received':len(records),
+                    'persisted':len(records), 'native_completeness':'unverified'}
+
         def audit(self, target, action, evidence, operation=None, subject=None):
             db.session.add(SELAudit(target_id=target.id, operation_id=operation.id if operation else None,
                 subject=subject or (operation.initiator if operation else session.get('username', 'collector') if request else 'collector'),
@@ -655,7 +1100,14 @@ def register_sel_management(runtime):
             credentials = runtime.get_ipmi_credentials(target.bmc_ip)
             if not credentials or not all(credentials):
                 raise SELUnavailable('target_credentials_unavailable')
-            return IPMISELAdapter(runtime, target.bmc_ip, credentials)
+            adapter = IPMISELAdapter(runtime, target.bmc_ip, credentials)
+            try:
+                profile = read_profile(runtime, target)
+            except ValueError as exc:
+                raise SELUnavailable(str(exc)) from None
+            if profile:
+                adapter.cipher, adapter.read_profile = profile['cipher'], profile
+            return adapter
 
         def identify(self, target, adapter):
             fingerprint = adapter.fingerprint()
@@ -673,35 +1125,37 @@ def register_sel_management(runtime):
                 db.session.commit()
             return fingerprint
 
+# TRACEWEAVER: entrypoint=observe; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
         def observe(self, bmc_ip):
             target = self.target(bmc_ip)
+            if self.current_server(bmc_ip).protocol == 'redfish':
+                return {'state':'unknown', 'stale':True, 'flags':['native_unverified'],
+                        'logging_enabled':None, 'full':None, 'percent_used':None, 'clock':None,
+                        'reason':'native_completeness_unverified'}
+            target_id = target.id
+            captured = {key: getattr(target, key) for key in (
+                'binding', 'revision', 'fingerprint', 'generation', 'snapshot_epoch',
+                'policy_revision', 'active_operation', 'collection_state', 'health', 'observed_at')}
+            drift_seconds = target.drift_seconds
+            fingerprint, identity_attempted = None, False
             try:
                 adapter = self.adapter(target)
+                db.session.rollback()  # Probe IO never holds a write transaction.
                 health = {'state': 'unknown', 'logging_enabled': None, 'percent_used': None,
                           'capacity_observed_at': None, 'logging_observed_at': None, 'clock_observed_at': None,
                           'probes': {}}
                 def observed(name, reason=None):
                     health['probes'][name] = {'reason': reason, 'observed_at': stamp(utcnow()),
-                                             'source': 'ipmitool:raw', 'profile': TRANSPORT}
+                                             'source': 'ipmitool:raw', 'profile': f'lanplus-cipher{getattr(adapter, "cipher", 17)}-admin'}
                 try:
-                    fingerprint = self.identify(target, adapter)
+                    identity_attempted = True
+                    fingerprint = adapter.fingerprint()
                     observed('identity')
                 except SELUnavailable as exc:
                     fingerprint = None
                     observed('identity', exc.code)
-                    if target.fingerprint:
-                        target.revision += 1
-                        target.policy_revision += 1
-                        target.fingerprint = target.consent_fingerprint = target.consent_qualification = None
-                        target.auto_clear = target.auto_clock = False
-                        self.audit(target, 'identity_unavailable', {'reason': exc.code}, subject='collector')
                 try:
                     info = adapter.info()
-                    old = json.loads(target.health or '{}').get('info')
-                    if old and (old['last_erase'] != info['last_erase'] or info['entries'] < old['entries'] or
-                            int.from_bytes(bytes.fromhex(info['last_add']), 'little') < int.from_bytes(bytes.fromhex(old['last_add']), 'little')):
-                        target.generation += 1
-                        target.snapshot_epoch += 1
                     health['info'], health['capacity_observed_at'] = info, stamp(utcnow())
                     health['percent_used'] = info['percent_used']
                     # Overflow is a historical loss warning, not current capacity.
@@ -728,19 +1182,66 @@ def register_sel_management(runtime):
                     health['clock_mapping'] = mapping.get('clock_semantics') if mapping else None
                     if reference and offset is not None and mapping:
                         health['drift_seconds'] = native['native_seconds'] - (offset * 60 if mapping['clock_semantics'] == 'local_epoch_with_utc_offset' else 0) - reference['utc']
-                        health['clock_incorrect'] |= abs(health['drift_seconds']) > target.drift_seconds
+                        health['clock_incorrect'] |= abs(health['drift_seconds']) > drift_seconds
                     observed('clock', 'clock_mapping_unknown' if not mapping else None)
                     observed('offset', native.get('offset_reason'))
                 except SELUnavailable as exc:
                     health['clock'] = None
                     observed('clock', exc.code)
                 health['fingerprint'] = fingerprint
+
+            except SELUnavailable as exc:
+                health = {'state': 'unknown', 'error': exc.code}
+            finally:
+                if 'adapter' in locals():
+                    adapter.close()
+            # Reload and compose under the same short SQLite ownership fence.
+            # Any intervening identity, lease, success or newer probe makes this
+            # observation stale; it cannot overwrite newer authority or evidence.
+            try:
+                target = self.collection_lock(target_id)
+                server = self.current_server(bmc_ip)
+                if (self.binding(server) != captured['binding'] or
+                        any(getattr(target, key) != value for key, value in captured.items())):
+                    db.session.rollback()
+                    return self.health(self.refresh_consent(target))
+                if identity_attempted:
+                    if fingerprint is None:
+                        if target.fingerprint:
+                            target.revision += 1
+                            target.policy_revision += 1
+                            target.fingerprint = target.consent_fingerprint = target.consent_qualification = None
+                            target.auto_clear = target.auto_clock = False
+                            self.audit(target, 'identity_unavailable',
+                                {'reason': health['probes']['identity']['reason']}, subject='collector')
+                    else:
+                        encoded = json.dumps(fingerprint, sort_keys=True)
+                        if target.fingerprint != encoded:
+                            if target.fingerprint:
+                                target.revision += 1
+                                target.generation += 1
+                                target.auto_clear = target.auto_clock = False
+                                target.consent_fingerprint = None
+                                target.policy_revision += 1
+                            target.snapshot_epoch += 1
+                            target.fingerprint = encoded
+                            self.audit(target, 'hardware_identity', {'fingerprint': fingerprint}, subject='collector')
+                info = health.get('info')
+                if info:
+                    old = json.loads(target.health or '{}').get('info')
+                    collection = self.collection_state(target)
+                    marker = collection.get('generation_erase', old['last_erase'] if old else None)
+                    if marker is not None and marker != info['last_erase']:
+                        target.generation += 1
+                        target.snapshot_epoch += 1
+                        collection['continuity'] = False
+                    collection['generation_erase'] = info['last_erase']
+                    target.collection_state = json.dumps(collection, sort_keys=True)
                 target.health, target.observed_at = json.dumps(health), utcnow()
                 db.session.commit()
-            except SELUnavailable as exc:
-                target.health = json.dumps({'state': 'unknown', 'error': exc.code})
-                target.observed_at = utcnow()
-                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
             return self.health(self.refresh_consent(target))
 
         def health(self, target):
@@ -767,18 +1268,23 @@ def register_sel_management(runtime):
             health.setdefault('percent_used', None)
             if not fresh:
                 health.update(logging_enabled=None, percent_used=None, full=None)
+            collection = self.collection_view(target)
+            if collection['outcome'] == 'failed' or (collection['baseline_complete'] and collection['stale']):
+                health['flags'].append('collection_failed')
+                health['state'] = 'collection_degraded'
             return health
 
         def representation(self, target):
             target = self.refresh_consent(target)
             server = self.current_server(target.bmc_ip)
             fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
-            capabilities = {action: {'available': bool(target.failure_count < 3 and fingerprint and qualified(fingerprint, action)),
+            capabilities = {action: {'available': bool(server.protocol != 'redfish' and target.failure_count < 3 and fingerprint and qualified(fingerprint, action)),
                             'reason': 'Exact device/firmware qualification required'} for action in ('clear', 'enable', 'clock')}
             op = (db.session.get(SELOperation, target.active_operation) if target.active_operation else
                   SELOperation.query.filter_by(target_id=target.id).order_by(SELOperation.created_at.desc()).first())
             return {'bmc_ip': target.bmc_ip, 'server_name': server.server_name, 'target_id': target.id,
                 'identity_revision': target.revision, 'health': self.health(target),
+                'collection': self.collection_view(target),
                 'policies': {'automatic_clear': target.auto_clear, 'automatic_clock': target.auto_clock,
                     'revision': target.policy_revision, 'near_full_percent': target.near_full,
                     'clock_drift_seconds': target.drift_seconds}, 'capabilities': capabilities,
@@ -846,6 +1352,9 @@ def register_sel_management(runtime):
             target = db.session.get(SELTarget, target_id)
             if self.authority(target) != expected_authority:
                 raise SELUnavailable('identity_or_policy_revoked')
+            if self.collection_state(target).get('active_attempt_id'):
+                db.session.rollback()
+                raise SELUnavailable('operation_busy_or_cooldown')
             fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
             selections = {name: qualification_selection(fingerprint, name)[1] for name in ('clear', 'clock')}
             if self.revoke_locked(target, selections):
@@ -1162,7 +1671,8 @@ def register_sel_management(runtime):
                 model.__table__.create(bind=engine, checkfirst=True)
             with engine.begin() as connection:
                 for table, column, datatype in [('sel_target', 'consent_qualification', 'TEXT'),
-                                                 ('sel_operation', 'qualification_binding', 'VARCHAR(64)')]:
+                                                 ('sel_operation', 'qualification_binding', 'VARCHAR(64)'),
+                                                 ('sel_target', 'collection_state', 'TEXT')]:
                     if column not in {entry['name'] for entry in inspect(connection).get_columns(table)}:
                         connection.exec_driver_sql(f'ALTER TABLE {table} ADD COLUMN {column} {datatype}')
 
@@ -1178,10 +1688,15 @@ def register_sel_management(runtime):
         target = store.query(SELTarget).filter_by(server_id=server.id).first() if server else None
         row.sel_target_id = target.id if target else 'legacy:' + row.bmc_ip
         row.sel_generation = target.generation if target else 0
-        row.record_digest = digest([row.raw_entry or '', row.sensor_type, row.event_description,
-                                   row.sel_id]) if row.raw_entry else uuid.uuid4().hex
-        row.native_timestamp = row.native_timestamp or (row.event_date.isoformat() if row.event_date else None)
-        row.time_quality = row.time_quality or ('native-unverified' if row.raw_entry else 'monitor')
+        row.record_digest = native_digest(row.raw_entry) or (digest([row.raw_entry or '', row.sensor_type, row.event_description,
+                                   row.sel_id]) if row.raw_entry else uuid.uuid4().hex)
+        if native_digest(row.raw_entry):
+            decoded = decode_record({'record_id': int.from_bytes(bytes.fromhex(row.raw_entry)[:2], 'little'), 'raw': row.raw_entry})
+            row.native_timestamp = decoded['native_timestamp']
+            row.time_quality = decoded['time_quality']
+        else:
+            row.native_timestamp = row.native_timestamp or (row.event_date.isoformat() if row.event_date else None)
+            row.time_quality = row.time_quality or ('native-unverified' if row.raw_entry else 'monitor')
         row.collected_at = row.collected_at or utcnow()
 
     @event.listens_for(Session, 'before_flush')

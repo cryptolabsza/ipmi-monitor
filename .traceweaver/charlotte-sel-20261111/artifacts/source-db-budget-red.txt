@@ -1,0 +1,66 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ test_child_receipt_database_contention_is_bounded_and_does_not_change_mutation_timeout _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+
+    def test_child_receipt_database_contention_is_bounded_and_does_not_change_mutation_timeout(collection_site):
+        from threading import Event, Thread
+        from sqlalchemy import text
+        app, db, _models, runtime, _alerts = collection_site
+        done = Event()
+        results = []
+        with app.app_context():
+            manager = runtime.sel_manager
+            ticket = manager.begin_collection(BMC)
+            blocker = db.engine.connect()
+            blocker.exec_driver_sql('BEGIN IMMEDIATE')
+        def receive_child():
+            with app.app_context():
+                try:
+                    manager.collection_child(ticket, 'launching')
+                    results.append('accepted')
+                except sel.SELUnavailable as exc:
+                    results.append(exc.code)
+                finally:
+                    done.set()
+        worker = Thread(target=receive_child)
+        worker.start()
+        try:
+>           assert done.wait(timeout=2), 'a blocked child receipt cannot consume the60s global SQLite timeout'
+E           AssertionError: a blocked child receipt cannot consume the60s global SQLite timeout
+E           assert False
+E            +  where False = wait(timeout=2)
+E            +    where wait = <threading.Event at 0x10b2eb820: unset>.wait
+
+tests/test_sel_collection_state.py:491: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 07:31:17,354] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 07:31:17,354] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_child_receipt_database_contention_is_bounded_and_does_not_change_mutation_timeout
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3287: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 46 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_child_receipt_database_contention_is_bounded_and_does_not_change_mutation_timeout
+1 failed, 36 deselected, 47 warnings in 2.66s

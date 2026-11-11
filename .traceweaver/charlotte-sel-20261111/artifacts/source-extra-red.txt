@@ -1,0 +1,52 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+______ test_real_process_owner_proof_holds_live_owner_and_unreaped_child _______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+
+    def test_real_process_owner_proof_holds_live_owner_and_unreaped_child(collection_site):
+        """PC01: real OS start identities, never a caller-provided liveness enum."""
+        import subprocess
+        import sys
+>       from ipmi_monitor.sel_collection import process_identity, owner_status
+E       ModuleNotFoundError: No module named 'ipmi_monitor.sel_collection'
+
+tests/test_sel_collection_state.py:341: ModuleNotFoundError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 07:08:14,784] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 07:08:14,784] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+____ test_raw_decoder_preserves_oem_time_and_conservative_standard_severity ____
+
+    def test_raw_decoder_preserves_oem_time_and_conservative_standard_severity():
+>       from ipmi_monitor.sel_collection import decode_record
+E       ModuleNotFoundError: No module named 'ipmi_monitor.sel_collection'
+
+tests/test_sel_collection_state.py:362: ModuleNotFoundError
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_real_process_owner_proof_holds_live_owner_and_unreaped_child
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 46 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_real_process_owner_proof_holds_live_owner_and_unreaped_child
+FAILED tests/test_sel_collection_state.py::test_raw_decoder_preserves_oem_time_and_conservative_standard_severity
+2 failed, 25 deselected, 47 warnings in 0.71s

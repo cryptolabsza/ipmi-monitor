@@ -1,0 +1,1282 @@
+FFFFFFFFFF.FFFFFFFFFFFFFFFFFFFFF.FFFF.....F.FFF                          [100%]
+=================================== FAILURES ===================================
+______ test_ccc96_live_direct_prefix_recovery_preserves_all_seven_records ______
+
+native_boundary = <function native_boundary.<locals>.make at 0x10c2c5430>
+
+    def test_ccc96_live_direct_prefix_recovery_preserves_all_seven_records(native_boundary):
+        adapter, calls = native_boundary(skipped_prefix=True)
+>       snapshot = adapter.snapshot(bytes.fromhex('3412'))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <ipmi_monitor.sel_management.IPMISELAdapter object at 0x10c1b16a0>
+reservation = b'4\x12'
+
+    def snapshot(self, reservation):
+        self.open_session(reservation)
+        before = self.info()
+        if not before['supports_reserve']:
+            raise SELUnavailable('hardware_reservation_unavailable')
+        records, seen, actual_ids, record_id = [], set(), set(), 0
+        if before['entries']:
+            while True:
+                if record_id in seen or len(records) >= MAX_RECORDS:
+                    raise SELUnavailable('incomplete_record_chain')
+                seen.add(record_id)
+                response = self.raw(0x0a, 0x43, *reservation, record_id & 255, record_id >> 8, 0, 255)
+                if len(response) != 18:
+                    raise SELUnavailable('incomplete_raw_record')
+                next_id = int.from_bytes(response[:2], 'little')
+                raw = response[2:]
+                actual = int.from_bytes(raw[:2], 'little')
+                if actual in actual_ids or (record_id and actual != record_id):
+                    raise SELUnavailable('incomplete_record_chain')
+                actual_ids.add(actual)
+                records.append({'record_id': actual, 'raw': raw.hex()})
+                if next_id == 65535:
+                    break
+                record_id = next_id
+        after = self.info()
+        if before != after or len(records) != before['entries']:
+>           raise ReservationLost('snapshot_changed')
+E           ipmi_monitor.sel_management.ReservationLost: snapshot_changed
+
+src/ipmi_monitor/sel_management.py:374: ReservationLost
+___ test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent ____
+
+native_boundary = <function native_boundary.<locals>.make at 0x10c2999b0>
+
+    def test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent(native_boundary):
+        adapter, _calls = native_boundary(skipped_prefix=True, failure='rmcp_session_failed')
+        with pytest.raises(sel.SELUnavailable) as caught:
+            adapter.snapshot(bytes.fromhex('3412'))
+>       assert caught.value.code == 'rmcp_session_failed'
+E       AssertionError: assert 'snapshot_changed' == 'rmcp_session_failed'
+E         
+E         - rmcp_session_failed
+E         + snapshot_changed
+
+tests/test_sel_collection_state.py:72: AssertionError
+______ test_native_count_not_nonempty_redfish_controls_existing_collector ______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10d351430>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c1daf90>
+
+    def test_native_count_not_nonempty_redfish_controls_existing_collector(collection_site, native_boundary, monkeypatch):
+        app, _db, _models, runtime, _alerts = collection_site
+        adapter, _calls = native_boundary()
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: True)
+        partial = runtime.IPMIEvent(bmc_ip=BMC, server_name='fixture-host', sel_id='45716',
+            event_date=datetime(1970, 1, 1), sensor_type='OEM', event_description='filtered view', raw_entry='redfish-only', severity='warning')
+        monkeypatch.setattr(runtime, 'collect_sel_redfish', lambda *a: [partial])
+        with app.app_context():
+            events = runtime.collect_ipmi_sel(BMC, 'fixture-host')
+>           assert len(events) == 7, 'one stale Redfish row cannot replace seven native records'
+E           AssertionError: one stale Redfish row cannot replace seven native records
+E           assert 1 == 7
+E            +  where 1 = len([<IPMIEvent (transient 4498069152)>])
+
+tests/test_sel_collection_state.py:111: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 07:03:02,349] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 07:03:02,349] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+______ test_existing_save_path_does_not_replay_historical_native_warnings ______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, ['45710', '45711', '45712', '45713', '45714', '45715', ...])
+
+    def test_existing_save_path_does_not_replay_historical_native_warnings(collection_site):
+        app, _db, models, runtime, alerts = collection_site
+        with app.app_context():
+            events = [runtime.IPMIEvent(bmc_ip=BMC, server_name='fixture-host',
+                sel_id=str(row['record_id']), event_date=datetime(1970, 1, 1),
+                sensor_type='Power Supply', event_description='Archived historical warning',
+                raw_entry=row['raw'], severity='warning') for row in RECORDS]
+            runtime.save_events_to_db(BMC, 'fixture-host', events)
+            assert models['IPMIEvent'].query.filter_by(bmc_ip=BMC).count() == 7
+>           assert alerts == [], 'first native backfill must persist without replaying incident alerts'
+E           AssertionError: first native backfill must persist without replaying incident alerts
+E           assert ['45710', '45... '45715', ...] == []
+E             
+E             Left contains 7 more items, first extra item: '45710'
+E             Use -v to get more diff
+
+tests/test_sel_collection_state.py:123: AssertionError
+______ test_first_baseline_restart_prospective_and_failed_catchup_alerts _______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+
+    def test_first_baseline_restart_prospective_and_failed_catchup_alerts(collection_site):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:130: AttributeError
+_ test_stale_acquisition_ticket_cannot_commit_rows_or_success[snapshot_epoch] __
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'snapshot_epoch'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+___ test_stale_acquisition_ticket_cannot_commit_rows_or_success[generation] ____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'generation'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+_____ test_stale_acquisition_ticket_cannot_commit_rows_or_success[binding] _____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'binding'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+____ test_stale_acquisition_ticket_cannot_commit_rows_or_success[revision] _____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'revision'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+__________ test_store_failure_rolls_back_records_and_success_together __________
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d3b2b30>
+
+    def test_store_failure_rolls_back_records_and_success_together(collection_site, monkeypatch):
+        app, db, models, runtime, alerts = collection_site
+        from sqlalchemy.exc import OperationalError
+        with app.app_context():
+            manager = runtime.sel_manager
+>           manager.finish_collection(manager.begin_collection(BMC), snapshot=snapshot([]))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'finish_collection'
+
+tests/test_sel_collection_state.py:181: AttributeError
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-None] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d3afc70>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10597/test_managed_read_profile_sele1')
+cipher = 3, mismatch = None
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+                with pytest.raises(sel.SELUnavailable):
+                    runtime.sel_manager.adapter(target).fingerprint()
+            else:
+                fingerprint = runtime.sel_manager.adapter(target).fingerprint()
+>               assert calls and all(argv[argv.index('-C') + 1] == str(cipher) for argv, _kw in calls)
+E               AssertionError: assert ([(['/usr/bin/ipmitool', '-I', 'lanplus', '-C', '17', '-L', ...], {'capture_output': True, 'env': {'IPMI_PASSWORD': 'sy...PMI_PASSWORD': 'synthetic-secret', 'LANG': 'C', 'LC_ALL': 'C', 'PATH': '/usr/bin:/bin'}, 'text': True, 'timeout': 10})] and False)
+E                +  where False = all(<generator object test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch.<locals>.<genexpr> at 0x10d6926b0>)
+
+tests/test_sel_collection_state.py:226: AssertionError
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-guid] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d41bf50>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10597/test_managed_read_profile_sele2')
+cipher = 3, mismatch = 'guid'
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+>               with pytest.raises(sel.SELUnavailable):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               Failed: DID NOT RAISE <class 'ipmi_monitor.sel_management.SELUnavailable'>
+
+tests/test_sel_collection_state.py:222: Failed
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-binding] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d6c8050>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10597/test_managed_read_profile_sele3')
+cipher = 3, mismatch = 'binding'
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+>               with pytest.raises(sel.SELUnavailable):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               Failed: DID NOT RAISE <class 'ipmi_monitor.sel_management.SELUnavailable'>
+
+tests/test_sel_collection_state.py:222: Failed
+_ test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish[running] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d68cb50>
+owner_status = 'running'
+
+    @pytest.mark.parametrize('owner_status', ['running', 'unverifiable', 'dead_child_reaped'])
+    def test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish(
+            collection_site, monkeypatch, owner_status):
+        from datetime import timedelta
+        app, db, models, runtime, alerts = collection_site
+        now = [datetime(2026, 11, 11, 5, 0)]
+        monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+        with app.app_context():
+            manager = runtime.sel_manager
+>           old = manager.begin_collection(BMC)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:241: AttributeError
+_ test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish[unverifiable] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d68c7e0>
+owner_status = 'unverifiable'
+
+    @pytest.mark.parametrize('owner_status', ['running', 'unverifiable', 'dead_child_reaped'])
+    def test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish(
+            collection_site, monkeypatch, owner_status):
+        from datetime import timedelta
+        app, db, models, runtime, alerts = collection_site
+        now = [datetime(2026, 11, 11, 5, 0)]
+        monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+        with app.app_context():
+            manager = runtime.sel_manager
+>           old = manager.begin_collection(BMC)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:241: AttributeError
+_ test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish[dead_child_reaped] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d627930>
+owner_status = 'dead_child_reaped'
+
+    @pytest.mark.parametrize('owner_status', ['running', 'unverifiable', 'dead_child_reaped'])
+    def test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish(
+            collection_site, monkeypatch, owner_status):
+        from datetime import timedelta
+        app, db, models, runtime, alerts = collection_site
+        now = [datetime(2026, 11, 11, 5, 0)]
+        monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+        with app.app_context():
+            manager = runtime.sel_manager
+>           old = manager.begin_collection(BMC)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:241: AttributeError
+_ test_empty_success_freshness_cannot_be_refreshed_by_probes_reachability_or_failed_attempt[device_timeout] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d627750>
+failure = 'device_timeout'
+
+    @pytest.mark.parametrize('failure', ['device_timeout', 'skipped_unreachable'])
+    def test_empty_success_freshness_cannot_be_refreshed_by_probes_reachability_or_failed_attempt(
+            collection_site, monkeypatch, failure):
+        from datetime import timedelta
+        app, db, models, runtime, _alerts = collection_site
+        now = [datetime(2026, 11, 11, 5, 0)]
+        monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+        monkeypatch.setattr(runtime, 'POLL_INTERVAL', 300)
+        with app.app_context():
+            manager = runtime.sel_manager
+>           manager.finish_collection(manager.begin_collection(BMC), snapshot=snapshot([]))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'finish_collection'
+
+tests/test_sel_collection_state.py:272: AttributeError
+_ test_empty_success_freshness_cannot_be_refreshed_by_probes_reachability_or_failed_attempt[skipped_unreachable] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d6db260>
+failure = 'skipped_unreachable'
+
+    @pytest.mark.parametrize('failure', ['device_timeout', 'skipped_unreachable'])
+    def test_empty_success_freshness_cannot_be_refreshed_by_probes_reachability_or_failed_attempt(
+            collection_site, monkeypatch, failure):
+        from datetime import timedelta
+        app, db, models, runtime, _alerts = collection_site
+        now = [datetime(2026, 11, 11, 5, 0)]
+        monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+        monkeypatch.setattr(runtime, 'POLL_INTERVAL', 300)
+        with app.app_context():
+            manager = runtime.sel_manager
+>           manager.finish_collection(manager.begin_collection(BMC), snapshot=snapshot([]))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'finish_collection'
+
+tests/test_sel_collection_state.py:272: AttributeError
+_ test_normal_producers_use_atomic_native_success_and_baseline_boundary[None-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, ['b28e', 'b28f', 'b290', 'b291', 'b292', 'b293', ...])
+native_boundary = <function native_boundary.<locals>.make at 0x10d68f5e0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d658bd0>
+producer = 'worker', failure = None
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk'])
+    @pytest.mark.parametrize('failure', [None, 'acquisition', 'storage'])
+    def test_normal_producers_use_atomic_native_success_and_baseline_boundary(
+            collection_site, native_boundary, monkeypatch, producer, failure):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        if failure == 'acquisition':
+            def unavailable(*args): raise sel.SELUnavailable('device_timeout')
+            monkeypatch.setattr(adapter, 'raw', unavailable)
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *args: None)
+        # Only the legacy child boundary is substituted, never collect/save/finish.
+        lines = '\n'.join(f"{row['record_id']:04x} | 11/11/2026 | 05:00:00 | Power Supply | Historical warning | Asserted" for row in RECORDS)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
+            returncode=1 if failure == 'acquisition' else 0, stdout=lines, stderr='device_timeout'))
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if failure == 'storage': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            if producer == 'bulk':
+                runtime.collect_all_events()
+            else:
+                jobs = Queue()
+                jobs.put(('sel', BMC, 'fixture-host'))
+                jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs)
+                monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(991)
+        finally:
+            if failure == 'storage': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+>           state = runtime.sel_manager.representation(runtime.sel_manager.target(BMC))['collection']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'collection'
+
+tests/test_sel_collection_state.py:326: KeyError
+----------------------------- Captured stdout call -----------------------------
+[Worker 991] Started
+[Worker 991] Processing sel for 192.0.2.40
+[Worker 991] Stopped
+_ test_normal_producers_use_atomic_native_success_and_baseline_boundary[None-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10d68f110>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d65b550>
+producer = 'bulk', failure = None
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk'])
+    @pytest.mark.parametrize('failure', [None, 'acquisition', 'storage'])
+    def test_normal_producers_use_atomic_native_success_and_baseline_boundary(
+            collection_site, native_boundary, monkeypatch, producer, failure):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        if failure == 'acquisition':
+            def unavailable(*args): raise sel.SELUnavailable('device_timeout')
+            monkeypatch.setattr(adapter, 'raw', unavailable)
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *args: None)
+        # Only the legacy child boundary is substituted, never collect/save/finish.
+        lines = '\n'.join(f"{row['record_id']:04x} | 11/11/2026 | 05:00:00 | Power Supply | Historical warning | Asserted" for row in RECORDS)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
+            returncode=1 if failure == 'acquisition' else 0, stdout=lines, stderr='device_timeout'))
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if failure == 'storage': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            if producer == 'bulk':
+                runtime.collect_all_events()
+            else:
+                jobs = Queue()
+                jobs.put(('sel', BMC, 'fixture-host'))
+                jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs)
+                monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(991)
+        finally:
+            if failure == 'storage': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+>           state = runtime.sel_manager.representation(runtime.sel_manager.target(BMC))['collection']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'collection'
+
+tests/test_sel_collection_state.py:326: KeyError
+_ test_normal_producers_use_atomic_native_success_and_baseline_boundary[acquisition-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10d6ea140>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c26f3f0>
+producer = 'worker', failure = 'acquisition'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk'])
+    @pytest.mark.parametrize('failure', [None, 'acquisition', 'storage'])
+    def test_normal_producers_use_atomic_native_success_and_baseline_boundary(
+            collection_site, native_boundary, monkeypatch, producer, failure):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        if failure == 'acquisition':
+            def unavailable(*args): raise sel.SELUnavailable('device_timeout')
+            monkeypatch.setattr(adapter, 'raw', unavailable)
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *args: None)
+        # Only the legacy child boundary is substituted, never collect/save/finish.
+        lines = '\n'.join(f"{row['record_id']:04x} | 11/11/2026 | 05:00:00 | Power Supply | Historical warning | Asserted" for row in RECORDS)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
+            returncode=1 if failure == 'acquisition' else 0, stdout=lines, stderr='device_timeout'))
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if failure == 'storage': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            if producer == 'bulk':
+                runtime.collect_all_events()
+            else:
+                jobs = Queue()
+                jobs.put(('sel', BMC, 'fixture-host'))
+                jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs)
+                monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(991)
+        finally:
+            if failure == 'storage': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+>           state = runtime.sel_manager.representation(runtime.sel_manager.target(BMC))['collection']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'collection'
+
+tests/test_sel_collection_state.py:326: KeyError
+----------------------------- Captured stdout call -----------------------------
+[Worker 991] Started
+[Worker 991] Processing sel for 192.0.2.40
+[2026-11-11 07:03:05,860] WARNING: IPMI SEL elist failed for 192.0.2.40: device_timeout
+[Worker 991] Stopped
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:app.py:6390 IPMI SEL elist failed for 192.0.2.40: device_timeout
+_ test_normal_producers_use_atomic_native_success_and_baseline_boundary[acquisition-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10d6e9a60>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d673f50>
+producer = 'bulk', failure = 'acquisition'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk'])
+    @pytest.mark.parametrize('failure', [None, 'acquisition', 'storage'])
+    def test_normal_producers_use_atomic_native_success_and_baseline_boundary(
+            collection_site, native_boundary, monkeypatch, producer, failure):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        if failure == 'acquisition':
+            def unavailable(*args): raise sel.SELUnavailable('device_timeout')
+            monkeypatch.setattr(adapter, 'raw', unavailable)
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *args: None)
+        # Only the legacy child boundary is substituted, never collect/save/finish.
+        lines = '\n'.join(f"{row['record_id']:04x} | 11/11/2026 | 05:00:00 | Power Supply | Historical warning | Asserted" for row in RECORDS)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
+            returncode=1 if failure == 'acquisition' else 0, stdout=lines, stderr='device_timeout'))
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if failure == 'storage': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            if producer == 'bulk':
+                runtime.collect_all_events()
+            else:
+                jobs = Queue()
+                jobs.put(('sel', BMC, 'fixture-host'))
+                jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs)
+                monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(991)
+        finally:
+            if failure == 'storage': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+>           state = runtime.sel_manager.representation(runtime.sel_manager.target(BMC))['collection']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'collection'
+
+tests/test_sel_collection_state.py:326: KeyError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 07:03:06,034] WARNING: IPMI SEL elist failed for 192.0.2.40: device_timeout
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:app.py:6390 IPMI SEL elist failed for 192.0.2.40: device_timeout
+_ test_normal_producers_use_atomic_native_success_and_baseline_boundary[storage-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10d6eb110>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d673cb0>
+producer = 'worker', failure = 'storage'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk'])
+    @pytest.mark.parametrize('failure', [None, 'acquisition', 'storage'])
+    def test_normal_producers_use_atomic_native_success_and_baseline_boundary(
+            collection_site, native_boundary, monkeypatch, producer, failure):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        if failure == 'acquisition':
+            def unavailable(*args): raise sel.SELUnavailable('device_timeout')
+            monkeypatch.setattr(adapter, 'raw', unavailable)
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *args: None)
+        # Only the legacy child boundary is substituted, never collect/save/finish.
+        lines = '\n'.join(f"{row['record_id']:04x} | 11/11/2026 | 05:00:00 | Power Supply | Historical warning | Asserted" for row in RECORDS)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
+            returncode=1 if failure == 'acquisition' else 0, stdout=lines, stderr='device_timeout'))
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if failure == 'storage': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            if producer == 'bulk':
+                runtime.collect_all_events()
+            else:
+                jobs = Queue()
+                jobs.put(('sel', BMC, 'fixture-host'))
+                jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs)
+                monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(991)
+        finally:
+            if failure == 'storage': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+>           state = runtime.sel_manager.representation(runtime.sel_manager.target(BMC))['collection']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'collection'
+
+tests/test_sel_collection_state.py:326: KeyError
+----------------------------- Captured stdout call -----------------------------
+[Worker 991] Started
+[Worker 991] Processing sel for 192.0.2.40
+[2026-11-11 07:03:06,208] ERROR: SEL event storage unavailable; evidence not acknowledged
+[Worker 991] Stopped
+------------------------------ Captured log call -------------------------------
+ERROR    ipmi_monitor.app:app.py:7608 SEL event storage unavailable; evidence not acknowledged
+_ test_normal_producers_use_atomic_native_success_and_baseline_boundary[storage-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10d6ea400>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d673310>
+producer = 'bulk', failure = 'storage'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk'])
+    @pytest.mark.parametrize('failure', [None, 'acquisition', 'storage'])
+    def test_normal_producers_use_atomic_native_success_and_baseline_boundary(
+            collection_site, native_boundary, monkeypatch, producer, failure):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        if failure == 'acquisition':
+            def unavailable(*args): raise sel.SELUnavailable('device_timeout')
+            monkeypatch.setattr(adapter, 'raw', unavailable)
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *args: None)
+        # Only the legacy child boundary is substituted, never collect/save/finish.
+        lines = '\n'.join(f"{row['record_id']:04x} | 11/11/2026 | 05:00:00 | Power Supply | Historical warning | Asserted" for row in RECORDS)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: SimpleNamespace(
+            returncode=1 if failure == 'acquisition' else 0, stdout=lines, stderr='device_timeout'))
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if failure == 'storage': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            if producer == 'bulk':
+                runtime.collect_all_events()
+            else:
+                jobs = Queue()
+                jobs.put(('sel', BMC, 'fixture-host'))
+                jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs)
+                monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(991)
+        finally:
+            if failure == 'storage': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+>           state = runtime.sel_manager.representation(runtime.sel_manager.target(BMC))['collection']
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'collection'
+
+tests/test_sel_collection_state.py:326: KeyError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 07:03:06,392] ERROR: Error processing 192.0.2.40: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(builtins.Exception) synthetic
+[SQL: fixture insert refused]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+------------------------------ Captured log call -------------------------------
+ERROR    ipmi_monitor.app:app.py:6787 Error processing 192.0.2.40: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(builtins.Exception) synthetic
+[SQL: fixture insert refused]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+_ test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[AuditLog] __
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d6ea1f0>
+unrelated = 'AuditLog'
+
+    @pytest.mark.parametrize('unrelated', ['AuditLog', 'EventLog'])
+    def test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel(redfish_reader, unrelated):
+        """Actual deployed reproduction returned old-login-audit, never hardware-fault."""
+        wrong = LOGS + '/' + unrelated
+        client, _calls = redfish_reader(
+            {'Members': [entry('hardware-fault')]}, services=[wrong, SEL],
+            extra={wrong: {'Id': unrelated, 'Name': 'Manager audit events',
+                           'LogEntryType': 'Event', 'Entries': {'@odata.id': wrong + '/Entries'}},
+                   wrong + '/Entries': {'Members': [entry('old-login-audit')]}},
+        )
+>       assert [row['sel_id'] for row in client.get_sel_entries()] == ['hardware-fault']
+E       AssertionError: assert ['old-login-audit'] == ['hardware-fault']
+E         
+E         At index 0 diff: 'old-login-audit' != 'hardware-fault'
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:70: AssertionError
+_ test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[EventLog] __
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d6ebd70>
+unrelated = 'EventLog'
+
+    @pytest.mark.parametrize('unrelated', ['AuditLog', 'EventLog'])
+    def test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel(redfish_reader, unrelated):
+        """Actual deployed reproduction returned old-login-audit, never hardware-fault."""
+        wrong = LOGS + '/' + unrelated
+        client, _calls = redfish_reader(
+            {'Members': [entry('hardware-fault')]}, services=[wrong, SEL],
+            extra={wrong: {'Id': unrelated, 'Name': 'Manager audit events',
+                           'LogEntryType': 'Event', 'Entries': {'@odata.id': wrong + '/Entries'}},
+                   wrong + '/Entries': {'Members': [entry('old-login-audit')]}},
+        )
+>       assert [row['sel_id'] for row in client.get_sel_entries()] == ['hardware-fault']
+E       AssertionError: assert ['old-login-audit'] == ['hardware-fault']
+E         
+E         At index 0 diff: 'old-login-audit' != 'hardware-fault'
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:70: AssertionError
+___________ test_reads_newest_second_page_without_duplicate_records ____________
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d68f5e0>
+
+    def test_reads_newest_second_page_without_duplicate_records(redfish_reader):
+        client, calls = redfish_reader(
+            {'Members': [entry('old-1'), entry('old-2')], 'Members@odata.count': 3,
+             'Members@odata.nextLink': ENTRIES + '?page=2'},
+            extra={ENTRIES + '?page=2': {'Members': [entry('old-2'), entry('new-3')]}},
+        )
+>       assert [row['sel_id'] for row in client.get_sel_entries()] == ['old-1', 'old-2', 'new-3']
+E       AssertionError: assert ['old-1', 'old-2'] == ['old-1', 'old-2', 'new-3']
+E         
+E         Right contains one more item: 'new-3'
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:79: AssertionError
+___ test_incomplete_pagination_cannot_return_first_page_as_complete[foreign] ___
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d68fd70>
+failure = 'foreign'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+____ test_incomplete_pagination_cannot_return_first_page_as_complete[cycle] ____
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d6ebab0>
+failure = 'cycle'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+___ test_incomplete_pagination_cannot_return_first_page_as_complete[partial] ___
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d6eacf0>
+failure = 'partial'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+_ test_incomplete_pagination_cannot_return_first_page_as_complete[empty-page] __
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d6ea400>
+failure = 'empty-page'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+__________ test_real_get_disables_redirects_and_rejects_redirect_body __________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d76d1d0>
+
+    def test_real_get_disables_redirects_and_rejects_redirect_body(monkeypatch):
+        runtime = importlib.import_module('ipmi_monitor.app')
+        client = runtime.RedfishClient(BMC, 'fixture', 'synthetic-secret')
+        requests = []
+        class RedirectResponse:
+            status_code = 302
+            headers = {'Location': 'https://foreign.invalid/credential-sink'}
+            def raise_for_status(self): pass  # requests does not raise for302.
+            def json(self): return {'Members': [entry('redirect-body-not-hardware-proof')]}
+        def get(url, **kwargs):
+            requests.append((url, kwargs))
+            return RedirectResponse()
+        monkeypatch.setattr(client.session, 'get', get)
+        body = client._get(ENTRIES)
+>       assert {'body_rejected': body is None, 'one_request': len(requests) == 1,
+                'redirects_disabled': requests[0][1].get('allow_redirects') is False} == {
+                    'body_rejected': True, 'one_request': True, 'redirects_disabled': True}
+E       AssertionError: assert {'body_reject...abled': False} == {'body_reject...sabled': True}
+E         
+E         Omitting 1 identical items, use -vv to show
+E         Differing items:
+E         {'body_rejected': False} != {'body_rejected': True}
+E         {'redirects_disabled': False} != {'redirects_disabled': True}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:115: AssertionError
+_______ test_same_native_bytes_deduplicate_after_decoder_wording_changes _______
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+
+    def test_same_native_bytes_deduplicate_after_decoder_wording_changes(native_site):
+        app, _db, models, runtime = native_site
+        fixture = json.loads((Path(__file__).parent / 'fixtures/charlotte_sel_native_prefix.json').read_text())
+        raw = fixture['records'][0]
+        with app.app_context():
+            for description in ['OEM sensor unknown', 'Power supply AC lost (decoded)']:
+                runtime.save_events_to_db(BMC, 'fixture-host', [runtime.IPMIEvent(
+                    bmc_ip=BMC, server_name='fixture-host', sel_id=str(raw['record_id']),
+                    event_date=datetime(1970, 1, 1), sensor_type='OEM',
+                    event_description=description, raw_entry=raw['raw'], severity='warning')])
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert len(rows) == 1, 'decoder text must not change identity of identical native bytes'
+E           AssertionError: decoder text must not change identity of identical native bytes
+E           assert 2 == 1
+E            +  where 2 = len([<IPMIEvent 1>, <IPMIEvent 2>])
+
+tests/test_sel_collection_regressions.py:145: AssertionError
+_______ test_clock_rewind_alone_does_not_invent_a_new_native_generation ________
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d76df60>
+
+    def test_clock_rewind_alone_does_not_invent_a_new_native_generation(native_site, monkeypatch):
+        app, _db, _models, runtime = native_site
+        state = {'last_add': '02000000'}
+        adapter = SimpleNamespace(
+            fingerprint=lambda: {'device': 'unchanged-fixture'},
+            info=lambda: {'entries': 7, 'free_bytes': 128, 'percent_used': 50,
+                          'last_add': state['last_add'], 'last_erase': '00000000'},
+            logging=lambda: 8,
+            clock=lambda: {'native_seconds': 2, 'offset_minutes': None, 'quality': 'unknown'},
+            close=lambda: None,
+        )
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        with app.app_context():
+            runtime.sel_manager.observe(BMC)
+            generation = runtime.sel_manager.target(BMC).generation
+            state['last_add'] = '01000000'
+            runtime.sel_manager.observe(BMC)
+>           assert runtime.sel_manager.target(BMC).generation == generation, 'clock correction is not evidence of erasure or replacement'
+E           AssertionError: clock correction is not evidence of erasure or replacement
+E           assert 1 == 0
+E            +  where 1 = <SELTarget 9ebe0fdd-b119-4209-ae9d-6fb419f75ce1>.generation
+E            +    where <SELTarget 9ebe0fdd-b119-4209-ae9d-6fb419f75ce1> = target('192.0.2.40')
+E            +      where target = <ipmi_monitor.sel_management.register_sel_management.<locals>.Manager object at 0x10cdf2cf0>.target
+E            +        where <ipmi_monitor.sel_management.register_sel_management.<locals>.Manager object at 0x10cdf2cf0> = <module 'ipmi_monitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>.sel_manager
+
+tests/test_sel_collection_regressions.py:166: AssertionError
+__________ test_native_collection_keeps_password_out_of_argv_and_logs __________
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d76e3c0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10d19f0e0>
+
+    def test_native_collection_keeps_password_out_of_argv_and_logs(native_site, monkeypatch, caplog):
+        _app, _db, _models, runtime = native_site
+        secret = 'fixture-password-never-log'
+        calls = []
+        monkeypatch.setattr(runtime.sel_manager, 'observe', lambda ip: None)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_ipmi_credentials', lambda ip: ('fixture-only', secret))
+    
+        def command(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return SimpleNamespace(returncode=1, stdout='', stderr='transport rejected ' + secret)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', command)
+        runtime.collect_ipmi_sel(BMC, 'fixture-host')
+        assert calls, 'exercise the real collection subprocess boundary'
+        observed = {
+            'password_in_argv': any('-P' in argv or secret in argv for argv, _kwargs in calls),
+            'password_in_logs': secret in caplog.text,
+            'environment_password_present': all(kwargs.get('env', {}).get('IPMI_PASSWORD') == secret for _argv, kwargs in calls),
+        }
+>       assert observed == {'password_in_argv': False, 'password_in_logs': False,
+                            'environment_password_present': True}
+E       AssertionError: assert {'environment...n_logs': True} == {'environment..._logs': False}
+E         
+E         Differing items:
+E         {'password_in_argv': True} != {'password_in_argv': False}
+E         {'password_in_logs': True} != {'password_in_logs': False}
+E         {'environment_password_present': False} != {'environment_password_present': True}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:189: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 07:03:06,937] WARNING: IPMI SEL elist failed for 192.0.2.40: transport rejected fixture-password-never-log
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:app.py:6390 IPMI SEL elist failed for 192.0.2.40: transport rejected fixture-password-never-log
+_ test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel __
+
+child_tool = (<function child_tool.<locals>.make at 0x10d7cd9b0>, [<Popen: returncode: -15 args: ['/private/var/folders/2f/ntb_0p9558v4wfcwr5_6...>])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d76dd30>
+
+    def test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel(child_tool, monkeypatch):
+        """A08/A10: selected adapter.cipher must also govern the real shell child.
+    
+        The selection field is a new documented adapter contract; the existing
+        child launches successfully and exposes its current hardcoded17 argv.
+        """
+        from copy import deepcopy
+        make, children = child_tool
+        adapter = make()
+        adapter.cipher = 3
+        launches = []
+        original = subprocess.Popen
+        def launch(argv, **kwargs):
+            launches.append((list(argv), deepcopy(kwargs.get('env', {}))))
+            return original(argv, **kwargs)
+        monkeypatch.setattr(subprocess, 'Popen', launch)
+        try:
+            assert len(adapter.snapshot(bytes.fromhex('3412'))['records']) == 3
+        finally:
+            adapter.close()
+        assert len(launches) == 1
+        argv, environment = launches[0]
+>       assert argv[argv.index('-C') + 1] == '3'
+E       AssertionError: assert '17' == '3'
+E         
+E         - 3
+E         + 17
+
+tests/test_sel_persistent.py:119: AssertionError
+___ test_ownership_serializes_independent_workers_and_clock_clear[actions1] ____
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10597/test_ownership_serializes_inde1/qualifications.json'))
+actions = ('collection', 'collection')
+
+    @pytest.mark.parametrize('actions', [('clear', 'clock'), ('collection', 'collection'),
+                                         ('collection', 'clear'), ('collection', 'clock')])
+    def test_ownership_serializes_independent_workers_and_clock_clear(qualified_site, actions):
+        from threading import Barrier, Thread
+        from ipmi_monitor.sel_management import SELUnavailable
+        (_client, app, _db, _models, runtime, commands), _state, _registry = qualified_site
+        gate, results = Barrier(2), []
+        commands.clear()
+    
+        def worker(action):
+            with app.app_context():
+                target = runtime.sel_manager.target(BMC)
+                gate.wait(timeout=5)
+                try:
+                    if action == 'collection':
+                        ticket = runtime.sel_manager.begin_collection(BMC)
+                        results.append(('collection', ticket['attempt_id']))
+                    else:
+                        operation = runtime.sel_manager.claim(target, action, 'independent-worker')
+                        results.append(operation.state)
+                except SELUnavailable as exc:
+                    results.append(exc.code)
+                except Exception as exc:
+                    results.append('unexpected:' + type(exc).__name__)
+    
+        workers = [Thread(target=worker, args=(action,)) for action in actions]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=10)
+        assert all(not worker.is_alive() for worker in workers)
+        if actions == ('clear', 'clock'):
+            assert sorted(results) == ['operation_busy_or_cooldown', 'queued']
+            with app.app_context():
+                assert runtime.SELOperation.query.count() == 1
+        else:
+            winners = [value for value in results if isinstance(value, tuple) or value == 'queued']
+            losers = [value for value in results if value in ('operation_busy_or_cooldown', 'collection_busy_or_maintenance')]
+>           assert len(winners) == len(losers) == 1, results
+E           AssertionError: ['unexpected:AttributeError', 'unexpected:AttributeError']
+E           assert 0 == 1
+E            +  where 0 = len([])
+
+tests/test_sel_management.py:838: AssertionError
+___ test_ownership_serializes_independent_workers_and_clock_clear[actions2] ____
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10597/test_ownership_serializes_inde2/qualifications.json'))
+actions = ('collection', 'clear')
+
+    @pytest.mark.parametrize('actions', [('clear', 'clock'), ('collection', 'collection'),
+                                         ('collection', 'clear'), ('collection', 'clock')])
+    def test_ownership_serializes_independent_workers_and_clock_clear(qualified_site, actions):
+        from threading import Barrier, Thread
+        from ipmi_monitor.sel_management import SELUnavailable
+        (_client, app, _db, _models, runtime, commands), _state, _registry = qualified_site
+        gate, results = Barrier(2), []
+        commands.clear()
+    
+        def worker(action):
+            with app.app_context():
+                target = runtime.sel_manager.target(BMC)
+                gate.wait(timeout=5)
+                try:
+                    if action == 'collection':
+                        ticket = runtime.sel_manager.begin_collection(BMC)
+                        results.append(('collection', ticket['attempt_id']))
+                    else:
+                        operation = runtime.sel_manager.claim(target, action, 'independent-worker')
+                        results.append(operation.state)
+                except SELUnavailable as exc:
+                    results.append(exc.code)
+                except Exception as exc:
+                    results.append('unexpected:' + type(exc).__name__)
+    
+        workers = [Thread(target=worker, args=(action,)) for action in actions]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=10)
+        assert all(not worker.is_alive() for worker in workers)
+        if actions == ('clear', 'clock'):
+            assert sorted(results) == ['operation_busy_or_cooldown', 'queued']
+            with app.app_context():
+                assert runtime.SELOperation.query.count() == 1
+        else:
+            winners = [value for value in results if isinstance(value, tuple) or value == 'queued']
+            losers = [value for value in results if value in ('operation_busy_or_cooldown', 'collection_busy_or_maintenance')]
+>           assert len(winners) == len(losers) == 1, results
+E           AssertionError: ['unexpected:AttributeError', 'queued']
+E           assert 1 == 0
+E            +  where 1 = len(['queued'])
+E            +  and   0 = len([])
+
+tests/test_sel_management.py:838: AssertionError
+___ test_ownership_serializes_independent_workers_and_clock_clear[actions3] ____
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10597/test_ownership_serializes_inde3/qualifications.json'))
+actions = ('collection', 'clock')
+
+    @pytest.mark.parametrize('actions', [('clear', 'clock'), ('collection', 'collection'),
+                                         ('collection', 'clear'), ('collection', 'clock')])
+    def test_ownership_serializes_independent_workers_and_clock_clear(qualified_site, actions):
+        from threading import Barrier, Thread
+        from ipmi_monitor.sel_management import SELUnavailable
+        (_client, app, _db, _models, runtime, commands), _state, _registry = qualified_site
+        gate, results = Barrier(2), []
+        commands.clear()
+    
+        def worker(action):
+            with app.app_context():
+                target = runtime.sel_manager.target(BMC)
+                gate.wait(timeout=5)
+                try:
+                    if action == 'collection':
+                        ticket = runtime.sel_manager.begin_collection(BMC)
+                        results.append(('collection', ticket['attempt_id']))
+                    else:
+                        operation = runtime.sel_manager.claim(target, action, 'independent-worker')
+                        results.append(operation.state)
+                except SELUnavailable as exc:
+                    results.append(exc.code)
+                except Exception as exc:
+                    results.append('unexpected:' + type(exc).__name__)
+    
+        workers = [Thread(target=worker, args=(action,)) for action in actions]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=10)
+        assert all(not worker.is_alive() for worker in workers)
+        if actions == ('clear', 'clock'):
+            assert sorted(results) == ['operation_busy_or_cooldown', 'queued']
+            with app.app_context():
+                assert runtime.SELOperation.query.count() == 1
+        else:
+            winners = [value for value in results if isinstance(value, tuple) or value == 'queued']
+            losers = [value for value in results if value in ('operation_busy_or_cooldown', 'collection_busy_or_maintenance')]
+>           assert len(winners) == len(losers) == 1, results
+E           AssertionError: ['unexpected:AttributeError', 'queued']
+E           assert 1 == 0
+E            +  where 1 = len(['queued'])
+E            +  and   0 = len([])
+
+tests/test_sel_management.py:838: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_native_count_not_nonempty_redfish_controls_existing_collector
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 222 warnings
+tests/test_sel_collection_regressions.py: 24 warnings
+tests/test_sel_management.py: 40 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions0]
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions1]
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions2]
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions3]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions0]
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions1]
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions2]
+tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions3]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_ccc96_live_direct_prefix_recovery_preserves_all_seven_records
+FAILED tests/test_sel_collection_state.py::test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent
+FAILED tests/test_sel_collection_state.py::test_native_count_not_nonempty_redfish_controls_existing_collector
+FAILED tests/test_sel_collection_state.py::test_existing_save_path_does_not_replay_historical_native_warnings
+FAILED tests/test_sel_collection_state.py::test_first_baseline_restart_prospective_and_failed_catchup_alerts
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[snapshot_epoch]
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[generation]
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[binding]
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[revision]
+FAILED tests/test_sel_collection_state.py::test_store_failure_rolls_back_records_and_success_together
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-None]
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-guid]
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-binding]
+FAILED tests/test_sel_collection_state.py::test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish[running]
+FAILED tests/test_sel_collection_state.py::test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish[unverifiable]
+FAILED tests/test_sel_collection_state.py::test_expired_read_owner_needs_death_and_reaping_proof_then_fences_late_finish[dead_child_reaped]
+FAILED tests/test_sel_collection_state.py::test_empty_success_freshness_cannot_be_refreshed_by_probes_reachability_or_failed_attempt[device_timeout]
+FAILED tests/test_sel_collection_state.py::test_empty_success_freshness_cannot_be_refreshed_by_probes_reachability_or_failed_attempt[skipped_unreachable]
+FAILED tests/test_sel_collection_state.py::test_normal_producers_use_atomic_native_success_and_baseline_boundary[None-worker]
+FAILED tests/test_sel_collection_state.py::test_normal_producers_use_atomic_native_success_and_baseline_boundary[None-bulk]
+FAILED tests/test_sel_collection_state.py::test_normal_producers_use_atomic_native_success_and_baseline_boundary[acquisition-worker]
+FAILED tests/test_sel_collection_state.py::test_normal_producers_use_atomic_native_success_and_baseline_boundary[acquisition-bulk]
+FAILED tests/test_sel_collection_state.py::test_normal_producers_use_atomic_native_success_and_baseline_boundary[storage-worker]
+FAILED tests/test_sel_collection_state.py::test_normal_producers_use_atomic_native_success_and_baseline_boundary[storage-bulk]
+FAILED tests/test_sel_collection_regressions.py::test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[AuditLog]
+FAILED tests/test_sel_collection_regressions.py::test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[EventLog]
+FAILED tests/test_sel_collection_regressions.py::test_reads_newest_second_page_without_duplicate_records
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[foreign]
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[cycle]
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[partial]
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[empty-page]
+FAILED tests/test_sel_collection_regressions.py::test_real_get_disables_redirects_and_rejects_redirect_body
+FAILED tests/test_sel_collection_regressions.py::test_same_native_bytes_deduplicate_after_decoder_wording_changes
+FAILED tests/test_sel_collection_regressions.py::test_clock_rewind_alone_does_not_invent_a_new_native_generation
+FAILED tests/test_sel_collection_regressions.py::test_native_collection_keeps_password_out_of_argv_and_logs
+FAILED tests/test_sel_persistent.py::test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel
+FAILED tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions1]
+FAILED tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions2]
+FAILED tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear[actions3]
+39 failed, 8 passed, 295 warnings in 6.75s

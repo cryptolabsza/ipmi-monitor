@@ -199,34 +199,22 @@ def log_security_event(event_type, client_ip, username=None, details=None):
 #    This is acceptable on private networks but NEVER expose the UI publicly
 
 def run_ipmitool_secure(bmc_ip, ipmi_user, ipmi_pass, *args, timeout=30):
-    """
-    Run ipmitool with password via environment variable (more secure).
-    Falls back to -P if -E fails (some older ipmitool versions).
-    
-    SECURITY: Using -E prevents password exposure in process listings.
-    The password is passed via IPMI_PASSWORD environment variable.
-    """
-    # Build command with -E (password from environment)
+    """Invocation-local password channel. Never retry with an argv password."""
     cmd = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-E'] + list(args)
-    env = os.environ.copy()
-    env['IPMI_PASSWORD'] = ipmi_pass
-    
+    env = {'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'LANG': 'C', 'LC_ALL': 'C',
+           'IPMI_PASSWORD': ipmi_pass}
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
-        if result.returncode == 0:
-            return result
-        # Some systems don't support -E, fall back to -P with warning
-        if 'IPMI_PASSWORD' in result.stderr or 'password' in result.stderr.lower():
-            app.logger.debug(f"ipmitool -E not supported for {bmc_ip}, falling back to -P")
+        # Callers need a safe reason, never untrusted credential-bearing stderr.
+        if result.returncode:
+            result.stderr = 'device_command_failed'
+            result.stdout = ''
+        return result
     except subprocess.TimeoutExpired:
-        raise
-    except Exception as e:
-        app.logger.debug(f"ipmitool -E failed for {bmc_ip}: {e}, falling back to -P")
-    
-    # Fallback to -P (less secure but more compatible)
-    # NOTE: This exposes password in process listings
-    cmd_fallback = ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, '-U', ipmi_user, '-P', ipmi_pass] + list(args)
-    return subprocess.run(cmd_fallback, capture_output=True, text=True, timeout=timeout)
+        raise RuntimeError('device_timeout') from None
+    except Exception:
+        raise RuntimeError('device_transport_unavailable') from None
+
 
 def run_ssh_secure(server_ip, ssh_user, ssh_pass=None, ssh_key=None, command='', timeout=30):
     """
@@ -909,16 +897,29 @@ class RedfishClient:
         self._chassis_uri = None
     
     def _get(self, uri, timeout=None):
-        """Make GET request to Redfish endpoint"""
+        """Bounded same-origin GET; redirects and partial bodies are never pages."""
+        from .sel_collection import canonical_redfish_link
+        response = None
+        deadline = time.monotonic() + min(timeout or self.timeout, 30)
         try:
-            url = f"{self.base_url}{uri}"
-            resp = self.session.get(url, timeout=timeout or self.timeout)
-            resp.raise_for_status()
-            return resp.json()
-        except requests.exceptions.RequestException as e:
-            app.logger.debug(f"Redfish GET {uri} failed for {self.host}: {e}")
+            uri = canonical_redfish_link(uri, self.base_url)
+            response = self.session.get(self.base_url + uri, timeout=min(timeout or self.timeout, 10),
+                                        allow_redirects=False, stream=True)
+            if not 200 <= response.status_code < 300:
+                return None
+            payload = bytearray()
+            for chunk in response.iter_content(chunk_size=16384):
+                if time.monotonic() > deadline or len(payload) + len(chunk) > 4 * 1024 * 1024:
+                    return None
+                payload.extend(chunk)
+            return json.loads(payload)
+        except (requests.exceptions.RequestException, ValueError, TypeError):
+            app.logger.debug('Redfish GET unavailable')
             return None
-    
+        finally:
+            if response is not None and hasattr(response, 'close'):
+                response.close()
+
     def is_available(self):
         """Check if Redfish is available on this BMC"""
         try:
@@ -984,63 +985,88 @@ class RedfishClient:
             return None
     
     def get_sel_entries(self):
-        """Get System Event Log entries via Redfish - checks multiple paths for vendor compatibility"""
-        events = []
+        """Read a genuine hardware SEL service, rejecting partial diagnostic views."""
+        from .sel_collection import canonical_redfish_link
+        self.sel_read_status = {'read_ok': False, 'safe_reason': 'redfish_read_unavailable'}
+        deadline = time.monotonic() + 30
+        def get(link, service=None):
+            uri = canonical_redfish_link(link, self.base_url, service)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ValueError('redfish_deadline')
+            value = self._get(uri, timeout=min(10, remaining))
+            if not isinstance(value, dict):
+                raise ValueError('redfish_page_missing')
+            return value
         try:
-            # Try multiple LogServices paths (vendor-specific)
-            log_services_paths = []
-            
-            # Path 1: Under Managers (Dell, HPE, Supermicro)
-            managers_uri = self.get_managers_uri()
-            if managers_uri:
-                managers = self._get(managers_uri)
-                if managers and 'Members' in managers and managers['Members']:
-                    manager_uri = managers['Members'][0].get('@odata.id')
-                    manager = self._get(manager_uri)
-                    if manager and 'LogServices' in manager:
-                        log_services_paths.append(manager['LogServices'].get('@odata.id'))
-            
-            # Path 2: Under Systems (Lenovo, some others)
-            systems_uri = self.get_systems_uri()
-            if systems_uri:
-                systems = self._get(systems_uri)
-                if systems and 'Members' in systems and systems['Members']:
-                    system_uri = systems['Members'][0].get('@odata.id')
-                    system = self._get(system_uri)
-                    if system and 'LogServices' in system:
-                        log_services_paths.append(system['LogServices'].get('@odata.id'))
-            
-            # Try each LogServices path
-            for log_services_uri in log_services_paths:
-                if not log_services_uri:
+            services = []
+            for collection_uri in (self.get_managers_uri(), self.get_systems_uri()):
+                if not collection_uri:
                     continue
-                    
-                log_services = self._get(log_services_uri)
-                if not log_services or 'Members' not in log_services:
-                    continue
-                
-                # Look for SEL or PlatformLog service
-                for member in log_services['Members']:
-                    log_uri = member.get('@odata.id', '')
-                    log_name = log_uri.upper()
-                    if 'SEL' in log_name or 'PLATFORMLOG' in log_name:
-                        log_service = self._get(log_uri)
-                        if log_service and 'Entries' in log_service:
-                            entries_uri = log_service['Entries'].get('@odata.id')
-                            entries_resp = self._get(entries_uri, timeout=120)
-                            if entries_resp and 'Members' in entries_resp:
-                                for entry in entries_resp['Members']:
-                                    event = self._parse_log_entry(entry)
-                                    if event:
-                                        events.append(event)
-                                if events:
-                                    return events  # Found events, return
-            
-            return events
-        except Exception as e:
-            app.logger.error(f"Redfish SEL collection failed for {self.host}: {e}")
-            return events
-    
+                collection = get(collection_uri)
+                for member in collection.get('Members', [])[:16]:
+                    owner = get(member['@odata.id'])
+                    link = owner.get('LogServices', {}).get('@odata.id')
+                    if link:
+                        services.append(canonical_redfish_link(link, self.base_url))
+            for services_uri in services[:32]:
+                for member in get(services_uri).get('Members', [])[:32]:
+                    uri = canonical_redfish_link(member['@odata.id'], self.base_url)
+                    service = get(uri)
+                    # A terminal component or explicit service metadata, never Self.
+                    terminal = uri.split('?', 1)[0].rsplit('/', 1)[-1].lower()
+                    genuine = (service.get('LogEntryType') == 'SEL' or
+                               not service.get('LogEntryType') and (terminal == 'sel' or service.get('Name', '').strip().lower() == 'system event log'))
+                    if not genuine or not service.get('Entries', {}).get('@odata.id'):
+                        continue
+                    link = canonical_redfish_link(service['Entries']['@odata.id'], self.base_url)
+                    entries_path = link.split('?', 1)[0]
+                    if entries_path != uri.split('?', 1)[0] + '/Entries':
+                        raise ValueError('foreign_redfish_service')
+                    seen_pages, records, count = set(), {}, None
+                    for page_number in range(64):
+                        link = canonical_redfish_link(link, self.base_url, entries_path)
+                        if link in seen_pages:
+                            raise ValueError('redfish_cycle')
+                        seen_pages.add(link)
+                        page = get(link, entries_path)
+                        members = page.get('Members')
+                        if not isinstance(members, list) or len(members) > 20000:
+                            raise ValueError('redfish_page_invalid')
+                        advertised = page.get('Members@odata.count')
+                        if advertised is not None:
+                            if type(advertised) is not int or not 0 <= advertised <= 65535 or (count is not None and count != advertised):
+                                raise ValueError('redfish_count_conflict')
+                            count = advertised
+                        for record in members:
+                            if not isinstance(record, dict) or not isinstance(record.get('Id'), str) or not record['Id']:
+                                raise ValueError('redfish_record_invalid')
+                            key = record['Id']
+                            if key in records and records[key] != record:
+                                raise ValueError('redfish_duplicate_conflict')
+                            records[key] = record
+                            if len(records) > 65535:
+                                raise ValueError('redfish_size_limit')
+                        next_link = page.get('Members@odata.nextLink', page.get('@odata.nextLink'))
+                        if 'Members@odata.nextLink' in page and '@odata.nextLink' in page and page['Members@odata.nextLink'] != page['@odata.nextLink']:
+                            raise ValueError('redfish_link_conflict')
+                        if not next_link:
+                            if count is not None and count != len(records):
+                                raise ValueError('redfish_partial')
+                            parsed = [self._parse_log_entry(value) for value in records.values()]
+                            if any(value is None for value in parsed):
+                                raise ValueError('redfish_record_invalid')
+                            self.sel_read_status = {'read_ok': True, 'service': entries_path, 'received': len(parsed)}
+                            return parsed
+                        if not members:
+                            raise ValueError('redfish_partial')
+                        link = next_link
+                    raise ValueError('redfish_page_limit')
+            return []
+        except Exception:
+            app.logger.debug('Redfish SEL diagnostic unavailable or incomplete')
+            return []
+
     def _parse_log_entry(self, entry):
         """Parse Redfish log entry into our event format"""
         try:
@@ -6023,6 +6049,7 @@ def get_redfish_client(bmc_ip):
 
 def collect_sel_redfish(bmc_ip, server_name):
     """Collect SEL via Redfish"""
+    from .sel_collection import EventBatch
     try:
         client = get_redfish_client(bmc_ip)
         rf_events = client.get_sel_entries()
@@ -6039,14 +6066,15 @@ def collect_sel_redfish(bmc_ip, server_name):
                 severity=evt.get('severity', 'info'),
                 raw_entry=evt.get('raw_entry', ''),
                 native_timestamp=evt.get('native_timestamp'),
-                time_quality=evt.get('time_quality', 'unknown')
+                time_quality='redfish-' + evt.get('time_quality', 'unknown')
             )
             events.append(event)
         
-        return events
-    except Exception as e:
-        app.logger.error(f"Redfish SEL collection failed for {bmc_ip}: {e}")
-        return []
+        status = getattr(client, 'sel_read_status', {'read_ok': False})
+        return EventBatch(events, snapshot={'source': 'redfish', **status})
+    except Exception:
+        app.logger.debug('Redfish SEL read unavailable')
+        return EventBatch(error='redfish_read_unavailable', snapshot={'source':'redfish', 'read_ok':False})
 
 def decode_threshold_event_data(event_data_hex, sensor_type, sensor_name=''):
     """Decode threshold event data (Temperature, Voltage, Power)
@@ -6355,117 +6383,68 @@ def decode_dimm_from_event_data(event_data_hex):
         return ''
 
 def collect_ipmi_sel(bmc_ip, server_name):
-    """Collect SEL from a single server - tries Redfish first (faster), falls back to IPMI"""
-
-    # Observe identity/reset evidence before the producer creates/deduplicates rows.
+    """Acquire complete native bytes under one durable per-host read lease."""
+    from .sel_collection import EventBatch, decode_record
+    from .sel_management import ReservationLost, safe_collection_error
     with app.app_context():
+        ticket = adapter = None
+        snapshot = None
+        error = None
         try:
-            sel_manager.observe(bmc_ip)
-        except Exception:
+            ticket = sel_manager.begin_collection(bmc_ip)
+            target = db.session.get(SELTarget, ticket['target_id'])
+            if sel_manager.current_server(bmc_ip).protocol == 'redfish':
+                db.session.rollback()
+                values = collect_sel_redfish(bmc_ip, server_name)
+                metadata = getattr(values, 'snapshot', None) or {'source':'redfish', 'read_ok':bool(values)}
+                fields = ('sel_id','event_date','sensor_type','event_description','severity','raw_entry',
+                          'native_timestamp','time_quality','event_direction')
+                records = [{key:getattr(row,key,None) for key in fields} for row in values]
+                snapshot = {**metadata, 'source':'redfish', 'records':records}
+                error = None if metadata.get('read_ok') else 'redfish_read_unavailable'
+                return EventBatch(values, ticket=ticket, snapshot=snapshot, error=error)
+            adapter = sel_manager.adapter(target)
+            adapter.deadline = ticket['deadline']
+            adapter.child_observer = lambda state, child=None: sel_manager.collection_child(ticket, state, child)
+            # No DB write lock crosses network IO; the lease itself is durable.
             db.session.rollback()
-            app.logger.warning('SEL identity observation unavailable; preserving raw evidence')
-    
-    # Try Redfish first - much faster for high-latency connections
-    if should_use_redfish(bmc_ip):
-        try:
-            events = collect_sel_redfish(bmc_ip, server_name)
-            if events:
-                app.logger.debug(f"Collected {len(events)} SEL events from {bmc_ip} via Redfish")
-                return events
-        except Exception as e:
-            app.logger.debug(f"Redfish SEL failed for {bmc_ip}, falling back to IPMI: {e}")
-    
-    # Fall back to IPMI
-    try:
-        user, password = get_ipmi_credentials(bmc_ip)
-        
-        # Use elist format first - it has proper timestamps with time
-        result = subprocess.run(
-            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-             '-U', user, '-P', password, 'sel', 'elist'],
-            capture_output=True, text=True, timeout=90  # 90s for high-latency networks
-        )
-        
-        if result.returncode != 0:
-            app.logger.warning(f"IPMI SEL elist failed for {bmc_ip}: {result.stderr}")
-            return []
-        
-        # Parse elist format - has proper timestamps
-        events = []
-        for line in result.stdout.strip().split('\n'):
-            if line.strip():
-                event = parse_sel_line(line, bmc_ip, server_name)
-                if event:
-                    events.append(event)
-        
-        # For memory events without DIMM info, try to get from verbose output
-        memory_events = [e for e in events if 'memory' in e.sensor_type.lower() and not e.event_data]
-        if memory_events:
-            try:
-                # Get verbose output for DIMM details
-                verbose_result = subprocess.run(
-                    ['ipmitool', '-I', 'lanplus', '-H', bmc_ip, 
-                     '-U', user, '-P', password, 'sel', 'list', '-v'],
-                    capture_output=True, text=True, timeout=300
-                )
-                if verbose_result.returncode == 0:
-                    # Parse verbose to get event data mapping by SEL ID
-                    dimm_map = {}
-                    current_record = []
-                    for line in verbose_result.stdout.split('\n'):
-                        if line.strip():
-                            current_record.append(line.strip())
-                        elif current_record:
-                            # Parse this record for SEL ID and Event Data
-                            record_data = {}
-                            for rec_line in current_record:
-                                if ':' in rec_line:
-                                    key, value = rec_line.split(':', 1)
-                                    record_data[key.strip()] = value.strip()
-                            sel_id = record_data.get('SEL Record ID', '').strip().lower()
-                            event_data_hex = record_data.get('Event Data', '')
-                            if sel_id and event_data_hex and 'Memory' in record_data.get('Sensor Type', ''):
-                                dimm_location = decode_dimm_from_event_data(event_data_hex)
-                                if dimm_location:
-                                    dimm_map[sel_id] = dimm_location
-                            current_record = []
-                    
-                    # Update memory events with DIMM info
-                    for event in memory_events:
-                        sel_id_lower = event.sel_id.lower()
-                        if sel_id_lower in dimm_map:
-                            dimm_loc = dimm_map[sel_id_lower]
-                            event.event_data = dimm_loc
-                            # Update description to include DIMM
-                            if dimm_loc not in event.event_description:
-                                parts = event.event_description.split(' | ')
-                                # Insert DIMM info before sensor name tag
-                                if parts and parts[-1].startswith('['):
-                                    parts.insert(-1, f'**{dimm_loc}**')
-                                else:
-                                    parts.append(f'**{dimm_loc}**')
-                                event.event_description = ' | '.join(parts)
-            except Exception as e:
-                app.logger.debug(f"Could not get verbose DIMM details for {bmc_ip}: {e}")
-        
-        return events
-    except subprocess.TimeoutExpired:
-        app.logger.warning(f"IPMI timeout for {bmc_ip}")
-        return []
-    except Exception as e:
-        app.logger.error(f"Error collecting from {bmc_ip}: {e}")
-        return []
+            adapter.open_session()
+            before_identity = adapter.fingerprint()
+            for retry in range(2):
+                try:
+                    reservation = adapter.reserve()
+                    snapshot = adapter.snapshot(reservation)
+                    break
+                except ReservationLost:
+                    if retry or time.monotonic() >= adapter.deadline:
+                        raise
+            after_identity = adapter.fingerprint()
+            if before_identity != after_identity:
+                raise SELUnavailable('collection_identity_changed')
+            snapshot['fingerprint'] = before_identity
+            if time.monotonic() > adapter.deadline:
+                raise SELUnavailable('device_deadline_exceeded')
+            events = [IPMIEvent(bmc_ip=bmc_ip, server_name=server_name, **decode_record(row))
+                      for row in snapshot['records']]
+        except SELUnavailable as exc:
+            error, events = safe_collection_error(exc.code), []
+        except Exception:
+            error, events = 'native_collection_failed', []
+        finally:
+            if adapter is not None:
+                try:
+                    adapter.close()
+                except Exception:
+                    error = 'collection_child_identity_unavailable'
+            db.session.rollback()
+        if error and adapter is not None:
+            snapshot = {'complete': False, 'native_expected': getattr(adapter, 'native_expected', None),
+                        'native_received': getattr(adapter, 'native_received', None)}
+        return EventBatch(events, ticket=ticket, snapshot=snapshot, error=error)
+
 
 def collect_sel(bmc_ip, server_name):
-    """Unified SEL collection - chooses Redfish or IPMI based on config/availability"""
-    if should_use_redfish(bmc_ip):
-        app.logger.debug(f"Using Redfish for {bmc_ip}")
-        events = collect_sel_redfish(bmc_ip, server_name)
-        if events:
-            return events
-        # Fall back to IPMI if Redfish returns nothing
-        app.logger.debug(f"Redfish returned no events for {bmc_ip}, falling back to IPMI")
-    
+    """Native completeness is authoritative; Redfish is a separate diagnostic."""
     return collect_ipmi_sel(bmc_ip, server_name)
 
 def collect_power_status_redfish(bmc_ip):
@@ -6487,15 +6466,13 @@ def collect_power_status(bmc_ip):
         status = collect_power_status_redfish(bmc_ip)
         if status:
             return status
+        if get_server_protocol(bmc_ip) == 'redfish':
+            return 'Unknown'
     
     # Fall back to IPMI
     try:
         user, password = get_ipmi_credentials(bmc_ip)
-        result = subprocess.run(
-            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-             '-U', user, '-P', password, 'power', 'status'],
-            capture_output=True, text=True, timeout=10
-        )
+        result = run_ipmitool_secure(bmc_ip, user, password, 'power', 'status', timeout=10)
         if result.returncode == 0:
             return result.stdout.strip()
         return 'Unknown'
@@ -6557,15 +6534,13 @@ def collect_sensors_redfish(bmc_ip, server_name):
 
 def collect_sensors(bmc_ip, server_name):
     """Collect sensor readings from BMC"""
+    if get_server_protocol(bmc_ip) == 'redfish':
+        return []
     sensors = []
     try:
         user, password = get_ipmi_credentials(bmc_ip)
         # NVIDIA BMCs with 180+ sensors can take 40+ seconds
-        result = subprocess.run(
-            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-             '-U', user, '-P', password, 'sensor', 'list'],
-            capture_output=True, text=True, timeout=120  # 120s for high-latency networks
-        )
+        result = run_ipmitool_secure(bmc_ip, user, password, 'sensor', 'list', timeout=120)
         if result.returncode != 0:
             return sensors
         
@@ -6626,13 +6601,11 @@ def collect_sensors(bmc_ip, server_name):
 
 def collect_power_reading(bmc_ip, server_name):
     """Collect power consumption from BMC using DCMI"""
+    if get_server_protocol(bmc_ip) == 'redfish':
+        return None
     try:
         user, password = get_ipmi_credentials(bmc_ip)
-        result = subprocess.run(
-            ['ipmitool', '-I', 'lanplus', '-H', bmc_ip,
-             '-U', user, '-P', password, 'dcmi', 'power', 'reading'],
-            capture_output=True, text=True, timeout=15
-        )
+        result = run_ipmitool_secure(bmc_ip, user, password, 'dcmi', 'power', 'reading', timeout=15)
         if result.returncode != 0:
             return None
         
@@ -6728,68 +6701,29 @@ def collect_single_server(bmc_ip, server_name):
         return (bmc_ip, server_name, [], str(e))
 
 def collect_all_events():
-    """Background task to collect events from all servers in parallel"""
+    """Both normal producers acknowledge through the same atomic finish boundary."""
     with app.app_context():
-        app.logger.info("Starting IPMI event collection (parallel)...")
-        servers = get_servers()  # Get current server list
-        
+        servers = get_servers()
         if not servers:
-            app.logger.warning("No servers configured for collection")
             return
-        
-        # Use ThreadPoolExecutor for parallel collection
         try:
             with ThreadPoolExecutor(max_workers=get_collection_workers()) as executor:
-                futures = {
-                    executor.submit(collect_single_server, bmc_ip, server_name): (bmc_ip, server_name)
-                    for bmc_ip, server_name in servers.items()
-                }
-                
+                futures = {executor.submit(collect_single_server, ip, name): (ip, name)
+                           for ip, name in servers.items()}
                 for future in as_completed(futures):
-                    bmc_ip, server_name = futures[future]  # Get from futures dict
+                    ip, name = futures[future]
                     try:
-                        bmc_ip, server_name, events, error = future.result(timeout=660)
-                    except Exception as e:
-                        app.logger.error(f"Future result error for {bmc_ip}: {e}")
-                        # Still update server status so it shows as unreachable
-                        try:
-                            update_server_status(bmc_ip, server_name)
-                        except Exception:
-                            pass
-                        continue
-                    
-                    if error:
-                        app.logger.error(f"Error collecting from {bmc_ip}: {error}")
-                        # Still update server status so it shows as unreachable
-                        try:
-                            update_server_status(bmc_ip, server_name)
-                        except Exception:
-                            pass
-                        continue
-                    
-                    try:
-                        new_events = 0
-                        for event in events:
-                            # Check if event already exists
-                            existing = _existing_sel_event(event)
-                            
-                            if not existing:
-                                db.session.add(event)
-                                new_events += 1
-                        
-                        db.session.commit()
-                        update_server_status(bmc_ip, server_name)
-                        sel_manager.tick(bmc_ip)
-                        if new_events > 0:
-                            app.logger.info(f"Collected {new_events} new events from {server_name} ({len(events)} total)")
-                        
-                    except Exception as e:
-                        app.logger.error(f"Error processing {bmc_ip}: {e}")
+                        _ip, _name, events, error = future.result()
+                        if error:
+                            app.logger.warning('Native SEL producer unavailable')
+                        else:
+                            save_events_to_db(ip, name, events)
+                        sel_manager.tick(ip)
+                    except Exception:
                         db.session.rollback()
-        except Exception as e:
-            app.logger.error(f"ThreadPoolExecutor error: {e}")
-        
-        app.logger.info("IPMI event collection complete")
+                        app.logger.warning('Native SEL collection unavailable')
+        except Exception:
+            app.logger.warning('Native SEL worker pool unavailable')
 
 _shutdown_event = _threading.Event()
 
@@ -7076,16 +7010,15 @@ def collection_worker(worker_id):
                 skip = False
                 with app.app_context():
                     status = ServerStatus.query.filter_by(bmc_ip=bmc_ip).first()
-                    if status and not status.is_reachable:
+                    if job_type != 'sel' and status and not status.is_reachable:
                         skip = True
                         print(f"[Worker {worker_id}] Skipping {job_type} for {bmc_ip} (unreachable)", flush=True)
                 
                 if not skip:
                     if job_type == 'sel':
                         events = collect_ipmi_sel(bmc_ip, server_name)
-                        if events:
-                            with app.app_context():
-                                save_events_to_db(bmc_ip, server_name, events)
+                        with app.app_context():
+                            save_events_to_db(bmc_ip, server_name, events)
                         with app.app_context():
                             sel_manager.tick(bmc_ip)
                         # Also check for GPU Xid errors via SSH (after SEL collection)
@@ -7577,7 +7510,19 @@ def _existing_sel_event(event):
 # TRACEWEAVER: entrypoint=save_events_to_db; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
 def save_events_to_db(bmc_ip, server_name, events):
     """Save every producer through the same raw/generation identity contract."""
+    from .sel_collection import EventBatch, native_digest
+    if isinstance(events, EventBatch):
+        if events.ticket is None:
+            return {'outcome': 'failed', 'safe_reason': events.error or 'collection_busy_or_maintenance'}
+        result = sel_manager.finish_collection(events.ticket, snapshot=events.snapshot, error=events.error)
+        try:
+            update_server_status(bmc_ip, server_name)
+        except Exception:
+            db.session.rollback()
+            app.logger.debug('Server status update unavailable')
+        return result
     try:
+        # Explicit imports are catch-up evidence and cannot establish native completeness.
         new_events = []
         for value in events:
             if isinstance(value, IPMIEvent):
@@ -7598,7 +7543,7 @@ def save_events_to_db(bmc_ip, server_name, events):
         db.session.commit()
         update_server_status(bmc_ip, server_name)
         for event in new_events:
-            if event.severity in ('critical', 'warning'):
+            if event.severity in ('critical', 'warning') and not native_digest(event.raw_entry):
                 try:
                     _send_sel_event_alert(bmc_ip, server_name, event)
                 except Exception:
@@ -7637,7 +7582,7 @@ def collection_scheduler():
                 # Wait for all jobs to complete (with timeout)
                 try:
                     # Don't block forever - check every 10s
-                    while not _collection_queue.empty() and not _shutdown_event.is_set():
+                    while _collection_queue.unfinished_tasks and not _shutdown_event.is_set():
                         _shutdown_event.wait(10)
                 except:
                     pass
@@ -9550,27 +9495,34 @@ def api_sse_stream():
     return response
 
 @app.route('/api/collect', methods=['POST'])
+# TRACEWEAVER: entrypoint=api_trigger_collection; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
 def api_trigger_collection():
     """Manually trigger event collection"""
     bmc_ip = request.args.get('bmc_ip')
     if bmc_ip:
+        # Resolve the configured active target before cache/credential/device IO.
+        try:
+            server = sel_manager.current_server(bmc_ip)
+            server_name = server.server_name
+        except SELUnavailable:
+            db.session.rollback()
+            return jsonify({'error': 'configured_active_target_required'}), 404
         # Collect from single server
         def collect_single():
             with app.app_context():
-                server_name = get_server_name(bmc_ip)
-                # Build sensor cache first
-                build_sensor_cache(bmc_ip)
+                try:
+                    server_name = sel_manager.current_server(bmc_ip).server_name
+                except SELUnavailable:
+                    db.session.rollback()
+                    app.logger.warning('Manual SEL target no longer active')
+                    return
+                # Explicit Redfish mode must never launch a native sensor child.
+                if sel_manager.current_server(bmc_ip).protocol != 'redfish':
+                    build_sensor_cache(bmc_ip)
                 events = collect_ipmi_sel(bmc_ip, server_name)
-                for event in events:
-                    # Check if event already exists
-                    existing = _existing_sel_event(event)
-                    if not existing:
-                        db.session.add(event)
-                db.session.commit()
-                # Update server status
-                update_server_status(bmc_ip, server_name)
+                result = save_events_to_db(bmc_ip, server_name, events)
                 sel_manager.tick(bmc_ip)
-                app.logger.info(f"Collected {len(events)} events from {bmc_ip}")
+                app.logger.info('Manual SEL collection finished: %s', result.get('outcome', 'failed'))
         threading.Thread(target=collect_single, daemon=True).start()
         return jsonify({'status': f'Collection started for {bmc_ip}'})
     else:

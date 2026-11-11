@@ -1,0 +1,11 @@
+{
+  "unchanged_from_base": {
+    "src/ipmi_monitor/sel_qualifications.py": true,
+    "pyproject.toml": true,
+    "requirements.txt": true,
+    "Dockerfile": true
+  },
+  "staged_files": [],
+  "publication": "not performed",
+  "live_actions": "not performed"
+}

@@ -92,3 +92,31 @@ def test_bad_or_missing_prompt_frames_fail_closed_and_reap_child(child_tool, mod
     finally:
         getattr(adapter, 'close', lambda: None)()
     assert all(child.poll() is not None for child in children)
+
+
+def test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel(child_tool, monkeypatch):
+    """A08/A10: selected adapter.cipher must also govern the real shell child.
+
+    The selection field is a new documented adapter contract; the existing
+    child launches successfully and exposes its current hardcoded17 argv.
+    """
+    from copy import deepcopy
+    make, children = child_tool
+    adapter = make()
+    adapter.cipher = 3
+    launches = []
+    original = subprocess.Popen
+    def launch(argv, **kwargs):
+        launches.append((list(argv), deepcopy(kwargs.get('env', {}))))
+        return original(argv, **kwargs)
+    monkeypatch.setattr(subprocess, 'Popen', launch)
+    try:
+        assert len(adapter.snapshot(bytes.fromhex('3412'))['records']) == 3
+    finally:
+        adapter.close()
+    assert len(launches) == 1
+    argv, environment = launches[0]
+    assert argv[argv.index('-C') + 1] == '3'
+    assert '-E' in argv and '-P' not in argv
+    assert environment['IPMI_PASSWORD'] == 'synthetic-secret'
+    assert all(child.poll() is not None for child in children)

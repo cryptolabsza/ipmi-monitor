@@ -1,0 +1,241 @@
+{
+  "CHANGED": {
+    "scope": "Final R4 explicit Redfish-only compatibility recheck; source/tests read-only; prior R2/R3 evidence preserved.",
+    "root_manifest_sha256": "4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923",
+    "source_before": {
+      "utc": "2026-11-11T06:47:58.615015+00:00",
+      "manifest_sha256": "4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923",
+      "checked": 17,
+      "drift": []
+    },
+    "source_after": {
+      "utc": "2026-11-11T06:52:26.202664+00:00",
+      "manifest_sha256": "4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923",
+      "correction_manifest_sha256": "e5c91efcbb5b72bfbeb478ca6a950cc13107ea958c49f46cfd9b69ae8721a734",
+      "checked": 27,
+      "drift": []
+    },
+    "actual_loaded_source": {
+      "ipmi_monitor.app": {
+        "path": "/candidate/src/ipmi_monitor/app.py",
+        "sha256": "b913978de0e6cdeaaa4304e3b1c0ec87f35dac6d57586db75b147f5c257b232a"
+      },
+      "ipmi_monitor.sel_management": {
+        "path": "/candidate/src/ipmi_monitor/sel_management.py",
+        "sha256": "e71009abfe6323c9f2a4afa07dbed3cfa63cf7477bbba9846f22ef56bb7182dc"
+      }
+    },
+    "runtime_seconds": 267.587649,
+    "budget": "Under5min final recheck inside SAME30min cumulative validation allowance; no reset.",
+    "owned_outputs": "validation-linux/correction2/* and findings/independent-linux-correction2.html/json"
+  },
+  "VERIFIED": {
+    "environment": {
+      "image": "ghcr.io/cryptolabsza/ipmi-monitor@sha256:da9d9711054503e1b3465d2a4406faa0c841a41e8db0ef472a72934e8b1f4add",
+      "platform": "Actual Linuxamd64/Python3.11.18 in DockerDesktop arm64 emulation, official app dependencies",
+      "versions": {
+        "SQLAlchemy": "2.1.8",
+        "Flask": "3.1.3",
+        "gunicorn": "26.2.0",
+        "requests": "2.34.2"
+      },
+      "tools": "Same pinned public pytest9.0.2 offlineQA tools; no global/package/dependency changes.",
+      "isolation": "Oneowned networknone container, CPU2/RAM2GiB/PID256 capped, ALLcaps dropped/no-new-privileges, candidate source readonly; data synthetic, no BMC/host/production/credential mounts."
+    },
+    "focused_tests": {
+      "argv": "python -m pytest -p no:cacheprovider tests/test_sel_collection_state.py tests/test_sel_collection_regressions.py -q --tb=short",
+      "passed": 81,
+      "failed": 0,
+      "exit": 0,
+      "duration_seconds": 18.22,
+      "coverage": [
+        "12explicitRFworker/bulk/manual cases: complete/validempty/readfailure/storagefailure",
+        "RF-only status leaves do not fall back to native credentials/commands",
+        "RFbaseline historical0/repeat0/prospectiveonce/failedcatchup0 notifications",
+        "Bounded genuineSEL service and no-redirect/same-origin/service pagination failures",
+        "Native raw recovery/timeidentity/atomicSQLite/freshness/leaseCAS/producers",
+        "R3observer-vs-lease/success staleauthority and manual4outcomes+nextcollection regressions"
+      ],
+      "evidence": "core-tests.txt",
+      "repeat": "Samecontainer resumed to run root-repro after initialquickrun ended; its command reran identical81tests, successful terminalexit0. Retained container-all-runs.txt. Counts report81unique tests, not162unique."
+    },
+    "original_root_loss_repro": {
+      "original": "artifacts/root-explicit-redfish-repro.py; root-redfish-compatibility-blocker.json read directly",
+      "adaptation": "Ownedcopy uses /candidate/src and realLinux processidentity (removedoriginalsynthetic owneridentity monkeypatch). Nativeprocess/credentialIO forbidden and no network; original availableRFrow fixture kept. Added persistence/native-claims/capability/source assertions.",
+      "expected": "AvailableRFrow captured/persisted without nativecomplete/count/qualification claims; firsthistoricalimport noalerts.",
+      "actual": {
+        "status": "PASS",
+        "source": {
+          "ipmi_monitor.app": {
+            "path": "/candidate/src/ipmi_monitor/app.py",
+            "sha256": "b913978de0e6cdeaaa4304e3b1c0ec87f35dac6d57586db75b147f5c257b232a"
+          },
+          "ipmi_monitor.sel_management": {
+            "path": "/candidate/src/ipmi_monitor/sel_management.py",
+            "sha256": "e71009abfe6323c9f2a4afa07dbed3cfa63cf7477bbba9846f22ef56bb7182dc"
+          }
+        },
+        "versions": {
+          "SQLAlchemy": "2.1.8",
+          "Flask": "3.1.3",
+          "gunicorn": "26.2.0",
+          "requests": "2.34.2"
+        },
+        "collection": {
+          "active_attempt_id": null,
+          "active_ticket": null,
+          "baseline_complete": false,
+          "last_attempt_at": "2026-11-11T06:49:48.441648Z",
+          "last_complete_success_at": null,
+          "native_expected": null,
+          "native_persisted": null,
+          "native_received": null,
+          "outcome": "redfish_diagnostic",
+          "receipt_digest": null,
+          "redfish": {
+            "baseline_complete": true,
+            "continuity": true,
+            "generation": 0,
+            "last_attempt_at": "2026-11-11T06:49:48.441648Z",
+            "last_success_at": "2026-11-11T06:49:48.449210Z",
+            "maximum_event_date": "2026-11-11T00:00:00",
+            "native_completeness": "unverified",
+            "outcome": "persisted_diagnostic",
+            "persisted": 1,
+            "process_instance": "610b2ce858dc4db6a00fe2363bd2d64e",
+            "received": 1,
+            "records": {
+              "rf-1": "135f5a2ce7a0846dd44d8492e03145c5b4cd9f309f06aad1399e8dacc810259b"
+            },
+            "safe_reason": null,
+            "service": null
+          },
+          "safe_reason": "native_completeness_unverified"
+        },
+        "alerts": []
+      },
+      "evidence": [
+        "root-repro-adapted.py",
+        "root-repro-resumed.txt",
+        "root-repro-result.json"
+      ],
+      "claims": "Native lastcomplete-success/counts/receipt remainnull, nativebaselinefalse and capabilitiesunavailable; diagnostic RFsuccess tracked separately, lease released. Raw/time quality retains explicitRFsource.",
+      "scheduling_note": "Initialexec failed because18secruntime alreadyterminated; resumed SAMEonecontainer and repro exit0. Not a source failure; rawinitial receipt retained."
+    },
+    "reuse": {
+      "R3_manager_reconstruction_sha256": "5f381e2e6d1c20ad038e2e7c7982f2272ea69538a844e704b3db73eacd8eb5fc",
+      "unchanged_AST": {
+        "begin_collection": true,
+        "collection_child": true,
+        "collection_owner_status": true,
+        "recover_collection": true,
+        "migrate": true
+      },
+      "observe_entire_function_changed": true,
+      "observe_native_body_identical_after_removing_added_RF_only_guard": true,
+      "unchanged_entire_sel_collection_sha256": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "limit": "R3observe not asserted entirely unchanged; current observer regressions reexecuted. Only unchanged OSproof/decoder/migration evidence reused; changed finish/collector/producer RF integrations reexecuted."
+    },
+    "scope_limits": "Changed finish/collector/RFproducer paths reexecuted. No rerun of13,882record archive, fourversionstartup or212/211secOSproof; whole unchanged sel_collection and unchanged migration/owner functions justify bounded reuse. Observe entirefunction changed by explicitRFguard; nativebody same byAST and currentobservertests reran.",
+    "cleanup": {
+      "name": "/charlotte-sel-qa-20261111-correction2-core",
+      "id": "6a19a4e1e13734c47af04026366b075b757245deadee439e1309df0574e340a6",
+      "image": "sha256:da9d9711054503e1b3465d2a4406faa0c841a41e8db0ef472a72934e8b1f4add",
+      "terminal_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-11-11T06:49:47.425179638Z",
+        "FinishedAt": "2026-11-11T06:50:05.811036258Z"
+      },
+      "entrypoint": [
+        "/bin/sh"
+      ],
+      "command": [
+        "-c",
+        "cd /candidate && python -m pytest -p no:cacheprovider tests/test_sel_collection_state.py tests/test_sel_collection_regressions.py -q --tb=short"
+      ],
+      "environment": [
+        "DATA_DIR=/tmp/qa-correction2-tests",
+        "SECRET_KEY=synthetic-validation-only",
+        "PYTEST_DISABLE_PLUGIN_AUTOLOAD=1",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "PYTHONPATH=/candidate/src:/qa/prep-tools",
+        "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "LANG=C.UTF-8",
+        "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+        "PYTHON_VERSION=3.11.18",
+        "PYTHON_SHA256=9120e0a653868f6e3698d36cdd99e5a58903ec9469e448f21d98f7b16d8fa290",
+        "GIT_COMMIT=38566f3fe1df9e5ecf6d34d274ceabf8a353c797",
+        "GIT_BRANCH=main",
+        "BUILD_TIME=2026-11-04 17:00 UTC",
+        "APP_VERSION=1.4.1"
+      ],
+      "host_security": {
+        "NetworkMode": "none",
+        "NanoCpus": 2000000000,
+        "Memory": 2147483648,
+        "PidsLimit": 256,
+        "SecurityOpt": [
+          "no-new-privileges"
+        ],
+        "CapDrop": [
+          "ALL"
+        ]
+      },
+      "mounts": [
+        {
+          "Type": "bind",
+          "Source": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111",
+          "Destination": "/candidate",
+          "Mode": "ro",
+          "RW": false,
+          "Propagation": "rprivate"
+        },
+        {
+          "Type": "bind",
+          "Source": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/validation-linux",
+          "Destination": "/qa",
+          "Mode": "rw",
+          "RW": true,
+          "Propagation": "rprivate"
+        }
+      ],
+      "removed": true,
+      "volumes_created": [],
+      "resume_reason": "First18secondrun ended before root-sourceprobe exec; samecontainer resumed, then rootprobe exit0 and second identical focused suite exit0. Originalnot-running exec1 retained in root-repro.txt."
+    },
+    "source_integrity": "All27frozenpaths match; no candidate edits, no assertion weakening, no stage/commit/push/PR/build/deploy/hardware/credentials/global actions."
+  },
+  "CLAIMED": {
+    "Mac_full_lane": "Root final474-case Mac/browser verification was running; this reviewer does not independently claim its result.",
+    "model": "Sol/high requested; actual servedmodelunattested.",
+    "production": "No fleetcollection, artifactbuild, rollout, currentBMCcompleteness or hardwarequalification claim."
+  },
+  "BLOCKED": {
+    "source_failures_found": [],
+    "held_gates": [
+      "OfficialfreshCI package/image build and exactartifact acceptance; no localwheel/Dockerbuild performed.",
+      "Separately accepted Macbrowser/fullrun and Astra/source review required for rootacceptance.",
+      "LiveCharlotte two normalnativecollection cycles/host, DBreadback/profileidentity and currentbackup/rollback gates remain outside this test.",
+      "Prior changed-containernamespace interruptedlease hold remains; no unsafe time-only reclaim.",
+      "RFdiagnostic success is not nativecomplete capture and must remain visibly nativeunverified."
+    ],
+    "previously_failed_env_lane": "R2Linux12Chromium-missing failures remain separate; no browser tests in this focused run and no fullLinuxsuite greenclaim."
+  },
+  "PROMOTE": {
+    "decision": "R4_EXPLICIT_REDFISH_COMPATIBILITY_FOCUSED_LINUX_PASS_FOR_ROOT",
+    "conditions": [
+      "Root combines with finalAstra/source review and fullMac/browser evidence.",
+      "Retain native/RF proof distinction and unchangedproduction/CI/namespace holds."
+    ],
+    "cleanup": "Oneexactnewownedcontainer removed, no newvolumes and no detachedwork.",
+    "publication": "None; root owns finalacceptance and authorizedpublication."
+  }
+}

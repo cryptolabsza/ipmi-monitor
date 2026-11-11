@@ -1,0 +1,15 @@
+{
+  "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py tests/test_sel_persistent.py",
+  "exit_code": 1,
+  "utc": "2026-11-11T04:55:04.861766+00:00",
+  "raw_output": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/findings/red-phase2-final.log",
+  "counts": {
+    "failed": 14,
+    "passed": 6,
+    "total": 20
+  },
+  "files_sha256": {
+    "tests/test_sel_collection_state.py": "be472de0a5fe65f0d118415cc44a240962276e451abddf9816a358413f0b0963",
+    "tests/test_sel_persistent.py": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e"
+  }
+}

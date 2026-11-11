@@ -1,0 +1,34 @@
+{
+  "utc": "2026-11-11T06:46:40.434488+00:00",
+  "baseline": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "worktree": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111",
+  "source_stage": "CORRECTION2FINALstopped; rootfullverification+rechecks",
+  "correction_manifest_file_sha256": "e5c91efcbb5b72bfbeb478ca6a950cc13107ea958c49f46cfd9b69ae8721a734",
+  "correction_content_digest": "caa3a1dc154d93400c6a0d687d08c7bdaaacc8e8e2307fb3a628b3d96a15ad10",
+  "behavior_files": {
+    "src/ipmi_monitor/app.py": "b913978de0e6cdeaaa4304e3b1c0ec87f35dac6d57586db75b147f5c257b232a",
+    "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+    "src/ipmi_monitor/sel_management.py": "e71009abfe6323c9f2a4afa07dbed3cfa63cf7477bbba9846f22ef56bb7182dc",
+    "src/ipmi_monitor/templates/dashboard.html": "b3c3cc8fde013a5890085269aafa5e2ece4e656026bdffd4b7abe5bde363139b",
+    "src/ipmi_monitor/templates/server_detail.html": "bcf90213b90da5aa5e4ff9236dad04090f22d85cfac01d41cdb61526ac221393",
+    "templates/dashboard.html": "768ead5019dbb82676de94641218e77bf9825b987d59c6685c178914aba49be9",
+    "templates/server_detail.html": "43b42cd75af97ce70fe753af8fcfe39a308e1694125aeaef7875149058d480ab",
+    "tests/fixtures/charlotte_sel_native_prefix.json": "327eeb7bcf9e867f8dce44538b496d44451116fdaa9dfebcf30ab5e36993ee86",
+    "tests/test_sel_collection_regressions.py": "25219f126f80aa0d513f9d8d5f8991e4389d3f94afff87d6d5a77e0757fdc128",
+    "tests/test_sel_collection_state.py": "a4e66274fff9842dab1e7ca7b2716a0902178e3cd09d741cbacb6d569241e987",
+    "tests/test_sel_management.py": "a3bd857bb4fb788d597e5495d4220fed2c475318aebe38a1030f938ce8487484",
+    "tests/test_sel_persistent.py": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e"
+  },
+  "authority_files": {
+    "requirements.md": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4",
+    "traceability-matrix.md": "f9e527019d4f4c5a91877d86238e6a77d1a762bfcf9f8b52065148f376b072f5",
+    ".traceweaver/charlotte-sel-20261111/authority.json": "e873a76482409f3a1d551c984a58a7e1e89c4fa4d1c25a3d9822f17741b29db8",
+    ".traceweaver/charlotte-sel-20261111/collection-contract.json": "ab1d409bb3ed7f9350c5d872a63ce7ff437e73c7b8bdf431935e175bd54e8256",
+    ".traceweaver/charlotte-sel-20261111/root-precode-review.json": "e6ae2ececf4bce3bd1ce68c476e4e523a30ea8b8b3335c76738d9ccddceb6a5b"
+  },
+  "changed_behavior_since_R3": [
+    "src/ipmi_monitor/app.py",
+    "src/ipmi_monitor/sel_management.py",
+    "tests/test_sel_collection_state.py"
+  ]
+}

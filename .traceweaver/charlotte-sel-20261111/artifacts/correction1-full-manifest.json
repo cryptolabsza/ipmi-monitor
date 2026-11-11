@@ -1,0 +1,114 @@
+{
+  "schema": "charlotte-source-correction1/1",
+  "base": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "branch": "fix/charlotte-sel-collection-20261111",
+  "authority": "same canonical nine-step plan/sourceGO; SEC01 SEC02 diagnosed correction1of2",
+  "content_digest_algorithm": "SHA256(JSON(files,sort_keys=True,separators=(comma,colon)))",
+  "content_digest": "84717b3a1e596b960029acde937a952a080cfa55a9686a66f183be024021721d",
+  "files": {
+    "requirements.md": {
+      "sha256": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4",
+      "bytes": 22053
+    },
+    "traceability-matrix.md": {
+      "sha256": "a638762069e2432e235ca2e0daa87f339c01ab55ee623d8585b04a5f4c86ef77",
+      "bytes": 38703
+    },
+    "src/ipmi_monitor/app.py": {
+      "sha256": "6d17329bfaef4c841ef337528d4d8cc50d68be2f108aef2f81abbc4ad157740a",
+      "bytes": 874690
+    },
+    "src/ipmi_monitor/sel_management.py": {
+      "sha256": "5f381e2e6d1c20ad038e2e7c7982f2272ea69538a844e704b3db73eacd8eb5fc",
+      "bytes": 103713
+    },
+    "src/ipmi_monitor/sel_collection.py": {
+      "sha256": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+      "bytes": 13672
+    },
+    "src/ipmi_monitor/templates/dashboard.html": {
+      "sha256": "b3c3cc8fde013a5890085269aafa5e2ece4e656026bdffd4b7abe5bde363139b",
+      "bytes": 289059
+    },
+    "src/ipmi_monitor/templates/server_detail.html": {
+      "sha256": "bcf90213b90da5aa5e4ff9236dad04090f22d85cfac01d41cdb61526ac221393",
+      "bytes": 129063
+    },
+    "templates/dashboard.html": {
+      "sha256": "768ead5019dbb82676de94641218e77bf9825b987d59c6685c178914aba49be9",
+      "bytes": 280278
+    },
+    "templates/server_detail.html": {
+      "sha256": "43b42cd75af97ce70fe753af8fcfe39a308e1694125aeaef7875149058d480ab",
+      "bytes": 148159
+    },
+    "tests/test_sel_management.py": {
+      "sha256": "a3bd857bb4fb788d597e5495d4220fed2c475318aebe38a1030f938ce8487484",
+      "bytes": 67057
+    },
+    "tests/test_sel_persistent.py": {
+      "sha256": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e",
+      "bytes": 4906
+    },
+    "tests/test_sel_collection_state.py": {
+      "sha256": "f0dfa1503c88ff4dd7292b5f1b60aa5608401742898e427ec35185d8b00baf1a",
+      "bytes": 35336
+    },
+    "tests/test_sel_collection_regressions.py": {
+      "sha256": "25219f126f80aa0d513f9d8d5f8991e4389d3f94afff87d6d5a77e0757fdc128",
+      "bytes": 11327
+    },
+    "tests/fixtures/charlotte_sel_native_prefix.json": {
+      "sha256": "327eeb7bcf9e867f8dce44538b496d44451116fdaa9dfebcf30ab5e36993ee86",
+      "bytes": 978
+    },
+    "docs/validation/charlotte-sel-20261111.md": {
+      "sha256": "c9b260c9f73c820dfbfe401e44752a387a15c6680e3602275c175ac137a473de",
+      "bytes": 12080
+    },
+    ".traceweaver/charlotte-sel-20261111/authority.json": {
+      "sha256": "e873a76482409f3a1d551c984a58a7e1e89c4fa4d1c25a3d9822f17741b29db8",
+      "bytes": 2162
+    },
+    ".traceweaver/charlotte-sel-20261111/collection-contract.json": {
+      "sha256": "ab1d409bb3ed7f9350c5d872a63ce7ff437e73c7b8bdf431935e175bd54e8256",
+      "bytes": 9102
+    },
+    ".traceweaver/charlotte-sel-20261111/owner-approval.json": {
+      "sha256": "96891e6744bf8e9c2d66e8cdc493514faa30973b77e2bd3d185ab4145f0522fa",
+      "bytes": 1232
+    },
+    ".traceweaver/charlotte-sel-20261111/phase1-plan-and-test-value.json": {
+      "sha256": "c5a7b8ceeca9cd5d6ecfe5092205945cd44ece364ca6ebb48d8f58bbf01e9b22",
+      "bytes": 2271
+    },
+    ".traceweaver/charlotte-sel-20261111/proposed-matrix-rows.json": {
+      "sha256": "a2d1043d6e0d2eec412df3604f139b697fb1a936b64153cd9ec920ed17f566e2",
+      "bytes": 3156
+    },
+    ".traceweaver/charlotte-sel-20261111/root-precode-review.json": {
+      "sha256": "e6ae2ececf4bce3bd1ce68c476e4e523a30ea8b8b3335c76738d9ccddceb6a5b",
+      "bytes": 1827
+    },
+    ".traceweaver/charlotte-sel-20261111/source-plan.json": {
+      "sha256": "18f6d1f8a610c7f1dd36b81f4ef959962f79d4b5f7ef591e90fa0eb598dcd26c",
+      "bytes": 1698
+    },
+    ".traceweaver/charlotte-sel-20261111/verification-plan.json": {
+      "sha256": "ce54ee6623984d48542ff6f3f5c057c6c2b807342a68e7cb0082af7019b1fde1",
+      "bytes": 15393
+    },
+    ".traceweaver/charlotte-sel-20261111/vv-capsule.json": {
+      "sha256": "036f04ebf82c140e896b5e58e62f8bb8c8e45ed40f7c585c2ed87b5d7665512f",
+      "bytes": 8082
+    },
+    ".traceweaver/charlotte-sel-20261111/workflow-profile.json": {
+      "sha256": "34258a6f6c83d15fcc71f5cd6971d777bc0b7735aebcdda80edfa56ab523e429",
+      "bytes": 2538
+    },
+    ".traceweaver/charlotte-sel-20261111/correction1-plan.json": {
+      "sha256": "6633d2ae0f1cd683c1fa9d9c3804a40b430610efa213b419ce364e6955b59af2",
+      "bytes": 1545
+    }
+  }
+}

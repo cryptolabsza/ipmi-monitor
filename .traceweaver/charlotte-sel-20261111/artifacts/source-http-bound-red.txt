@@ -1,0 +1,55 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________________ test_real_get_bounds_body_and_closes_response _________________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x108920050>
+
+    def test_real_get_bounds_body_and_closes_response(monkeypatch):
+        runtime = importlib.import_module('ipmi_monitor.app')
+        client = runtime.RedfishClient(BMC, 'fixture', 'synthetic-secret')
+        seen = []
+        class LargeResponse:
+            status_code = 200
+            def raise_for_status(self): pass
+            def iter_content(self, chunk_size):
+                for _ in range(300):
+                    seen.append('chunk'); yield b'x' * 16384
+            def json(self): return {'Members': [entry('unbounded-body')]}
+            def close(self): seen.append('closed')
+        monkeypatch.setattr(client.session, 'get', lambda *a, **kw: LargeResponse())
+>       assert client._get(ENTRIES) is None
+E       AssertionError: assert {'Members': [{'Created': '2026-11-11T01:00:00Z', 'EntryType': 'SEL', 'Id': 'unbounded-body', 'Message': 'Hardware fault', ...}]} is None
+E        +  where {'Members': [{'Created': '2026-11-11T01:00:00Z', 'EntryType': 'SEL', 'Id': 'unbounded-body', 'Message': 'Hardware fault', ...}]} = _get('/redfish/v1/Managers/Self/LogServices/SEL/Entries')
+E        +    where _get = <ipmi_monitor.app.RedfishClient object at 0x10898c440>._get
+
+tests/test_sel_collection_regressions.py:225: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 07:20:40,502] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 07:20:40,502] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+=============================== warnings summary ===============================
+tests/test_sel_collection_regressions.py::test_real_get_bounds_body_and_closes_response
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3279: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_regressions.py: 38 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_regressions.py::test_real_get_bounds_body_and_closes_response
+1 failed, 19 deselected, 39 warnings in 0.36s

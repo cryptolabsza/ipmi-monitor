@@ -1,0 +1,57 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_live_owned_child_prevents_finish_and_lease_release ____________
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+
+    def test_live_owned_child_prevents_finish_and_lease_release(collection_site):
+        import subprocess
+        import sys
+        app, db, models, runtime, _alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+            ticket = manager.begin_collection(BMC)
+            manager.collection_child(ticket, 'launching')
+            child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+            try:
+                manager.collection_child(ticket, 'running', child)
+                state = json.loads(manager.target(BMC).collection_state)
+                assert state['active_ticket']['child']['pid'] == child.pid
+                result = manager.finish_collection(ticket, snapshot=snapshot([]))
+>               assert result['outcome'] == 'failed'
+E               AssertionError: assert 'persisted' == 'failed'
+E                 
+E                 - failed
+E                 + persisted
+
+tests/test_sel_collection_state.py:445: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 07:26:19,176] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 07:26:19,176] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_live_owned_child_prevents_finish_and_lease_release
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3287: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 46 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_live_owned_child_prevents_finish_and_lease_release
+1 failed, 31 deselected, 47 warnings in 0.58s

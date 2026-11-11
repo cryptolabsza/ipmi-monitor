@@ -1,0 +1,42 @@
+FF..                                                                     [100%]
+=================================== FAILURES ===================================
+_ test_known_native_failures_and_unknown_oem_are_classified_conservatively[8-3-critical] _
+
+sensor = 8, offset = 3, severity = 'critical'
+
+    @pytest.mark.parametrize('sensor,offset,severity', [(8, 3, 'critical'), (7, 11, 'critical'),
+        (12, 1, 'critical'), (0xc1, 11, 'info')])
+    def test_known_native_failures_and_unknown_oem_are_classified_conservatively(sensor, offset, severity):
+        from ipmi_monitor.sel_collection import decode_record
+        raw = bytearray.fromhex(RECORDS[0]['raw'])
+        raw[10], raw[12], raw[13] = sensor, 0x6f, offset
+        row = {'record_id': RECORDS[0]['record_id'], 'raw': raw.hex()}
+>       assert decode_record(row)['severity'] == severity
+E       AssertionError: assert 'warning' == 'critical'
+E         
+E         - critical
+E         + warning
+
+tests/test_sel_collection_state.py:463: AssertionError
+_ test_known_native_failures_and_unknown_oem_are_classified_conservatively[7-11-critical] _
+
+sensor = 7, offset = 11, severity = 'critical'
+
+    @pytest.mark.parametrize('sensor,offset,severity', [(8, 3, 'critical'), (7, 11, 'critical'),
+        (12, 1, 'critical'), (0xc1, 11, 'info')])
+    def test_known_native_failures_and_unknown_oem_are_classified_conservatively(sensor, offset, severity):
+        from ipmi_monitor.sel_collection import decode_record
+        raw = bytearray.fromhex(RECORDS[0]['raw'])
+        raw[10], raw[12], raw[13] = sensor, 0x6f, offset
+        row = {'record_id': RECORDS[0]['record_id'], 'raw': raw.hex()}
+>       assert decode_record(row)['severity'] == severity
+E       AssertionError: assert 'info' == 'critical'
+E         
+E         - critical
+E         + info
+
+tests/test_sel_collection_state.py:463: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_known_native_failures_and_unknown_oem_are_classified_conservatively[8-3-critical]
+FAILED tests/test_sel_collection_state.py::test_known_native_failures_and_unknown_oem_are_classified_conservatively[7-11-critical]
+2 failed, 2 passed, 32 deselected in 0.18s

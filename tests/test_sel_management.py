@@ -797,31 +797,46 @@ def test_archive_database_failure_prevents_hardware_clear(qualified_site):
     assert not any('0x47' in argv[argv.index('raw') + 1:] for argv, _ in commands if 'raw' in argv)
 
 
-def test_ownership_serializes_independent_workers_and_clock_clear(qualified_site):
+@pytest.mark.parametrize('actions', [('clear', 'clock'), ('collection', 'collection'),
+                                     ('collection', 'clear'), ('collection', 'clock')])
+def test_ownership_serializes_independent_workers_and_clock_clear(qualified_site, actions):
     from threading import Barrier, Thread
     from ipmi_monitor.sel_management import SELUnavailable
-    (_client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+    (_client, app, _db, _models, runtime, commands), _state, _registry = qualified_site
     gate, results = Barrier(2), []
+    commands.clear()
 
     def worker(action):
         with app.app_context():
             target = runtime.sel_manager.target(BMC)
             gate.wait(timeout=5)
             try:
-                operation = runtime.sel_manager.claim(target, action, 'independent-worker')
-                results.append(operation.state)
+                if action == 'collection':
+                    ticket = runtime.sel_manager.begin_collection(BMC)
+                    results.append(('collection', ticket['attempt_id']))
+                else:
+                    operation = runtime.sel_manager.claim(target, action, 'independent-worker')
+                    results.append(operation.state)
             except SELUnavailable as exc:
                 results.append(exc.code)
+            except Exception as exc:
+                results.append('unexpected:' + type(exc).__name__)
 
-    workers = [Thread(target=worker, args=(action,)) for action in ('clear', 'clock')]
+    workers = [Thread(target=worker, args=(action,)) for action in actions]
     for worker in workers:
         worker.start()
     for worker in workers:
         worker.join(timeout=10)
     assert all(not worker.is_alive() for worker in workers)
-    assert sorted(results) == ['operation_busy_or_cooldown', 'queued']
-    with app.app_context():
-        assert runtime.SELOperation.query.count() == 1
+    if actions == ('clear', 'clock'):
+        assert sorted(results) == ['operation_busy_or_cooldown', 'queued']
+        with app.app_context():
+            assert runtime.SELOperation.query.count() == 1
+    else:
+        winners = [value for value in results if isinstance(value, tuple) or value == 'queued']
+        losers = [value for value in results if value in ('operation_busy_or_cooldown', 'collection_busy_or_maintenance')]
+        assert len(winners) == len(losers) == 1, results
+    assert not any('raw' in argv or 'shell' in argv for argv, _kwargs in commands), 'claims and losing workers perform no BMC IO'
 
 
 @pytest.mark.parametrize('dispatched', [False, True])

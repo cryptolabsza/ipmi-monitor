@@ -1,0 +1,18 @@
+{
+  "manifest_file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/correction1-full-manifest.json",
+  "manifest_file_sha256": "dd21eb4b8f055a8887e37b0c8d3f134e69b27538c9217f75e43b289f2a202333",
+  "manifest_content_digest": "84717b3a1e596b960029acde937a952a080cfa55a9686a66f183be024021721d",
+  "changed_from_prior_builder_manifest": [
+    "traceability-matrix.md",
+    "src/ipmi_monitor/app.py",
+    "src/ipmi_monitor/sel_management.py",
+    "tests/test_sel_collection_state.py"
+  ],
+  "new_files": [
+    ".traceweaver/charlotte-sel-20261111/correction1-plan.json"
+  ],
+  "prior_builder_manifest_untouched_file_sha256": "10bccc47a2a280841ffb50f26e18f689b8897fa641f5444bbaffde3a90a379a1",
+  "actual_served_model": "unattested",
+  "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O"
+}

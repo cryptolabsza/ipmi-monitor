@@ -1,0 +1,10 @@
+{
+  "inventory_scope": "rg all production Python under src and scripts; CLI/UI request references separately captured",
+  "native_getter": "collect_ipmi_sel returns EventBatch and is not itself a persistence producer",
+  "alias": "collect_sel forwards EventBatch intact; no internal direct consumer found",
+  "bulk": "collect_single_server returns EventBatch to collect_all_events; save_events_to_db unconditional for returned batches",
+  "worker": "collection_worker SEL path uses save_events_to_db unconditionally",
+  "manual": "api_trigger_collection validates configured active server before scheduling; thread rechecks before sensor cache; save_events_to_db handles complete/empty/acquisition/storage outcomes",
+  "CLI": "No direct native-getter/EventBatch consumer in CLI; server startup invokes existing application collector infrastructure",
+  "other": "No additional production direct callsite under src/scripts discovered; external consumers not certified"
+}

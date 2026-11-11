@@ -1,0 +1,287 @@
+FFFFFFF.FFF                                                              [100%]
+=================================== FAILURES ===================================
+_ test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[AuditLog] __
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ca6e1f0>
+unrelated = 'AuditLog'
+
+    @pytest.mark.parametrize('unrelated', ['AuditLog', 'EventLog'])
+    def test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel(redfish_reader, unrelated):
+        """Actual deployed reproduction returned old-login-audit, never hardware-fault."""
+        wrong = LOGS + '/' + unrelated
+        client, _calls = redfish_reader(
+            {'Members': [entry('hardware-fault')]}, services=[wrong, SEL],
+            extra={wrong: {'Id': unrelated, 'Name': 'Manager audit events',
+                           'LogEntryType': 'Event', 'Entries': {'@odata.id': wrong + '/Entries'}},
+                   wrong + '/Entries': {'Members': [entry('old-login-audit')]}},
+        )
+>       assert [row['sel_id'] for row in client.get_sel_entries()] == ['hardware-fault']
+E       AssertionError: assert ['old-login-audit'] == ['hardware-fault']
+E         
+E         At index 0 diff: 'old-login-audit' != 'hardware-fault'
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:70: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 06:48:06,318] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 06:48:06,318] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+_ test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[EventLog] __
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ef5b110>
+unrelated = 'EventLog'
+
+    @pytest.mark.parametrize('unrelated', ['AuditLog', 'EventLog'])
+    def test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel(redfish_reader, unrelated):
+        """Actual deployed reproduction returned old-login-audit, never hardware-fault."""
+        wrong = LOGS + '/' + unrelated
+        client, _calls = redfish_reader(
+            {'Members': [entry('hardware-fault')]}, services=[wrong, SEL],
+            extra={wrong: {'Id': unrelated, 'Name': 'Manager audit events',
+                           'LogEntryType': 'Event', 'Entries': {'@odata.id': wrong + '/Entries'}},
+                   wrong + '/Entries': {'Members': [entry('old-login-audit')]}},
+        )
+>       assert [row['sel_id'] for row in client.get_sel_entries()] == ['hardware-fault']
+E       AssertionError: assert ['old-login-audit'] == ['hardware-fault']
+E         
+E         At index 0 diff: 'old-login-audit' != 'hardware-fault'
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:70: AssertionError
+___________ test_reads_newest_second_page_without_duplicate_records ____________
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ef5b1c0>
+
+    def test_reads_newest_second_page_without_duplicate_records(redfish_reader):
+        client, calls = redfish_reader(
+            {'Members': [entry('old-1'), entry('old-2')], 'Members@odata.count': 3,
+             'Members@odata.nextLink': ENTRIES + '?page=2'},
+            extra={ENTRIES + '?page=2': {'Members': [entry('old-2'), entry('new-3')]}},
+        )
+>       assert [row['sel_id'] for row in client.get_sel_entries()] == ['old-1', 'old-2', 'new-3']
+E       AssertionError: assert ['old-1', 'old-2'] == ['old-1', 'old-2', 'new-3']
+E         
+E         Right contains one more item: 'new-3'
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:79: AssertionError
+___ test_incomplete_pagination_cannot_return_first_page_as_complete[foreign] ___
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ef5b480>
+failure = 'foreign'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+____ test_incomplete_pagination_cannot_return_first_page_as_complete[cycle] ____
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ef5ada0>
+failure = 'cycle'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+___ test_incomplete_pagination_cannot_return_first_page_as_complete[partial] ___
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ef5b530>
+failure = 'partial'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+_ test_incomplete_pagination_cannot_return_first_page_as_complete[empty-page] __
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10ef5ba00>
+failure = 'empty-page'
+
+    @pytest.mark.parametrize('failure', ['foreign', 'cycle', 'partial', 'empty-page'])
+    def test_incomplete_pagination_cannot_return_first_page_as_complete(redfish_reader, failure):
+        """Reject incomplete reads rather than promote old first-page events as success."""
+        link = {'foreign': 'https://foreign.invalid/Entries', 'cycle': ENTRIES,
+                'partial': ENTRIES + '?page=2', 'empty-page': ENTRIES + '?page=2'}[failure]
+        extra = {link: {'Members': []}} if failure == 'empty-page' else {}
+        client, _calls = redfish_reader(
+            {'Members': [entry('old-1')], 'Members@odata.count': 2,
+             'Members@odata.nextLink': link}, extra=extra,
+        )
+>       assert client.get_sel_entries() == [], 'an incomplete hardware log is not a successful complete result'
+E       AssertionError: an incomplete hardware log is not a successful complete result
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains one more item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...d-1", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:93: AssertionError
+_______ test_same_native_bytes_deduplicate_after_decoder_wording_changes _______
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+
+    def test_same_native_bytes_deduplicate_after_decoder_wording_changes(native_site):
+        app, _db, models, runtime = native_site
+        fixture = json.loads((Path(__file__).parent / 'fixtures/charlotte_sel_native_prefix.json').read_text())
+        raw = fixture['records'][0]
+        with app.app_context():
+            for description in ['OEM sensor unknown', 'Power supply AC lost (decoded)']:
+                runtime.save_events_to_db(BMC, 'fixture-host', [runtime.IPMIEvent(
+                    bmc_ip=BMC, server_name='fixture-host', sel_id=str(raw['record_id']),
+                    event_date=datetime(1970, 1, 1), sensor_type='OEM',
+                    event_description=description, raw_entry=raw['raw'], severity='warning')])
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert len(rows) == 1, 'decoder text must not change identity of identical native bytes'
+E           AssertionError: decoder text must not change identity of identical native bytes
+E           assert 2 == 1
+E            +  where 2 = len([<IPMIEvent 1>, <IPMIEvent 2>])
+
+tests/test_sel_collection_regressions.py:126: AssertionError
+_______ test_clock_rewind_alone_does_not_invent_a_new_native_generation ________
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f166f90>
+
+    def test_clock_rewind_alone_does_not_invent_a_new_native_generation(native_site, monkeypatch):
+        app, _db, _models, runtime = native_site
+        state = {'last_add': '02000000'}
+        adapter = SimpleNamespace(
+            fingerprint=lambda: {'device': 'unchanged-fixture'},
+            info=lambda: {'entries': 7, 'free_bytes': 128, 'percent_used': 50,
+                          'last_add': state['last_add'], 'last_erase': '00000000'},
+            logging=lambda: 8,
+            clock=lambda: {'native_seconds': 2, 'offset_minutes': None, 'quality': 'unknown'},
+            close=lambda: None,
+        )
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        with app.app_context():
+            runtime.sel_manager.observe(BMC)
+            generation = runtime.sel_manager.target(BMC).generation
+            state['last_add'] = '01000000'
+            runtime.sel_manager.observe(BMC)
+>           assert runtime.sel_manager.target(BMC).generation == generation, 'clock correction is not evidence of erasure or replacement'
+E           AssertionError: clock correction is not evidence of erasure or replacement
+E           assert 1 == 0
+E            +  where 1 = <SELTarget e59b0a0b-894f-4191-9e18-c40e7fcec99b>.generation
+E            +    where <SELTarget e59b0a0b-894f-4191-9e18-c40e7fcec99b> = target('192.0.2.40')
+E            +      where target = <ipmi_monitor.sel_management.register_sel_management.<locals>.Manager object at 0x10ea73770>.target
+E            +        where <ipmi_monitor.sel_management.register_sel_management.<locals>.Manager object at 0x10ea73770> = <module 'ipmi_monitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>.sel_manager
+
+tests/test_sel_collection_regressions.py:147: AssertionError
+__________ test_native_collection_keeps_password_out_of_argv_and_logs __________
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f18be70>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10ecc30e0>
+
+    def test_native_collection_keeps_password_out_of_argv_and_logs(native_site, monkeypatch, caplog):
+        _app, _db, _models, runtime = native_site
+        secret = 'fixture-password-never-log'
+        calls = []
+        monkeypatch.setattr(runtime.sel_manager, 'observe', lambda ip: None)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_ipmi_credentials', lambda ip: ('fixture-only', secret))
+    
+        def command(argv, **kwargs):
+            calls.append((argv, kwargs))
+            return SimpleNamespace(returncode=1, stdout='', stderr='transport rejected ' + secret)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', command)
+        runtime.collect_ipmi_sel(BMC, 'fixture-host')
+        assert calls, 'exercise the real collection subprocess boundary'
+        observed = {
+            'password_in_argv': any('-P' in argv or secret in argv for argv, _kwargs in calls),
+            'password_in_logs': secret in caplog.text,
+            'environment_password_present': all(kwargs.get('env', {}).get('IPMI_PASSWORD') == secret for _argv, kwargs in calls),
+        }
+>       assert observed == {'password_in_argv': False, 'password_in_logs': False,
+                            'environment_password_present': True}
+E       AssertionError: assert {'environment...n_logs': True} == {'environment..._logs': False}
+E         
+E         Differing items:
+E         {'environment_password_present': False} != {'environment_password_present': True}
+E         {'password_in_logs': True} != {'password_in_logs': False}
+E         {'password_in_argv': True} != {'password_in_argv': False}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:170: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 06:48:06,995] WARNING: IPMI SEL elist failed for 192.0.2.40: transport rejected fixture-password-never-log
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:app.py:6390 IPMI SEL elist failed for 192.0.2.40: transport rejected fixture-password-never-log
+=============================== warnings summary ===============================
+tests/test_sel_collection_regressions.py::test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[AuditLog]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_regressions.py: 62 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_regressions.py::test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[AuditLog]
+FAILED tests/test_sel_collection_regressions.py::test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[EventLog]
+FAILED tests/test_sel_collection_regressions.py::test_reads_newest_second_page_without_duplicate_records
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[foreign]
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[cycle]
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[partial]
+FAILED tests/test_sel_collection_regressions.py::test_incomplete_pagination_cannot_return_first_page_as_complete[empty-page]
+FAILED tests/test_sel_collection_regressions.py::test_same_native_bytes_deduplicate_after_decoder_wording_changes
+FAILED tests/test_sel_collection_regressions.py::test_clock_rewind_alone_does_not_invent_a_new_native_generation
+FAILED tests/test_sel_collection_regressions.py::test_native_collection_keeps_password_out_of_argv_and_logs
+10 failed, 1 passed, 63 warnings in 0.95s
