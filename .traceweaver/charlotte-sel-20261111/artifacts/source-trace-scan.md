@@ -1,0 +1,30 @@
+# Code Traceability Findings
+
+## CTA-MISSING-TEST-VERIFICATION
+
+- id: CTA-MISSING-TEST-VERIFICATION
+- severity: P1
+- status: blocked
+- title: Verification artifact lacks verification anchor
+- evidence: tests/test_sel_collection_regressions.py is a test, fixture, or smoke without a TRACEWEAVER verifies anchor.
+- affected_ids: REQ-TW-054
+- claim_impact: verification_traceability_blocked
+- remediation: Add a TRACEWEAVER verifies anchor naming the verification and requirement IDs.
+- file: tests/test_sel_collection_regressions.py
+- start: 1
+- end: 1
+
+## CTA-MISSING-TEST-VERIFICATION
+
+- id: CTA-MISSING-TEST-VERIFICATION
+- severity: P1
+- status: blocked
+- title: Verification artifact lacks verification anchor
+- evidence: tests/test_sel_collection_state.py is a test, fixture, or smoke without a TRACEWEAVER verifies anchor.
+- affected_ids: REQ-TW-054
+- claim_impact: verification_traceability_blocked
+- remediation: Add a TRACEWEAVER verifies anchor naming the verification and requirement IDs.
+- file: tests/test_sel_collection_state.py
+- start: 1
+- end: 1
+

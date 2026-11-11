@@ -1,0 +1,1336 @@
+........................................................................ [ 60%]
+..................FFFFFFFFFFFF..................                         [100%]
+=================================== FAILURES ===================================
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-admin-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k0')
+tree = 'src/ipmi_monitor/templates', kind = 'dashboard', role = 'admin'
+prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10f8e1fd0>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k1')
+tree = 'src/ipmi_monitor/templates', kind = 'server', role = 'admin'
+prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10fb08190>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-/fleet/ipmi] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k2')
+tree = 'src/ipmi_monitor/templates', kind = 'server', role = 'admin'
+prefix = '/fleet/ipmi'
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10fb0a850>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-readonly-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k3')
+tree = 'src/ipmi_monitor/templates', kind = 'dashboard', role = 'readonly'
+prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10f30a060>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k4')
+tree = 'src/ipmi_monitor/templates', kind = 'server', role = 'readonly'
+prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10f309ba0>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-/fleet/ipmi] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k5')
+tree = 'src/ipmi_monitor/templates', kind = 'server', role = 'readonly'
+prefix = '/fleet/ipmi'
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10fac2210>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-admin-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k6')
+tree = 'templates', kind = 'dashboard', role = 'admin', prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10fb6c270>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k7')
+tree = 'templates', kind = 'server', role = 'admin', prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10fb6d370>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-/fleet/ipmi] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k8')
+tree = 'templates', kind = 'server', role = 'admin', prefix = '/fleet/ipmi'
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10ff94b50>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-readonly-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k9')
+tree = 'templates', kind = 'dashboard', role = 'readonly', prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10faaeb50>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k10')
+tree = 'templates', kind = 'server', role = 'readonly', prefix = ''
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10fa6ee40>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+_ test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-/fleet/ipmi] _
+
+sel_site = (<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mon...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+login_as = <function _login_as at 0x10ccf81a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10591/test_full_rendered_sel_pages_k11')
+tree = 'templates', kind = 'server', role = 'readonly', prefix = '/fleet/ipmi'
+
+    @pytest.mark.parametrize('tree,kind,role,prefix', [
+        (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
+        for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
+    def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
+            sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        from html import unescape
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from threading import Thread
+        from pathlib import Path
+        import json
+        import os
+        import re
+        import shutil
+        from jinja2 import FileSystemLoader
+        from tests.test_dashboard_ai_reports import CHROMIUM
+    
+        client, app, db, models, _runtime, _commands = sel_site
+        login_as(client, role)
+        hostile = '<img src=x onerror=window.SEL_XSS=1>machine'
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            models['ServerStatus'].query.filter_by(bmc_ip=BMC).update({'server_name': hostile})
+            db.session.commit()
+        headers = {'X-Forwarded-Prefix': prefix, 'X-Fleet-Authenticated': 'true',
+                   'X-Fleet-Auth-User': 'testadmin' if role == 'admin' else 'testreader',
+                   'X-Fleet-Auth-Role': role} if prefix else {}
+        paths = ['/api/servers', f'/api/server/{BMC}/sel/health', f'/api/server/{BMC}/events']
+        responses = {prefix + path: client.get(path, headers=headers).get_json() for path in paths}
+        previous = app.jinja_loader
+        try:
+            app.jinja_loader = FileSystemLoader(str(Path.cwd()/tree))
+            app.jinja_env.cache.clear()
+            route = '/' if kind == 'dashboard' else f'/server/{BMC}'
+            page = client.get(route, headers=headers).get_data(as_text=True)
+        finally:
+            app.jinja_loader = previous
+            app.jinja_env.cache.clear()
+        # Entire actual rendered page and startup run. Only unrelated HTTP responses
+        # are empty fixture data; the tested API inputs are actual application output.
+        probe = '''<script>setTimeout(() => {
+            try {
+                if (typeof populateDeviceSelectors === 'function') {
+                    serversData = FIXTURE_SERVERS; populateDeviceSelectors();
+                }
+                const panel=document.getElementById('selHealthPanel');
+                const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
+                    optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
+                    panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
+            } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
+        },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
+        page = page.replace('</body>', probe+'</body>')
+        requests = []
+    
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                content = page.encode() if self.path == prefix + route else json.dumps(responses.get(self.path, {})).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8' if self.path == prefix + route else 'application/json')
+                self.end_headers()
+                self.wfile.write(content)
+    
+            def log_message(self, *_):
+                pass
+    
+        executable = os.environ.get('IPMI_AICSS_CHROMIUM') or shutil.which('chromium') or shutil.which('chromium-browser') or str(CHROMIUM)
+        assert Path(executable).is_file(), 'Real Chromium required for complete-page SEL regression'
+>       server = HTTPServer(('127.0.0.1',0),Handler)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_management.py:1162: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:457: in __init__
+    self.server_bind()
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/http/server.py:148: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <http.server.HTTPServer object at 0x10ffe23f0>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+    
+        May be overridden.
+    
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/lib/python3.14/socketserver.py:478: PermissionError
+=============================== warnings summary ===============================
+tests/test_sel_management.py::test_unobserved_health_is_unknown_and_automation_defaults_off
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_management.py: 989 warnings
+tests/test_sel_qualifications.py: 110 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_management.py: 108 warnings
+tests/test_sel_qualifications.py: 11 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:6680: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_management.py: 108 warnings
+tests/test_sel_qualifications.py: 11 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:6684: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+tests/test_sel_management.py::test_newly_collected_bad_native_date_does_not_expire_history
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/test_sel_management.py:135: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_sel_management.py: 12 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:9276: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-admin-/fleet/ipmi]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-dashboard-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[src/ipmi_monitor/templates-server-readonly-/fleet/ipmi]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-admin-/fleet/ipmi]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-dashboard-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-]
+FAILED tests/test_sel_management.py::test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls[templates-server-readonly-/fleet/ipmi]
+12 failed, 108 passed, 1351 warnings in 88.79s (0:01:28)

@@ -1,0 +1,12 @@
+{
+  "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_state.py tests/test_sel_collection_regressions.py tests/test_sel_persistent.py tests/test_sel_management.py::test_ownership_serializes_independent_workers_and_clock_clear",
+  "exit_code": 1,
+  "utc": "2026-11-11T05:03:09.004318+00:00",
+  "raw_output": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/findings/red-precode-correction.log",
+  "counts": {
+    "failed": 39,
+    "passed": 8,
+    "total": 47
+  },
+  "classification": "Existing defects retained; missing APIs/collection health and threaded missing-interface assertions explicitly planned-feature RED, not historical cause."
+}

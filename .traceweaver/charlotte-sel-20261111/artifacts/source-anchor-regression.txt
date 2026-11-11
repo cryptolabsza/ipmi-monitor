@@ -1,0 +1,4 @@
+trace_anchor_authoring_status=pause
+trace_anchor_authoring_reason=verification_absent_from_matrix
+trace_anchor_authoring_file_changed=false
+trace_anchor_authoring_matrix_changed=false

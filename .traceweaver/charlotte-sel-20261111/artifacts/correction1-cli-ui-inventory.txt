@@ -1,0 +1,7 @@
+src/ipmi_monitor/cli.py:144:    from .app import create_app
+src/ipmi_monitor/cli.py:158:    app = create_app(config_dir=config_path)
+src/ipmi_monitor/cli.py:199:    from .app import create_app
+src/ipmi_monitor/cli.py:215:    app = create_app(config_dir=config_path)
+src/ipmi_monitor/templates/dashboard.html:5317:                await fetch(apiUrl('/api/collect'), { method: 'POST' });
+templates/dashboard.html:4982:                await fetch(apiUrl('/api/collect'), { method: 'POST' });
+templates/server_detail.html:1041:                    const collectResponse = await fetch(apiUrl(`/api/collect?bmc_ip=${bmcIp}`), {

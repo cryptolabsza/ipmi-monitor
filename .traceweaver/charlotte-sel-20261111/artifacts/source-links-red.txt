@@ -1,0 +1,33 @@
+..F....                                                                  [100%]
+=================================== FAILURES ===================================
+_ test_hostile_next_links_are_rejected_before_request[/redfish/v1/Managers/Self/LogServices/SEL/Entries?page=%0a] _
+
+redfish_reader = <function redfish_reader.<locals>.make at 0x10d28c040>
+link = '/redfish/v1/Managers/Self/LogServices/SEL/Entries?page=%0a'
+
+    @pytest.mark.parametrize('link', ['//foreign.invalid/Entries', ENTRIES + '#fragment',
+        ENTRIES + '?page=%0a', 'https://user@192.0.2.40' + ENTRIES, ENTRIES + '/../../AuditLog/Entries',
+        ENTRIES.replace('/Entries', '\\Entries')])
+    def test_hostile_next_links_are_rejected_before_request(redfish_reader, link):
+        client, calls = redfish_reader({'Members': [entry('old')], 'Members@odata.count': 2,
+            'Members@odata.nextLink': link}, extra={link: {'Members': [entry('new')]}})
+>       assert client.get_sel_entries() == []
+E       assert [{'event_date...:00Z"}', ...}] == []
+E         
+E         Left contains 2 more items, first extra item: {'event_date': datetime.datetime(2026, 11, 11, 1, 0), 'event_description': 'Hardware fault', 'native_timestamp': '2026...old", "Message": "Hardware fault", "Severity": "Warning", "EntryType": "SEL", "Created": "2026-11-11T01:00:00Z"}', ...}
+E         Use -v to get more diff
+
+tests/test_sel_collection_regressions.py:201: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_collection_regressions.py::test_hostile_next_links_are_rejected_before_request[//foreign.invalid/Entries]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3279: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_regressions.py: 38 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_regressions.py::test_hostile_next_links_are_rejected_before_request[/redfish/v1/Managers/Self/LogServices/SEL/Entries?page=%0a]
+1 failed, 6 passed, 12 deselected, 39 warnings in 0.32s

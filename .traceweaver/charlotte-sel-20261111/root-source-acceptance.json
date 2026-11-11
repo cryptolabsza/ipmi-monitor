@@ -1,0 +1,60 @@
+{
+  "schema": "charlotte-source-acceptance/1",
+  "utc": "2026-11-11T06:55:56.051308+00:00",
+  "decision": "PASS_SCOPED_SOURCE_ONLY",
+  "owner": "root",
+  "authority_plan_sha256": "c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de",
+  "baseline": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "reviewed_manifest_sha256": "4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923",
+  "behavior_files": {
+    "src/ipmi_monitor/app.py": "b913978de0e6cdeaaa4304e3b1c0ec87f35dac6d57586db75b147f5c257b232a",
+    "src/ipmi_monitor/sel_collection.py": "3d6977245bf8bd7c12e939c3866e7dd6bb80636bb9c1e246e98b8fea4667b779",
+    "src/ipmi_monitor/sel_management.py": "e71009abfe6323c9f2a4afa07dbed3cfa63cf7477bbba9846f22ef56bb7182dc",
+    "src/ipmi_monitor/templates/dashboard.html": "b3c3cc8fde013a5890085269aafa5e2ece4e656026bdffd4b7abe5bde363139b",
+    "src/ipmi_monitor/templates/server_detail.html": "bcf90213b90da5aa5e4ff9236dad04090f22d85cfac01d41cdb61526ac221393",
+    "templates/dashboard.html": "768ead5019dbb82676de94641218e77bf9825b987d59c6685c178914aba49be9",
+    "templates/server_detail.html": "43b42cd75af97ce70fe753af8fcfe39a308e1694125aeaef7875149058d480ab",
+    "tests/fixtures/charlotte_sel_native_prefix.json": "327eeb7bcf9e867f8dce44538b496d44451116fdaa9dfebcf30ab5e36993ee86",
+    "tests/test_sel_collection_regressions.py": "25219f126f80aa0d513f9d8d5f8991e4389d3f94afff87d6d5a77e0757fdc128",
+    "tests/test_sel_collection_state.py": "a4e66274fff9842dab1e7ca7b2716a0902178e3cd09d741cbacb6d569241e987",
+    "tests/test_sel_management.py": "a3bd857bb4fb788d597e5495d4220fed2c475318aebe38a1030f938ce8487484",
+    "tests/test_sel_persistent.py": "51e7bbe0969528640228bf12ef813029f81f1cb0337310b5eca8241f67fad06e"
+  },
+  "verification": {
+    "root_full_suite": {
+      "command": "PYTHONPATH=src /opt/homebrew/bin/python3.14 -m pytest -q tests",
+      "environment": "macOS Python3.14, actual Chromium/SQLite and subprocess tests; substituted BMC boundaries",
+      "passed": 474,
+      "failed": 0,
+      "exit": 0,
+      "seconds": 158.07
+    },
+    "independent_linux": "81 current focused tests + original RF reproduction; R2 real13882-record replay/four-start version chain and R3 actual owner/process evidence reused only for unchanged functions; exact dependency/runtime/source limitations in linked report",
+    "adversarial_review": "PASS_REVIEW_SCOPE;22 targeted tests and original RF reproduction; SEC01/SEC02 resolved",
+    "root_redfish_replay": "available1/captured1/persisted1 diagnostic, native completeness unverified; exit0"
+  },
+  "evidence_sha256": {
+    ".traceweaver/charlotte-sel-20261111/evidence/root-r4-full-regression.txt": "b0ded62b85c71014da5392e5f9d8064f67479e4ebbe894a5ff15035d29e96edb",
+    ".traceweaver/charlotte-sel-20261111/evidence/root-r4-redfish-replay.txt": "e42e1a4c1ec9b0b1295b88dad56087496b01094e3830de2f42c214ae24e0212e",
+    ".traceweaver/charlotte-sel-20261111/evidence/security-review-correction2.json": "8fd482404011cca945a0e0bdf040c6300f814accc3e50e4cbe4f00933d1b741b",
+    ".traceweaver/charlotte-sel-20261111/evidence/independent-linux-correction2.json": "e029504d9db9f551cacc400dcb70c44e7ec541939e8b3b94feda36c73fc97e9e",
+    ".traceweaver/charlotte-sel-20261111/evidence/review-input-manifest-r4.json": "4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923"
+  },
+  "allowed": "Protected feature PR into dev after exact publication capsule; compatible1.4.3 release through main after required checks and main-baseline preservation. No feature/dev version bump. No actual rollout claimed.",
+  "held": [
+    "Official CI and immutable published artifact",
+    "Actual Charlotte installed payload, preservation and two ordinary complete native cycles",
+    "CCC94 native access remains degraded",
+    "No firmware/power/reset/credential mutation; no LTX rollout",
+    "Automatic clear and clock OFF; manual90/91clock and93/95/96clear remain exact qualification/fresh dual archive/same reservation/CAS/time/ownership guarded",
+    "Interrupted read foreign-namespace ownership remains held, never age-only reclaimed",
+    "Slow blocked RF HTTP chunk may outlive soft total deadline; no hard interruption claim"
+  ],
+  "requirements_closure": false,
+  "post_review_mechanical_change": {
+    "classification": "no_impact",
+    "receipt": ".traceweaver/charlotte-sel-20261111/fixture-trace-equivalence.json",
+    "fixture_sha256": "a62b24cd84cb9a4a19013cb856a496f6afc8ae17b610bac69c27fd40ec52b026",
+    "original_R4_manifest_retained": true
+  }
+}

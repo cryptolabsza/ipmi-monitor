@@ -1,0 +1,77 @@
+Charlotte site SEL audit and proposed repair - 11 November 2026
+
+Status: audit and evidence preservation completed; implementation and BMC changes pending explicit plan approval. It is not yet verified that every machine is being collected correctly.
+
+Scope and authority
+Owner request: "Bmc sel logs are not getting logged or helping for RCA. Check all the machines on this site and make sure sel are getting logged".
+Cross-checked DC Overview with IPMI Monitor: 11 active BMC-managed hosts, CCC89-CCC99. BBmaint is in DC Overview but has no configured BMC. The 35 inactive/deprecated IPMI rows were not treated as active equipment.
+No workloads, provider listings, firmware, BMC clocks, BMC log contents, logging policy, notifications or production source were changed. Automatic clear and automatic clock policies remain off. Only diagnostic/archive files were created.
+
+Verified per-host native results
+Host   Native records   Logging   Capacity / issue
+CCC89       275          Enabled   Space available. Redfish hardware SEL exposes only a subset; the deployed reader selects EventLog first because of the Self-path matching bug.
+CCC90       166          Enabled   Space available. Native cipher3 works; cipher17 health probe is unsupported. BMC clock reads April2023 while current UTC is November2026.
+CCC91       436          Enabled   Space available. BMC clock reads July2026 while current UTC is November2026.
+CCC92        39          Enabled   Space available. Native wall-clock convention requires explicit mapping; do not assume its displayed UTC suffix proves actual UTC.
+CCC93      4096          Enabled   FULL, overflow true, no free allocation units.
+CCC94     Unknown       Unknown   Native IPMI sessions time out. Existing OS outage remains unresolved. No new power request/reset was sent during this audit.
+CCC95      3639          Enabled   FULL, no free allocation units. Redfish hardware SEL exposes only three stale entries while native SEL contains3639.
+CCC96      3639          Enabled   FULL, no free allocation units. Bulk traversal skipped six addressable prefix records; all six recovered by native Get SEL Entry and the complete archive verified.
+CCC97         0          Enabled   Empty SEL and logging verified using both cipher17 and cipher3 after an intermittent first read. Empty is not itself a logging failure.
+CCC98       907          Enabled   Space available. Hardware Redfish view advertises150 records but returns50 plus nextLink; native SEL contains907.
+CCC99       685          Enabled   Space available. Hardware Redfish view advertises150 records but returns50 plus nextLink; native SEL contains685.
+
+Time interpretation
+Native SEL timestamps are preserved exactly. CCC90/91 clocks are clearly wrong by months/years. Other hosts use UTC or local clock conventions, some with supported UTC offsets and some without; clock_mapping_unknown remains an explicit limitation until mapped against a trusted reference. CCC98/99 also need drift assessment. Historical timestamps will not be rewritten or invented.
+
+Verified backups
+Ten accessible BMCs are represented by verified native backups: 13,882 records / 222,112 binary bytes, including CCC97's independently confirmed zero-record archive.
+Remote root: /app/data/sel-audit-20261111T033404Z inside ipmi-monitor; this resides on the persistent ipmi-monitor-data volume.
+Second copy: tmp/site-sel-20261111/archives-verified/ in this workspace.
+Manifest: tmp/site-sel-20261111/verified-backup-manifest.json.
+All selected local binary SHA256 values match their remotely captured manifests; record counts, 16-byte sizes and unique native record IDs were checked.
+CCC96: six directly addressed 18-byte Get SEL Entry responses contain a 2-byte next pointer and a 16-byte native record. Their native record IDs45710-45715 precede the repeated byte-identical bulk export45716-49348. Concatenation gives all3639 contiguous unique native IDs. Both original captures and the six native responses are retained.
+
+Exact archives required before proposed manual clears
+CCC93: 4096 records,65536 bytes, SHA256 fba8fd6d9a558a06dab50fe3ee3752ba073e3dd10dffd6bfe792456c7414cd5f.
+CCC95: 3639 records,58224 bytes, SHA256 f2eb21336888e9832a7a4f376027b7dc1f9d49531809c0c0a2c49ec997796cf8.
+CCC96: 3639 records,58224 bytes, SHA256 328f32a030f43e072443cc9baa282e85087ef1515966af2e97bd049ada54b177.
+Every clear must recheck current identity, last-add/entry evidence and archive equivalence. If records changed since the backup, capture and verify an updated complete archive first. Never clear CCC94 or an unverified/incomplete archive. Do not repeat a clear after an ambiguous response; read back its actual state first.
+
+Confirmed collector defects
+1. Wrong log selected: RedfishClient.get_sel_entries tests "SEL" against the whole URI. /Managers/Self/LogServices/AuditLog and EventLog therefore match through "Self". The first nonempty unrelated log can be returned instead of the hardware SEL.
+2. Pagination ignored: the deployed reader returns the first Members list without following Members@odata.nextLink. Later hardware records can be missed despite the collector running normally.
+3. Redfish completeness is not native completeness: several BMCs expose stale/filtered/windowed Redfish SEL views. Correcting service selection and pagination alone cannot prove capture of all native records.
+4. Collection health is distinct from reachability: the connectivity checker updates is_reachable and last_check without refreshing cached power status/event counts. Overall /health is not a per-host SEL success proof.
+5. Native health transport is fixed to cipher17, which fails on CCC90 even though cipher3 native commands work.
+6. Collector exceptions include command-line password arguments. Captured diagnostic evidence was redacted; production logging requires correction and managed credential exposure handling.
+
+Read-only reproductions against the exact deployed reader
+tmp/site-sel-20261111/wrong-log-reproduction.json: fixture expects hardware-fault; deployed reader returns old-login-audit and never requests the hardware SEL.
+tmp/site-sel-20261111/pagination-reproduction.json: fixture has3 records across2 pages; deployed reader returns2 and never requests page2.
+No production implementation was changed to produce these results.
+
+Deployment baseline
+Installed IPMI Monitor1.4.1; running image953ef92dcb1516d405841cb259a85202f05fc230dc293009d08bcf07023549fb. OCI revision38566f3fe1df9e5ecf6d34d274ceabf8a353c797. Exact deployed app.py and sel_management.py hashes match that Git revision. The bundled January build_info.json is stale and is not the authority for this baseline.
+The current remote main is a different revision; do not silently upgrade Charlotte to a different major runtime or overwrite another active checkout. GitHub auth, SSH and remote-HEAD preflights passed read-only.
+
+Numbered implementation plan for approval
+1. Isolate the repair against the verified running behaviour and reconcile it with the canonical dev work. Preserve the dirty checkouts and active work. Record reviewed requirement/verification authority for this specific site repair. No unrelated major upgrade or LTX deployment.
+2. Tests first in the IPMI Monitor repository: add tests/test_sel_collection_regressions.py for Self-path AuditLog/EventLog confusion, real SEL selection, multipage traversal, duplicate/cyclic/foreign next links, transient/partial-page errors and empty hardware SEL; extend tests/test_sel_management.py, tests/test_sel_persistent.py and tests/test_sel_qualifications.py for complete native evidence, the six-record traversal anomaly, scoped cipher3 support, failure freshness and archive-before-clear guards. Preserve the existing fixtures and earlier SEL contracts.
+3. Repair src/ipmi_monitor/app.py: select actual SEL service metadata/path component rather than a substring of the full URI; follow same-BMC pagination with bounds; reconcile windowed/stale Redfish against native evidence and preserve native record identity/time quality; perform bounded native collection/backfill where required. Mark partial/failed collection explicitly instead of equating it with no new events. Preserve monitoring inventory, credentials and unrelated alerts.
+4. Repair src/ipmi_monitor/sel_management.py and, only where required, src/ipmi_monitor/sel_qualifications.py: use an explicitly validated host/fingerprint-bound transport for CCC90, preserve per-probe facts even when clock mapping is unknown, and expose last successful collection/attempt/failure freshness in the existing per-host health surface. If presentation changes are required, narrowly update the existing server_detail.html/dashboard.html SEL panel and its focused tests. Do not enable broad automatic cipher fallback, automatic clears or clock writes.
+5. Correct secret handling in the touched collection paths: use environment-based IPMI password injection and sanitized exception output. Tests must prove the actual secret is absent from errors, logs and subprocess argument lists. Coordinate any required credential rotation as a separate, explicit managed operation; do not change BMC credentials in place as part of this approval.
+6. Run focused tests against the original captured failures and representative actual BMC responses, then existing SEL/persistence/qualification regressions and independent review. Build/publish through the repository's approved release route and adopt only a compatible, reviewed artifact on Charlotte with a current database/config backup and rollback reference. An unreviewed live-container edit is excluded.
+7. Backfill valid historical hardware records without replaying them as fresh hardware incidents or flooding notifications. Preserve raw bytes, native timestamps, collection UTC and quality flags; keep connectivity/audit records distinguishable from native hardware SEL. Do not delete the existing event history.
+8. With the separate operational approval below, correct clearly invalid CCC90/91 BMC clocks after their backups, verify against trusted UTC and the host's actual time convention, and map other native clocks only with evidence. Then clear only the full CCC93/95/96 native SELs after exact current archive guards pass. Preserve all backups and logging-enable bits; verify free capacity and a fresh post-maintenance record/readback. Automatic clear/clock policies remain off.
+9. Verify two normal collection cycles on every accessible BMC: native access, enabled logging, current capacity, complete/appropriately bounded capture, fresh per-host success evidence, record persistence/deduplication and honest timestamp quality. Recheck platform telemetry and unrelated containers/configuration. CCC94 must remain visibly degraded until native access is restored; the report must not mark it healthy from Redfish reachability.
+
+Dependencies and risks
+Use existing Python, ipmitool and application dependencies; no new service/provider key is expected. Full native backfill costs more controller/network time than one Redfish page, so bound concurrency/timeouts and verify scheduler progress. Historical backfill must not generate an alert flood. Native clears cannot restore data onto the BMC, hence dual verified archives and fresh identity/CAS guards are prerequisites. Clock corrections change future event interpretation and must preserve original historical timestamps. CCC94 may require site intervention; no controller reset, chassis power cycle, firmware or workload intervention is covered by this plan.
+
+Approval boundary
+Requested: approve the numbered collector repair/review/compatible Charlotte rollout plan, plus the guarded CCC90/91 clock corrections and manual CCC93/95/96 clears after fresh backup guards. Product source and BMC changes have not started.
+The canonical IPMI Monitor AGENTS.md section2, lines38-39, says: "Present the plan to the user and wait for explicit approval before making any changes." This is why source implementation awaits this concrete plan approval. Manual clears are called out separately because they remove the on-controller copy even though complete backups are preserved.
+
+Evidence directory
+tmp/site-sel-20261111/: baseline.json, native-summary.json, rechecks.jsonl, verified-backup-manifest.json, archive-reconstruction-verification.json, central-collector-audit.json, redfish-comparison.jsonl, correct-hardware-sel-comparison.jsonl, the two deployed-reader reproductions, runtime/deployment identity and the private archive copies.

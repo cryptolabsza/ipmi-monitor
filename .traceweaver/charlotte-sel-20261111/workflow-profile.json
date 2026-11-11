@@ -1,0 +1,64 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "task_id": "WORK-CHARLOTTESEL-20261111",
+  "profile_revision": 1,
+  "profile_status": "frozen owner-approved repair scope; review pending",
+  "risk": "L3",
+  "selection_rationale": "Persistent hardware evidence, credential handling, compatible deployment and irreversible approved maintenance.",
+  "models": {
+    "architecture_and_security": "gpt-6-astra/high",
+    "implementation_validation": "gpt-6.1-sol/high"
+  },
+  "actual_served_model": "unattested; requested dispatch identity is not runtime attestation",
+  "budgets": {
+    "builder_minutes": 120,
+    "fresh_validation_minutes": 45,
+    "architecture_minutes": 20,
+    "release_route_minutes": 15,
+    "source_review_minutes": 20,
+    "builder_corrections_max": 2,
+    "native_deployments_initial": 1,
+    "conditional_diagnosed_deployment_corrections_max": 1,
+    "each_approved_clear_max": 1,
+    "ambiguous_write": "reconcile actual state, never replay blindly"
+  },
+  "budget_provenance": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/profile.json",
+  "budget_rule": "Existing source/deployment/maintenance caps remain cumulative; no reset, refund, or stacking with old profiles. Phase1 definition timebox20m is inside builder120m, not additional.",
+  "process_budget": {
+    "estimated_delivery_minutes": 120,
+    "estimated_fresh_validation_minutes": 45,
+    "estimated_architecture_minutes": 20,
+    "estimated_release_route_minutes": 15,
+    "estimated_source_review_minutes": 20,
+    "estimated_process_total_minutes": 100,
+    "estimated_process_share_of_combined_minutes": 45.45,
+    "note": "Estimates, not observed effort or new execution allowances; live wait/CI durations unknown. Old SEL profile remains unchanged."
+  },
+  "selected_controls": [
+    "lean-tests-first",
+    "full-L3-vv",
+    "fresh-Sol-high-validation45m",
+    "Astra-high-security-review20m",
+    "root-owned publication and target qualification",
+    "dual complete archive and exact identity before maintenance"
+  ],
+  "child_roles": {
+    "builder": {
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "maximum_timebox_minutes": 120
+    },
+    "verifier": {
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "maximum_timebox_minutes": 45
+    },
+    "reviewer": {
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "maximum_timebox_minutes": 20
+    }
+  },
+  "requires_deploy": true,
+  "controls": "No LTX; automatic policies OFF; no blind replay after ambiguous maintenance response."
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": "charlotte-collection-contract/1",
+  "authority": "Root accepted architecture A01\u2013A12; architecture-root-acceptance.json",
+  "phase": "Retained precode definition; current source result is root-source-acceptance.json",
+  "collection_api": {
+    "begin_collection(bmc_ip)": "Read current active target; atomically claim per-target collection ownership compatible with clear/clock. Return immutable ticket dict attempt_id,target_id,binding,revision,fingerprint,generation,snapshot_epoch,started_at. No credentials in ticket.",
+    "finish_collection(ticket,snapshot=None,error=None)": "Exactly one complete snapshot or safe error. Validate current target identity/revision/generation/epoch and ownership in same transaction as native inserts/dedup, baseline and success. Return dict outcome persisted or failed plus safe reason/counts. Complete empty snapshot is valid. On failure, previous complete-success is unchanged.",
+    "snapshot": "Existing raw snapshot shape complete,records[{record_id,raw}],info{entries,last_add,last_erase},reservation,collected_at. Raw native evidence authoritative, no decoded-description digest.",
+    "state_column": "Additive nullable SELTarget.collection_state TEXT storing JSON. Baseline, attempts, safe failures, complete-success timestamps/counts/receipt are durable in same DB. Existing rows preserved; migrate twice idempotent.",
+    "health_surface": "sel_manager.representation(target)[collection]: last_attempt_at,last_complete_success_at,outcome,safe_reason,native_expected,native_received,native_persisted,receipt_digest,baseline_complete,stale. Health probe timestamps independent.",
+    "alerts": "First complete native baseline and explicit imports suppressed; prospective new asserted warning after established continuity alerts once after commit; failed/stale-interval catch-up suppressed. Durable DB baseline survives sessions/migration/restart. No event-date-only filtering."
+  },
+  "read_profile": {
+    "environment": "SEL_READ_PROFILES_FILE",
+    "schema_version": "sel-read-profiles/1",
+    "profiles_entry": {
+      "server_id": "exact configured server ID",
+      "binding": "exact current sel_manager.binding(server)",
+      "bmc_ip": "exact configured host address",
+      "cipher": 3,
+      "device_id_reply": "exact complete Get Device ID hex includes firmware",
+      "guid": "exact Get System GUID16-byte hex"
+    },
+    "selection": "Deliberate before IO. Default17 when no matching special host configuration. Matching-address stale binding or wrong identity rejects; no silent17 fallback. Prior-to-confirmation only fixed device/GUID identity reads.",
+    "adapter_contract": "IPMISELAdapter.cipher numeric selection used coherently by one-shot and persistent-shell child argv; fingerprint transport reports lanplus-cipher{cipher}-admin.",
+    "qualification": "Read profile grants no clear/clock/enable action. Exact existing per-action hardware qualification unchanged; no nonce is claimed or needed for a non-mutating managed configuration."
+  },
+  "native_recovery": {
+    "known_replay": "Seven exact raw archived records45710\u201345716. Synthetic native info reports7; chain0 starts45716, but direct45710..15 return exact native records. Recover live under same reservation then final stable count.",
+    "bounds": "Finite total180s proposed read ceiling, max one fresh reservation retry inside it, bounded predecessor/gap recovery; test rejects >=150probes in seven-record replay. Do not scan65535ids. Existing shell EOF/malformed/oversize/timeout cleanup cases retained.",
+    "errors": "Session failure is not record absence. Incomplete/foreign/cyclic/truncated/count-mismatch remains failure, never empty complete.",
+    "fence": "Acquisition ticket binding/revision/generation/epoch captured before IO cannot be reassigned at save time."
+  },
+  "classification": {
+    "existing_defect_RED": [
+      "CCC96 snapshot raises snapshot_changed instead of bounded live prefix recovery",
+      "session failure not reached because no recovery exists",
+      "nonempty Redfish subset shortcircuits native acquisition",
+      "existing save_events_to_db alerts historical native warnings",
+      "one-shot current hardcoded17 ignores explicit managed3 profile; exact mismatches not rejected",
+      "persistent actual child currently hardcodes17 despite new selected cipher field"
+    ],
+    "planned_interface_RED": [
+      "begin_collection and finish_collection do not exist on baseline; AttributeError is expected feature absence, not historical cause",
+      "collection_state DB column and collection health contract not implemented; downstream assertions not yet reached"
+    ],
+    "retained_existing_protection": "Existing raw child framing/reaping, mutation qualification/authorization, archive-before-clear and migration cases preserved. New method absence does not verify downstream transaction or health claims."
+  },
+  "source_sha256_baseline": "artifacts/red-baseline-hashes.json",
+  "review_status": "pending root independent precode acceptance",
+  "actual_served_model": "unattested",
+  "precode_correction": {
+    "review": "findings/precode-review.json PC01\u2013PC04",
+    "status": "definition corrected; actual root rereview pending",
+    "ownership": {
+      "lease_seconds": 180,
+      "reaping_grace_seconds": 30,
+      "ticket_owner_identity": "Immutable attempt_id + target/binding/revision/generation/epoch + process-instance UUID, boot ID, owner PID/start identity, exact child PID/start identity when spawned. Persist ownership before IO. PID alone and timestamps/heartbeat alone are insufficient.",
+      "acquire": "SQLite BEGIN IMMEDIATE/CAS jointly excludes an active collection lease and active clear/clock operation. begin_collection and existing claim share this gate. Contending collection/collection and collection/clear-clock have exactly one durable winner; loser code collection_busy_or_maintenance or existing operation_busy_or_cooldown, no BMC IO.",
+      "deadline": "All acquisition and at most one reservation retry share one monotonic180s total deadline. At exhaustion, stop issuing commands, terminate only the exact owned child, escalate kill if needed and reap within30s grace. Preserve fixed per-command bounds and output limits. No complete-success from expired work.",
+      "trusted_owner_probe": "Manager.collection_owner_status(ticket) is the narrow local process-inspection boundary; returns running, unverifiable or dead_child_reaped. The last value requires proof of exact old process-instance death and old child absence/reaping with PID/start/boot association. Caller-supplied assertions, wall time or missing heartbeat are not proof. Unknown proof stays held.",
+      "recovery_api": "recover_collection(bmc_ip,attempt_id) may release only a matching read lease after started_at+210s and trusted dead_child_reaped proof, under a short DB CAS. A live/unverifiable owner is not reclaimed. Owner persists until proof even if this holds the host. It never dispatches or reclaims a clear/clock mutation.",
+      "late_ticket": "Old/expired/recovered ticket finish fails before row inserts/success. It cannot release or modify newer active_attempt_id/owner. Any release compares exact attempt_id and owner identity. Shared mutation outcome-unknown reconciliation retains its existing stronger rules unchanged."
+    },
+    "freshness": {
+      "threshold_seconds": "max(120,2*POLL_INTERVAL+180)",
+      "source": "Only committed last_complete_success_at; probe observed_at, generic is_reachable/last_check and last_attempt_at cannot refresh it.",
+      "empty": "Complete count0 commits non-null fresh success and durable baseline.",
+      "failed_or_skipped": "Safe failed/skipped outcome preserves prior complete-success timestamp and original evidence; stale remains true after threshold."
+    },
+    "producer_integration": {
+      "entrypoints": [
+        "collection_worker(worker_id)",
+        "collect_all_events()"
+      ],
+      "contract": "Existing native getter may return list-compatible event batch carrying immutable acquisition ticket/snapshot metadata. Both normal producers must invoke the same finish_collection atomic persistence path, including empty results and failed/skipped attempts. No second bulk/manual insertion policy; no mocking the finish boundary in verification.",
+      "tests": "Parameterize actual worker/bulk + success/acquisitionfailure/storagefailure over existing raw/subprocess boundary. Assert durable collection status/counts and no historical alert replay.",
+      "warning": "Current missing API/collection health produces planned feature RED; downstream correctness is not verified until source GREEN."
+    },
+    "redirects": "Real RedfishClient._get Session.get must set allow_redirects=False. Explicit non2xx including302 cannot return a complete page even if response.json contains Members. Single fake Session response only, no local HTTP server.",
+    "validation": "Accessible incomplete collection is held and cannot count as a successful complete-cycle acceptance. Honest degraded display remains necessary but insufficient."
+  },
+  "current_source_result": ".traceweaver/charlotte-sel-20261111/root-source-acceptance.json"
+}

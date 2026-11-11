@@ -1,0 +1,406 @@
+FFFFFFF                                                                  [100%]
+=================================== FAILURES ===================================
+_____ test_observe_does_not_overwrite_concurrent_collection_commit[lease] ______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10eac7e10>
+concurrent = 'lease'
+
+    @pytest.mark.parametrize('concurrent', ['lease', 'success'])
+    def test_observe_does_not_overwrite_concurrent_collection_commit(collection_site, monkeypatch, concurrent):
+        app, db, _models, runtime, _alerts = collection_site
+        manager = runtime.sel_manager
+        committed = []
+        info = {'entries': 7, 'free_bytes': 128, 'percent_used': 0,
+                'last_add': '02000000', 'last_erase': '00000000'}
+        with app.app_context():
+            target = manager.target(BMC)
+            target.health = json.dumps({'info': info})
+            fingerprint = json.loads(target.fingerprint)
+            original_generation = target.generation
+            db.session.commit()
+        def during_info():
+            with app.app_context():
+                ticket = manager.begin_collection(BMC)
+                if concurrent == 'success':
+                    assert manager.finish_collection(ticket, snapshot=snapshot())['outcome'] == 'persisted'
+                committed.append(json.loads(manager.target(BMC).collection_state))
+            # An older probe cannot apply this erase after a newer collection commit.
+            return dict(info, last_erase='01000000')
+        adapter = SimpleNamespace(fingerprint=lambda: fingerprint, info=during_info, logging=lambda: 8,
+            clock=lambda: {'native_seconds': 0, 'offset_minutes': None, 'quality': 'uninitialized'}, close=lambda: None)
+        monkeypatch.setattr(manager, 'adapter', lambda target: adapter)
+        with app.app_context():
+            manager.observe(BMC)
+            target = manager.target(BMC)
+            actual = json.loads(target.collection_state)
+>           assert actual == committed[0], 'observer must merge against durable current state, never its stale JSON'
+E           AssertionError: observer must merge against durable current state, never its stale JSON
+E           assert {'baseline_co...t': None, ...} == {'active_atte...724707Z', ...}
+E             
+E             Omitting 7 identical items, use -vv to show
+E             Differing items:
+E             {'outcome': None} != {'outcome': 'in_progress'}
+E             {'last_attempt_at': None} != {'last_attempt_at': '2026-11-11T06:07:08.724707Z'}
+E             Left contains 2 more items:
+E             {'continuity': False, 'generation_erase': '01000000'}...
+E             
+E             ...Full output truncated (24 lines hidden), use '-vv' to show
+
+tests/test_sel_collection_state.py:560: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 08:07:08,448] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 08:07:08,448] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+____ test_observe_does_not_overwrite_concurrent_collection_commit[success] _____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ed508a0>
+concurrent = 'success'
+
+    @pytest.mark.parametrize('concurrent', ['lease', 'success'])
+    def test_observe_does_not_overwrite_concurrent_collection_commit(collection_site, monkeypatch, concurrent):
+        app, db, _models, runtime, _alerts = collection_site
+        manager = runtime.sel_manager
+        committed = []
+        info = {'entries': 7, 'free_bytes': 128, 'percent_used': 0,
+                'last_add': '02000000', 'last_erase': '00000000'}
+        with app.app_context():
+            target = manager.target(BMC)
+            target.health = json.dumps({'info': info})
+            fingerprint = json.loads(target.fingerprint)
+            original_generation = target.generation
+            db.session.commit()
+        def during_info():
+            with app.app_context():
+                ticket = manager.begin_collection(BMC)
+                if concurrent == 'success':
+                    assert manager.finish_collection(ticket, snapshot=snapshot())['outcome'] == 'persisted'
+                committed.append(json.loads(manager.target(BMC).collection_state))
+            # An older probe cannot apply this erase after a newer collection commit.
+            return dict(info, last_erase='01000000')
+        adapter = SimpleNamespace(fingerprint=lambda: fingerprint, info=during_info, logging=lambda: 8,
+            clock=lambda: {'native_seconds': 0, 'offset_minutes': None, 'quality': 'uninitialized'}, close=lambda: None)
+        monkeypatch.setattr(manager, 'adapter', lambda target: adapter)
+        with app.app_context():
+            manager.observe(BMC)
+            target = manager.target(BMC)
+            actual = json.loads(target.collection_state)
+>           assert actual == committed[0], 'observer must merge against durable current state, never its stale JSON'
+E           AssertionError: observer must merge against durable current state, never its stale JSON
+E           assert {'baseline_co...t': None, ...} == {'active_atte...tion': 0, ...}
+E             
+E             Omitting 1 identical items, use -vv to show
+E             Differing items:
+E             {'baseline_complete': False} != {'baseline_complete': True}
+E             {'native_received': None} != {'native_received': 7}
+E             {'last_complete_success_at': None} != {'last_complete_success_at': '2026-11-11T06:07:08.947917Z'}
+E             {'outcome': None} != {'outcome': 'persisted'}...
+E             
+E             ...Full output truncated (20 lines hidden), use '-vv' to show
+
+tests/test_sel_collection_state.py:560: AssertionError
+_____ test_actual_single_host_manual_route_finishes_native_batch[complete] _____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10ef452d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ed5e690>
+result = 'complete'
+
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'acquisition_failure', 'storage_failure'])
+    def test_actual_single_host_manual_route_finishes_native_batch(collection_site, native_boundary, monkeypatch, result):
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        normal_raw = adapter.raw
+        if result == 'empty':
+            def empty_raw(netfn, command, *data):
+                if (netfn, command) == (10, 0x40): return bytes.fromhex('5100008000020000000000000002')
+                return normal_raw(netfn, command, *data)
+            monkeypatch.setattr(adapter, 'raw', empty_raw)
+        if result == 'acquisition_failure':
+            monkeypatch.setattr(adapter, 'raw', lambda *args: (_ for _ in ()).throw(sel.SELUnavailable('device_timeout')))
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda ip: None)
+        scheduled = []
+        monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=lambda: scheduled.append(target)))
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(logged_in=True, username='testadmin', user_role='admin')
+        response = client.post('/api/collect?bmc_ip=' + BMC)
+        assert response.status_code == 200 and len(scheduled) == 1
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            scheduled[0]()  # Real handler/collector/persistence; only scheduling is controlled.
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+            state = json.loads(runtime.sel_manager.target(BMC).collection_state)
+>           assert state['active_attempt_id'] is None
+E           AssertionError: assert '2f89cb2d-e87b-49a5-9093-011318e8073a' is None
+
+tests/test_sel_collection_state.py:601: AssertionError
+______ test_actual_single_host_manual_route_finishes_native_batch[empty] _______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10ef47ab0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10eb73ac0>
+result = 'empty'
+
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'acquisition_failure', 'storage_failure'])
+    def test_actual_single_host_manual_route_finishes_native_batch(collection_site, native_boundary, monkeypatch, result):
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        normal_raw = adapter.raw
+        if result == 'empty':
+            def empty_raw(netfn, command, *data):
+                if (netfn, command) == (10, 0x40): return bytes.fromhex('5100008000020000000000000002')
+                return normal_raw(netfn, command, *data)
+            monkeypatch.setattr(adapter, 'raw', empty_raw)
+        if result == 'acquisition_failure':
+            monkeypatch.setattr(adapter, 'raw', lambda *args: (_ for _ in ()).throw(sel.SELUnavailable('device_timeout')))
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda ip: None)
+        scheduled = []
+        monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=lambda: scheduled.append(target)))
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(logged_in=True, username='testadmin', user_role='admin')
+        response = client.post('/api/collect?bmc_ip=' + BMC)
+        assert response.status_code == 200 and len(scheduled) == 1
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            scheduled[0]()  # Real handler/collector/persistence; only scheduling is controlled.
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+            state = json.loads(runtime.sel_manager.target(BMC).collection_state)
+>           assert state['active_attempt_id'] is None
+E           AssertionError: assert 'd95a166d-3e9a-43b0-ad1a-a322da195075' is None
+
+tests/test_sel_collection_state.py:601: AssertionError
+_ test_actual_single_host_manual_route_finishes_native_batch[acquisition_failure] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10ef44ca0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10eff5040>
+result = 'acquisition_failure'
+
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'acquisition_failure', 'storage_failure'])
+    def test_actual_single_host_manual_route_finishes_native_batch(collection_site, native_boundary, monkeypatch, result):
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        normal_raw = adapter.raw
+        if result == 'empty':
+            def empty_raw(netfn, command, *data):
+                if (netfn, command) == (10, 0x40): return bytes.fromhex('5100008000020000000000000002')
+                return normal_raw(netfn, command, *data)
+            monkeypatch.setattr(adapter, 'raw', empty_raw)
+        if result == 'acquisition_failure':
+            monkeypatch.setattr(adapter, 'raw', lambda *args: (_ for _ in ()).throw(sel.SELUnavailable('device_timeout')))
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda ip: None)
+        scheduled = []
+        monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=lambda: scheduled.append(target)))
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(logged_in=True, username='testadmin', user_role='admin')
+        response = client.post('/api/collect?bmc_ip=' + BMC)
+        assert response.status_code == 200 and len(scheduled) == 1
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+            scheduled[0]()  # Real handler/collector/persistence; only scheduling is controlled.
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse_insert)
+        with app.app_context():
+            state = json.loads(runtime.sel_manager.target(BMC).collection_state)
+>           assert state['active_attempt_id'] is None
+E           AssertionError: assert 'ae006726-53d8-47cb-9438-bd3ffbfb98fd' is None
+
+tests/test_sel_collection_state.py:601: AssertionError
+_ test_actual_single_host_manual_route_finishes_native_batch[storage_failure] __
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10ef47cc0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10f006750>
+result = 'storage_failure'
+
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'acquisition_failure', 'storage_failure'])
+    def test_actual_single_host_manual_route_finishes_native_batch(collection_site, native_boundary, monkeypatch, result):
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        adapter, _calls = native_boundary()
+        normal_raw = adapter.raw
+        if result == 'empty':
+            def empty_raw(netfn, command, *data):
+                if (netfn, command) == (10, 0x40): return bytes.fromhex('5100008000020000000000000002')
+                return normal_raw(netfn, command, *data)
+            monkeypatch.setattr(adapter, 'raw', empty_raw)
+        if result == 'acquisition_failure':
+            monkeypatch.setattr(adapter, 'raw', lambda *args: (_ for _ in ()).throw(sel.SELUnavailable('device_timeout')))
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime.sel_manager, 'tick', lambda ip: None)
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda ip: None)
+        scheduled = []
+        monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=lambda: scheduled.append(target)))
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(logged_in=True, username='testadmin', user_role='admin')
+        response = client.post('/api/collect?bmc_ip=' + BMC)
+        assert response.status_code == 200 and len(scheduled) == 1
+        def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse_insert)
+        try:
+>           scheduled[0]()  # Real handler/collector/persistence; only scheduling is controlled.
+            ^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:596: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/ipmi_monitor/app.py:9491: in collect_single
+    existing = _existing_sel_event(event)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:7481: in _existing_sel_event
+    sel_manager.target(event.bmc_ip)
+src/ipmi_monitor/sel_management.py:990: in target
+    server = self.current_server(bmc_ip)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/sel_management.py:975: in current_server
+    binding = runtime.InventoryBinding.query.filter_by(bmc_ip=bmc_ip).first()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/query.py:2766: in first
+    return self.limit(1)._iter().first()  # type: ignore
+           ^^^^^^^^^^^^^^^^^^^^^
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/query.py:2864: in _iter
+    result: Union[ScalarResult[_T], Result[_T]] = self.session.execute(
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:2373: in execute
+    return self._execute_internal(
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:2250: in _execute_internal
+    ) = compile_state_cls.orm_pre_session_exec(
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/context.py:577: in orm_pre_session_exec
+    session._autoflush()
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:3073: in _autoflush
+    raise e.with_traceback(sys.exc_info()[2])
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:3062: in _autoflush
+    self.flush()
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:4353: in flush
+    self._flush(objects)
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:4488: in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/util/langhelpers.py:122: in __exit__
+    raise exc_value.with_traceback(exc_tb)
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/session.py:4449: in _flush
+    flush_context.execute()
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/unitofwork.py:465: in execute
+    rec.execute(self)
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/unitofwork.py:641: in execute
+    util.preloaded.orm_persistence.save_obj(
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/persistence.py:69: in save_obj
+    ) in _organize_states_for_save(base_mapper, states, uowtransaction):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/persistence.py:235: in _organize_states_for_save
+    mapper.dispatch.before_insert(mapper, connection, state)
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/event/attr.py:516: in __call__
+    fn(*args, **kw)
+../../Library/Python/3.14/lib/python/site-packages/sqlalchemy/orm/events.py:893: in wrap
+    fn(*arg, **kw)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+args = (<Mapper at 0x10e606e40; IPMIEvent>, <sqlalchemy.engine.base.Connection object at 0x10f034230>, <IPMIEvent (transient 4546841968)>)
+
+>   def refuse_insert(*args): raise OperationalError('fixture insert refused', {}, Exception('synthetic'))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   sqlalchemy.exc.OperationalError: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+E   (builtins.Exception) synthetic
+E   [SQL: fixture insert refused]
+E   (Background on this error at: https://sqlalche.me/e/20/e3q8)
+
+tests/test_sel_collection_state.py:593: OperationalError
+_______ test_manual_collection_rejects_unconfigured_target_before_any_io _______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ed16050>
+
+    def test_manual_collection_rejects_unconfigured_target_before_any_io(collection_site, monkeypatch):
+        app, _db, _models, runtime, _alerts = collection_site
+        seen = []
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda ip: seen.append('sensor'))
+        monkeypatch.setattr(runtime, 'get_ipmi_credentials', lambda ip: seen.append('credentials'))
+        monkeypatch.setattr(runtime.threading, 'Thread', lambda **kw: seen.append('thread'))
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(logged_in=True, username='testadmin', user_role='admin')
+        response = client.post('/api/collect?bmc_ip=192.0.2.250')
+>       assert response.status_code == 404
+E       assert 500 == 404
+E        +  where 500 = <WrapperTestResponse streamed [500 INTERNAL SERVER ERROR]>.status_code
+
+tests/test_sel_collection_state.py:624: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 08:07:10,263] ERROR: Unhandled exception: 'NoneType' object has no attribute 'start'
+Traceback (most recent call last):
+  File "/opt/homebrew/lib/python3.14/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/opt/homebrew/lib/python3.14/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py", line 9499, in api_trigger_collection
+    threading.Thread(target=collect_single, daemon=True).start()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'start'
+------------------------------ Captured log call -------------------------------
+ERROR    ipmi_monitor.app:app.py:19865 Unhandled exception: 'NoneType' object has no attribute 'start'
+Traceback (most recent call last):
+  File "/opt/homebrew/lib/python3.14/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "/opt/homebrew/lib/python3.14/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py", line 9499, in api_trigger_collection
+    threading.Thread(target=collect_single, daemon=True).start()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'start'
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_observe_does_not_overwrite_concurrent_collection_commit[lease]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3287: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 94 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_observe_does_not_overwrite_concurrent_collection_commit[lease]
+FAILED tests/test_sel_collection_state.py::test_observe_does_not_overwrite_concurrent_collection_commit[success]
+FAILED tests/test_sel_collection_state.py::test_actual_single_host_manual_route_finishes_native_batch[complete]
+FAILED tests/test_sel_collection_state.py::test_actual_single_host_manual_route_finishes_native_batch[empty]
+FAILED tests/test_sel_collection_state.py::test_actual_single_host_manual_route_finishes_native_batch[acquisition_failure]
+FAILED tests/test_sel_collection_state.py::test_actual_single_host_manual_route_finishes_native_batch[storage_failure]
+FAILED tests/test_sel_collection_state.py::test_manual_collection_rejects_unconfigured_target_before_any_io
+7 failed, 39 deselected, 95 warnings in 2.12s

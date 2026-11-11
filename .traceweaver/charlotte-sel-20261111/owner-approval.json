@@ -1,0 +1,12 @@
+{
+  "recorded_at_utc": "2026-11-11T04:35:37.868538+00:00",
+  "authority_source": "Direct human user message in the Charlotte CCC94 investigation chat",
+  "exact_user_message": "Approve repair. We need to ask the Ipmi mounting session to fix the gaps it should maintain healthy connection and ensure sel logs are getting collected",
+  "approved_plan": "/Users/hanneszietsman/CrypotAI/charlottecolo.com/output/reports/Charlotte-SEL-Audit-and-Repair-Plan-2026-11-11.txt",
+  "approved_plan_sha256": "c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de",
+  "scope": "Approved numbered collector repair, compatible Charlotte rollout, guarded CCC90/91 clock correction and manual CCC93/95/96 clears only after fresh identity/archive guards; reliable connections and verifiable per-host SEL persistence/freshness",
+  "execution_owner": "Existing Add IPMI log monitoring controls session",
+  "messaging_authorized": true,
+  "sending_chat_role": "Evidence/handoff only after delegation; no competing production or BMC mutations",
+  "not_authorized": "Unrelated LTX deployment, silent major upgrade, chassis reset/power cycle, firmware or credential rotation, unguarded log clear; no automatic clearing/clock policy activation"
+}

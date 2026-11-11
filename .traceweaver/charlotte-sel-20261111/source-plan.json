@@ -1,0 +1,30 @@
+{
+  "authority": "root-precode-review.json PASS_SCOPED_DEFINITION_FOR_SOURCE",
+  "steps": [
+    "1. Reuse all precode REDs and existing mutation/PTY/qualification coverage; add minimum real owner proof and parsing/decoder boundary checks before those repairs.",
+    "2. Add sel_collection.py for strict read profiles, local process identity, bounded Redfish links and raw native decoding; no framework or dependencies.",
+    "3. Implement bounded native prefix recovery and durable collection ownership/atomic finish in sel_management.py; retain mutation timeout and all qualification gates.",
+    "4. Route worker and bulk through native snapshot result and common finish, sanitize reached IPMI leaf commands; display collection freshness in four existing panels.",
+    "5. Run focused and full required regression/build/compile/JS checks, record exact evidence and candidate manifest; return for independent review."
+  ],
+  "files": [
+    "src/ipmi_monitor/sel_collection.py",
+    "src/ipmi_monitor/sel_management.py",
+    "src/ipmi_monitor/app.py",
+    "tests/test_sel_collection_state.py",
+    "tests/test_sel_collection_regressions.py",
+    "templates/dashboard.html",
+    "templates/server_detail.html",
+    "src/ipmi_monitor/templates/dashboard.html",
+    "src/ipmi_monitor/templates/server_detail.html",
+    "traceability-matrix.md",
+    ".traceweaver/charlotte-sel-20261111/",
+    "docs/validation/charlotte-sel-20261111.md"
+  ],
+  "risks": [
+    "Synthetic tests cannot qualify firmware or prove native timing",
+    "Incomplete native collection remains visibly failed",
+    "Unknown process/child proof retains lease",
+    "No version, dependency, CI, publication or live changes"
+  ]
+}

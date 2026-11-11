@@ -1,0 +1,8 @@
+{
+  "src/ipmi_monitor/app.py": "af9d0739f58c9edf563b03d3ba4bdf46d0bfc9cf82ba35a1834410236ca588aa",
+  "src/ipmi_monitor/sel_management.py": "b90a903b1d4acb1459aa8bf1686c9a862bdd26cfce235f7cffbc145e33e8c7bc",
+  "src/ipmi_monitor/sel_qualifications.py": "b9280b9737ad929d673a31ce90d93a4fca64631bb7f682e92dc7d4eb01a54e17",
+  "tests/test_sel_management.py": "b57e392a58d53b7aa2796755bba2bbd7a5975f6e8cec8ab958f3919dff23bacf",
+  "tests/test_sel_persistent.py": "867ae07a2635684dfa00e15372edb458b3b1fc7409a9c6dc403cf391d5b93e46",
+  "tests/test_sel_qualifications.py": "24448e235b33d84307480dc684c73db4c68186fb9a18c2e9ff00550d0923aa5b"
+}

@@ -1,0 +1,10 @@
+src/ipmi_monitor/app.py:6381:def collect_ipmi_sel(bmc_ip, server_name):
+src/ipmi_monitor/app.py:6432:def collect_sel(bmc_ip, server_name):
+src/ipmi_monitor/app.py:6434:    return collect_ipmi_sel(bmc_ip, server_name)
+src/ipmi_monitor/app.py:6675:def collect_single_server(bmc_ip, server_name):
+src/ipmi_monitor/app.py:6678:        events = collect_ipmi_sel(bmc_ip, server_name)
+src/ipmi_monitor/app.py:6683:def collect_all_events():
+src/ipmi_monitor/app.py:6972:def collection_worker(worker_id):
+src/ipmi_monitor/app.py:6999:                        events = collect_ipmi_sel(bmc_ip, server_name)
+src/ipmi_monitor/app.py:7536:def collection_scheduler():
+src/ipmi_monitor/app.py:9501:                events = collect_ipmi_sel(bmc_ip, server_name)

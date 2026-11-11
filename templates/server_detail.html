@@ -2697,7 +2697,7 @@ No data collected yet. Click "Refresh" to collect system information.
     panel.append(list);
     const root = document.querySelector('main, .main-content, .container') || document.body;
     root.append(panel);
-    const labels = {healthy:'Healthy', full:'Full', nearly_full:'Nearly Full', logging_disabled:'Logging Disabled',
+    const labels = {collection_degraded:'SEL collection degraded', collection_failed:'SEL collection failed or stale', healthy:'Healthy', full:'Full', nearly_full:'Nearly Full', logging_disabled:'Logging Disabled',
                     clock_incorrect:'Clock Incorrect', clock_unknown:'Clock reference or timezone unknown', overflow:'Past events dropped (overflow)', unknown:'Unknown / Stale'};
     const element = (tag, text) => { const node = document.createElement(tag); node.textContent = text; return node; };
     async function load() {
@@ -2713,6 +2713,17 @@ No data collected yet. Click "Refresh" to collect system information.
                 row.style.cssText = 'padding:14px 0;border-bottom:1px solid var(--border-color,#444)';
                 row.append(element('strong', data.server_name + ' (' + data.bmc_ip + ')'));
                 const state = data.health || {};
+                const collection = data.collection || {};
+                const count = value => value == null ? 'unknown' : String(value);
+                row.append(element('p', 'SEL collection: ' + (collection.in_progress ? 'reading' : collection.outcome || 'not collected') +
+                    (collection.stale ? ' · stale' : ' · fresh') + (collection.safe_reason ? ' · ' + collection.safe_reason : '')));
+                row.append(element('small', 'Last complete success: ' + (collection.last_complete_success_at || 'none') +
+                    ' · Last attempt: ' + (collection.last_attempt_at || 'none') +
+                    ' · Complete native expected / received / persisted: ' + count(collection.native_expected) + ' / ' +
+                    count(collection.native_received) + ' / ' + count(collection.native_persisted)));
+                if (collection.consecutive_failures) row.append(element('small', ' · Failed attempts: ' + collection.consecutive_failures +
+                    ' · Last attempt received: ' + count(collection.last_attempt_received)));
+
                 const warnings = state.flags?.length ? state.flags.map(flag => labels[flag] || labels.unknown) : [labels[state.state] || labels.unknown];
                 row.append(element('p', warnings.join(' · ') + (state.percent_used == null ? '' : ' · ' + state.percent_used.toFixed(1) + '% used')));
                 row.append(element('small', 'Observed: ' + (state.observed_at || 'not observed') +
@@ -2748,7 +2759,7 @@ No data collected yet. Click "Refresh" to collect system information.
                         ['enable','Enable Event Logging','/sel/enable'], ['clock','Sync BMC Clock Now','/sel/clock'],
                         ['clear','Clear Backed-up BMC SEL','/clear_sel']]) {
                         const button = element('button', label); button.type='button'; button.className='btn';
-                        button.disabled = !data.capabilities[action].available || !!data.operation && !['complete','failed'].includes(data.operation.state);
+                        button.disabled = !!collection.in_progress || !data.capabilities[action].available || !!data.operation && !['complete','failed'].includes(data.operation.state);
                         button.title = button.disabled ? data.capabilities[action].reason : label;
                         button.addEventListener('click', async () => {
                             if (!confirm(label + ' for ' + data.server_name + '? Saved history is retained.')) return;

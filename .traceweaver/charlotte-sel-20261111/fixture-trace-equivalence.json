@@ -1,0 +1,10 @@
+{
+  "classification": "no_impact",
+  "helper_limit": "Structured JSON requires metadata field; propose-only helper correctly paused, no helper edits. Applied single structured trace metadata value under approved work-loop scope; no exception or weakened scanner.",
+  "old_sha256": "327eeb7bcf9e867f8dce44538b496d44451116fdaa9dfebcf30ab5e36993ee86",
+  "new_sha256": "a62b24cd84cb9a4a19013cb856a496f6afc8ae17b610bac69c27fd40ec52b026",
+  "all_payload_fields_unchanged": true,
+  "record_count": 7,
+  "raw_records_sha256": "4a41eee21f62bf9a2d7da0f6d28227cb34c7cdd1f23d105c8c7c892aa0d7c4cb",
+  "mapping": "001 complete health,002 raw prefix recovery,003 stable raw dedup; existing two consumer files"
+}

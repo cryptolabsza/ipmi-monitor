@@ -1,0 +1,11 @@
+trace_anchor_authoring_status=applied
+trace_anchor_authoring_target=src/ipmi_monitor/sel_management.py
+trace_anchor_authoring_anchor_type=entrypoint
+trace_anchor_authoring_requirement=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005
+trace_anchor_authoring_trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005
+trace_anchor_authoring_verification=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
+trace_anchor_authoring_anchor=# TRACEWEAVER: entrypoint=finish_redfish_locked; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
+trace_anchor_authoring_matrix_row=| src/ipmi_monitor/sel_management.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | explicit-redfish-diagnostic-persistence |
+trace_anchor_authoring_file_changed=true
+trace_anchor_authoring_matrix_changed=true
+trace_anchor_authoring_reason=TraceWeaver reviewed hierarchy maps this artifact to REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005.
