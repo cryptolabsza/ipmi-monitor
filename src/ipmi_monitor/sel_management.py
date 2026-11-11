@@ -740,12 +740,35 @@ def register_sel_management(runtime):
             target_id = target.id
             state = self.collection_state(target)
             if state.get('active_attempt_id'):
-                # Recovery inspects actual local owner/child identities outside a write lock.
+                # The exact live producer may retry its own lost failure receipt.
+                # This is completion through finish/CAS, never age-only recovery.
+                ticket = state.get('active_ticket') or {}
                 try:
-                    self.recover_collection(bmc_ip, state['active_attempt_id'])
-                except SELUnavailable:
-                    db.session.rollback()
-                    raise SELUnavailable('collection_busy_or_maintenance') from None
+                    owner = process_identity(os.getpid())
+                    own_terminal_read = (
+                        not target.active_operation and
+                        ticket.get('process_instance') == PROCESS_INSTANCE and
+                        all(ticket.get('owner', {}).get(key) == owner.get(key)
+                            for key in ('pid', 'start', 'boot', 'namespace')) and
+                        isinstance(ticket.get('child'), dict) and
+                        ticket.get('child_state') in {'running', 'reaped'} and
+                        (utcnow() - datetime.fromisoformat(ticket['started_at'].rstrip('Z'))).total_seconds()
+                            > READ_SECONDS + REAP_SECONDS and
+                        time.monotonic() > ticket['deadline'] + REAP_SECONDS and
+                        child_is_terminal(ticket))
+                except (OSError, ValueError, TypeError, KeyError, AttributeError):
+                    own_terminal_read = False
+                if own_terminal_read:
+                    self.finish_collection(ticket, error='device_deadline_exceeded')
+                    target = self.target(bmc_ip)
+                    state = self.collection_state(target)
+                # Recovery inspects actual local owner/child identities outside a write lock.
+                if state.get('active_attempt_id'):
+                    try:
+                        self.recover_collection(bmc_ip, state['active_attempt_id'])
+                    except SELUnavailable:
+                        db.session.rollback()
+                        raise SELUnavailable('collection_busy_or_maintenance') from None
             try:
                 target = self.collection_lock(target_id)
                 server = self.current_server(bmc_ip)

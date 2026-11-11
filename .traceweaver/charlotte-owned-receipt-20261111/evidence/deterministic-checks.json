@@ -1,0 +1,10 @@
+{
+  "src/ipmi_monitor/sel_management.py": "Python3.9 AST PASS",
+  "tests/test_sel_collection_state.py": "Python3.9 AST PASS",
+  "git diff --check": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "feature_version": "1.2.0 unchanged"
+}
