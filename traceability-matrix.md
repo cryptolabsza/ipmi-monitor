@@ -112,6 +112,12 @@ This section maps only the exact accepted IPMI delta; file-level sets describe t
 | src/ipmi_monitor/app.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | manual-native-collection |
 | src/ipmi_monitor/sel_management.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | serialized-health-observation |
 | src/ipmi_monitor/sel_management.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | explicit-redfish-diagnostic-persistence |
+| tests/test_sel_activation.py | REQ-SEL-004 | TRACE-SEL-004 | VER-SEL-004 | verifies | maintenance-activation-verification |
+| src/ipmi_monitor/sel_qualifications.py | REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | typed-qualification-admission |
+| src/ipmi_monitor/sel_management.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-001; VER-SEL-002; VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | dual-archive-final-barrier |
+| src/ipmi_monitor/sel_qualifications.py | REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | durable-commissioning-promotion |
+| tests/test_sel_activation.py | REQ-SEL-003 | TRACE-SEL-003 | VER-SEL-003 | verifies | durable-local-promotion-verification |
+| src/ipmi_monitor/sel_qualifications.py | REQ-SEL-003; REQ-SEL-004; REQ-SEL-005 | TRACE-SEL-003; TRACE-SEL-004; TRACE-SEL-005 | VER-SEL-003; VER-SEL-004; VER-SEL-005 | entrypoint | durable-promotion-acceptance |
 
 
 ### Owner-approved unsupported-format trace route
@@ -232,3 +238,18 @@ Runtime identity still names cipher17 as the adapter default. Each admitted reco
 binds its actual supported transport. Loader hash changes intentionally invalidate
 old runtime-bound envelopes/records; no relabeling, pointer replacement, registry
 activation, automatic fallback or policy arming is authorized by this evidence.
+
+
+## SEL maintenance activation — 11 November 2026
+
+| Requirement/Trace | Source delta | Verification | Validation/held claims |
+| --- | --- | --- | --- |
+| REQ-SEL-001 / TRACE-SEL-001 | Existing capability representation reports v2 phase and consumed manual availability | VER-SEL-001; existing health/render contracts and tests/test_sel_activation.py | VAL-SEL-001; source verification only, live eligibility held |
+| REQ-SEL-002 / TRACE-SEL-002 | sel_management.py dual archive at final clear/clock barrier, original clear reservation | VER-SEL-002; tests/test_sel_activation.py backup/failure/final corruption/empty clock and tests/test_sel_persistent.py actual-child paths | VAL-SEL-002; exact hardware guard and first finite clear held |
+| REQ-SEL-003 / TRACE-SEL-003 | Existing operation UNIQUE commission UUID, retained audit/raw/collection receipts, managed CAS and local-result promotion | VER-SEL-003; claim race/restart and explicit root Linux promotion lane; tests/sel_qualification_linux.py CAS/history | VAL-SEL-003; actual target completion, preserved history and collection held |
+| REQ-SEL-004 / TRACE-SEL-004 | Typed evidence/owner scope and independent automatic phase gates at policy/execute/claim/final authority | VER-SEL-004; tests/test_sel_activation.py and unchanged registry/admin/intent/origin contracts | VAL-SEL-004; root-only physical admission and fresh policy consent held |
+| REQ-SEL-005 / TRACE-SEL-005 | Complete raw archive before clock while preserving mapping/TLS/reference/ownership/offset guards | VER-SEL-005; existing offsets/refusals and valid-empty/actual-child clock tests | VAL-SEL-005; no device clock qualified by source fixtures |
+
+Source authority: `.traceweaver/maintenance-activation-20261111/authority.json`; frozen profile and root precode GO retained alongside it. Final source reviews, protected publication and target acceptance remain separate.
+
+Current scoped source acceptance: `.traceweaver/maintenance-activation-20261111/root-source-acceptance.json` and `evidence-index.json` retain authentic precode/repair RED, final524-pass suite, actual isolated Linux clear+clock application/lifetime/custody/CAS proofs,14 browser cases, independent Astra repair closure and38-case fresh Sol verification. Supported Python anchors and manual HTML/browser equivalence pass. This accepts the reviewed source only; protected publication, official immutable artifact, actual site preservation, exact device commissioning, fresh automatic consent and full requirement/intended-use validation remain separate held gates.

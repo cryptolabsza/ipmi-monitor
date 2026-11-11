@@ -1,0 +1,98 @@
+{
+  "id": "WORK-SEL-ACTIVATION-20261111",
+  "status": "PRECODE_CANDIDATE_ROOT_REVIEW_REQUIRED",
+  "utc": "2026-11-11T18:38:16.647743+00:00",
+  "baseline": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-002",
+    "REQ-SEL-003",
+    "REQ-SEL-004",
+    "REQ-SEL-005"
+  ],
+  "accepted_design": "../astra-commissioning-contract.json; root accepted architecture and owner_scope clarification",
+  "steps": [
+    {
+      "n": 1,
+      "files": [
+        "requirements.md",
+        "traceability-matrix.md",
+        ".traceweaver/intent-contract.yml",
+        ".traceweaver/maintenance-activation-20261111/*"
+      ],
+      "work": "Add current owner authority/scope and evidence projections without rewriting historical scopes. Freeze reviewed v2 schema and source-only GO. Preserve original REQ/TRACE/VER/VAL IDs."
+    },
+    {
+      "n": 2,
+      "files": [
+        "tests/test_sel_management.py",
+        "tests/test_sel_qualifications.py",
+        "tests/test_sel_persistent.py",
+        "tests/sel_qualification_linux.py"
+      ],
+      "work": "Reuse real Flask/SQLite/adapter fixtures. Land preauthored backup and typed manual-admission RED; add minimal parameterized failure guards and persistent one-use/CAS/promotion cases before corresponding production slices."
+    },
+    {
+      "n": 3,
+      "files": [
+        "src/ipmi_monitor/sel_management.py"
+      ],
+      "work": "Add shared canonical DB+fsynced file snapshot helper inside measured module. Private DATA_DIR/sel-archives, UUID files, mode0600 O_EXCL/O_NOFOLLOW, owner/regular/link checks, bounded writes, fsync file+dir and independent readback. Bind operation ID, full fingerprint, generation, epoch, reservation, qualification, time. Revalidate both representations at final authorization barrier. Preserve one session/reservation. Clock also takes complete raw snapshot before any write, permits valid empty snapshot, retains existing mapping/trust/ownership/reference/offset guards. Coordinate eligible archive file retention; preserve ledger/audit and active archives."
+    },
+    {
+      "n": 4,
+      "files": [
+        "src/ipmi_monitor/sel_qualifications.py",
+        "src/ipmi_monitor/sel_management.py"
+      ],
+      "work": "Keep v1 parser unchanged; dispatch v2 parser with strict common fields/typed evidence/closed claim-kind map. owner_scope kind is distinct consent, strict target/full fingerprint/action/commission ID/max1/expiry and owner instruction. Reject duplicate/ambiguous target-action matches. Manual clear admission requires vendor+native+source evidence; source never replaces hardware claims. Clock retains additional CA/ownership/mapping controls."
+    },
+    {
+      "n": 5,
+      "files": [
+        "src/ipmi_monitor/sel_management.py"
+      ],
+      "work": "Add nullable UNIQUE commission_id to existing SELOperation with additive SQLite migration. Under existing BEGIN IMMEDIATE claim transaction verify phase/current scope/binding, enforce unique attempt ID, reserve ownership, persist commission_consumed audit and operation atomically. Consume on claim even later failure; never refund on changed bundle. Check automatic_qualified independently in policy/execute/claim/final authority. Expose phase truthfully in existing capability representation."
+    },
+    {
+      "n": 6,
+      "files": [
+        "src/ipmi_monitor/sel_qualifications.py",
+        "src/ipmi_monitor/cli.py"
+      ],
+      "work": "Explicit replace CLI with expected pointer SHA plus candidate envelope SHA; preserve initial install and environment override refusal. Existing DB authority lock requires autos off and no unresolved operations; revalidate current and candidate runtime/bundle/custody, exact pointer CAS, durable transition intent/history before atomic pointer publication+directory fsync. Report unknown publication without replay. Promotion crosschecks actual local complete manual clear operation, original binding, matching target/action/fingerprint/runtime, archive pair/audit/readback and genuine subsequent ordinary collection. New consent required after replacement; retain previous pointer linkage."
+    },
+    {
+      "n": 7,
+      "files": [
+        "docs/sel-commissioning.md",
+        "docs/validation/sel-maintenance-activation-20261111.md",
+        "traceability-matrix.md",
+        ".traceweaver/maintenance-activation-20261111/*"
+      ],
+      "work": "Document two phases, exact evidence, consent transition, same-volume durability limit, safe retention and unknown outcomes. Run focused tests then broader affected source tests and actual Linux fixed qualification/persistent integration; author measured code anchors through packaged helper, scan and record source identity/logs. Final Astra+fresh Sol/root verification max2 review rounds and1 repair. No live permission from this work."
+    }
+  ],
+  "must_not_change": [
+    "saved history retention duration",
+    "v1 strict evidence requirements",
+    "same reservation/session erase",
+    "unknown-outcome ownership/no replay",
+    "credential transport/admin session intent/origin checks",
+    "unknown clock mapping/offset refusal",
+    "CCC90-93 clock held; CCC94 all actions excluded",
+    "no deps/CIinfra/version changes on dev"
+  ],
+  "tradeoffs": [
+    "DB plus fsynced file are independently verified durable representations on one volume; not disaster recovery independence.",
+    "Existing operation ledger + unique UUID avoids a parallel job engine; ledger receipts outlive archive/event retention.",
+    "Distinct v2 parser preserves v1 truth; source evidence cannot certify real firmware.",
+    "Replacement uses short existing SQLite authority fence with local publication only; network probes never inside long DB transaction."
+  ],
+  "dependency_changes": false,
+  "precode_limits": [
+    "Backup RED authentic; complete v2 schema/admission RED now authored in scratch and requires root review.",
+    "Promotion/CAS/race/failure parameterizations still must be preauthored and demonstrated RED before corresponding production slice.",
+    "No full precode GO, source acceptance, runtime qualification, operational acceptance or publication claim."
+  ]
+}

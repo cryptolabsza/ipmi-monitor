@@ -1,0 +1,26 @@
+{
+  "id": "ROOT-REPAIR1-ADV-SEL-001",
+  "utc": "2026-11-11T19:33:50.906300+00:00",
+  "decision": "CONFIRMED_P1_PROCEED_ONE_BOUNDED_REPAIR",
+  "finding": "ADV-SEL-001",
+  "review_sha256": "e0f1ee3dfc3e5f4164a696a8d2792fd4e68d957e8390412d710039db05307226",
+  "reason": "Clock parent binding must reconstruct the same CA path normalization used by actual commissioning selection; current unequal hashes reject every successful clockpromotion",
+  "allowed_files": [
+    "src/ipmi_monitor/sel_qualifications.py",
+    "tests/test_sel_activation.py",
+    "tests/sel_qualification_linux.py if existing lane extension needs it",
+    ".traceweaver/maintenance-activation-20261111/ and docs/evidence coherent corrections"
+  ],
+  "production_delta": "Resolve historical record trust paths against exact original parent bundle before runtime original-binding reconstruction; keep structural accepted-record hashes separate",
+  "verification": "Genuine old-candidate RED using real existing managed Linux/SQLite/files/API clock commissioning->ordinarycollection->promotion (TLS/externaltool faithful existing substitutes only), then sameGREEN. Reuse v1 existing clockoffset tests/clear lifetime lane/CAS. Combined clear-clock record only if supported/minimal. Currentfullsuite aftercorrectedsource, rootindependentvalidation+sameAstraidentityrerun",
+  "boundaries": [
+    "No v1 strict changes",
+    "No CA/hostname/reference/NTP/ownership bypass",
+    "No authority/source/module/package/deps/version/liveops change",
+    "No hiddenqualrecord/source fixture installation on live",
+    "Sameoneuse/dualbackup/acceptedreceipt/CAS/freshconsent safeguards"
+  ],
+  "timebox_minutes": 12,
+  "repair_cycle": 1,
+  "publication": "HOLDuntilconfirmedP1closedandcurrentgatespass"
+}

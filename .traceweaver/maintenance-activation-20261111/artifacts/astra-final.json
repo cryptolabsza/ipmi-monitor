@@ -1,0 +1,78 @@
+{
+  "reviewer": "adversarial",
+  "reviewed_at": "2026-11-11T19:31:20.774380+00:00",
+  "depth": "deep",
+  "changed_non_test_lines": 824,
+  "base": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "candidate_manifest": "/Users/hanneszietsman/CrypotAI/artifacts/ipmi-maintenance-activation-20261111/review-candidate-source.json",
+  "source_manifest_all_eight_hashes_verified": true,
+  "CODE_verdict": "HOLD: one reproducible P1 blocks clock promotion; clear-only path has no independently identified blocking finding",
+  "HARDWARE_PREREQ_verdict": "SUPPORTED_FOR_NARROW_FIRST_MANUAL_CLEAR_SUBJECT_TO_FRESH_GATES",
+  "findings": [
+    {
+      "id": "ADV-SEL-001",
+      "severity": "P1",
+      "confidence": 100,
+      "title": "Successful clock commissioning can never promote because CA resolution changes the recorded binding",
+      "file": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/src/ipmi_monitor/sel_qualifications.py",
+      "line": 590,
+      "end_line": 599,
+      "evidence": [
+        "A v2 clock record necessarily contains a relative ntp_probe.ca_file (validate_registry lines 507\u2013515). The installed manual record is returned by operator_state only after resolve_trust changes this path to an absolute bundle path (lines 785\u2013788 and 824).",
+        "qualification_selection hashes the resolved entire record; claim persists that binding in the durable manual operation. The same applies to clear when its record also includes a clock action.",
+        "verify_promotions reads the historical bundle with read_bundle and hashes old[0] at lines 590\u2013593 without resolve_trust. Thus it computes a different original_binding and rejects the legitimate completed operation at lines 598\u2013600 as promotion_local_operation_mismatch. Supplying the correct actual binding in the result cannot satisfy both comparisons.",
+        "Independent minimal execution of the actual resolve_trust and canonical binding algorithms produced promotion binding 51fa29a4a3cc36c275e42f151b8081d3c285a52d50e456c17100482467470f38 versus commissioned binding c504ef8a5bf0b14723c91a431ce9c922d32114359bd94f0588f02f429f5a9417 for ca.pem versus /data/sel-qualifications/bundles/<digest>/ca.pem. No external runtime condition is required."
+      ],
+      "reproducer": "Install an otherwise valid v2 manual clock record with ca_file=ca.pem, complete its qualified clock operation and subsequent collection, build an otherwise valid automatic promotion result using the persisted qualification_binding, then replace the exact manual pointer. verify_promotions rejects the operation because the two record hashes use different CA path forms.",
+      "remedy": "Reconstruct the historical runtime record exactly before calculating original_binding: resolve_trust on the historical records against base/bundles/parent envelope digest, or share a single consistent binding function between runtime selection and promotion. Keep canonical structural acceptance hashing separate. Add the smallest real Linux/SQLite/files/API clock commissioning-to-promotion roundtrip using the existing lane, with realistic TLS substitute and supported offset; include a combined clear/clock record if supported.",
+      "autofix_class": "manual",
+      "owner": "downstream-resolver"
+    }
+  ],
+  "verification": {
+    "performed": [
+      "Read source/authority/lifetime GO and workflow profile; original REQ-SEL-001..005 and intent references; commissioning and lifetime architecture receipts.",
+      "Inspected complete changed manager/qualification flows, private acceptance persistence, archive lifetime, exact-pointer replacement, owner-scope expiry, UI automatic availability and existing activation tests.",
+      "Independently executed actual resolve_trust binding witness, and verified all eight frozen candidate hashes.",
+      "Inspected retained real root Linux lifetime log: PASS through clear commissioning, archive cleanup, receipt/local-row tamper, carry-forward and fresh automatic clear. This external-device boundary is synthetic.",
+      "Read retained normative IPMI sections 31.4, 31.4.1, 31.4.2, 31.9 and raw 12-command genuine diagnostic plus subsequent ordinary collection receipt."
+    ],
+    "suite_status": "full-suite-lifetime-final.log has terminal 524 passed, 4326 warnings, 183.77s. Current full-suite-frozen-final.log was still incomplete at inspection (~68%+); no final pass inferred.",
+    "no_source_edits": true,
+    "no_tests_or_live_commands_dispatched": true,
+    "hardware_packet_hash_checks": {
+      "attempt-3/LIVE-RESULT.json": true,
+      "attempt-3/root-live-go.json": true,
+      "attempt-3/fixed_driver.py": true,
+      "attempt-3/runtime_bridge.py": true,
+      "attempt-3/strict_launcher.py": true,
+      "intel-ipmi-v2-e7.pdf": true,
+      "supermicro-model-excerpt.json": true
+    }
+  },
+  "hardware_assessment": {
+    "actual_observation": "Stable exact authenticated Device ID/GUID and SEL info; reservation A partial offset=1 succeeds, distinct B issued, same A read explicitly rejected C5, same B read succeeds; 12 fixed commands. Subsequent ordinary collection receipt reports persisted complete collection, no active attempt, both policies false.",
+    "inference": "IPMI 2.0 normative reservation rules require Clear SEL to reject cancelled reservations and insertion to cancel reservations. Exact model primary web receipt advertises IPMI 2.0, consistent with authenticated Device ID/version/capability. The observed restricted-command token invalidation provides a reasonable hardware basis for one tightly scoped backed-up manual clear.",
+    "not_observed": [
+      "No physical Clear SEL or insertion test was issued. No erase/readback/automatic promotion success is claimed.",
+      "Model excerpt is a primary web-reader receipt, not original downloaded publisher PDF bytes; model PDF download failed.",
+      "Diagnostic runtime was installed 1.4.6/source 1a933d31a03d1e2825cc8521c80f2715e02b2a55; final source runtime admission must bind the newly deployed exact code/tool separately."
+    ],
+    "future_gates": [
+      "Accepted final source and immutable deployment/site verification",
+      "Fresh exact configured target Device ID/GUID/firmware/transport/tool/source identity",
+      "Finite one-use owner scope/commission UUID and current ordinary collection",
+      "Complete same-reservation raw snapshot in both durable DB and fsynced verified file before final dispatch",
+      "Real first clear completion/readback/saved history and subsequent ordinary collection before promotion; separate fresh automatic consent",
+      "Clock remains held for missing supported offset/mapping/trust/writer ownership; CCC94 remains excluded"
+    ]
+  },
+  "residual_risks": [
+    "The trusted-local acceptance scheme intentionally does not defend against an administrator rewriting all private receipt files and DB together.",
+    "Expired or invalid current automatic pointers fail current operator_state validation during replacement; safe refusal may require explicit reviewed recovery. No ordinary renewal liveness claim established here.",
+    "No independent full-suite rerun, BMC action, deployment, runtime acceptance or requirement closure performed by this review."
+  ],
+  "testing_gaps": [
+    "Retained genuine Linux promotion lane exercises clear-only manual records and strips ntp_probe; therefore it misses the confirmed cross-component clock binding defect."
+  ]
+}

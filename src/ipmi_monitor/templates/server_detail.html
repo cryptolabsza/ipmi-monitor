@@ -2428,7 +2428,7 @@ No data collected yet. Click "Refresh" to collect system information.
                     for (const [key,label] of [['automatic_clear','Automatic Clearing (confirmed full only)'],['automatic_clock','Automatic Clock Correction']]) {
                         const wrapper=element('label',''); const input=document.createElement('input'); input.type='checkbox';
                         input.checked=data.policies[key] === true;
-                        input.disabled=!input.checked && !data.capabilities[key === 'automatic_clear' ? 'clear' : 'clock'].available;
+                        input.disabled=!input.checked && data.capabilities[key === 'automatic_clear' ? 'clear' : 'clock'].automatic_available !== true;
                         input.addEventListener('change', async () => { input.disabled=true;
                             try { await send('/api/server/' + encodeURIComponent(ip) + '/sel/policy', {[key]:input.checked}); }
                             catch { alert('Policy update unavailable'); await load(); }
@@ -2436,6 +2436,8 @@ No data collected yet. Click "Refresh" to collect system information.
                     }
                     row.append(controls);
                 }
+                if (Object.values(data.capabilities).some(capability => capability.phase === 'manual_commissioning'))
+                    row.append(element('p', 'Automatic maintenance awaits a verified manual operation.'));
                 if (!Object.values(data.capabilities).some(capability => capability.available))
                     row.append(element('p', 'Hardware actions unavailable until this exact device, firmware and transport are qualified.'));
                 list.append(row);

@@ -1,0 +1,42 @@
+{
+  "decision": "PASS_BOUNDED_SEL_MAINTENANCE_SOURCE_FOR_PROTECTED_PUBLICATION",
+  "utc": "2026-11-11T19:50:59.613727+00:00",
+  "baseline": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "reviewed_source_manifest_sha256": "49527b5a5e99910bbdd6147b5f67e737e6cd0100fd7d22ae984d731c5714a374",
+  "production_sha256": {
+    "src/ipmi_monitor/sel_management.py": "baafe40522faad5e29c6332f950ad127755e3bc7cc5b98cf1bd089a9ea6bd5c2",
+    "src/ipmi_monitor/sel_qualifications.py": "db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b"
+  },
+  "evidence_index": "evidence-index.json",
+  "reviews": [
+    "artifacts/astra-final.json:confirmedADV-SEL-001",
+    "artifacts/astra-repair1.json:PASS;ADV-SEL-001closed;0open",
+    "artifacts/independent-result.json:PASS_SOURCE_LOCAL_DELIVERY_AND_REPAIRED_OPS_PREPARATION_LIMITED_SCOPE"
+  ],
+  "tests": {
+    "full_current_mac": "524 passed;0skip;180.45s; actual local Chromium/process/kernel lanes",
+    "independent_host": "38 unique retained cases PASS (2 UI sandbox blocks resolved by scoped escalation; no assertion weakened)",
+    "linux_actual_application": "Managed clock AND clear commissioning/promotion/expiry/retention/tamper/carryforward/fresh-auto/current-dualarchive PASS; synthetic external IPMI/TLS boundary explicitly retained",
+    "linux_installed_custody_cas": "9 PASS",
+    "browser_phase": "14 PASS incl2 new manual-phase restrictions, overlapping fullsuite not summed as unique extra tests"
+  },
+  "v1_validator_body_AST_unchanged": true,
+  "lean_test_value": "Meaningful old-source failures retained for missing backup/mode/one-use/CAS/promotion/child-clock/UI/lifetime and confirmed CA-binding incident; existing component fixtures and suites reused.502 baseline ->524 current count diagnostic only.",
+  "root_checked": [
+    "Actual changed code/diff, source manifests rehashed, genuine RED/final terminal logs, all phase/claim/archive/receipt/CAS/offset/security boundaries",
+    "Independent reviewer raw finding and exact3-line repaired CA normalization; retained current Linux clear+clock actualcomponent workflows",
+    "Scoped supported-Python anchor preflight0findings/full reviewed V&V0findings; HTML explicitly manual/actual-rendered-browser proof",
+    "Canonical checkout userdirtyAGENTS.md/tests/__init__.py untouched; feature/dev version/deps/CI untouched",
+    "No target hardware/clock/timewriter qualification or automatic consent inferred from synthetic fixtures"
+  ],
+  "requirements_meaning_unchanged": true,
+  "allowed_route": "Exact freshly issued publication capsule: featurePR to dev; separate merge/release1.5.0 and officialartifact/target gates. No liveactivationfromsourceacceptance.",
+  "held": [
+    "Protected publication/CI/dev-main release1.5.0",
+    "Official immutable artifact and actual installed artifact QA",
+    "Fresh site checkpoint/runtime/data preservation and2normalcollections",
+    "Exact device admission/finite first manual operation and realpositivebackup/readback/history/collection",
+    "Fresh independent policy consent; all currently live policies remain OFF",
+    "Clock companyCA/provisioning/mapping/timewriter evidence; CCC94excluded; fullREQ/VALclosure not claimed"
+  ]
+}

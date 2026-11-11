@@ -1,0 +1,209 @@
+FFF                                                                      [100%]
+=================================== FAILURES ===================================
+___ test_typed_manual_commissioning_admits_one_manual_action_but_never_auto ____
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10635/test_typed_manual_commissionin0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cd6b5c0>
+
+    def test_typed_manual_commissioning_admits_one_manual_action_but_never_auto(
+            qualified_site, monkeypatch):
+        """Synthetic typed admission exercises real loader/API/SQLite, never hardware."""
+        (client, app, db, _models, runtime, commands), state, registry = qualified_site
+        value = json.loads(registry.read_bytes())
+        record = value['records'][0]
+        record.pop('clock_semantics')
+        record.pop('ntp_probe')
+        record.pop('supporting_evidence')
+        record['evidence_artifacts'] = []
+        commission_id = '1ea50bc7-be62-41b2-a47d-051bddbce088'
+        with app.app_context():
+            target_id = runtime.SELTarget.query.one().id
+        base = {'schema': 'sel-typed-evidence/2', 'record_id': record['record_id'],
+                'fingerprint': record['fingerprint'], 'runtime_identity': record['runtime_identity'],
+                'action': 'clear', 'provenance': 'synthetic unit fixture; never physical evidence'}
+    
+        def artifact(kind, **extra):
+            body = dict(base, kind=kind, **extra)
+            payload = json.dumps(body, sort_keys=True).encode()
+            path = registry.parent / (kind + '.json')
+            path.write_bytes(payload)
+            digest = hashlib.sha256(payload).hexdigest()
+            record['evidence_artifacts'].append({'path': path.name, 'kind': kind, 'sha256': digest})
+            return digest
+    
+        owner = artifact('owner_scope', target_id=target_id, commission_id=commission_id,
+            max_attempts=1, approved_at=record['approved_at'], expires_at=record['expires_at'],
+            owner_instruction='synthetic bounded owner receipt for unit test only')
+        vendor = artifact('vendor_semantics', evidence={'source_sha256': 'a' * 64,
+            'section': 'synthetic exact model/firmware conditional erase semantics',
+            'applicability': record['fingerprint']})
+        native = artifact('native_guard_observation', observed_at=record['approved_at'],
+            probe_id='7c2f7e03-93c0-44dc-a30b-b2a624991e55',
+            raw_receipts=[{'command': [10, 66], 'response': '3412'}],
+            evidence={'competing_reservation': 'synthetic_observed', 'insertion': 'unobserved_vendor_bound'})
+        source = artifact('source_guard_verification', evidence={
+            'environment': 'local synthetic subprocess fixture',
+            'tests': ['same_reservation', 'dual_archive', 'no_retry'], 'log_sha256': 'b' * 64})
+        record['actions'] = {'clear': {'phase': 'manual_commissioning', 'commission_id': commission_id,
+            'owner_scope_sha256': owner, 'claims': {
+                'reservation_required_for_erase': [vendor, native],
+                'same_reservation_snapshot_and_clear': [vendor, native, source],
+                'insertion_invalidates_or_equivalent_guard': [vendor, native],
+                'competing_reservation_invalidates': [vendor, native],
+                'complete_dual_archive_before_dispatch': [source],
+                'bounded_completion_and_unknown_reconciliation': [source],
+                'saved_history_preserved': [source]}}}
+        value['schema'] = 'sel-device-qualification/2'
+        registry.write_text(json.dumps(value))
+        monkeypatch.setenv('SEL_QUALIFICATIONS_SHA256', hashlib.sha256(registry.read_bytes()).hexdigest())
+        headers, data = intent(client)
+        denied = client.post(f'/api/server/{BMC}/sel/policy', json=dict(data, automatic_clear=True), headers=headers)
+        assert denied.status_code == 409
+        headers, data = intent(client)
+        first = client.post(f'/api/server/{BMC}/clear_sel', json=data, headers=headers)
+>       assert first.status_code == 200, first.get_json()
+E       AssertionError: {'error': 'exact_hardware_qualification_required', 'message': 'exact hardware qualification required'}
+E       assert 409 == 200
+E        +  where 409 = <WrapperTestResponse streamed [409 CONFLICT]>.status_code
+
+tests/test_sel_activation.py:73: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 20:38:43,894] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 20:38:43,894] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+_ test_raw_snapshot_has_two_matching_durable_representations_before_write[clear-71-/api/server/192.0.2.40/clear_sel] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10635/test_raw_snapshot_has_two_matc0/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cfd5e00>
+action = 'clear', command = 71, path = '/api/server/192.0.2.40/clear_sel'
+
+    @pytest.mark.parametrize('action,command,path', [
+        ('clear', 0x47, f'/api/server/{BMC}/clear_sel'),
+        ('clock', 0x49, f'/api/server/{BMC}/sel/clock'),
+    ])
+    def test_raw_snapshot_has_two_matching_durable_representations_before_write(
+            qualified_site, monkeypatch, action, command, path):
+        (client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+        original = runtime.subprocess.run
+        observations = []
+    
+        def observe_dispatch(argv, **kwargs):
+            if 'raw' in argv:
+                values = [int(value, 16) for value in argv[argv.index('raw') + 1:]]
+                if values[:2] == [0x0a, command]:
+                    # Observe at the actual write boundary, before simulated effect.
+                    with app.app_context():
+                        archives = runtime.SELArchive.query.all()
+                        payloads = [row.payload.encode() for row in archives]
+                        files = list((Path(os.environ['DATA_DIR']) / 'sel-archives').glob('*.json'))
+                        observations.append({
+                            'database_payloads': payloads,
+                            'files': [p.read_bytes() for p in files],
+                            'digests_valid': all(row.sha256 == hashlib.sha256(row.payload.encode()).hexdigest()
+                                                 for row in archives),
+                        })
+            return original(argv, **kwargs)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', observe_dispatch)
+        headers, data = intent(client)
+        response = client.post(path, json=data, headers=headers)
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json()['state'] == 'complete'
+        assert observations, f'{action} must reach its guarded write in this positive fixture'
+        for observed in observations:
+            assert len(observed['database_payloads']) == 1, 'raw snapshot missing before hardware write'
+            assert observed['digests_valid']
+>           assert observed['files'] == observed['database_payloads'], 'independent durable file copy missing/mismatched before hardware write'
+E           AssertionError: independent durable file copy missing/mismatched before hardware write
+E           assert [] == [b'{"collecte...cd82e82b79"}']
+E             
+E             Right contains one more item: b'{"collected_at": "2026-11-11T18:38:44.476790Z", "complete": true, "fingerprint": {"adapter": "sel-raw-v3-persistent"...5", "record_id": 1}], "reservation": "3412", "snapshot_epoch": 1, "target_id": "b19d1c7c-8701-4c09-9334-49cd82e82b79"}'
+E             Use -v to get more diff
+
+tests/test_sel_activation.py:128: AssertionError
+_ test_raw_snapshot_has_two_matching_durable_representations_before_write[clock-73-/api/server/192.0.2.40/sel/clock] _
+
+qualified_site = ((<FlaskClient <Flask 'ipmi_monitor.app'>>, <Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_mo...9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10635/test_raw_snapshot_has_two_matc1/qualifications.json'))
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10d357770>
+action = 'clock', command = 73, path = '/api/server/192.0.2.40/sel/clock'
+
+    @pytest.mark.parametrize('action,command,path', [
+        ('clear', 0x47, f'/api/server/{BMC}/clear_sel'),
+        ('clock', 0x49, f'/api/server/{BMC}/sel/clock'),
+    ])
+    def test_raw_snapshot_has_two_matching_durable_representations_before_write(
+            qualified_site, monkeypatch, action, command, path):
+        (client, app, _db, _models, runtime, _commands), _state, _registry = qualified_site
+        original = runtime.subprocess.run
+        observations = []
+    
+        def observe_dispatch(argv, **kwargs):
+            if 'raw' in argv:
+                values = [int(value, 16) for value in argv[argv.index('raw') + 1:]]
+                if values[:2] == [0x0a, command]:
+                    # Observe at the actual write boundary, before simulated effect.
+                    with app.app_context():
+                        archives = runtime.SELArchive.query.all()
+                        payloads = [row.payload.encode() for row in archives]
+                        files = list((Path(os.environ['DATA_DIR']) / 'sel-archives').glob('*.json'))
+                        observations.append({
+                            'database_payloads': payloads,
+                            'files': [p.read_bytes() for p in files],
+                            'digests_valid': all(row.sha256 == hashlib.sha256(row.payload.encode()).hexdigest()
+                                                 for row in archives),
+                        })
+            return original(argv, **kwargs)
+    
+        monkeypatch.setattr(runtime.subprocess, 'run', observe_dispatch)
+        headers, data = intent(client)
+        response = client.post(path, json=data, headers=headers)
+        assert response.status_code == 200, response.get_json()
+        assert response.get_json()['state'] == 'complete'
+        assert observations, f'{action} must reach its guarded write in this positive fixture'
+        for observed in observations:
+>           assert len(observed['database_payloads']) == 1, 'raw snapshot missing before hardware write'
+E           AssertionError: raw snapshot missing before hardware write
+E           assert 0 == 1
+E            +  where 0 = len([])
+
+tests/test_sel_activation.py:126: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_activation.py::test_typed_manual_commissioning_admits_one_manual_action_but_never_auto
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:3289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_activation.py: 68 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_activation.py::test_typed_manual_commissioning_admits_one_manual_action_but_never_auto
+tests/test_sel_activation.py::test_raw_snapshot_has_two_matching_durable_representations_before_write[clear-71-/api/server/192.0.2.40/clear_sel]
+tests/test_sel_activation.py::test_raw_snapshot_has_two_matching_durable_representations_before_write[clock-73-/api/server/192.0.2.40/sel/clock]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:6664: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_activation.py::test_typed_manual_commissioning_admits_one_manual_action_but_never_auto
+tests/test_sel_activation.py::test_raw_snapshot_has_two_matching_durable_representations_before_write[clear-71-/api/server/192.0.2.40/clear_sel]
+tests/test_sel_activation.py::test_raw_snapshot_has_two_matching_durable_representations_before_write[clock-73-/api/server/192.0.2.40/sel/clock]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:6668: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_activation.py::test_typed_manual_commissioning_admits_one_manual_action_but_never_auto
+FAILED tests/test_sel_activation.py::test_raw_snapshot_has_two_matching_durable_representations_before_write[clear-71-/api/server/192.0.2.40/clear_sel]
+FAILED tests/test_sel_activation.py::test_raw_snapshot_has_two_matching_durable_representations_before_write[clock-73-/api/server/192.0.2.40/sel/clock]
+3 failed, 75 warnings in 1.27s

@@ -1,0 +1,15 @@
+WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested
+[2026-11-11 19:37:40,009] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 19:37:40,010] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+{"action": "clock", "cases": ["actual one-use admin clock", "dual archive preserved", "genuine ordinary collection", "dormant pre-publication receipt held", "managed promotion after retired manual expiry", "normal archive cleanup retained acceptance", "receipt/op tamper rejected", "unchanged carry-forward", "fresh consent and automatic clock with fresh dual archive"], "environment": "root Linux isolated network none; synthetic external tool/TLS only", "result": "PASS"}

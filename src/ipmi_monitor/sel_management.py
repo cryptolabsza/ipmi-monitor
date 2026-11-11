@@ -12,6 +12,7 @@ import os
 import re
 import select
 import secrets
+import stat
 import subprocess
 import sys
 import time
@@ -266,6 +267,8 @@ class IPMISELAdapter:
         self.cipher, self.read_profile = 17, None
         self.profile_verified = False
         self.child_observer = None
+        self.mutation_receipts = []
+        self._mutation_seen = False
 
     def open_session(self, reservation=None):
         if self._shell is None:
@@ -279,9 +282,15 @@ class IPMISELAdapter:
     def raw(self, netfn, command, *data):
         if self.read_profile and not self.profile_verified and (netfn, command) not in {(6, 1), (6, 0x37)}:
             raise SELUnavailable('read_profile_identity_mismatch')
-        if self._shell is not None:
-            return self._shell.raw(netfn, command, *data)
-        return self._run_raw(netfn, command, *data)
+        result = (self._shell.raw(netfn, command, *data) if self._shell is not None
+                  else self._run_raw(netfn, command, *data))
+        if (netfn, command) in {(10, 0x47), (10, 0x49), (10, 0x5d)}:
+            self._mutation_seen = True
+        if self._mutation_seen and (netfn, command) in {(10, 0x47), (10, 0x49), (10, 0x5d), (10, 0x40), (10, 0x48), (10, 0x5c)}:
+            if len(self.mutation_receipts) >= 512:
+                raise SELUnavailable('device_receipt_limit')
+            self.mutation_receipts.append({'command': [netfn, command, *data], 'response': result.hex()})
+        return result
 
     def _run_raw(self, netfn, command, *data):
         if self.terminal_error:
@@ -593,14 +602,22 @@ def qualification_records():
     return qualification_state()['records']
 
 
-def qualification_selection(fingerprint, action):
+def qualification_selection(fingerprint, action, automatic=False):
     from .sel_qualifications import qualification_state
     state = qualification_state()
     for record in state['records']:
-        if record['fingerprint'] == fingerprint and action in record['actions']:
+        if record['fingerprint'] == fingerprint and action in record['actions'] and action_allowed(record, action, automatic):
             return record, digest({'source': state['binding'], 'record': digest(record),
                                    'action': digest(record['actions'][action])})
     return None, None
+
+
+def action_phase(qualification, action):
+    return qualification['actions'][action].get('phase', 'automatic_qualified') if qualification else None
+
+
+def action_allowed(qualification, action, automatic=False):
+    return bool(qualification and (not automatic or action_phase(qualification, action) == 'automatic_qualified'))
 
 
 def qualified(fingerprint, action):
@@ -658,6 +675,7 @@ def register_sel_management(runtime):
         automatic = db.Column(db.Boolean, default=False, nullable=False)
         reason = db.Column(db.String(80), nullable=False)
         qualification_binding = db.Column(db.String(64))
+        commission_id = db.Column(db.String(36), unique=True)
         archive_id = db.Column(db.String(36))
         outcome = db.Column(db.String(80))
         evidence = db.Column(db.Text)
@@ -950,6 +968,9 @@ def register_sel_management(runtime):
                         last_attempt_persisted=received, consecutive_failures=0, failure_since=None)
                     state.update(active_attempt_id=None, active_ticket=None)
                     target.collection_state = json.dumps(state, sort_keys=True)
+                    self.audit(target, 'collection_persisted', {'attempt_id': ticket['attempt_id'],
+                        'receipt_digest': state['receipt_digest'], 'generation': target.generation,
+                        'fingerprint': fingerprint, 'expected': expected, 'persisted': received}, subject='collector')
                     db.session.commit()
                     if continuity:
                         for row in new_events:
@@ -1301,8 +1322,21 @@ def register_sel_management(runtime):
             target = self.refresh_consent(target)
             server = self.current_server(target.bmc_ip)
             fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
-            capabilities = {action: {'available': bool(server.protocol != 'redfish' and target.failure_count < 3 and fingerprint and qualified(fingerprint, action)),
-                            'reason': 'Exact device/firmware qualification required'} for action in ('clear', 'enable', 'clock')}
+            capabilities = {}
+            for action in ('clear', 'enable', 'clock'):
+                qualification = qualified(fingerprint, action)
+                phase = action_phase(qualification, action)
+                available = bool(qualification)
+                if phase == 'manual_commissioning':
+                    admission = qualification['actions'][action]
+                    scope = qualification['_owner_scopes'][admission['owner_scope_sha256']]
+                    available = (scope['target_id'] == target.id and not
+                        SELOperation.query.filter_by(commission_id=admission['commission_id']).first())
+                capabilities[action] = {
+                    'phase': phase,
+                    'automatic_available': action in {'clear', 'clock'} and action_allowed(qualification, action, True),
+                    'available': bool(server.protocol != 'redfish' and target.failure_count < 3 and available),
+                    'reason': 'Exact device/firmware qualification required'}
             op = (db.session.get(SELOperation, target.active_operation) if target.active_operation else
                   SELOperation.query.filter_by(target_id=target.id).order_by(SELOperation.created_at.desc()).first())
             return {'bmc_ip': target.bmc_ip, 'server_name': server.server_name, 'target_id': target.id,
@@ -1359,7 +1393,7 @@ def register_sel_management(runtime):
             db.session.expire_all()
             target = db.session.get(SELTarget, target_id)
             fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
-            selections = {action: qualification_selection(fingerprint, action)[1] for action in ('clear', 'clock')}
+            selections = {action: qualification_selection(fingerprint, action, True)[1] for action in ('clear', 'clock')}
             self.revoke_locked(target, selections)
             db.session.commit()
             return target
@@ -1379,10 +1413,12 @@ def register_sel_management(runtime):
                 db.session.rollback()
                 raise SELUnavailable('operation_busy_or_cooldown')
             fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
-            selections = {name: qualification_selection(fingerprint, name)[1] for name in ('clear', 'clock')}
+            selections = {name: qualification_selection(fingerprint, name, True)[1] for name in ('clear', 'clock')}
             if self.revoke_locked(target, selections):
                 raise SELUnavailable('qualification_consent_revoked')
-            _, selection = qualification_selection(fingerprint, action)
+            qualification, selection = qualification_selection(fingerprint, action)
+            if not action_allowed(qualification, action, automatic):
+                raise SELUnavailable('automatic_qualification_required')
             if not selection:
                 raise SELUnavailable('exact_hardware_qualification_required')
             if expected_qualification is not None and selection != expected_qualification:
@@ -1390,10 +1426,19 @@ def register_sel_management(runtime):
             if automatic and (not (target.auto_clear if action == 'clear' else target.auto_clock) or
                     json.loads(target.consent_qualification or '{}').get(action) != selection):
                 raise SELUnavailable('qualification_consent_revoked')
+            commission_id = None
+            if action_phase(qualification, action) == 'manual_commissioning':
+                admission = qualification['actions'][action]
+                owner = qualification['_owner_scopes'][admission['owner_scope_sha256']]
+                if owner['target_id'] != target.id or owner['fingerprint'] != fingerprint:
+                    raise SELUnavailable('commission_target_mismatch')
+                commission_id = admission['commission_id']
+                if SELOperation.query.filter_by(commission_id=commission_id).first():
+                    raise SELUnavailable('commission_already_consumed')
             operation = SELOperation(id=str(uuid.uuid4()), target_id=target.id, action=action,
                 state='queued', identity_revision=target.revision, policy_revision=target.policy_revision,
                 epoch=target.snapshot_epoch, initiator=initiator, automatic=automatic, reason='automatic' if automatic else 'admin_request',
-                qualification_binding=selection)
+                qualification_binding=selection, commission_id=commission_id)
             updated = db.session.query(SELTarget).filter(SELTarget.id == target.id,
                 SELTarget.active_operation.is_(None), SELTarget.revision == target.revision,
                 SELTarget.policy_revision == target.policy_revision,
@@ -1403,6 +1448,9 @@ def register_sel_management(runtime):
                 db.session.rollback()
                 raise SELUnavailable('operation_busy_or_cooldown')
             db.session.add(operation)
+            if commission_id:
+                self.audit(target, 'commission_consumed', {'commission_id': commission_id,
+                    'qualification_binding': selection, 'action': action}, operation)
             self.audit(target, 'operation_queued', {'action': action}, operation)
             db.session.commit()
             return operation
@@ -1420,10 +1468,17 @@ def register_sel_management(runtime):
             if operation.automatic and (target.consent_fingerprint != digest(fingerprint) or
                     not (target.auto_clear if operation.action == 'clear' else target.auto_clock)):
                 raise SELUnavailable('automation_revoked')
-            _, selection = qualification_selection(fingerprint, operation.action)
-            selections = {name: qualification_selection(fingerprint, name)[1] for name in ('clear', 'clock')}
+            qualification, selection = qualification_selection(fingerprint, operation.action)
+            if action_phase(qualification, operation.action) == 'manual_commissioning':
+                admission = qualification['actions'][operation.action]
+                owner = qualification['_owner_scopes'][admission['owner_scope_sha256']]
+                if operation.commission_id != admission['commission_id'] or owner['target_id'] != target.id:
+                    raise SELUnavailable('commission_target_mismatch')
+            selections = {name: qualification_selection(fingerprint, name, True)[1] for name in ('clear', 'clock')}
             if self.revoke_locked(target, selections):
                 raise SELUnavailable('qualification_consent_revoked')
+            if not action_allowed(qualification, operation.action, operation.automatic):
+                raise SELUnavailable('automatic_qualification_required')
             if not selection or selection != operation.qualification_binding:
                 raise SELUnavailable('qualification_revoked')
             if operation.automatic and json.loads(target.consent_qualification or '{}').get(operation.action) != selection:
@@ -1460,6 +1515,8 @@ def register_sel_management(runtime):
             current_credentials = runtime.get_ipmi_credentials(target.bmc_ip)
             if current_credentials != (adapter.user, adapter.secret):
                 raise SELUnavailable('target_credentials_revoked')
+            if operation.action in {'clear', 'clock'}:
+                evidence = dict(evidence, dual_archive=self.verify_archive(target, operation, fingerprint))
             accepted_at = utcnow()
             updated = db.session.query(SELOperation).filter(SELOperation.id == operation.id,
                 SELOperation.state.in_(['queued', 'archiving']), SELOperation.dispatched_at.is_(None)).update(
@@ -1471,6 +1528,122 @@ def register_sel_management(runtime):
             self.audit(target, 'clock_dispatch_intent' if operation.action == 'clock' else 'dispatch_intent', evidence, operation)
             db.session.commit()
             return target, operation
+
+        def archive_directory(self):
+            """Fixed application storage; never accept a caller/BMC filesystem path."""
+            from .sel_qualifications import directory
+            root = os.environ.get('DATA_DIR')
+            if not root or not os.path.isabs(root) or not stat.S_ISDIR(os.lstat(root).st_mode):
+                raise SELUnavailable('archive_storage_unsafe')
+            parent = directory(os.path.realpath(root))
+            try:
+                metadata = os.fstat(parent)
+                if metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022:
+                    raise SELUnavailable('archive_storage_unsafe')
+                try:
+                    os.mkdir('sel-archives', 0o700, dir_fd=parent)
+                    os.fsync(parent)
+                except FileExistsError:
+                    pass
+                fd = os.open('sel-archives', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+                metadata = os.fstat(fd)
+                if metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o700:
+                    os.close(fd)
+                    raise SELUnavailable('archive_storage_unsafe')
+                return fd
+            finally:
+                os.close(parent)
+
+        def archive_file(self, archive_id, payload=None):
+            if str(uuid.UUID(archive_id)) != archive_id:
+                raise SELUnavailable('archive_receipt_invalid')
+            parent = self.archive_directory()
+            try:
+                flags = os.O_NOFOLLOW | os.O_NONBLOCK
+                if payload is not None:
+                    fd = os.open(archive_id + '.json', flags | os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=parent)
+                    try:
+                        self.archive_custody(os.fstat(fd))
+                        remaining = memoryview(payload)
+                        while remaining:
+                            written = os.write(fd, remaining)
+                            if written <= 0:
+                                raise SELUnavailable('archive_write_failed')
+                            remaining = remaining[written:]
+                        os.fsync(fd)
+                    finally:
+                        os.close(fd)
+                    os.fsync(parent)
+                fd = os.open(archive_id + '.json', flags | os.O_RDONLY, dir_fd=parent)
+                try:
+                    self.archive_custody(os.fstat(fd))
+                    with os.fdopen(fd, 'rb', closefd=False) as stream:
+                        value = stream.read(4 * 1024 * 1024 + 1)
+                    if len(value) > 4 * 1024 * 1024:
+                        raise SELUnavailable('archive_size_limit')
+                    return value
+                finally:
+                    os.close(fd)
+            finally:
+                os.close(parent)
+
+        def archive_custody(self, metadata):
+            if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid() or
+                    metadata.st_nlink != 1 or stat.S_IMODE(metadata.st_mode) != 0o600):
+                raise SELUnavailable('archive_storage_unsafe')
+
+# TRACEWEAVER: entrypoint=preserve_snapshot; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004,REQ-SEL-005; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004,TRACE-SEL-005; ver=VER-SEL-001,VER-SEL-002,VER-SEL-003,VER-SEL-004,VER-SEL-005
+        def preserve_snapshot(self, target, operation, snapshot, qualification, fingerprint, adapter):
+            self.recheck(target, operation, adapter, fingerprint)
+            snapshot.update(target_id=target.id, operation_id=operation.id, fingerprint=fingerprint,
+                generation=target.generation, snapshot_epoch=target.snapshot_epoch,
+                qualification_id=qualification['record_id'], qualification_sha256=digest(qualification),
+                qualification_binding=operation.qualification_binding)
+            payload = json.dumps(snapshot, sort_keys=True)
+            encoded = payload.encode()
+            if len(encoded) > 4 * 1024 * 1024:
+                raise SELUnavailable('archive_size_limit')
+            archive = SELArchive(id=str(uuid.uuid4()), target_id=target.id, operation_id=operation.id,
+                generation=target.generation, snapshot_epoch=target.snapshot_epoch,
+                payload=payload, sha256=hashlib.sha256(encoded).hexdigest())
+            db.session.add(archive)
+            operation.archive_id = archive.id
+            evidence = json.loads(operation.evidence or '{}')
+            evidence.update(archive_sha256=archive.sha256, archive_reservation=snapshot['reservation'])
+            operation.evidence = json.dumps(evidence, sort_keys=True)
+            self.audit(target, 'archive_committed', {'receipt': archive.id, 'sha256': archive.sha256,
+                'count': len(snapshot['records'])}, operation)
+            db.session.commit()
+            if self.archive_file(archive.id, encoded) != encoded:
+                raise SELUnavailable('archive_receipt_invalid')
+            db.session.expire_all()
+            self.verify_archive(target, operation, fingerprint)
+            return archive
+
+        def verify_archive(self, target, operation, fingerprint):
+            saved = db.session.get(SELArchive, operation.archive_id) if operation.archive_id else None
+            evidence = json.loads(operation.evidence or '{}')
+            if not saved:
+                raise SELUnavailable('archive_receipt_invalid')
+            encoded = saved.payload.encode()
+            if (saved.sha256 != hashlib.sha256(encoded).hexdigest() or
+                    saved.sha256 != evidence.get('archive_sha256') or self.archive_file(saved.id) != encoded or
+                    saved.target_id != target.id or saved.operation_id != operation.id or
+                    saved.generation != target.generation or saved.snapshot_epoch != operation.epoch):
+                raise SELUnavailable('archive_receipt_invalid')
+            snapshot = json.loads(saved.payload)
+            expected = {'target_id': target.id, 'operation_id': operation.id, 'fingerprint': fingerprint,
+                'generation': target.generation, 'snapshot_epoch': operation.epoch,
+                'qualification_binding': operation.qualification_binding,
+                'qualification_id': evidence.get('qualification_id'),
+                'qualification_sha256': evidence.get('qualification_sha256'),
+                'reservation': evidence.get('archive_reservation')}
+            if (any(snapshot.get(key) != value for key, value in expected.items()) or
+                    snapshot.get('complete') is not True or
+                    snapshot.get('info', {}).get('entries') != len(snapshot.get('records', []))):
+                raise SELUnavailable('archive_receipt_invalid')
+            return {'receipt': saved.id, 'sha256': saved.sha256, 'count': len(snapshot['records']),
+                    'reservation': snapshot['reservation']}
 
         def durability(self):
             if db.engine.dialect.name == 'sqlite':
@@ -1484,6 +1657,8 @@ def register_sel_management(runtime):
             if target.failure_count >= 3:
                 target.auto_clear = target.auto_clock = False
                 target.policy_revision += 1
+            if state == 'complete':
+                evidence = dict(evidence or {}, saved_history_count_after=runtime.IPMIEvent.query.filter_by(bmc_ip=target.bmc_ip).count())
             if evidence is not None:
                 existing = json.loads(operation.evidence or '{}')
                 existing.update(evidence)
@@ -1502,7 +1677,7 @@ def register_sel_management(runtime):
             adapter = self.adapter(target)
             fingerprint = self.identify(target, adapter)
             qualification, selected_binding = qualification_selection(fingerprint, action)
-            if not qualification:
+            if not action_allowed(qualification, action, automatic):
                 self.refresh_consent(target)
                 raise SELUnavailable('exact_hardware_qualification_required')
             if target.revision != expected_revision:
@@ -1510,7 +1685,8 @@ def register_sel_management(runtime):
             operation = self.claim(target, action, initiator, automatic, expected_qualification=selected_binding,
                                    expected_authority=expected_authority)
             operation.evidence = json.dumps({'qualification_id': qualification['record_id'],
-                                             'qualification_sha256': digest(qualification)})
+                                             'qualification_sha256': digest(qualification),
+                                             'saved_history_count_before': runtime.IPMIEvent.query.filter_by(bmc_ip=target.bmc_ip).count()})
             self.audit(target, 'qualification_bound', json.loads(operation.evidence), operation)
             db.session.commit()
             dispatched = False
@@ -1534,26 +1710,7 @@ def register_sel_management(runtime):
                                 raise
                     if not snapshot or not snapshot['complete'] or not snapshot['records']:
                         raise SELUnavailable('no_complete_nonempty_snapshot')
-                    self.recheck(target, operation, adapter, fingerprint)
-                    snapshot.update(target_id=target.id, fingerprint=fingerprint, generation=target.generation,
-                                    snapshot_epoch=target.snapshot_epoch, qualification_id=qualification['record_id'],
-                                    qualification_sha256=digest(qualification))
-                    payload = json.dumps(snapshot, sort_keys=True)
-                    if len(payload) > 4 * 1024 * 1024:
-                        raise SELUnavailable('archive_size_limit')
-                    archive = SELArchive(id=str(uuid.uuid4()), target_id=target.id, operation_id=operation.id,
-                        generation=target.generation, snapshot_epoch=target.snapshot_epoch,
-                        payload=payload, sha256=hashlib.sha256(payload.encode()).hexdigest())
-                    db.session.add(archive)
-                    operation.archive_id = archive.id
-                    self.audit(target, 'archive_committed', {'receipt': archive.id, 'sha256': archive.sha256,
-                        'count': len(snapshot['records'])}, operation)
-                    db.session.commit()
-                    # Read the actual durable receipt back before dispatch.
-                    db.session.expire_all()
-                    saved = db.session.get(SELArchive, archive.id)
-                    if not saved or saved.sha256 != hashlib.sha256(saved.payload.encode()).hexdigest():
-                        raise SELUnavailable('archive_receipt_invalid')
+                    archive = self.preserve_snapshot(target, operation, snapshot, qualification, fingerprint, adapter)
                     target, operation = self.dispatch_intent(target, operation, adapter, fingerprint, {'receipt': archive.id})
                     dispatched = True
                     after = adapter.clear(reservation)
@@ -1561,13 +1718,27 @@ def register_sel_management(runtime):
                     db.session.commit()
                     target.generation += 1
                     target.snapshot_epoch += 1
-                    self.finish(target, operation, 'complete', 'clear_verified', {'after': after})
+                    self.finish(target, operation, 'complete', 'clear_verified', {'after': after, 'raw_receipts': adapter.mutation_receipts})
                 elif action == 'enable':
                     target, operation = self.dispatch_intent(target, operation, adapter, fingerprint, {'action': action})
                     dispatched = True
                     result = adapter.enable()
                     self.finish(target, operation, 'complete', 'logging_enabled_verified', result)
                 elif action == 'clock':
+                    adapter.open_session()
+                    if adapter.fingerprint() != fingerprint:
+                        raise SELUnavailable('identity_or_policy_revoked')
+                    operation.state = 'archiving'
+                    db.session.commit()
+                    reservation = adapter.reserve()
+                    snapshot = adapter.snapshot(reservation)
+                    if snapshot.get('complete') is not True:
+                        raise SELUnavailable('native_snapshot_incomplete')
+                    self.preserve_snapshot(target, operation, snapshot, qualification, fingerprint, adapter)
+                    # Clock writes have their existing fixed direct-command path.
+                    # Reap the read-only shell; its reservation does not make a
+                    # clock change conditional or authorize extra shell commands.
+                    adapter.close()
                     before = adapter.clock()
                     management = adapter.time_management(qualification)
                     if management['managed']:
@@ -1581,7 +1752,7 @@ def register_sel_management(runtime):
                         {'before': before, 'reference': reference, 'time_management': management})
                     dispatched = True
                     result = adapter.sync_clock(qualification, reference, before, management)
-                    self.finish(target, operation, 'complete', 'clock_verified', result)
+                    self.finish(target, operation, 'complete', 'clock_verified', dict(result, raw_receipts=adapter.mutation_receipts))
                 adapter.close()
                 try:
                     self.observe(target.bmc_ip)
@@ -1657,6 +1828,16 @@ def register_sel_management(runtime):
             ids = [r.id for r in SELArchive.query.filter(SELArchive.archived_at < cutoff,
                 SELArchive.id.notin_(protected)).limit(500).all()]
             if ids:
+                parent = self.archive_directory()
+                try:
+                    for archive_id in ids:
+                        try:
+                            os.unlink(archive_id + '.json', dir_fd=parent)
+                        except FileNotFoundError:
+                            pass  # Legacy DB-only archive, or interrupted eligible cleanup.
+                    os.fsync(parent)
+                finally:
+                    os.close(parent)
                 SELArchive.query.filter(SELArchive.id.in_(ids)).delete(synchronize_session=False)
                 db.session.commit()
 
@@ -1695,9 +1876,11 @@ def register_sel_management(runtime):
             with engine.begin() as connection:
                 for table, column, datatype in [('sel_target', 'consent_qualification', 'TEXT'),
                                                  ('sel_operation', 'qualification_binding', 'VARCHAR(64)'),
+                                                 ('sel_operation', 'commission_id', 'VARCHAR(36)'),
                                                  ('sel_target', 'collection_state', 'TEXT')]:
                     if column not in {entry['name'] for entry in inspect(connection).get_columns(table)}:
                         connection.exec_driver_sql(f'ALTER TABLE {table} ADD COLUMN {column} {datatype}')
+                connection.exec_driver_sql('CREATE UNIQUE INDEX IF NOT EXISTS ix_sel_operation_commission_id ON sel_operation (commission_id) WHERE commission_id IS NOT NULL')
 
     manager = Manager()
     runtime.sel_manager = manager
@@ -1844,7 +2027,7 @@ def register_sel_management(runtime):
         fingerprint = json.loads(target.fingerprint) if target.fingerprint else None
         if (data.get('automatic_clear') or data.get('automatic_clock')) and not fingerprint:
             raise SELUnavailable('observed_identity_required')
-        selections = {action: qualification_selection(fingerprint, action)[1] for action in ('clear', 'clock')}
+        selections = {action: qualification_selection(fingerprint, action, True)[1] for action in ('clear', 'clock')}
         consent, armed, revoked = manager.consent_state(target, selections)
         for action in ('clear', 'clock'):
             if data.get('automatic_' + action) is True and not selections[action]:

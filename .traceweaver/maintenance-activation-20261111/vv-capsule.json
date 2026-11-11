@@ -1,0 +1,136 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L3",
+  "work_item_id": "WORK-SEL-ACTIVATION-20261111",
+  "plan_ref": ".traceweaver/maintenance-activation-20261111/plan.json",
+  "authority_ref": ".traceweaver/maintenance-activation-20261111/authority.json",
+  "baseline": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "high_risk_controls": {
+    "rollback": "Stop/disarm without retry, preserve operation/audit/archive and unresolved ownership. Never infer a physical erase or clock write can be undone by source rollback; migration rollback needs consistent DB snapshot and retained subsequent receipts. Pointer rollback is explicit reviewed transition, never raw old active.json restore.",
+    "owner_decision": "RootacceptedsourceGOonly in ../source-go.json; target writes/livequalification/finitecaps rootowned"
+  },
+  "requirements": [
+    {
+      "req_id": "REQ-SEL-001",
+      "trace_id": "TRACE-SEL-001",
+      "ver_id": "VER-SEL-001",
+      "val_id": "VAL-SEL-001",
+      "verification_artifact": "tests/test_sel_activation.py",
+      "red_evidence": ".traceweaver/maintenance-activation-20261111/artifacts/precode-red.log",
+      "validation_artifact": "docs/validation/sel-maintenance-activation-20261111.md",
+      "matrix_row_ref": "traceability-matrix.md SEL maintenance activation 20261111",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-002",
+      "trace_id": "TRACE-SEL-002",
+      "ver_id": "VER-SEL-002",
+      "val_id": "VAL-SEL-002",
+      "verification_artifact": "tests/test_sel_activation.py",
+      "red_evidence": ".traceweaver/maintenance-activation-20261111/artifacts/precode-red.log",
+      "validation_artifact": "docs/validation/sel-maintenance-activation-20261111.md",
+      "matrix_row_ref": "traceability-matrix.md SEL maintenance activation 20261111",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-003",
+      "trace_id": "TRACE-SEL-003",
+      "ver_id": "VER-SEL-003",
+      "val_id": "VAL-SEL-003",
+      "verification_artifact": "tests/test_sel_activation.py",
+      "red_evidence": ".traceweaver/maintenance-activation-20261111/artifacts/precode-red.log",
+      "validation_artifact": "docs/validation/sel-maintenance-activation-20261111.md",
+      "matrix_row_ref": "traceability-matrix.md SEL maintenance activation 20261111",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "ver_id": "VER-SEL-004",
+      "val_id": "VAL-SEL-004",
+      "verification_artifact": "tests/test_sel_activation.py",
+      "red_evidence": ".traceweaver/maintenance-activation-20261111/artifacts/precode-red.log",
+      "validation_artifact": "docs/validation/sel-maintenance-activation-20261111.md",
+      "matrix_row_ref": "traceability-matrix.md SEL maintenance activation 20261111",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        }
+      ]
+    },
+    {
+      "req_id": "REQ-SEL-005",
+      "trace_id": "TRACE-SEL-005",
+      "ver_id": "VER-SEL-005",
+      "val_id": "VAL-SEL-005",
+      "verification_artifact": "tests/test_sel_activation.py",
+      "red_evidence": ".traceweaver/maintenance-activation-20261111/artifacts/precode-red.log",
+      "validation_artifact": "docs/validation/sel-maintenance-activation-20261111.md",
+      "matrix_row_ref": "traceability-matrix.md SEL maintenance activation 20261111",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "ROOT-PRECODE-GO-SEL-ACTIVATION-20261111",
+          "status": "passed",
+          "evidence_path": ".traceweaver/maintenance-activation-20261111/root-source-go.json"
+        }
+      ]
+    }
+  ],
+  "held": "Root precode review passed; final changed-source independent review, operational qualification, target acceptance and publication remain held.",
+  "root_review_ref": "root-precode-go.json"
+}

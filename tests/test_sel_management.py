@@ -229,8 +229,8 @@ def qualified_site(sel_site, monkeypatch, tmp_path):
                 payload = json.loads(archive.payload)
                 assert payload['records'] == [{'record_id': 1, 'raw': raw_record.hex()}]
                 assert archive.sha256 == hashlib.sha256(archive.payload.encode()).hexdigest()
-                assert runtime.SELAudit.query.filter_by(action='archive_committed').count() == 1
-                assert runtime.SELOperation.query.one().state == 'mutating'
+                assert runtime.SELAudit.query.filter_by(action='archive_committed', operation_id=archive.operation_id).count() == 1
+                assert runtime.SELOperation.query.filter_by(id=archive.operation_id).one().state == 'mutating'
             if state['invalidate']:
                 return SimpleNamespace(returncode=1, stdout='', stderr='rsp=0xc5 synthetic-test-secret')
             state['cleared'] = True
@@ -1206,7 +1206,7 @@ def test_auxiliary_firmware_changes_exact_identity_and_revokes_consent(qualified
     (tree, kind, role, prefix) for tree in ('src/ipmi_monitor/templates', 'templates')
     for role in ('admin', 'readonly') for kind, prefix in (('dashboard',''), ('server',''), ('server','/fleet/ipmi'))])
 def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
-        sel_site, login_as, tmp_path, tree, kind, role, prefix):
+        sel_site, login_as, tmp_path, tree, kind, role, prefix, expected_manual=False):
     from html import unescape
     from http.server import BaseHTTPRequestHandler, HTTPServer
     from threading import Thread
@@ -1249,7 +1249,8 @@ def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
             const panel=document.getElementById('selHealthPanel');
             const result={xss:window.SEL_XSS===1,unsafeOptions:document.querySelectorAll('option img,option svg,option [onerror]').length,
                 optionNames:[...document.querySelectorAll('#summaryDevices option,#tasksDevices option,#rcaDevice option')].map(option=>option.textContent),
-                panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0};
+                panelText:panel?.textContent || '',buttons:panel?.querySelectorAll('button').length || 0,
+                autoInputs:[...panel.querySelectorAll('input[type=checkbox]')].map(input=>({disabled:input.disabled,checked:input.checked}))};
             const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify(result);document.body.append(node);
         } catch(error) { const node=document.createElement('pre');node.id='sel-full-page-result';node.textContent=JSON.stringify({fatal:String(error)});document.body.append(node); }
     },800);</script>'''.replace('FIXTURE_SERVERS', json.dumps(responses[prefix+'/api/servers']).replace('</', '<\\/'))
@@ -1295,6 +1296,9 @@ def test_full_rendered_sel_pages_keep_machine_names_text_and_local_health_urls(
     assert hostile in observed['panelText'], observed
     assert observed['buttons'] == (3 if role == 'admin' else 0), observed
     assert prefix + f'/api/server/{BMC}/sel/health' in requests, observed
+    if expected_manual:
+        assert observed['autoInputs'] == [{'disabled': True, 'checked': False}, {'disabled': True, 'checked': False}], observed
+        assert 'Automatic maintenance awaits a verified manual operation.' in observed['panelText'], observed
 
 
 def test_dispatch_intent_serializes_a_revocation_at_the_database_transition(qualified_site):

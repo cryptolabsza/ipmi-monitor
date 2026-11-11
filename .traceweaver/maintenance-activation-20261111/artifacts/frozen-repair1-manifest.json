@@ -1,0 +1,84 @@
+{
+  "status": "REPAIR1_SOURCE_VERIFIED_SAME_ASTRA_FRESH_SOL_ROOT_ACCEPTANCE_HELD",
+  "finding": "ADV-SEL-001",
+  "base_manifest_sha256": "73d245dfc50d9c989241ed711aa05ac43a9ed2f730f26b76db14e0b222f08bfd",
+  "source_files": {
+    ".traceweaver/intent-contract.yml": "b4ae218ce796e4d3c2847a63d840e559396aa2425c700dc5b245b09afe674153",
+    ".traceweaver/maintenance-activation-20261111/authority.json": "953f0aebc263d35b0e4672fcf93e6c78b20f185de0dcca6ba5fe549ea92512c5",
+    ".traceweaver/maintenance-activation-20261111/commissioning-contract.json": "cc9911a02fe84477a0faf41b00070a62ef253557a0a785acb02370fb910fbac9",
+    ".traceweaver/maintenance-activation-20261111/lifetime-source-go.json": "d75c8661785f6ea46d454d78d5e829c9ac3302b8ce6c8af1813a3db8746cd890",
+    ".traceweaver/maintenance-activation-20261111/plan.json": "d23e764f0ded6afbb59afb83139777df1674e72bfb5c805ed3844320ae308b78",
+    ".traceweaver/maintenance-activation-20261111/precode-plan.json": "2c2e52ec44ab38c4a60db0a729afd8ba13bb39d06200cc14858d9b6d80f2c7da",
+    ".traceweaver/maintenance-activation-20261111/precode-provenance.json": "0f47f92e8c36f7dd49746d8fefab33c6ce724b9a2adefeff3c1ff398956da2b1",
+    ".traceweaver/maintenance-activation-20261111/precode-vv-capsule.json": "30f6274accd85336f6b9e6b91610ead315f9d0dfcc6cf14f42f4f445e0bbdeda",
+    ".traceweaver/maintenance-activation-20261111/promotion-lifetime-contract.json": "1bfbeb916c34ba4db065a9593fbcc944018b18fefc54ef64f1a8a4b8dd770eba",
+    ".traceweaver/maintenance-activation-20261111/repair1-root-go.json": "d476aa59b8a40fa6731daf03bb21f045d907b8f231b140949fb2f614d7edefc8",
+    ".traceweaver/maintenance-activation-20261111/root-source-go.json": "568d5616dfec439a46207f3d4f0f381f1c42db90fc1d6040b29444a1bbc1a6bc",
+    ".traceweaver/maintenance-activation-20261111/scope-refinement-ui.json": "3f4498118b3eff7c545c2c5555fcea6cabb499f5a28e3e92632c825dc096af2c",
+    ".traceweaver/maintenance-activation-20261111/vv-capsule.json": "f4c6e5dd8cfd0b2b535636540c776ac41d2abff0313bab297a7af96de67f52fc",
+    ".traceweaver/maintenance-activation-20261111/workflow-profile.json": "67b4113167c463b6f2c104d264de54a8379e61d50903d5fc7da12f98a9a958f2",
+    "docs/sel-commissioning.md": "6090bb32abf0b9e3015e19193c2fb44a46139e1a6bdf30d451fa5fe2c130c506",
+    "docs/validation/sel-maintenance-activation-20261111.md": "e3e05a711bf86e82dd53874e84e4f946bf4811ad9a94e633e8f2d03c1d7917c3",
+    "requirements.md": "8230a166eeaff05497f9974420f0eeea323a7323349dfce86823efb201070866",
+    "src/ipmi_monitor/sel_management.py": "baafe40522faad5e29c6332f950ad127755e3bc7cc5b98cf1bd089a9ea6bd5c2",
+    "src/ipmi_monitor/sel_qualifications.py": "db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b",
+    "src/ipmi_monitor/templates/server_detail.html": "4c7532049b0598eaf5944c27fb8e6a7a8660546a4061f4146a11062d7cb9fb6b",
+    "templates/server_detail.html": "b35e516b32506331cd29ef3e30373cbe8f14920c1c6d6162640cd443cbad246e",
+    "tests/sel_qualification_linux.py": "a45709d0b629aed8433adde066b3fa8a050229e735acbf5ea79b09239a34cb1c",
+    "tests/test_sel_activation.py": "1067b29b4fb910a3ba4ec24daf9378c8cbe633b7fd783b261eea8ce7822a3627",
+    "tests/test_sel_management.py": "ce787d1b1d945e33701f2b66b0a60ece0292dc22ba28a65e6861a366d25e2677",
+    "tests/test_sel_persistent.py": "910aff7cf7c48cd2fe6c2bcaab803c2bd8ed51a0dde7bb4ae0bde47d25ff9c80",
+    "traceability-matrix.md": "3ef10ce6a21c6415fd9c2fc37b875279e72276c9728607cfc80f3cda434e81d6"
+  },
+  "source_manifest_sha256": "49527b5a5e99910bbdd6147b5f67e737e6cd0100fd7d22ae984d731c5714a374",
+  "production_delta": "Exactly3lines: two explanatory comments and resolve_trust against exact historical parent bundle before original runtime binding reconstruction. Structural acceptance hash path unchanged.",
+  "old_frozen_loader_sha256": "2945836d145fd1accd00e5e31d5945ea7c5c4c4b988075fee629836d606bde83",
+  "repaired_loader_sha256": "db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b",
+  "old_code_reconstructed_and_hash_matched_frozen_manifest": true,
+  "v1_validator_body_AST_identical": true,
+  "verification": {
+    "clock_red": {
+      "exit_code": 1,
+      "log": "repair1-red-clock-promotion.log",
+      "observable": "Actual authenticated manual clock operation completes; ordinary collection persists; old-frozen-loader promotion rejects actual binding as promotion_local_operation_mismatch"
+    },
+    "clock_green": {
+      "exit_code": 0,
+      "log": "repair1-green-clock-promotion.log",
+      "observable": "Same path promotes; expiry/retention/tamper/carry-forward and fresh automatic clock with new archive PASS"
+    },
+    "clear_and_cas": {
+      "exit_code": 0,
+      "log": "repair1-clear-cas-linux.log",
+      "observable": "Clear lifetime roundtrip PASS; offline installed v1/custody/CAS9PASS"
+    },
+    "full_suite": {
+      "status": "passed",
+      "command": "python3 -m pytest -q",
+      "exit_code": 0,
+      "passed": 524,
+      "warnings": 4323,
+      "elapsed_seconds": 180.45,
+      "log": "repair1-full-suite.log"
+    },
+    "anchors": {
+      "status": "pass",
+      "findings": 0,
+      "log": "repair1-anchors.md"
+    },
+    "diff_check": "exit0",
+    "py_compile": "exit0"
+  },
+  "held": [
+    "same-Astra review rerun",
+    "fresh Sol/root verification/acceptance",
+    "publication and physical qualification/acceptance"
+  ],
+  "boundaries": "No staging/publication/live/credential/dependency/version/CI changes; no source beyond authorized loader/tests/evidence/docs.",
+  "repair_changed_files": [
+    ".traceweaver/maintenance-activation-20261111/repair1-root-go.json",
+    "docs/sel-commissioning.md",
+    "src/ipmi_monitor/sel_qualifications.py",
+    "tests/test_sel_activation.py"
+  ]
+}
