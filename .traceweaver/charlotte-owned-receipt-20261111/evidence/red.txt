@@ -1,0 +1,126 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___ test_same_owner_retries_expired_terminal_read_receipt_before_next_begin ____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...m '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-owned-receipt-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b32fbb0>
+
+    def test_same_owner_retries_expired_terminal_read_receipt_before_next_begin(collection_site, monkeypatch):
+        """Real SQLite writer loses both terminal handoffs; live owner must finish its own read."""
+        import subprocess
+        import sys
+        from datetime import timedelta
+        from threading import Event, Thread
+        from ipmi_monitor.sel_collection import child_is_terminal, owner_status
+        app, db, models, runtime, alerts = collection_site
+        now = [datetime(2026, 11, 11, 5, 0)]
+        monotonic = [1000.0]
+        monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+        # Clock boundary only: real process identities, child wait and SQLite transactions.
+        monkeypatch.setattr(sel, 'time', SimpleNamespace(monotonic=lambda: monotonic[0]))
+        done, results = Event(), []
+        with app.app_context():
+            manager = runtime.sel_manager
+            old = manager.begin_collection(BMC)
+            manager.collection_child(old, 'launching')
+            child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+            try:
+                manager.collection_child(old, 'running', child)
+            finally:
+                child.terminate(); child.wait(timeout=3)
+            blocker = db.engine.connect()
+            blocker.exec_driver_sql('BEGIN IMMEDIATE')
+        def lost_terminal_receipts():
+            with app.app_context():
+                try:
+                    try:
+                        manager.collection_child(old, 'reaped')
+                    except sel.SELUnavailable as exc:
+                        results.append(exc.code)
+                    results.append(manager.finish_collection(old, error='device_timeout'))
+                finally:
+                    done.set()
+        worker = Thread(target=lost_terminal_receipts)
+        worker.start()
+        try:
+            assert done.wait(timeout=5), 'receipt attempts must remain bounded under a real SQLite writer'
+        finally:
+            blocker.rollback(); blocker.close(); worker.join(timeout=3)
+        assert results[0] == 'collection_child_identity_unavailable'
+        assert results[1]['outcome'] == 'failed'
+        with app.app_context():
+            db.session.remove()
+            state = json.loads(manager.target(BMC).collection_state)
+            assert state['active_attempt_id'] == old['attempt_id']
+            assert state['active_ticket']['child_state'] == 'running', 'failed callback left durable pre-reap state'
+            assert state['active_ticket']['child']['pid'] == child.pid
+            assert child_is_terminal(state['active_ticket']), 'actual waited child identity is absent'
+            assert owner_status(state['active_ticket']) == 'running', 'same actual process owner remains alive'
+            now[0] += timedelta(seconds=211)
+            monotonic[0] += 211
+            # General recovery remains death-only, even when this owner knows its child exited.
+            with pytest.raises(sel.SELUnavailable): manager.recover_collection(BMC, old['attempt_id'])
+            finished = []
+            original_finish = manager.finish_collection
+            def observe_finish(ticket, **kwargs):
+                result = original_finish(ticket, **kwargs)
+                finished.append((ticket['attempt_id'], result, json.loads(manager.target(BMC).collection_state)))
+                return result
+            monkeypatch.setattr(manager, 'finish_collection', observe_finish)
+>           fresh = manager.begin_collection(BMC)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:581: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <ipmi_monitor.sel_management.register_sel_management.<locals>.Manager object at 0x10b2b8ec0>
+bmc_ip = '192.0.2.40'
+
+    def begin_collection(self, bmc_ip):
+        target = self.target(bmc_ip)
+        target_id = target.id
+        state = self.collection_state(target)
+        if state.get('active_attempt_id'):
+            # Recovery inspects actual local owner/child identities outside a write lock.
+            try:
+                self.recover_collection(bmc_ip, state['active_attempt_id'])
+            except SELUnavailable:
+                db.session.rollback()
+>               raise SELUnavailable('collection_busy_or_maintenance') from None
+E               ipmi_monitor.sel_management.SELUnavailable: collection_busy_or_maintenance
+
+src/ipmi_monitor/sel_management.py:748: SELUnavailable
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 10:33:26,074] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 10:33:26,075] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 10:33:29,674] WARNING: SEL collection failure receipt unavailable
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:981 SEL collection failure receipt unavailable
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_same_owner_retries_expired_terminal_read_receipt_before_next_begin
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-owned-receipt-20261111/tests/../src/ipmi_monitor/app.py:3289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 46 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_same_owner_retries_expired_terminal_read_receipt_before_next_begin
+1 failed, 61 deselected, 47 warnings in 3.86s

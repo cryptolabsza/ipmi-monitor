@@ -516,6 +516,140 @@ def test_child_receipt_database_contention_is_bounded_and_does_not_change_mutati
         db.session.rollback()
 
 
+def test_same_owner_retries_expired_terminal_read_receipt_before_next_begin(collection_site, monkeypatch):
+    """Real SQLite writer loses both terminal handoffs; live owner must finish its own read."""
+    import subprocess
+    import sys
+    from datetime import timedelta
+    from threading import Event, Thread
+    from ipmi_monitor.sel_collection import child_is_terminal, owner_status
+    app, db, models, runtime, alerts = collection_site
+    now = [datetime(2026, 11, 11, 5, 0)]
+    monotonic = [1000.0]
+    monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+    # Clock boundary only: real process identities, child wait and SQLite transactions.
+    monkeypatch.setattr(sel, 'time', SimpleNamespace(monotonic=lambda: monotonic[0]))
+    done, results = Event(), []
+    with app.app_context():
+        manager = runtime.sel_manager
+        old = manager.begin_collection(BMC)
+        manager.collection_child(old, 'launching')
+        child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+        try:
+            manager.collection_child(old, 'running', child)
+        finally:
+            child.terminate(); child.wait(timeout=3)
+        blocker = db.engine.connect()
+        blocker.exec_driver_sql('BEGIN IMMEDIATE')
+    def lost_terminal_receipts():
+        with app.app_context():
+            try:
+                try:
+                    manager.collection_child(old, 'reaped')
+                except sel.SELUnavailable as exc:
+                    results.append(exc.code)
+                results.append(manager.finish_collection(old, error='device_timeout'))
+            finally:
+                done.set()
+    worker = Thread(target=lost_terminal_receipts)
+    worker.start()
+    try:
+        assert done.wait(timeout=5), 'receipt attempts must remain bounded under a real SQLite writer'
+    finally:
+        blocker.rollback(); blocker.close(); worker.join(timeout=3)
+    assert results[0] == 'collection_child_identity_unavailable'
+    assert results[1]['outcome'] == 'failed'
+    with app.app_context():
+        db.session.remove()
+        state = json.loads(manager.target(BMC).collection_state)
+        assert state['active_attempt_id'] == old['attempt_id']
+        assert state['active_ticket']['child_state'] == 'running', 'failed callback left durable pre-reap state'
+        assert state['active_ticket']['child']['pid'] == child.pid
+        assert child_is_terminal(state['active_ticket']), 'actual waited child identity is absent'
+        assert owner_status(state['active_ticket']) == 'running', 'same actual process owner remains alive'
+        now[0] += timedelta(seconds=211)
+        monotonic[0] += 211
+        # General recovery remains death-only, even when this owner knows its child exited.
+        with pytest.raises(sel.SELUnavailable): manager.recover_collection(BMC, old['attempt_id'])
+        finished = []
+        original_finish = manager.finish_collection
+        def observe_finish(ticket, **kwargs):
+            result = original_finish(ticket, **kwargs)
+            finished.append((ticket['attempt_id'], result, json.loads(manager.target(BMC).collection_state)))
+            return result
+        monkeypatch.setattr(manager, 'finish_collection', observe_finish)
+        fresh = manager.begin_collection(BMC)
+        assert finished and finished[0][0] == old['attempt_id'], 'retry uses the existing common finish/CAS'
+        assert finished[0][1]['outcome'] == 'failed'
+        assert finished[0][2]['active_attempt_id'] is None
+        assert finished[0][2]['last_complete_success_at'] is None
+        assert fresh['attempt_id'] != old['attempt_id']
+        assert manager.finish_collection(old, snapshot=snapshot())['outcome'] == 'failed'
+        assert json.loads(manager.target(BMC).collection_state)['active_attempt_id'] == fresh['attempt_id']
+        assert models['IPMIEvent'].query.filter_by(bmc_ip=BMC).count() == 0
+        assert alerts == []
+
+
+@pytest.mark.parametrize('held', ['none', 'launching', 'live_child', 'foreign_instance',
+    'foreign_owner', 'utc_grace', 'monotonic_grace', 'active_write', 'receipt_busy'])
+def test_same_owner_receipt_retry_holds_unproven_or_unacknowledged_reads(collection_site, monkeypatch, held):
+    import os
+    import subprocess
+    import sys
+    from datetime import timedelta
+    from ipmi_monitor.sel_collection import process_identity
+    app, db, _models, runtime, _alerts = collection_site
+    now, monotonic = [datetime(2026, 11, 11, 5, 0)], [1000.0]
+    monkeypatch.setattr(sel, 'utcnow', lambda: now[0])
+    monkeypatch.setattr(sel, 'time', SimpleNamespace(monotonic=lambda: monotonic[0]))
+    with app.app_context():
+        manager = runtime.sel_manager
+        old = manager.begin_collection(BMC)
+        processes = []
+        try:
+            if held != 'none':
+                manager.collection_child(old, 'launching')
+            if held not in {'none', 'launching'}:
+                child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+                processes.append(child)
+                manager.collection_child(old, 'running', child)
+                if held != 'live_child': child.terminate(); child.wait(timeout=3)
+            target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            if held == 'foreign_instance': state['active_ticket']['process_instance'] = 'foreign-instance'
+            if held == 'foreign_owner':
+                foreign = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'])
+                processes.append(foreign)
+                state['active_ticket']['owner'] = process_identity(foreign.pid)
+                assert state['active_ticket']['owner']['pid'] != os.getpid()
+            if held == 'active_write': target.active_operation = 'unknown-write-held'
+            target.collection_state = json.dumps(state)
+            db.session.commit()
+            now[0] += timedelta(seconds=209 if held == 'utc_grace' else 211)
+            monotonic[0] += 209 if held == 'monotonic_grace' else 211
+            calls = []
+            original_finish = manager.finish_collection
+            def observe_finish(ticket, **kwargs):
+                calls.append(ticket['attempt_id'])
+                blocker = db.engine.connect()
+                try:
+                    blocker.exec_driver_sql('BEGIN IMMEDIATE')
+                    return original_finish(ticket, **kwargs)
+                finally:
+                    blocker.rollback(); blocker.close()
+            monkeypatch.setattr(manager, 'finish_collection', observe_finish)
+            with pytest.raises(sel.SELUnavailable): manager.begin_collection(BMC)
+            assert calls == ([old['attempt_id']] if held == 'receipt_busy' else [])
+            db.session.remove()
+            target = manager.target(BMC)
+            assert json.loads(target.collection_state)['active_attempt_id'] == old['attempt_id']
+            if held == 'active_write': assert target.active_operation == 'unknown-write-held'
+        finally:
+            for process in processes:
+                if process.poll() is None: process.terminate()
+                process.wait(timeout=3)
+
+
 def test_modified_ticket_cannot_reassign_old_snapshot_to_current_generation(collection_site):
     app, db, models, runtime, _alerts = collection_site
     with app.app_context():

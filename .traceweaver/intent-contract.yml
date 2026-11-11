@@ -166,3 +166,12 @@ charlotte_sel_20261111:
   held: actual_target_acceptance_CCC94_native_access_and_all_physical_maintenance_qualifications
   automatic_clear: false
   automatic_clock: false
+
+# Bounded correction under the unchanged approved Charlotte outcome.
+charlotte_owned_receipt_20261111:
+  authority: .traceweaver/charlotte-owned-receipt-20261111/authority.json
+  source_result: .traceweaver/charlotte-owned-receipt-20261111/root-source-acceptance.json
+  requirements: [REQ-SEL-001, REQ-SEL-003, REQ-SEL-004]
+  status: source_verified_independently_reviewed_target_held
+  publication_scope: protected_feature_to_dev_then_compatible_1.4.4_main_patch
+  held: corrected_artifact_live_acceptance_physical_qualification_and_policy_arming
