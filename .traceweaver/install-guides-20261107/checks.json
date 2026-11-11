@@ -16,7 +16,8 @@
     "all marketing data mounts /app/data",
     "production example main/5000 checks pass",
     "customer Bash examples parse",
-    "runtime/tests/dependencies/workflows/version untouched"
+    "runtime/tests/dependencies/workflows/version untouched",
+    "main historical requirements/matrix preserved verbatim before reviewed additive scope"
   ],
   "file_sha256": {
     "README.md": "0a2e30cfd04b76d10c3e4e9686e2445e2cafb487d995d689be0512eb8046f781",
@@ -31,8 +32,8 @@
     "marketing-page.html": "f9ad9110e5b9368db9e7988d41c1067d9ef58e8a798dc978e35206d2d98f0718",
     "wordpress-content.html": "a043c61efedb5a575f606c693d6558b8178bb5b20044db49b5ab3c1ed27948ab",
     "wordpress-blog-post.html": "f719a00a89cbaa2be244410761008e8d2c9cf1343745cb6e0b5c2d3c61789eff",
-    "requirements.md": "9a368c3386fe17a616b6af7ee027d402bb50880e9f12ce6db311582a44959028",
-    "traceability-matrix.md": "071a651c261de4f28fd4cba4ad7cfd569d4e787089cf6f1cee801dbad2ad25cf"
+    "requirements.md": "e6b4ebf2986b5cfc8c681d59a69b17bc9d7e652b442e5e00da84a44561ba3465",
+    "traceability-matrix.md": "f8e1b76f28038b4c7906a440fef4fc821267cd309c277e2a2851c3cf0908a39c"
   },
   "test_value": "Documentation/example-only deterministic checks; required CI retained",
   "held": "real customer installation"

@@ -182,6 +182,12 @@ Current SEL local source result (3 November 2026): `.traceweaver/sel-health-2026
 Current SEL source-publication authority (3 November 2026): `.traceweaver/sel-health-20261103/publication-owner-approval.json` records the subsequent owner commit/push/test/merge request, authorizing this exact feature-to-dev integration after live gates. Earlier no-publication entries describe their recorded stage; behavioral authority and hardware/production holds are unchanged. Portable final review summaries are under scoped `reviews/`; minimum raw RED/final-suite/root-regression evidence is retained under scoped `artifacts/`.
 
 
+## Current SEL release authority/status — 4 November 2026
+
+Current owner receipt: `.traceweaver/sel-release-20261104/owner-approval.json`; bounded release projection and unchanged reviewed source hashes: `.traceweaver/sel-release-20261104/release-scope.json`. For TRACE-SEL-001 / REQ-SEL-001 / VER-SEL-001, TRACE-SEL-002 / REQ-SEL-002 / VER-SEL-002, TRACE-SEL-003 / REQ-SEL-003 / VER-SEL-003, TRACE-SEL-004 / REQ-SEL-004 / VER-SEL-004 and TRACE-SEL-005 / REQ-SEL-005 / VER-SEL-005, existing source behavior and verification mappings remain unchanged. The new approval permits the protected `1.4.0` release and gated Fleet canary; historical no-release entries above retain their stage-specific meaning.
+
+Final release-candidate suite/build evidence, independent review, protected checks, published immutable image/tag and actual target acceptance are distinct evidence lanes owned by release root. Canary requires verified target selection/installed Fleet operation, database backup and migration-compatible rollback; wider rollout requires observed migration, retained history and warnings. Exact firmware/action qualification and BMC mutation acceptance remain held. No new behavior, requirement IDs, scanner coverage, hardware qualification, deployed acceptance or requirement closure is claimed here.
+
 ## LTX BMC repair preimplementation evidence 20261104
 
 Owner-approved revision2 plan and frozen L3 profile: `.traceweaver/ltx-bmc-qualification-20261104/authority.json`. Independent precode tests and validation definition passed review; production GREEN, release and exact hardware/operator qualification remain pending. This append records evidence only and changes no requirement meaning.
@@ -207,6 +213,11 @@ Evidence: `.traceweaver/connect-ready-20261104/` contains genuine RED, precode r
 
 Publication route update, 5 November 2026: owner explicitly selected the normal protected PR/CI release and LTX Fleet Manager update. `.traceweaver/connect-ready-20261104/publication-owner-authorization-20261105.json` supersedes this task’s prior local-only publication restriction and optional reviewer-model attestation gate; it does not claim that attestation passed or waive source review, tests, required CI, artifact, health or rollback checks.
 
+## Main 1.4.2 guide correction
+
+| Requirement | Trace | Artifacts | Verification | Validation |
+| --- | --- | --- | --- | --- |
+| REQ-IPMI-INSTALL-001 | TRACE-IPMI-INSTALL-001 | README.md; RELEASING.md; docker-compose.yml; docker-compose.prod.yml; examples/ipmi-config.yaml; docs/index.md; docs/user-guide.md; docs/DEVELOPER_GUIDE.md; docs/wordpress/ipmi-setup-guide.html; marketing-page.html; wordpress-content.html; wordpress-blog-post.html | VER-IPMI-INSTALL-001; .traceweaver/install-guides-20261107/checks.json; .traceweaver/install-guides-20261107/review.json | VAL-IPMI-INSTALL-001; public source/image1.4.2 and website517 readback; customer install held |
 
 ## Main/latest image alias correction — 7 November 2026
 

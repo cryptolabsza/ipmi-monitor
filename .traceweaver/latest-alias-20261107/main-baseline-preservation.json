@@ -1,0 +1,16 @@
+{
+  "route": "mechanical_closure",
+  "unchanged_scope": "Reviewed publisher fix and activation bytes preserved; existing main authority retained",
+  "files": {
+    "requirements.md": {
+      "main_baseline_sha256": "e6b4ebf2986b5cfc8c681d59a69b17bc9d7e652b442e5e00da84a44561ba3465",
+      "preserved_base_prefix": true,
+      "reviewed_scope_sha256": "025ea23d614216ad66398e78f2fabee3af599698182e191cda3020712ba4bcc0"
+    },
+    "traceability-matrix.md": {
+      "main_baseline_sha256": "f8e1b76f28038b4c7906a440fef4fc821267cd309c277e2a2851c3cf0908a39c",
+      "preserved_base_prefix": true,
+      "reviewed_scope_sha256": "9225a16189cc1224abc9561b9f9c8a121a2f8e0b38cd231a39e734fa7f51c0cd"
+    }
+  }
+}

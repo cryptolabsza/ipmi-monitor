@@ -1,0 +1,27 @@
+{
+  "utc": "2026-11-11T20:14:04.862552+00:00",
+  "decision": "FEATURE_MERGE_ACTUAL_EXPECTED_SOURCE;CONTROLLED_MERGE_CAPSULE_SEQUENCE_DEVIATION_RETAINED",
+  "PR": "https://github.com/cryptolabsza/ipmi-monitor/pull/38",
+  "merged_commit": "ed475e353f801d85f0c38c88883090df5cd3ee88",
+  "head": "b984ff949529f8218f713435fad3953d50fff248",
+  "required_checks": [
+    {
+      "bucket": "pass",
+      "link": "https://github.com/cryptolabsza/ipmi-monitor/actions/runs/43091985440/job/130771119939",
+      "name": "cpu-build / build",
+      "state": "SUCCESS"
+    }
+  ],
+  "expected_PR_only_publisher_skips": [
+    "publish",
+    "publish-build"
+  ],
+  "deviation": "functions.exec sequential await continued after exec_command returned nonzero. Local premerge preparation asserted every check SUCCESS, wrongly rejecting expected PR-only SKIPPED publisher jobs, so no merge capsule was created or consumed. The later gh pr merge still executed. No retroactive capsule is issued or implied.",
+  "actual_authority_and_source": "User authorized this feature-to-dev route; exact reviewed head merged; actual required+image build checks SUCCESS; root-source-acceptance remains supported. Does not claim controlled merge capsule enforcement passed.",
+  "correction": "All future dependent Git publication mutations execute inside one checked subprocess sequence; preflight/capsule validation uses check=True and failure exits before action. Conditional SKIPPED publisher jobs are handled explicitly, never counted as a required-check success.",
+  "remaining_holds": [
+    "Verify actual protected dev tree equals reviewed featuretree",
+    "New separate exact branch/stage/publication/merge capsules for release; no main or deployment action yet",
+    "Officialartifact/site/physicalactivation gates unchanged"
+  ]
+}

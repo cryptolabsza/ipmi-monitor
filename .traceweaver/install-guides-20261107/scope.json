@@ -28,11 +28,12 @@
     "requirements.md",
     "traceability-matrix.md"
   ],
-  "requirements_sha256": "9a368c3386fe17a616b6af7ee027d402bb50880e9f12ce6db311582a44959028",
+  "requirements_sha256": "e6b4ebf2986b5cfc8c681d59a69b17bc9d7e652b442e5e00da84a44561ba3465",
   "historical_intent_contract": "unchanged; this explicit owner-approved documentation defect has separate scoped authority",
   "held": [
     "real customer deployment",
     "runtime installer fix remains uncommitted in separate feature worktree"
   ],
-  "reviews": "independent scoped review of repaired guides; see review.json"
+  "reviews": "independent scoped review of repaired guides; see review.json",
+  "main_baseline_preservation": "main-baseline-preservation.json; reviewed guide scope unchanged, historical main records retained"
 }
