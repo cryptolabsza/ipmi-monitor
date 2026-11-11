@@ -1,0 +1,8 @@
+{
+  "findings": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/findings/source-builder.json",
+  "manifest_digest": "d74e8946793c95b040fa91b57685312bacd6acd26a825cb961b186843a551ab2",
+  "status": "SOURCE_CANDIDATE_LOCAL_VERIFICATION_PASS_FOR_INDEPENDENT_REVIEW",
+  "pytest_passed": 452,
+  "pytest_failed": 0,
+  "publication": false
+}

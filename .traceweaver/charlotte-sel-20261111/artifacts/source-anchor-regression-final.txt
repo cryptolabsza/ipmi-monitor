@@ -1,0 +1,11 @@
+trace_anchor_authoring_status=applied
+trace_anchor_authoring_target=tests/test_sel_collection_regressions.py
+trace_anchor_authoring_anchor_type=verifies
+trace_anchor_authoring_requirement=REQ-SEL-001
+trace_anchor_authoring_trace=TRACE-SEL-001
+trace_anchor_authoring_verification=VER-CHARLOTTESEL-001
+trace_anchor_authoring_anchor=# TRACEWEAVER: file-role=charlotte-collection-regression; req=REQ-SEL-001; trace=TRACE-SEL-001; ver=VER-CHARLOTTESEL-001 | # TRACEWEAVER: verifies=VER-CHARLOTTESEL-001; req=REQ-SEL-001; trace=TRACE-SEL-001
+trace_anchor_authoring_matrix_row=| tests/test_sel_collection_regressions.py | REQ-SEL-001 | TRACE-SEL-001 | VER-CHARLOTTESEL-001 | verifies | charlotte-collection-regression |
+trace_anchor_authoring_file_changed=true
+trace_anchor_authoring_matrix_changed=true
+trace_anchor_authoring_reason=TraceWeaver reviewed hierarchy maps this artifact to REQ-SEL-001.

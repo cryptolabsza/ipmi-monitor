@@ -1,0 +1,58 @@
+............................................................F........... [ 82%]
+...............                                                          [100%]
+=================================== FAILURES ===================================
+___ test_redfish_view_baseline_prospective_and_failed_catchup_notifications ____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla... from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, ['rf-2'])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10dfc2f00>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10de9fe00>
+
+    def test_redfish_view_baseline_prospective_and_failed_catchup_notifications(collection_site, redfish_reader, monkeypatch):
+        app, db, models, runtime, alerts = collection_site
+        first = {'Id':'rf-1','EntryType':'SEL','Created':'2026-11-11T01:00:00Z','Message':'Fault','Severity':'Warning'}
+        page = {'Members':[first]}
+        client,_ = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol':'redfish'});db.session.commit()
+            def collect(): return runtime.save_events_to_db(BMC,'fixture',runtime.collect_ipmi_sel(BMC,'fixture'))
+            assert collect()['outcome'] == 'persisted_diagnostic'; assert alerts == []
+            assert collect()['outcome'] == 'persisted_diagnostic'; assert alerts == []
+            page['Members'].append(dict(first,Id='rf-2',Created='2026-11-11T01:00:01Z'))
+            assert collect()['outcome'] == 'persisted_diagnostic'; assert alerts == ['rf-2']
+            page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+            assert collect()['outcome'] == 'failed'
+            del page['Members@odata.nextLink']
+            page['Members'].append(dict(first,Id='rf-3',Created='2026-11-11T01:00:02Z'))
+>           assert collect()['outcome'] == 'persisted_diagnostic'; assert alerts == ['rf-2']
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AssertionError: assert 'failed' == 'persisted_diagnostic'
+E             
+E             - persisted_diagnostic
+E             + failed
+
+tests/test_sel_collection_state.py:717: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 08:40:28,987] WARNING: SEL collection degraded: redfish_read_unavailable
+[2026-11-11 08:40:28,991] WARNING: SEL collection degraded: redfish_read_unavailable
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:800 SEL collection degraded: redfish_read_unavailable
+WARNING  ipmi_monitor.app:sel_management.py:800 SEL collection degraded: redfish_read_unavailable
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_native_count_not_nonempty_redfish_controls_existing_collector[auto]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 478 warnings
+tests/test_sel_collection_regressions.py: 24 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_collection_state.py: 10 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:6063: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    event_date=evt.get('event_date', datetime.utcnow()),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_redfish_view_baseline_prospective_and_failed_catchup_notifications
+1 failed, 86 passed, 513 warnings in 13.73s

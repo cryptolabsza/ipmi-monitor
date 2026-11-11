@@ -1,0 +1,25 @@
+{
+  "authority": "Existing source GO/root diagnosed SEC01/SEC02 correction1of2; no cumulative budget reset",
+  "steps": [
+    "Reproduce7 actual SQLite/manual-handler failures before source changes",
+    "Collect observer probes outside write transaction; serialize fresh current composition and discard stale authority/state; retain erase reconciliation",
+    "Route actual manual producer through common finish for complete/empty/acquisition/storage failure; require active configured target before request/thread IO; preserve permission gates",
+    "Run affected suites then final full suite once, compile/VV/anchors; preserve old manifests and return distinct correction1 package for root R3 review"
+  ],
+  "files": [
+    "src/ipmi_monitor/app.py",
+    "src/ipmi_monitor/sel_management.py",
+    "tests/test_sel_collection_state.py",
+    "traceability-matrix.md",
+    ".traceweaver/charlotte-sel-20261111/correction1-*"
+  ],
+  "test_value": "Reuse actual SQLite session boundary/adapter fixtures and real Flask handler with controlled scheduling.7 minimal new cases cover live lease and success/baseline interleaving; manual complete/empty/acquisition/storage outcomes; unconfigured target no IO. No existing assertion removed or weakened.",
+  "preserve": [
+    "qualification/actions/profiles/secret controls",
+    "version/dependencies/CI/UI",
+    "automatic policies OFF",
+    "foreign namespace hold and HTTP residuals unchanged",
+    "no publication/host/BMC/credential access",
+    "fresh independent Linux recheck owned by root"
+  ]
+}

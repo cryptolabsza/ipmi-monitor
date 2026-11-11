@@ -1,0 +1,46 @@
+{
+  "numbered_phase1_plan": [
+    {
+      "step": 1,
+      "work": "Read approved plan/receipt, existing SEL authority/VV, review coverage and record baseline/source hashes; no dependencies or infrastructure."
+    },
+    {
+      "step": 2,
+      "work": "Add one focused regression module and seven-record sanitized fixture using current interfaces; run authentic RED before any production changes."
+    },
+    {
+      "step": 3,
+      "work": "Append approved collection scope to existing REQ-SEL001..005, retain old guards, write scoped L3 authority/profile/verification/validation and proposed matrix rows."
+    },
+    {
+      "step": 4,
+      "work": "Run deterministic capsule/JSON checks; record exact files/hashes/results and hand off to root for independent review/source GO."
+    }
+  ],
+  "files": [
+    "tests/test_sel_collection_regressions.py",
+    "tests/fixtures/charlotte_sel_native_prefix.json",
+    "requirements.md",
+    ".traceweaver/charlotte-sel-20261111/*",
+    "docs/validation/charlotte-sel-20261111.md"
+  ],
+  "test_value": {
+    "reuse": "Existing SEL management120 parameterized cases across three suites; no existing test altered or removed. Existing mutation ownership/archive-before-clear/retention/CSRF/qualification/clock guard cases retained.",
+    "new_cases": 11,
+    "realistic_failures": [
+      "Self-path unrelated audit records suppress hardware SEL",
+      "newest hardware events on later pages lost and duplicate pages reinserted",
+      "partial/cyclic/foreign page marked complete",
+      "decoder text duplicates identical native records",
+      "clock rewind duplicates historical generation",
+      "actual native collector exposes password argv/errors"
+    ],
+    "cost": "One small route dictionary at current HTTP boundary; real ORM persistence, current production methods; seven16-byte raw records only. No hardware dependencies or new packages.",
+    "limits": "No new RED for not-yet-selected native acquisition/status contracts; browser environment-dependent gate retained."
+  },
+  "risks": [
+    "raw16-byte snapshot subset is not archive completeness proof",
+    "none of local tests qualify physical firmware or authorize destructive writes",
+    "live clear/clock remain root-owned fresh-gated operations"
+  ]
+}

@@ -1,0 +1,105 @@
+...........F..........F......................                            [100%]
+=================================== FAILURES ===================================
+__________ test_native_collection_keeps_password_out_of_argv_and_logs __________
+
+native_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...nitor.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10af67ee0>
+caplog = <_pytest.logging.LogCaptureFixture object at 0x10ac33230>
+
+    def test_native_collection_keeps_password_out_of_argv_and_logs(native_site, monkeypatch, caplog):
+        _app, _db, _models, runtime = native_site
+        secret = 'fixture-password-never-log'
+        calls = []
+        monkeypatch.setattr(runtime.sel_manager, 'observe', lambda ip: None)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: False)
+        monkeypatch.setattr(runtime, 'get_ipmi_credentials', lambda ip: ('fixture-only', secret))
+    
+        def command(argv, **kwargs):
+            calls.append((argv, kwargs))
+            raise RuntimeError('transport rejected ' + secret)
+    
+        # Native collection now owns one persistent child; intercept that actual
+        # boundary and retain the same argv/env/log assertions as the original RED.
+        monkeypatch.setattr(runtime.subprocess, 'Popen', command)
+        runtime.collect_ipmi_sel(BMC, 'fixture-host')
+>       assert calls, 'exercise the real collection subprocess boundary'
+E       AssertionError: exercise the real collection subprocess boundary
+E       assert []
+
+tests/test_sel_collection_regressions.py:185: AssertionError
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[17-None] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b11f9a0>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10599/test_managed_read_profile_sele0')
+cipher = 17, mismatch = None
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+                with pytest.raises(sel.SELUnavailable):
+                    runtime.sel_manager.adapter(target).fingerprint()
+            else:
+>               fingerprint = runtime.sel_manager.adapter(target).fingerprint()
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:225: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <ipmi_monitor.sel_management.register_sel_management.<locals>.Manager object at 0x10ac301a0>
+target = <SELTarget d8b0b6d8-1d79-4ab3-a8a7-6fb55e412ef0>
+
+    def adapter(self, target):
+        # No shared username/password fallback: only explicit per-target source.
+        server = self.current_server(target.bmc_ip)
+        if self.binding(server) != target.binding or server.protocol == 'redfish':
+            raise SELUnavailable('configured_identity_changed')
+        # Preserve the existing managed-credential revocation and configured
+        # unmanaged credential sources, always as a complete username/secret pair.
+        credentials = runtime.get_ipmi_credentials(target.bmc_ip)
+        if not credentials or not all(credentials):
+            raise SELUnavailable('target_credentials_unavailable')
+        adapter = IPMISELAdapter(runtime, target.bmc_ip, credentials)
+        try:
+            profile = read_profile(runtime, target)
+        except ValueError as exc:
+>           raise SELUnavailable(str(exc)) from None
+E           ipmi_monitor.sel_management.SELUnavailable: read_profile_custody
+
+src/ipmi_monitor/sel_management.py:960: SELUnavailable
+=============================== warnings summary ===============================
+tests/test_sel_collection_regressions.py::test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel[AuditLog]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3279: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_regressions.py: 62 warnings
+tests/test_sel_collection_state.py: 192 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_regressions.py::test_native_collection_keeps_password_out_of_argv_and_logs
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[17-None]
+2 failed, 43 passed, 255 warnings in 6.01s

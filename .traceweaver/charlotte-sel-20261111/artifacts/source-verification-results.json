@@ -1,0 +1,165 @@
+[
+  {
+    "command": [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "-m",
+      "compileall",
+      "-q",
+      "src/ipmi_monitor",
+      "tests/test_sel_collection_regressions.py",
+      "tests/test_sel_collection_state.py"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.044,
+    "raw": ".traceweaver/charlotte-sel-20261111/artifacts/source-compile-exact.txt"
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.026,
+    "raw": ".traceweaver/charlotte-sel-20261111/artifacts/source-diff-check-exact.txt"
+  },
+  {
+    "command": [
+      "/Users/hanneszietsman/.codex/skills/tw-vv-define/scripts/traceweaver-check-vv-capsule",
+      "--root",
+      ".",
+      "--capsule",
+      ".traceweaver/charlotte-sel-20261111/vv-capsule.json",
+      "--require-review-passed"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.058,
+    "raw": ".traceweaver/charlotte-sel-20261111/artifacts/source-vv-preflight-exact.txt"
+  },
+  {
+    "command": [
+      "/Users/hanneszietsman/.codex/skills/tw-traceability-check/scripts/traceweaver-check-code-anchors",
+      "--root",
+      ".",
+      "--mode",
+      "implementation",
+      "--changed-file",
+      "src/ipmi_monitor/app.py",
+      "--changed-file",
+      "src/ipmi_monitor/sel_management.py",
+      "--changed-file",
+      "src/ipmi_monitor/sel_collection.py",
+      "--changed-file",
+      "tests/test_sel_collection_regressions.py",
+      "--changed-file",
+      "tests/test_sel_collection_state.py",
+      "--changed-file",
+      "tests/test_sel_management.py",
+      "--changed-file",
+      "tests/test_sel_persistent.py",
+      "--jsonl",
+      "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact.jsonl",
+      "--markdown",
+      "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact.md"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.081,
+    "raw": ".traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact-exact.txt"
+  },
+  {
+    "command": [
+      "node",
+      "--version"
+    ],
+    "exit_code": 0,
+    "elapsed_seconds": 0.019,
+    "raw": ".traceweaver/charlotte-sel-20261111/artifacts/source-node-version-exact.txt"
+  },
+  {
+    "command": "ast.parse(feature_version=(3,9)): three changed production modules",
+    "exit_code": 0,
+    "limit": "syntax compatibility only, not Python3.9 runtime proof"
+  },
+  {
+    "command": [
+      "/opt/homebrew/bin/python3.14",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/test_sel_collection_state.py",
+      "tests/test_sel_collection_regressions.py",
+      "tests/test_sel_persistent.py"
+    ],
+    "exit_code": 0,
+    "result": "65 passed,311 warnings in8.35s",
+    "raw": "source-durable-ticket-green.txt",
+    "scope": "final behavior; before evidence-only documentation update"
+  },
+  {
+    "command": [
+      "/opt/homebrew/bin/python3.14",
+      "-m",
+      "pytest",
+      "-q",
+      "tests"
+    ],
+    "exit_code": 0,
+    "result": "452 passed,3570 warnings in151.18s",
+    "raw": "source-immutable-final.txt",
+    "scope": "exact final manifested production/test behavior; real Chromium/localhost/PTY/kernel lanes escalated"
+  },
+  {
+    "command": [
+      "/opt/homebrew/bin/python3.14",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      ".github/tests",
+      "-v"
+    ],
+    "exit_code": 0,
+    "result": "59 tests;OK in0.430s",
+    "raw": "source-ci-contracts.txt",
+    "scope": "existing unchanged CI/publication route contracts; local only"
+  },
+  {
+    "command": [
+      "/opt/homebrew/bin/python3.14",
+      "-m",
+      "pip",
+      "wheel",
+      "--no-deps",
+      "--no-build-isolation",
+      "--no-index",
+      "--wheel-dir",
+      "/private/tmp/charlotte-sel-source-wheel",
+      "."
+    ],
+    "exit_code": 2,
+    "result": "held: Cannot import setuptools.build_meta; no dependency installed",
+    "raw": "source-package-build.txt"
+  },
+  {
+    "command": [
+      "docker",
+      "run",
+      "--rm",
+      "--network",
+      "none",
+      "--read-only",
+      "--cap-drop",
+      "ALL",
+      "--security-opt",
+      "no-new-privileges",
+      "--tmpfs",
+      "/tmp:rw,nosuid,nodev,size=64m",
+      "sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce",
+      "python3",
+      "-c",
+      "dependency availability probe"
+    ],
+    "exit_code": 125,
+    "result": "held: dangling cached image content digest8129910271f9764b5c05038d351ad7b9f9d94b85351355b69c5526eadd111775 missing; no container test executed"
+  }
+]

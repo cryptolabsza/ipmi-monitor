@@ -1,0 +1,13 @@
+.................................................................        [100%]
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_native_count_not_nonempty_redfish_controls_existing_collector
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3287: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 286 warnings
+tests/test_sel_collection_regressions.py: 24 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+65 passed, 311 warnings in 8.35s

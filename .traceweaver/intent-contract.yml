@@ -152,3 +152,17 @@ ltx_bmc_qualification_20261104:
   publication_scope: protected_feature_to_dev_then_main_patch_1.4.1_after_exact_capsules_and_checks
   deployment_scope: one_new_ipmi_only_source_image_then_one_conditional_data_activation
   held: seven_secure_access_repairs_exact_hardware_qualification_intended_use_acceptance_and_policy_arming
+
+# Current scoped stage; all historical authority records remain retained.
+charlotte_sel_20261111:
+  authority: .traceweaver/charlotte-sel-20261111/authority.json
+  owner_approval: .traceweaver/charlotte-sel-20261111/owner-approval.json
+  approved_plan_sha256: c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de
+  source_result: .traceweaver/charlotte-sel-20261111/root-source-acceptance.json
+  requirements: [REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005]
+  status: scoped_source_verified_independently_reviewed_target_held
+  publication_scope: feature_PR_to_dev_then_compatible_1.4.3_main_release_after_exact_gates
+  deployment_scope: Charlotte_IPMI_only_native_selected_immutable_artifact_after_fresh_guards
+  held: actual_target_acceptance_CCC94_native_access_and_all_physical_maintenance_qualifications
+  automatic_clear: false
+  automatic_clock: false

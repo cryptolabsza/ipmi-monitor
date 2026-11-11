@@ -1,0 +1,75 @@
+{
+  "status": "proposed root merge only; existing matrix untouched",
+  "rows": [
+    {
+      "requirement": "REQ-SEL-001",
+      "trace": "TRACE-SEL-001",
+      "verification": "VER-CHARLOTTESEL-001",
+      "validation": "VAL-CHARLOTTESEL-001",
+      "verification_status": "Phase1 existing-defect RED + Phase2 native/current-boundary and planned-interface RED; GREEN/review held",
+      "validation_status": "held; target not exercised",
+      "artifacts": [
+        "tests/test_sel_collection_regressions.py",
+        ".traceweaver/charlotte-sel-20261111/verification-plan.json",
+        "docs/validation/charlotte-sel-20261111.md",
+        "tests/test_sel_collection_state.py"
+      ]
+    },
+    {
+      "requirement": "REQ-SEL-002",
+      "trace": "TRACE-SEL-002",
+      "verification": "VER-CHARLOTTESEL-002",
+      "validation": "VAL-CHARLOTTESEL-002",
+      "verification_status": "Phase1 existing-defect RED + Phase2 native/current-boundary and planned-interface RED; GREEN/review held",
+      "validation_status": "held; target not exercised",
+      "artifacts": [
+        "tests/test_sel_collection_regressions.py",
+        ".traceweaver/charlotte-sel-20261111/verification-plan.json",
+        "docs/validation/charlotte-sel-20261111.md",
+        "tests/test_sel_collection_state.py"
+      ]
+    },
+    {
+      "requirement": "REQ-SEL-003",
+      "trace": "TRACE-SEL-003",
+      "verification": "VER-CHARLOTTESEL-003",
+      "validation": "VAL-CHARLOTTESEL-003",
+      "verification_status": "Phase1 existing-defect RED + Phase2 native/current-boundary and planned-interface RED; GREEN/review held",
+      "validation_status": "held; target not exercised",
+      "artifacts": [
+        "tests/test_sel_collection_regressions.py",
+        ".traceweaver/charlotte-sel-20261111/verification-plan.json",
+        "docs/validation/charlotte-sel-20261111.md",
+        "tests/test_sel_collection_state.py"
+      ]
+    },
+    {
+      "requirement": "REQ-SEL-004",
+      "trace": "TRACE-SEL-004",
+      "verification": "VER-CHARLOTTESEL-004",
+      "validation": "VAL-CHARLOTTESEL-004",
+      "verification_status": "Phase1 existing-defect RED + Phase2 native/current-boundary and planned-interface RED; GREEN/review held",
+      "validation_status": "held; target not exercised",
+      "artifacts": [
+        "tests/test_sel_collection_regressions.py",
+        ".traceweaver/charlotte-sel-20261111/verification-plan.json",
+        "docs/validation/charlotte-sel-20261111.md",
+        "tests/test_sel_collection_state.py"
+      ]
+    },
+    {
+      "requirement": "REQ-SEL-005",
+      "trace": "TRACE-SEL-005",
+      "verification": "VER-CHARLOTTESEL-005",
+      "validation": "VAL-CHARLOTTESEL-005",
+      "verification_status": "Phase1 existing-defect RED + Phase2 native/current-boundary and planned-interface RED; GREEN/review held",
+      "validation_status": "held; target not exercised",
+      "artifacts": [
+        "tests/test_sel_collection_regressions.py",
+        ".traceweaver/charlotte-sel-20261111/verification-plan.json",
+        "docs/validation/charlotte-sel-20261111.md",
+        "tests/test_sel_collection_state.py"
+      ]
+    }
+  ]
+}

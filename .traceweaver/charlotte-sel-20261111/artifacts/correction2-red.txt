@@ -1,0 +1,875 @@
+FFFFFFFFFFFF                                                             [100%]
+=================================== FAILURES ===================================
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10b9a97a0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b77bce0>
+producer = 'worker', result = 'complete'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 08:31:15,232] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 08:31:15,232] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:550 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:552 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+----------------------------- Captured stdout call -----------------------------
+[Worker 994] Started
+[Worker 994] Processing sel for 192.0.2.40
+[2026-11-11 08:31:15,505] WARNING: SEL collection degraded: configured_identity_changed
+[Worker 994] Stopped
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb390c0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b9b1220>
+producer = 'bulk', result = 'complete'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 08:31:15,717] WARNING: SEL collection degraded: configured_identity_changed
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-manual] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb38eb0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10ba02e70>
+producer = 'manual', result = 'complete'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+>               assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:665: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1167: in post
+    return self.open(*args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/testing.py:235: in open
+    response = super().open(
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1116: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:988: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1264: in run_wsgi_app
+    app_rv = app(environ, start_response)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:324: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/middleware/proxy_fix.py:183: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:9505: in api_trigger_collection
+    threading.Thread(target=collect_single, daemon=True).start()
+src/ipmi_monitor/app.py:9500: in collect_single
+    build_sensor_cache(bmc_ip)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ('192.0.2.40',)
+
+>   monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: native cache forbidden
+
+tests/test_sel_collection_state.py:647: Failed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[empty-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb38a90>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bbf2e00>
+producer = 'worker', result = 'empty'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[Worker 994] Started
+[Worker 994] Processing sel for 192.0.2.40
+[2026-11-11 08:31:16,402] WARNING: SEL collection degraded: configured_identity_changed
+[Worker 994] Stopped
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[empty-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb38930>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bbf07c0>
+producer = 'bulk', result = 'empty'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 08:31:16,600] WARNING: SEL collection degraded: configured_identity_changed
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[empty-manual] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb3a820>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bbfa750>
+producer = 'manual', result = 'empty'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+>               assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:665: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1167: in post
+    return self.open(*args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/testing.py:235: in open
+    response = super().open(
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1116: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:988: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1264: in run_wsgi_app
+    app_rv = app(environ, start_response)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:324: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/middleware/proxy_fix.py:183: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:9505: in api_trigger_collection
+    threading.Thread(target=collect_single, daemon=True).start()
+src/ipmi_monitor/app.py:9500: in collect_single
+    build_sensor_cache(bmc_ip)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ('192.0.2.40',)
+
+>   monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: native cache forbidden
+
+tests/test_sel_collection_state.py:647: Failed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[failure-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb3b950>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bbfad50>
+producer = 'worker', result = 'failure'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[Worker 994] Started
+[Worker 994] Processing sel for 192.0.2.40
+[2026-11-11 08:31:17,286] WARNING: SEL collection degraded: configured_identity_changed
+[Worker 994] Stopped
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[failure-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb3a560>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bc236b0>
+producer = 'bulk', result = 'failure'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 08:31:17,469] WARNING: SEL collection degraded: configured_identity_changed
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[failure-manual] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb3b8a0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bc22e40>
+producer = 'manual', result = 'failure'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+>               assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:665: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1167: in post
+    return self.open(*args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/testing.py:235: in open
+    response = super().open(
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1116: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:988: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1264: in run_wsgi_app
+    app_rv = app(environ, start_response)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:324: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/middleware/proxy_fix.py:183: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:9505: in api_trigger_collection
+    threading.Thread(target=collect_single, daemon=True).start()
+src/ipmi_monitor/app.py:9500: in collect_single
+    build_sensor_cache(bmc_ip)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ('192.0.2.40',)
+
+>   monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: native cache forbidden
+
+tests/test_sel_collection_state.py:647: Failed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[storage_failure-worker] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb39590>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bc09d30>
+producer = 'worker', result = 'storage_failure'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[Worker 994] Started
+[Worker 994] Processing sel for 192.0.2.40
+[2026-11-11 08:31:18,143] WARNING: SEL collection degraded: configured_identity_changed
+[Worker 994] Stopped
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[storage_failure-bulk] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb3a090>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bcbea50>
+producer = 'bulk', result = 'storage_failure'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+                assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+        finally:
+            if result == 'storage_failure': event.remove(models['IPMIEvent'], 'before_insert', refuse)
+        with app.app_context():
+            manager = runtime.sel_manager; target = manager.target(BMC)
+            state = json.loads(target.collection_state)
+            rows = models['IPMIEvent'].query.filter_by(bmc_ip=BMC).all()
+>           assert calls, 'the actual bounded genuine SEL reader must be used'
+E           AssertionError: the actual bounded genuine SEL reader must be used
+E           assert []
+
+tests/test_sel_collection_state.py:672: AssertionError
+----------------------------- Captured stdout call -----------------------------
+[2026-11-11 08:31:18,325] WARNING: SEL collection degraded: configured_identity_changed
+------------------------------ Captured log call -------------------------------
+WARNING  ipmi_monitor.app:sel_management.py:795 SEL collection degraded: configured_identity_changed
+_ test_explicit_redfish_mode_preserves_all_producers_without_native_claims[storage_failure-manual] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+redfish_reader = <function redfish_reader.<locals>.make at 0x10bb3a2a0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10be06680>
+producer = 'manual', result = 'storage_failure'
+
+    @pytest.mark.parametrize('producer', ['worker', 'bulk', 'manual'])
+    @pytest.mark.parametrize('result', ['complete', 'empty', 'failure', 'storage_failure'])
+    def test_explicit_redfish_mode_preserves_all_producers_without_native_claims(
+            collection_site, redfish_reader, monkeypatch, producer, result):
+        from queue import Queue
+        from threading import Event
+        from sqlalchemy import event
+        from sqlalchemy.exc import OperationalError
+        app, db, models, runtime, alerts = collection_site
+        page = {'Members': [] if result == 'empty' else [{'Id': 'rf-1', 'EntryType': 'SEL',
+            'Created': '2026-11-11T01:00:00Z', 'Message': 'Power fault', 'Severity': 'Warning'}]}
+        if result == 'failure': page['Members@odata.nextLink'] = '//foreign.invalid/Entries'
+        client, calls = redfish_reader(page)
+        monkeypatch.setattr(runtime, 'get_redfish_client', lambda ip: client)
+        monkeypatch.setattr(runtime.subprocess, 'run', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *a, **kw: pytest.fail('native child forbidden'))
+        monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+        monkeypatch.setattr(runtime, 'check_ssh_xid_errors', lambda *a: None)
+        monkeypatch.setattr(runtime, 'get_servers', lambda: {BMC: 'fixture-host'})
+        monkeypatch.setattr(runtime, 'get_collection_workers', lambda: 1)
+        with app.app_context():
+            models['Server'].query.filter_by(bmc_ip=BMC).update({'protocol': 'redfish'}); db.session.commit()
+        def refuse(*a): raise OperationalError('fixture refused', {}, Exception('synthetic'))
+        if result == 'storage_failure': event.listen(models['IPMIEvent'], 'before_insert', refuse)
+        try:
+            if producer == 'bulk': runtime.collect_all_events()
+            elif producer == 'worker':
+                jobs = Queue(); jobs.put(('sel', BMC, 'fixture-host')); jobs.put(None)
+                monkeypatch.setattr(runtime, '_collection_queue', jobs); monkeypatch.setattr(runtime, '_shutdown_event', Event())
+                runtime.collection_worker(994)
+            else:
+                monkeypatch.setattr(runtime.threading, 'Thread', lambda target, **kw: SimpleNamespace(start=target))
+                http = app.test_client()
+                with http.session_transaction() as session: session.update(logged_in=True,username='testadmin',user_role='admin')
+>               assert http.post('/api/collect?bmc_ip='+BMC).status_code == 200
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:665: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1167: in post
+    return self.open(*args, **kw)
+           ^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/testing.py:235: in open
+    response = super().open(
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1116: in open
+    response_parts = self.run_wsgi_app(request.environ, buffered=buffered)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:988: in run_wsgi_app
+    rv = run_wsgi_app(self.application, environ, buffered=buffered)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/test.py:1264: in run_wsgi_app
+    app_rv = app(environ, start_response)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1536: in __call__
+    return self.wsgi_app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:324: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/werkzeug/middleware/proxy_fix.py:183: in __call__
+    return self.app(environ, start_response)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:1511: in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:917: in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/lib/python3.14/site-packages/flask/app.py:902: in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+src/ipmi_monitor/app.py:9505: in api_trigger_collection
+    threading.Thread(target=collect_single, daemon=True).start()
+src/ipmi_monitor/app.py:9500: in collect_single
+    build_sensor_cache(bmc_ip)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+a = ('192.0.2.40',)
+
+>   monkeypatch.setattr(runtime, 'build_sensor_cache', lambda *a: pytest.fail('native cache forbidden'))
+                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: native cache forbidden
+
+tests/test_sel_collection_state.py:647: Failed
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-worker]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3287: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 146 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-worker]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-bulk]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[complete-manual]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[empty-worker]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[empty-bulk]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[empty-manual]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[failure-worker]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[failure-bulk]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[failure-manual]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[storage_failure-worker]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[storage_failure-bulk]
+FAILED tests/test_sel_collection_state.py::test_explicit_redfish_mode_preserves_all_producers_without_native_claims[storage_failure-manual]
+12 failed, 46 deselected, 147 warnings in 3.89s

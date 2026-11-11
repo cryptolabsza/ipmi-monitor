@@ -1,0 +1,54 @@
+{
+  "schema_version": "charlotte-sel-authority/1",
+  "baseline": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "work_item_id": "WORK-CHARLOTTESEL-20261111",
+  "authority_status": "owner-approved canonicalplan with root scoped precode acceptance",
+  "approved_plan": ".traceweaver/charlotte-sel-20261111/approved-plan.txt",
+  "approved_plan_sha256": "c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de",
+  "owner_receipt": ".traceweaver/charlotte-sel-20261111/owner-approval.json",
+  "requirements": [
+    "REQ-SEL-001",
+    "REQ-SEL-002",
+    "REQ-SEL-003",
+    "REQ-SEL-004",
+    "REQ-SEL-005"
+  ],
+  "interpretation": "Additive application of existing REQ-SEL-001..005 to approved Charlotte collection repair, not replacement or weakening of original qualified write controls. Old generic approval holds do not revoke the new specific approval. Root source GO still waits for review of Phase1 evidence.",
+  "source_scope": [
+    "src/ipmi_monitor/app.py",
+    "src/ipmi_monitor/sel_management.py",
+    "src/ipmi_monitor/sel_qualifications.py only if required",
+    "existing SEL UI only if required",
+    "src/ipmi_monitor/sel_collection.py"
+  ],
+  "phase1_scope": "tests-first definition completed; source GO root-precode-review.json authorizes approved scoped implementation",
+  "live_scope": "Root-owned compatible Charlotte rollout, manual clocks CCC90/91 and clears CCC93/95/96 only after fresh target identity, qualification, trusted time semantics, exact complete dual archive, same reservation/CAS and shared ownership guards. No generic reapproval required for approved scope.",
+  "preserve": [
+    "all old qualified write guards",
+    "automatic clear and clock OFF",
+    "history/accounts/settings/inventory/unrelated services",
+    "CCC94 visibly degraded",
+    "no LTX, major runtime change, broad cipher fallback, firmware/power/reset or credential mutation"
+  ],
+  "publication_owner": "root only",
+  "precode_held_history": [
+    "implementation not started",
+    "independent precode/doc/test review pending",
+    "source GREEN/review/required CI pending",
+    "release/artifact/actual target qualification and acceptance pending"
+  ],
+  "held_claims": [
+    "Official CI and immutable published artifact",
+    "Actual Charlotte installed payload, preservation and two ordinary complete native cycles",
+    "CCC94 native access remains degraded",
+    "No firmware/power/reset/credential mutation; no LTX rollout",
+    "Automatic clear and clock OFF; manual90/91clock and93/95/96clear remain exact qualification/fresh dual archive/same reservation/CAS/time/ownership guarded",
+    "Interrupted read foreign-namespace ownership remains held, never age-only reclaimed",
+    "Slow blocked RF HTTP chunk may outlive soft total deadline; no hard interruption claim"
+  ],
+  "current_stage": {
+    "decision": "Source verification/review passed; exact publication and target gates remain",
+    "source_result": ".traceweaver/charlotte-sel-20261111/root-source-acceptance.json",
+    "authority_unchanged": true
+  }
+}

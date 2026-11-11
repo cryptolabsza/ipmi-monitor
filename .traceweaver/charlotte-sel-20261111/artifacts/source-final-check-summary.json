@@ -1,0 +1,76 @@
+{
+  "checks": [
+    [
+      [
+        "/opt/homebrew/opt/python@3.14/bin/python3.14",
+        "-m",
+        "compileall",
+        "-q",
+        "src/ipmi_monitor",
+        "tests/test_sel_collection_regressions.py",
+        "tests/test_sel_collection_state.py"
+      ],
+      0
+    ],
+    [
+      [
+        "git",
+        "diff",
+        "--check"
+      ],
+      0
+    ],
+    [
+      [
+        "/Users/hanneszietsman/.codex/skills/tw-vv-define/scripts/traceweaver-check-vv-capsule",
+        "--root",
+        ".",
+        "--capsule",
+        ".traceweaver/charlotte-sel-20261111/vv-capsule.json",
+        "--require-review-passed"
+      ],
+      0
+    ],
+    [
+      [
+        "/Users/hanneszietsman/.codex/skills/tw-traceability-check/scripts/traceweaver-check-code-anchors",
+        "--root",
+        ".",
+        "--mode",
+        "implementation",
+        "--changed-file",
+        "src/ipmi_monitor/app.py",
+        "--changed-file",
+        "src/ipmi_monitor/sel_management.py",
+        "--changed-file",
+        "src/ipmi_monitor/sel_collection.py",
+        "--changed-file",
+        "tests/test_sel_collection_regressions.py",
+        "--changed-file",
+        "tests/test_sel_collection_state.py",
+        "--changed-file",
+        "tests/test_sel_management.py",
+        "--changed-file",
+        "tests/test_sel_persistent.py",
+        "--jsonl",
+        "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact.jsonl",
+        "--markdown",
+        "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact.md"
+      ],
+      0
+    ],
+    [
+      [
+        "node",
+        "--version"
+      ],
+      0
+    ],
+    [
+      "ast.parse(feature_version=(3,9)): three changed production modules",
+      0
+    ]
+  ],
+  "manifest_digest": "d74e8946793c95b040fa91b57685312bacd6acd26a825cb961b186843a551ab2",
+  "files": 25
+}

@@ -1,0 +1,25 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_____________ test_foreign_pid_namespace_cannot_prove_owner_death ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10de4f100>
+
+    def test_foreign_pid_namespace_cannot_prove_owner_death(monkeypatch):
+        import subprocess
+        import sys
+        from ipmi_monitor import sel_collection as collection
+        owner = subprocess.Popen([sys.executable, '-c', 'pass'])
+        ticket = {'owner': collection.process_identity(owner.pid), 'child': None, 'child_state': 'none'}
+        owner.wait(timeout=3)
+        assert collection.owner_status(ticket) == 'dead_child_reaped'
+        ticket['owner']['namespace'] = 'different-container-pid-namespace'
+>       assert collection.owner_status(ticket) == 'unverifiable'
+E       AssertionError: assert 'dead_child_reaped' == 'unverifiable'
+E         
+E         - unverifiable
+E         + dead_child_reaped
+
+tests/test_sel_collection_state.py:412: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_foreign_pid_namespace_cannot_prove_owner_death
+1 failed, 29 deselected in 0.16s

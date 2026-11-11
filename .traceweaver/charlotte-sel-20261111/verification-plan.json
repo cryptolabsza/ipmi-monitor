@@ -1,0 +1,218 @@
+{
+  "skill_name": "verification-planner",
+  "authority_status": "owner-approved scope; mapping/root-review pending",
+  "baseline_reference": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "source_inputs": [
+    "requirements.md",
+    ".traceweaver/charlotte-sel-20261111/approved-plan.txt",
+    ".traceweaver/sel-health-20261103/authority.json",
+    ".traceweaver/charlotte-sel-20261111/collection-contract.json",
+    "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/architecture-root-acceptance.json"
+  ],
+  "decision": "held",
+  "decision_rationale": "Existing-defect and planned-interface RED now retained separately for accepted A01\u2013A12. All required new behavior has executable prospective tests; downstream behavior not exercised until APIs exist. Root review pending.",
+  "verification_plan": {
+    "plan_id": "VER-PLAN-CHARLOTTESEL-20261111",
+    "requirement_ids": [
+      "REQ-SEL-001",
+      "REQ-SEL-002",
+      "REQ-SEL-003",
+      "REQ-SEL-004",
+      "REQ-SEL-005"
+    ],
+    "method": "test",
+    "success_criteria": {
+      "1": [
+        "Select genuine hardware SEL by service metadata/path component, never Self URI substring.",
+        "Same-origin finite pagination preserves all unique records; foreign/cyclic/partial/inconsistent-empty pages do not report complete success.",
+        "Successful empty native log differs from failed/partial read; persisted last attempt/failure does not refresh last success; both collection producers converge. CCC94 remains degraded."
+      ],
+      "2": [
+        "CCC96 six directly addressable prefix records are recovered or collection remains explicitly incomplete; no clear from short bulk export.",
+        "Every approved clear still requires current exact hardware identity, complete verified dual raw archive, ownership, durable audit and same qualified reservation. Existing history survives."
+      ],
+      "3": [
+        "Identical native16-byte evidence under stable target/generation deduplicates across decoder wording changes.",
+        "Clock rewind alone never invents erasure/generation; actual erasure/replacement/ID reuse still preserved.",
+        "Historical native backfill preserves raw native dates/time quality and trusted collected time without fresh alert replay; both producer paths use common persistence."
+      ],
+      "4": [
+        "Touched native collector uses invocation-local environment secrets, no password argv or leaked stderr/logs.",
+        "CCC90 cipher3 is explicit target/fingerprint-bound validated transport only; no automatic fallback, credential change, or unqualified mutation. Existing authorization/default-off controls remain."
+      ],
+      "5": [
+        "CCC90/91 correction only after fresh identity/archive/ownership/trusted UTC and native convention qualification; offset restore/readback and ambiguous effect reconciliation remain mandatory.",
+        "Other native clock mapping remains unknown until evidence; historical dates never rewritten."
+      ]
+    },
+    "target_environment": "local Mac real application with boundary substitutes; Charlotte qualification separate",
+    "tested_ref_required": true,
+    "owner": "root and exclusive builder",
+    "status": "full-scope-executable-RED-definition-root-review-pending"
+  },
+  "verification_cross_reference_matrix": [
+    {
+      "requirement_id": "REQ-SEL-001",
+      "method": "test",
+      "procedure_ref": "VER-CHARLOTTESEL-001",
+      "source_plan_steps": [
+        2,
+        3,
+        4,
+        9
+      ],
+      "expected_result": [
+        "Select genuine hardware SEL by service metadata/path component, never Self URI substring.",
+        "Same-origin finite pagination preserves all unique records; foreign/cyclic/partial/inconsistent-empty pages do not report complete success.",
+        "Successful empty native log differs from failed/partial read; persisted last attempt/failure does not refresh last success; both collection producers converge. CCC94 remains degraded."
+      ],
+      "initial_red_tests": [
+        "test_self_manager_does_not_make_audit_or_event_log_a_hardware_sel",
+        "test_reads_newest_second_page_without_duplicate_records",
+        "test_incomplete_pagination_cannot_return_first_page_as_complete"
+      ],
+      "red_status": "authentic existing-boundary RED and/or planned-interface absence RED; downstream assertions pending GREEN",
+      "remaining_verification": "Implement accepted contract, rerun downstream behavioral assertions to GREEN, retained suites incl required browser lane, fresh independent review and actual target qualification. No source/hardware claims from feature absence.",
+      "evidence_required": [
+        ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+        "future exact candidate GREEN, independent review and root-owned target records"
+      ],
+      "target_environment": "macOS CPython3.14 with existing Flask/SQLite dependencies; actual installed Charlotte Linux/IPMI separate",
+      "harness_equivalence": "Actual Redfish reader, actual ORM persistence/generation, current collector subprocess boundary. Reconstructed route fixtures match captured reproduction facts; seven16-byte native records exact archive subset. Does not prove firmware, authentication, native completeness or production durability.",
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "requirement_id": "REQ-SEL-002",
+      "method": "test",
+      "procedure_ref": "VER-CHARLOTTESEL-002",
+      "source_plan_steps": [
+        2,
+        8
+      ],
+      "expected_result": [
+        "CCC96 six directly addressable prefix records are recovered or collection remains explicitly incomplete; no clear from short bulk export.",
+        "Every approved clear still requires current exact hardware identity, complete verified dual raw archive, ownership, durable audit and same qualified reservation. Existing history survives."
+      ],
+      "initial_red_tests": [],
+      "red_status": "authentic existing-boundary RED and/or planned-interface absence RED; downstream assertions pending GREEN",
+      "remaining_verification": "Implement accepted contract, rerun downstream behavioral assertions to GREEN, retained suites incl required browser lane, fresh independent review and actual target qualification. No source/hardware claims from feature absence.",
+      "evidence_required": [
+        ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+        "future exact candidate GREEN, independent review and root-owned target records"
+      ],
+      "target_environment": "macOS CPython3.14 with existing Flask/SQLite dependencies; actual installed Charlotte Linux/IPMI separate",
+      "harness_equivalence": "Actual Redfish reader, actual ORM persistence/generation, current collector subprocess boundary. Reconstructed route fixtures match captured reproduction facts; seven16-byte native records exact archive subset. Does not prove firmware, authentication, native completeness or production durability.",
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "requirement_id": "REQ-SEL-003",
+      "method": "test",
+      "procedure_ref": "VER-CHARLOTTESEL-003",
+      "source_plan_steps": [
+        3,
+        7,
+        9
+      ],
+      "expected_result": [
+        "Identical native16-byte evidence under stable target/generation deduplicates across decoder wording changes.",
+        "Clock rewind alone never invents erasure/generation; actual erasure/replacement/ID reuse still preserved.",
+        "Historical native backfill preserves raw native dates/time quality and trusted collected time without fresh alert replay; both producer paths use common persistence."
+      ],
+      "initial_red_tests": [
+        "test_same_native_bytes_deduplicate_after_decoder_wording_changes",
+        "test_clock_rewind_alone_does_not_invent_a_new_native_generation"
+      ],
+      "red_status": "authentic existing-boundary RED and/or planned-interface absence RED; downstream assertions pending GREEN",
+      "remaining_verification": "Implement accepted contract, rerun downstream behavioral assertions to GREEN, retained suites incl required browser lane, fresh independent review and actual target qualification. No source/hardware claims from feature absence.",
+      "evidence_required": [
+        ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+        "future exact candidate GREEN, independent review and root-owned target records"
+      ],
+      "target_environment": "macOS CPython3.14 with existing Flask/SQLite dependencies; actual installed Charlotte Linux/IPMI separate",
+      "harness_equivalence": "Actual Redfish reader, actual ORM persistence/generation, current collector subprocess boundary. Reconstructed route fixtures match captured reproduction facts; seven16-byte native records exact archive subset. Does not prove firmware, authentication, native completeness or production durability.",
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "requirement_id": "REQ-SEL-004",
+      "method": "test",
+      "procedure_ref": "VER-CHARLOTTESEL-004",
+      "source_plan_steps": [
+        4,
+        5
+      ],
+      "expected_result": [
+        "Touched native collector uses invocation-local environment secrets, no password argv or leaked stderr/logs.",
+        "CCC90 cipher3 is explicit target/fingerprint-bound validated transport only; no automatic fallback, credential change, or unqualified mutation. Existing authorization/default-off controls remain."
+      ],
+      "initial_red_tests": [
+        "test_native_collection_keeps_password_out_of_argv_and_logs"
+      ],
+      "red_status": "authentic existing-boundary RED and/or planned-interface absence RED; downstream assertions pending GREEN",
+      "remaining_verification": "Implement accepted contract, rerun downstream behavioral assertions to GREEN, retained suites incl required browser lane, fresh independent review and actual target qualification. No source/hardware claims from feature absence.",
+      "evidence_required": [
+        ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+        "future exact candidate GREEN, independent review and root-owned target records"
+      ],
+      "target_environment": "macOS CPython3.14 with existing Flask/SQLite dependencies; actual installed Charlotte Linux/IPMI separate",
+      "harness_equivalence": "Actual Redfish reader, actual ORM persistence/generation, current collector subprocess boundary. Reconstructed route fixtures match captured reproduction facts; seven16-byte native records exact archive subset. Does not prove firmware, authentication, native completeness or production durability.",
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "requirement_id": "REQ-SEL-005",
+      "method": "test",
+      "procedure_ref": "VER-CHARLOTTESEL-005",
+      "source_plan_steps": [
+        8
+      ],
+      "expected_result": [
+        "CCC90/91 correction only after fresh identity/archive/ownership/trusted UTC and native convention qualification; offset restore/readback and ambiguous effect reconciliation remain mandatory.",
+        "Other native clock mapping remains unknown until evidence; historical dates never rewritten."
+      ],
+      "initial_red_tests": [
+        "test_clock_rewind_alone_does_not_invent_a_new_native_generation (preservation only, not clock-write qualification)"
+      ],
+      "red_status": "authentic existing-boundary RED and/or planned-interface absence RED; downstream assertions pending GREEN",
+      "remaining_verification": "Implement accepted contract, rerun downstream behavioral assertions to GREEN, retained suites incl required browser lane, fresh independent review and actual target qualification. No source/hardware claims from feature absence.",
+      "evidence_required": [
+        ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+        "future exact candidate GREEN, independent review and root-owned target records"
+      ],
+      "target_environment": "macOS CPython3.14 with existing Flask/SQLite dependencies; actual installed Charlotte Linux/IPMI separate",
+      "harness_equivalence": "Actual Redfish reader, actual ORM persistence/generation, current collector subprocess boundary. Reconstructed route fixtures match captured reproduction facts; seven16-byte native records exact archive subset. Does not prove firmware, authentication, native completeness or production durability.",
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    }
+  ],
+  "execution_record_template": {
+    "execution_id": "VER-CHARLOTTESEL-candidate",
+    "requirement_id": "REQ-SEL-<001..005>",
+    "method": "test",
+    "setup": "PYTHONPATH=src; existing dependencies; no BMC/network",
+    "procedure_or_command": "/opt/homebrew/bin/python3.14 -m pytest -q tests/test_sel_collection_regressions.py tests/test_sel_collection_state.py tests/test_sel_management.py tests/test_sel_persistent.py tests/test_sel_qualifications.py",
+    "tested_ref": "3da448d43fb83273f1d6f39c9129347fd5441145 + exact diff/hashmanifest",
+    "expected_result": "focused GREEN and all required applicable regressions pass; environment-dependent lanes remain required",
+    "actual_result": "pending implementation",
+    "outcome": "blocked",
+    "evidence_path": ".traceweaver/charlotte-sel-20261111/artifacts/green.log (future)",
+    "deviations": []
+  },
+  "hold_conditions": [
+    "root Phase1 acceptance",
+    "unimplemented criteria need meaningful before-code RED as interfaces are selected",
+    "live hardware/target validation separately root-owned"
+  ],
+  "recommended_next_skill": "root precode review; source worker only after root GO",
+  "precode_corrections": {
+    "PC01": "Existing SQLite Barrier ownership fixture parameterized for clear-clock, collection-collection, collection-clear/clock;3trustedownerstates expiry/latefinish tests.",
+    "PC02": "Real app injected time for completeempty freshness vs fresh probes/reachability plus failure/skipped;6actual worker/bulk producer integrationcases preserve success semantics/baseline suppression.",
+    "PC03": "Real_get fakeSession302 verifies both body rejection and allow_redirectsFalse in one observable assertion.",
+    "PC04": "Candidate GREEN command now includes test_sel_collection_state.py.",
+    "review_status": "pending root actual acceptance",
+    "evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-precode-correction.txt"
+  },
+  "baseline_browser_resolution": "Root reports all12 prior browser cases PASS under escalated local binding in10.89s, no source failure; no skip or gate removal. Root receipt is authority for that execution, not child rerun."
+}

@@ -1,5 +1,77 @@
 # Requirements — scoped IPMI source integration
 
+## Charlotte SEL repair extension — 11 November 2026
+
+The owner approved the canonical nine-step Charlotte repair plan, SHA256
+`c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de`.
+The exact plan and subsequent approval receipt are retained in
+`.traceweaver/charlotte-sel-20261111/`. This appendix applies existing
+REQ-SEL-001..005 to that approved repair; it does not replace their safeguards.
+The plan's earlier pending-approval wording is historical. Mapping review,
+source verification, target qualification and acceptance remain separate.
+
+- **REQ-SEL-001 / TRACE-SEL-001:** Identify actual hardware SEL service rather
+  than matching `Self` anywhere in a URI. Follow bounded same-BMC pagination;
+  partial, cyclic, foreign or inconsistent pages cannot establish complete
+  success. Persist per-host attempt, failure and last successful collection
+  independently of reachability. Empty success differs from failure. Both
+  normal event producers converge; CCC94 remains visibly degraded until native
+  access is restored. Approved plan steps 2–4,9. Verification
+  VER-CHARLOTTESEL-001; validation VAL-CHARLOTTESEL-001.
+- **REQ-SEL-002 / TRACE-SEL-002:** Native completeness must account for the
+  CCC96 six-record prefix anomaly; a short bulk/Redfish view cannot authorize
+  a clear. Preserve complete durable raw backup, exact current hardware identity,
+  dual archive verification, shared ownership, qualification, audit and same
+  reservation/CAS guards for approved manual clears CCC93/95/96. Do not delete
+  saved history or clear CCC94. Approved steps 2,8. Verification
+  VER-CHARLOTTESEL-002; validation VAL-CHARLOTTESEL-002.
+- **REQ-SEL-003 / TRACE-SEL-003:** Native raw record identity must survive
+  decoder wording changes and clock correction. A backwards last-add timestamp
+  alone must not manufacture an erase/generation change. Preserve genuine ID
+  reuse, replacement and external erasure evidence. Historical backfill retains
+  raw native dates, trusted collection UTC and time quality without replaying
+  old warnings as new incidents. Approved steps 3,7,9. Verification
+  VER-CHARLOTTESEL-003; validation VAL-CHARLOTTESEL-003.
+- **REQ-SEL-004 / TRACE-SEL-004:** Touched collection paths use invocation-local
+  environment secrets and sanitized errors, never password argv. CCC90 cipher3
+  support is explicitly target/fingerprint-bound and validated; no broad automatic
+  fallback. Preserve all existing authorization and qualified mutation controls.
+  Approved steps 4,5. Verification VER-CHARLOTTESEL-004; validation
+  VAL-CHARLOTTESEL-004.
+- **REQ-SEL-005 / TRACE-SEL-005:** Approved manual CCC90/91 clock correction
+  still requires fresh identity, archive, shared ownership, qualified native
+  convention, trusted UTC, offset restoration/readback and reconciliation of
+  ambiguous effects. Historical timestamps remain unchanged; other mappings
+  stay unknown until evidenced. Approved step 8. Verification
+  VER-CHARLOTTESEL-005; validation VAL-CHARLOTTESEL-005.
+
+Automatic clear/clock remain OFF. Scope excludes LTX, major runtime replacement,
+firmware, power/reset, credential mutation and unrelated services. Root owns
+publication, deployment and live operations. Phase1 changes only tests/fixtures
+and scoped authority/V&V documents; source GO awaits root review. Planned
+unimplemented checks are explicitly distinguished from actual RED evidence in
+the verification plan; no source or hardware acceptance is asserted.
+
+## REQ-IPMI-INSTALL-001 — main 1.4.2 installation guides
+
+Owner instructions on 7 November 2026: “Yes get them all updated ASAP,”
+“They should all recommend main 1.4.2,” and the explicit publication choice
+“Publish guides for main 1.4.2.” All normal-install guidance shall recommend
+GitHub `@main` and Docker `:main`, verified as IPMI Monitor 1.4.2, while preserving
+existing deployment data and settings. Development testing may remain explicit.
+
+Scope: installation documentation, public content sources and example Compose/
+setup configuration only. No runtime Python, workflow, dependency, version,
+credential, runner, or installed customer configuration changes. Runtime
+installer improvements remain local in the separate feature worktree.
+
+Trace `TRACE-IPMI-INSTALL-001`; verification `VER-IPMI-INSTALL-001`: deterministic
+source/channel/volume/port/config/shell checks and independent scoped review.
+Validation `VAL-IPMI-INSTALL-001`: public main source and image identify 1.4.2;
+all published normal-install guides select that main channel. Real customer
+installation is not claimed. See `.traceweaver/install-guides-20261107/scope.json`.
+
+
 
 ## Scoped IPMI authority amendment — 26 October 2026 (IPMI-SCOPED-20261026-MONITOR)
 

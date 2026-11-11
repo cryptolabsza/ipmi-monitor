@@ -5,6 +5,14 @@ All notable changes to IPMI Monitor will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-11-11
+
+### Fixed
+- Persist complete native SEL snapshots with per-host collection freshness, bounded prefix recovery and durable ownership shared with maintenance.
+- Preserve historical raw evidence without replaying old incident alerts; retain Redfish-only diagnostic collection without claiming native completeness.
+- Support an explicit identity-bound read transport profile and keep passwords out of touched IPMI command arguments.
+- Keep automatic maintenance off and retain exact hardware qualification and archive guards.
+
 ## [1.4.2] - 2026-11-05
 
 ### Fixed

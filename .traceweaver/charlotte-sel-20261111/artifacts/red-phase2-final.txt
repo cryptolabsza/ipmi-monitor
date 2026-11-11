@@ -1,0 +1,382 @@
+FFFFFFFFFF.FFF.....F                                                     [100%]
+=================================== FAILURES ===================================
+______ test_ccc96_live_direct_prefix_recovery_preserves_all_seven_records ______
+
+native_boundary = <function native_boundary.<locals>.make at 0x10a83c3b0>
+
+    def test_ccc96_live_direct_prefix_recovery_preserves_all_seven_records(native_boundary):
+        adapter, calls = native_boundary(skipped_prefix=True)
+>       snapshot = adapter.snapshot(bytes.fromhex('3412'))
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_sel_collection_state.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <ipmi_monitor.sel_management.IPMISELAdapter object at 0x10a657770>
+reservation = b'4\x12'
+
+    def snapshot(self, reservation):
+        self.open_session(reservation)
+        before = self.info()
+        if not before['supports_reserve']:
+            raise SELUnavailable('hardware_reservation_unavailable')
+        records, seen, actual_ids, record_id = [], set(), set(), 0
+        if before['entries']:
+            while True:
+                if record_id in seen or len(records) >= MAX_RECORDS:
+                    raise SELUnavailable('incomplete_record_chain')
+                seen.add(record_id)
+                response = self.raw(0x0a, 0x43, *reservation, record_id & 255, record_id >> 8, 0, 255)
+                if len(response) != 18:
+                    raise SELUnavailable('incomplete_raw_record')
+                next_id = int.from_bytes(response[:2], 'little')
+                raw = response[2:]
+                actual = int.from_bytes(raw[:2], 'little')
+                if actual in actual_ids or (record_id and actual != record_id):
+                    raise SELUnavailable('incomplete_record_chain')
+                actual_ids.add(actual)
+                records.append({'record_id': actual, 'raw': raw.hex()})
+                if next_id == 65535:
+                    break
+                record_id = next_id
+        after = self.info()
+        if before != after or len(records) != before['entries']:
+>           raise ReservationLost('snapshot_changed')
+E           ipmi_monitor.sel_management.ReservationLost: snapshot_changed
+
+src/ipmi_monitor/sel_management.py:374: ReservationLost
+___ test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent ____
+
+native_boundary = <function native_boundary.<locals>.make at 0x10a85d900>
+
+    def test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent(native_boundary):
+        adapter, _calls = native_boundary(skipped_prefix=True, failure='rmcp_session_failed')
+        with pytest.raises(sel.SELUnavailable) as caught:
+            adapter.snapshot(bytes.fromhex('3412'))
+>       assert caught.value.code == 'rmcp_session_failed'
+E       AssertionError: assert 'snapshot_changed' == 'rmcp_session_failed'
+E         
+E         - rmcp_session_failed
+E         + snapshot_changed
+
+tests/test_sel_collection_state.py:72: AssertionError
+______ test_native_count_not_nonempty_redfish_controls_existing_collector ______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+native_boundary = <function native_boundary.<locals>.make at 0x10b8b92d0>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a81a330>
+
+    def test_native_count_not_nonempty_redfish_controls_existing_collector(collection_site, native_boundary, monkeypatch):
+        app, _db, _models, runtime, _alerts = collection_site
+        adapter, _calls = native_boundary()
+        monkeypatch.setattr(runtime.sel_manager, 'adapter', lambda target: adapter)
+        monkeypatch.setattr(runtime, 'should_use_redfish', lambda ip: True)
+        partial = runtime.IPMIEvent(bmc_ip=BMC, server_name='fixture-host', sel_id='45716',
+            event_date=datetime(1970, 1, 1), sensor_type='OEM', event_description='filtered view', raw_entry='redfish-only', severity='warning')
+        monkeypatch.setattr(runtime, 'collect_sel_redfish', lambda *a: [partial])
+        with app.app_context():
+            events = runtime.collect_ipmi_sel(BMC, 'fixture-host')
+>           assert len(events) == 7, 'one stale Redfish row cannot replace seven native records'
+E           AssertionError: one stale Redfish row cannot replace seven native records
+E           assert 1 == 7
+E            +  where 1 = len([<IPMIEvent (transient 4472194112)>])
+
+tests/test_sel_collection_state.py:111: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+[2026-11-11 06:55:01,428] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 06:55:01,428] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+------------------------------ Captured log setup ------------------------------
+WARNING  ipmi_monitor.app:app.py:562 ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+WARNING  ipmi_monitor.app:app.py:564 ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+______ test_existing_save_path_does_not_replay_historical_native_warnings ______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, ['45710', '45711', '45712', '45713', '45714', '45715', ...])
+
+    def test_existing_save_path_does_not_replay_historical_native_warnings(collection_site):
+        app, _db, models, runtime, alerts = collection_site
+        with app.app_context():
+            events = [runtime.IPMIEvent(bmc_ip=BMC, server_name='fixture-host',
+                sel_id=str(row['record_id']), event_date=datetime(1970, 1, 1),
+                sensor_type='Power Supply', event_description='Archived historical warning',
+                raw_entry=row['raw'], severity='warning') for row in RECORDS]
+            runtime.save_events_to_db(BMC, 'fixture-host', events)
+            assert models['IPMIEvent'].query.filter_by(bmc_ip=BMC).count() == 7
+>           assert alerts == [], 'first native backfill must persist without replaying incident alerts'
+E           AssertionError: first native backfill must persist without replaying incident alerts
+E           assert ['45710', '45... '45715', ...] == []
+E             
+E             Left contains 7 more items, first extra item: '45710'
+E             Use -v to get more diff
+
+tests/test_sel_collection_state.py:123: AssertionError
+______ test_first_baseline_restart_prospective_and_failed_catchup_alerts _______
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+
+    def test_first_baseline_restart_prospective_and_failed_catchup_alerts(collection_site):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:130: AttributeError
+_ test_stale_acquisition_ticket_cannot_commit_rows_or_success[snapshot_epoch] __
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'snapshot_epoch'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+___ test_stale_acquisition_ticket_cannot_commit_rows_or_success[generation] ____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'generation'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+_____ test_stale_acquisition_ticket_cannot_commit_rows_or_success[binding] _____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'binding'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+____ test_stale_acquisition_ticket_cannot_commit_rows_or_success[revision] _____
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+change = 'revision'
+
+    @pytest.mark.parametrize('change', ['snapshot_epoch', 'generation', 'binding', 'revision'])
+    def test_stale_acquisition_ticket_cannot_commit_rows_or_success(collection_site, change):
+        app, db, models, runtime, alerts = collection_site
+        with app.app_context():
+            manager = runtime.sel_manager
+>           ticket = manager.begin_collection(BMC)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'begin_collection'
+
+tests/test_sel_collection_state.py:165: AttributeError
+__________ test_store_failure_rolls_back_records_and_success_together __________
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b7e67b0>
+
+    def test_store_failure_rolls_back_records_and_success_together(collection_site, monkeypatch):
+        app, db, models, runtime, alerts = collection_site
+        from sqlalchemy.exc import OperationalError
+        with app.app_context():
+            manager = runtime.sel_manager
+>           manager.finish_collection(manager.begin_collection(BMC), snapshot=snapshot([]))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: 'Manager' object has no attribute 'finish_collection'
+
+tests/test_sel_collection_state.py:181: AttributeError
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-None] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10b6d3790>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10595/test_managed_read_profile_sele1')
+cipher = 3, mismatch = None
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+                with pytest.raises(sel.SELUnavailable):
+                    runtime.sel_manager.adapter(target).fingerprint()
+            else:
+                fingerprint = runtime.sel_manager.adapter(target).fingerprint()
+>               assert calls and all(argv[argv.index('-C') + 1] == str(cipher) for argv, _kw in calls)
+E               AssertionError: assert ([(['/usr/bin/ipmitool', '-I', 'lanplus', '-C', '17', '-L', ...], {'capture_output': True, 'env': {'IPMI_PASSWORD': 'sy...PMI_PASSWORD': 'synthetic-secret', 'LANG': 'C', 'LC_ALL': 'C', 'PATH': '/usr/bin:/bin'}, 'text': True, 'timeout': 10})] and False)
+E                +  where False = all(<generator object test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch.<locals>.<genexpr> at 0x10bbb2110>)
+
+tests/test_sel_collection_state.py:226: AssertionError
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-guid] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bb65550>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10595/test_managed_read_profile_sele2')
+cipher = 3, mismatch = 'guid'
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+>               with pytest.raises(sel.SELUnavailable):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               Failed: DID NOT RAISE <class 'ipmi_monitor.sel_management.SELUnavailable'>
+
+tests/test_sel_collection_state.py:222: Failed
+_ test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-binding] _
+
+collection_site = (<Flask 'ipmi_monitor.app'>, <SQLAlchemy>, {'AlertHistory': <class 'ipmi_monitor.app.AlertHistory'>, 'AlertRule': <cla...r.app' from '/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py'>, [])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bb65850>
+tmp_path = PosixPath('/private/var/folders/2f/ntb_0p9558v4wfcwr5_64dg00000gn/T/pytest-of-hanneszietsman/pytest-10595/test_managed_read_profile_sele3')
+cipher = 3, mismatch = 'binding'
+
+    @pytest.mark.parametrize('cipher,mismatch', [(17, None), (3, None), (3, 'guid'), (3, 'binding')])
+    def test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch(
+            collection_site, monkeypatch, tmp_path, cipher, mismatch):
+        app, db, _models, runtime, _alerts = collection_site
+        calls = []
+        def run(argv, **kwargs):
+            calls.append((argv, deepcopy(kwargs)))
+            values = [int(v, 16) for v in argv[argv.index('raw') + 1:]]
+            output = DEVICE if values == [6, 1] else GUID
+            return SimpleNamespace(returncode=0, stdout=output.hex(' '), stderr='')
+        monkeypatch.setattr(runtime.subprocess, 'run', run)
+        with app.app_context():
+            target = runtime.sel_manager.target(BMC)
+            if cipher == 3:
+                path = tmp_path / 'read-profile.json'
+                path.write_text(json.dumps({'schema_version': 'sel-read-profiles/1', 'profiles': [{
+                    'server_id': target.server_id, 'binding': 'stale' if mismatch == 'binding' else target.binding,
+                    'bmc_ip': BMC, 'cipher': 3, 'device_id_reply': DEVICE.hex(),
+                    'guid': bytes(reversed(GUID)).hex() if mismatch == 'guid' else GUID.hex()}]}))
+                path.chmod(0o600)
+                monkeypatch.setenv('SEL_READ_PROFILES_FILE', str(path))
+            else:
+                monkeypatch.delenv('SEL_READ_PROFILES_FILE', raising=False)
+            if mismatch:
+>               with pytest.raises(sel.SELUnavailable):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               Failed: DID NOT RAISE <class 'ipmi_monitor.sel_management.SELUnavailable'>
+
+tests/test_sel_collection_state.py:222: Failed
+_ test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel __
+
+child_tool = (<function child_tool.<locals>.make at 0x10bbd87d0>, [<Popen: returncode: -15 args: ['/private/var/folders/2f/ntb_0p9558v4wfcwr5_6...>])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bc308d0>
+
+    def test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel(child_tool, monkeypatch):
+        """A08/A10: selected adapter.cipher must also govern the real shell child.
+    
+        The selection field is a new documented adapter contract; the existing
+        child launches successfully and exposes its current hardcoded17 argv.
+        """
+        from copy import deepcopy
+        make, children = child_tool
+        adapter = make()
+        adapter.cipher = 3
+        launches = []
+        original = subprocess.Popen
+        def launch(argv, **kwargs):
+            launches.append((list(argv), deepcopy(kwargs.get('env', {}))))
+            return original(argv, **kwargs)
+        monkeypatch.setattr(subprocess, 'Popen', launch)
+        try:
+            assert len(adapter.snapshot(bytes.fromhex('3412'))['records']) == 3
+        finally:
+            adapter.close()
+        assert len(launches) == 1
+        argv, environment = launches[0]
+>       assert argv[argv.index('-C') + 1] == '3'
+E       AssertionError: assert '17' == '3'
+E         
+E         - 3
+E         + 17
+
+tests/test_sel_persistent.py:119: AssertionError
+=============================== warnings summary ===============================
+tests/test_sel_collection_state.py::test_native_count_not_nonempty_redfish_controls_existing_collector
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/tests/../src/ipmi_monitor/app.py:3263: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_collection_state.py: 134 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_sel_collection_state.py::test_ccc96_live_direct_prefix_recovery_preserves_all_seven_records
+FAILED tests/test_sel_collection_state.py::test_session_failure_during_prefix_recovery_cannot_be_treated_as_absent
+FAILED tests/test_sel_collection_state.py::test_native_count_not_nonempty_redfish_controls_existing_collector
+FAILED tests/test_sel_collection_state.py::test_existing_save_path_does_not_replay_historical_native_warnings
+FAILED tests/test_sel_collection_state.py::test_first_baseline_restart_prospective_and_failed_catchup_alerts
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[snapshot_epoch]
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[generation]
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[binding]
+FAILED tests/test_sel_collection_state.py::test_stale_acquisition_ticket_cannot_commit_rows_or_success[revision]
+FAILED tests/test_sel_collection_state.py::test_store_failure_rolls_back_records_and_success_together
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-None]
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-guid]
+FAILED tests/test_sel_collection_state.py::test_managed_read_profile_selects_exact_bound_cipher_and_rejects_identity_mismatch[3-binding]
+FAILED tests/test_sel_persistent.py::test_persistent_child_uses_explicit_selected_read_cipher_and_secret_channel
+14 failed, 6 passed, 135 warnings in 3.48s

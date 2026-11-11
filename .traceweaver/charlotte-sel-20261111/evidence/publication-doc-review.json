@@ -1,0 +1,91 @@
+{
+  "schema": "charlotte-publication-document-review/1",
+  "utc": "2026-11-11T07:00:07.056915+00:00",
+  "decision": "PASS_REVIEW_SCOPE",
+  "requested_model": "gpt-6-astra/high",
+  "actual_served_model": "unattested/unavailable",
+  "scope": "Mechanical current-stage source acceptance and protected publication/target-hold coherence only; final14listed paths plus exact referenced evidence identities. No renewed behavior or requirements review.",
+  "input_manifest": "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/release/doc-integration-review-input.json",
+  "input_manifest_sha256": "2c5907e20743a37bd5f946c70ad5bfe569ffb83f4c380a2964ab409bccdffabd",
+  "reviewed_files": {
+    ".traceweaver/intent-contract.yml": "e0a78261e8e9fba400951edd5b6e9d83a9b6da6487d0a29cf30b0b1180f813a6",
+    "traceability-matrix.md": "cdbf142a5deba18960c5261636e5f8672a2702142d610fb96017a486ca6d8742",
+    "docs/validation/charlotte-sel-20261111.md": "6646d763a037f7a39c1f4c5a50a7857449099039abcf75afc5a69c0d9193527e",
+    ".traceweaver/charlotte-sel-20261111/authority.json": "7bc269b5c0a906dddce317e382bc29896d27d4bed0eafb74b41f9c135ff22521",
+    ".traceweaver/charlotte-sel-20261111/vv-capsule.json": "0c85bcaaa8f166794f7da42b78d681664db1f4aef005e1c78e44ac44d3e83214",
+    ".traceweaver/charlotte-sel-20261111/collection-contract.json": "3f1c873c9a081b07385240f81c65add5b64e4ea410775694dff9112c7e1b1372",
+    ".traceweaver/charlotte-sel-20261111/root-source-acceptance.json": "266c4447942e68d098e0b5a80ab79ab8f83d54a018c807378b26155e7cb95950",
+    ".traceweaver/charlotte-sel-20261111/evidence/root-r4-full-regression.txt": "b0ded62b85c71014da5392e5f9d8064f67479e4ebbe894a5ff15035d29e96edb",
+    ".traceweaver/charlotte-sel-20261111/evidence/root-r4-redfish-replay.txt": "e42e1a4c1ec9b0b1295b88dad56087496b01094e3830de2f42c214ae24e0212e",
+    ".traceweaver/charlotte-sel-20261111/evidence/security-review-correction2.json": "8fd482404011cca945a0e0bdf040c6300f814accc3e50e4cbe4f00933d1b741b",
+    ".traceweaver/charlotte-sel-20261111/evidence/independent-linux-correction2.json": "e029504d9db9f551cacc400dcb70c44e7ec541939e8b3b94feda36c73fc97e9e",
+    ".traceweaver/charlotte-sel-20261111/evidence/review-input-manifest-r4.json": "4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923",
+    "tests/fixtures/charlotte_sel_native_prefix.json": "a62b24cd84cb9a4a19013cb856a496f6afc8ae17b610bac69c27fd40ec52b026",
+    ".traceweaver/charlotte-sel-20261111/fixture-trace-equivalence.json": "e7fbc6a93a84d1ebea1cfcfa97d1bcbfe6ef38dfd4d206ba2bb2ca9e8fabd731"
+  },
+  "findings": [],
+  "CHANGED": [
+    "Created only CASE/findings/publication-doc-review.json and publication-doc-review.html. No worktree, Git, network, host, BMC or other file mutations."
+  ],
+  "VERIFIED": [
+    "All14 final input paths match their declared hashes. The11 non-fixture R4 behavior/test/template files match source acceptance and retained R4 manifest. The CASE root-final-source-acceptance.json copy exactly equals the scoped source result.",
+    "Canonical approved plan hash remains c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de and referenced direct owner receipt approves the bounded repair and guarded Charlotte maintenance. Current-stage projection permits protected feature-to-dev then compatible1.4.3 main release only after exact gates; no feature/dev version bump or unrelated deployment authority is inferred.",
+    "Root474-case macOS result is distinguished from independent81-case focused Linux and22-case bounded adversarial review. Raw root summary says474passed/158.07s; linked independent reports retain their environment, reused-evidence and scope limits. None is represented as this document reviewer running tests, a full Linux suite or physical hardware qualification.",
+    "All five source-result evidence hashes match. Retained R4 manifest4716dd6993f0c375b6bb7dfb2c1f832aa8d5993d068f1904fcf73ab346904923 stays immutable; current source result explicitly records the later fixture-only mechanical exception.",
+    "Independently removed the single new traceweaver_anchor JSON line and recovered the exact original fixture SHA327eeb7bcf9e867f8dce44538b496d44451116fdaa9dfebcf30ab5e36993ee86. All remaining JSON bytes and seven raw rows are unchanged; concatenated native bytes hash4a41eee21f62bf9a2d7da0f6d28227cb34c7cdd1f23d105c8c7c892aa0d7c4cb. New fixture hash a62b24cd84cb9a4a19013cb856a496f6afc8ae17b610bac69c27fd40ec52b026 is recorded separately.001/002/003 mapping accurately covers health, prefix recovery and raw identity uses.",
+    "Root final trace receipt reports pass/0findings including the fixture; focused consumer receipt reports4passed/77deselected. These are inspected root receipts, not independent reruns. Metadata-only equality supports retaining the earlier full-suite result without claiming it ran after the metadata addition.",
+    "Current source-stage projections and final matrix paragraph explicitly supersede preparation-only holds for this scoped source repair while retaining actual target, CI/artifact, maintenance qualification and no-closure boundaries."
+  ],
+  "CLAIMED": [
+    "PASS_REVIEW_SCOPE: no blocking mechanical publication-document inconsistency found on the exact final14path/hash set. The source-only acceptance accurately projects existing owner authority and reviewed R4 evidence.",
+    "The fixture metadata/row change is behavior-neutral by exact recovered-before hash and unchanged raw bytes. No new requirement, permission, action qualification or scanner exception is created.",
+    "Some retained preparation text still says precode pending/future GREEN, but it is subordinated by explicit retained-definition/current_source_result/current_stage fields and the final matrix supersession paragraph. This review treats those as historical, not as a new active owner-approval gate."
+  ],
+  "BLOCKED": [
+    "This review does not independently reapprove behavior, attest model routing, certify the build/published artifact, complete official CI, authorize unguarded physical actions or close requirements.",
+    "Actual Charlotte native installed payload/preservation and two complete ordinary cycles remain held. CCC94 native access remains degraded. Native Redfish diagnostic distinction, unsupported clock mapping and exact physical maintenance qualifications remain intact.",
+    "Automatic clear/clock remain OFF; no LTX, major-runtime replacement, power/reset/firmware/credential mutation. Foreign-namespace interrupted-read holds and the soft Redfish chunk deadline limitation remain disclosed.",
+    "Image rollback alone does not undo acknowledged database records or physical clears; consistent backup/current evidence/rollback and no blind replay obligations remain."
+  ],
+  "PROMOTE": [
+    "Root may attach this exact receipt to the scoped publication package and proceed through the already authorized protected feature-to-dev and compatible main release route subject exact publication capsules, required checks and baseline preservation.",
+    "Keep retained R4 manifest immutable and carry both fixture hashes/equivalence receipt into the final candidate identity. Actual deployment and each guarded maintenance action retain their independent current evidence gates."
+  ],
+  "verification": {
+    "input_hashes": {
+      ".traceweaver/intent-contract.yml": true,
+      "traceability-matrix.md": true,
+      "docs/validation/charlotte-sel-20261111.md": true,
+      ".traceweaver/charlotte-sel-20261111/authority.json": true,
+      ".traceweaver/charlotte-sel-20261111/vv-capsule.json": true,
+      ".traceweaver/charlotte-sel-20261111/collection-contract.json": true,
+      ".traceweaver/charlotte-sel-20261111/root-source-acceptance.json": true,
+      ".traceweaver/charlotte-sel-20261111/evidence/root-r4-full-regression.txt": true,
+      ".traceweaver/charlotte-sel-20261111/evidence/root-r4-redfish-replay.txt": true,
+      ".traceweaver/charlotte-sel-20261111/evidence/security-review-correction2.json": true,
+      ".traceweaver/charlotte-sel-20261111/evidence/independent-linux-correction2.json": true,
+      ".traceweaver/charlotte-sel-20261111/evidence/review-input-manifest-r4.json": true,
+      "tests/fixtures/charlotte_sel_native_prefix.json": true,
+      ".traceweaver/charlotte-sel-20261111/fixture-trace-equivalence.json": true
+    },
+    "non_fixture_r4_hashes": {
+      "src/ipmi_monitor/app.py": true,
+      "src/ipmi_monitor/sel_collection.py": true,
+      "src/ipmi_monitor/sel_management.py": true,
+      "src/ipmi_monitor/templates/dashboard.html": true,
+      "src/ipmi_monitor/templates/server_detail.html": true,
+      "templates/dashboard.html": true,
+      "templates/server_detail.html": true,
+      "tests/test_sel_collection_regressions.py": true,
+      "tests/test_sel_collection_state.py": true,
+      "tests/test_sel_management.py": true,
+      "tests/test_sel_persistent.py": true
+    },
+    "fixture_original_reconstructed_sha256": "327eeb7bcf9e867f8dce44538b496d44451116fdaa9dfebcf30ab5e36993ee86",
+    "fixture_raw_records_sha256": "4a41eee21f62bf9a2d7da0f6d28227cb34c7cdd1f23d105c8c7c892aa0d7c4cb",
+    "case_and_scope_acceptance_equal": true,
+    "tests_rerun_by_this_reviewer": false,
+    "network_or_BMC_actions": false
+  },
+  "limits": "At most5min document-only review within the original20min cumulative architecture allocation; waiting for root final hashes excluded from active review effort."
+}

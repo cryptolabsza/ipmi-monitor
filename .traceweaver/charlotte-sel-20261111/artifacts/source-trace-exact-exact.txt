@@ -1,0 +1,6 @@
+code_traceability_status=pass
+code_traceability_mode=implementation
+code_traceability_targets=src/ipmi_monitor/app.py,src/ipmi_monitor/sel_management.py,src/ipmi_monitor/sel_collection.py,tests/test_sel_collection_regressions.py,tests/test_sel_collection_state.py,tests/test_sel_management.py,tests/test_sel_persistent.py
+code_traceability_findings=0
+code_traceability_jsonl=/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact.jsonl
+code_traceability_markdown=/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/.traceweaver/charlotte-sel-20261111/artifacts/source-trace-exact.md

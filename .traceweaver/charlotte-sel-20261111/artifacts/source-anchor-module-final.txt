@@ -1,0 +1,11 @@
+trace_anchor_authoring_status=applied
+trace_anchor_authoring_target=src/ipmi_monitor/sel_collection.py
+trace_anchor_authoring_anchor_type=entrypoint
+trace_anchor_authoring_requirement=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004
+trace_anchor_authoring_trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004
+trace_anchor_authoring_verification=VER-CHARLOTTESEL-001,VER-CHARLOTTESEL-002,VER-CHARLOTTESEL-003,VER-CHARLOTTESEL-004
+trace_anchor_authoring_anchor=# TRACEWEAVER: entrypoint=read_profile; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003,TRACE-SEL-004; ver=VER-CHARLOTTESEL-001,VER-CHARLOTTESEL-002,VER-CHARLOTTESEL-003,VER-CHARLOTTESEL-004
+trace_anchor_authoring_matrix_row=| src/ipmi_monitor/sel_collection.py | REQ-SEL-001; REQ-SEL-002; REQ-SEL-003; REQ-SEL-004 | TRACE-SEL-001; TRACE-SEL-002; TRACE-SEL-003; TRACE-SEL-004 | VER-CHARLOTTESEL-001; VER-CHARLOTTESEL-002; VER-CHARLOTTESEL-003; VER-CHARLOTTESEL-004 | entrypoint | native-collection-boundaries |
+trace_anchor_authoring_file_changed=true
+trace_anchor_authoring_matrix_changed=true
+trace_anchor_authoring_reason=TraceWeaver reviewed hierarchy maps this artifact to REQ-SEL-001,REQ-SEL-002,REQ-SEL-003,REQ-SEL-004.

@@ -1,0 +1,21 @@
+{
+  "authority": "Root diagnosed compatibility correction2of2 under same approved plan/REQ-SEL001/003/004, no reset",
+  "plan": [
+    "RED actual explicitly configured RF-only worker/bulk/manual complete/empty/read/storage outcomes, native children forbidden",
+    "Reuse list-compatible EventBatch and existing bounded genuine RF reader with per-call read status",
+    "Finish RF views under existing captured lease/atomic boundary, keep native completeness fields unverified/untouched; durable separate RF baseline/continuity/freshness evidence",
+    "Preserve native auto/ipmi path, qualification/profiles/observer fix; focused then full local suite once, deterministic gates and immutable stopped package"
+  ],
+  "files": [
+    "src/ipmi_monitor/app.py",
+    "src/ipmi_monitor/sel_management.py",
+    "tests/test_sel_collection_state.py",
+    "traceability-matrix.md",
+    ".traceweaver/charlotte-sel-20261111/correction2-*"
+  ],
+  "limits": [
+    "No native mode fallback",
+    "No qualifications/credentials/version/deps/CI/UI/host/BMC/publication changes",
+    "No Linux duplication; root owns affected recheck"
+  ]
+}

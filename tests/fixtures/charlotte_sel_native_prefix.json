@@ -1,0 +1,37 @@
+{
+  "traceweaver_anchor": "TRACEWEAVER: file-role=charlotte-native-prefix-fixture; verifies=VER-CHARLOTTESEL-001,VER-CHARLOTTESEL-002,VER-CHARLOTTESEL-003; req=REQ-SEL-001,REQ-SEL-002,REQ-SEL-003; trace=TRACE-SEL-001,TRACE-SEL-002,TRACE-SEL-003",
+  "provenance": "Exact first seven 16-byte native CCC96 records; first six were missing from bulk traversal. Contains no credentials. Small evidence subset, not a complete archive or mutation authorization.",
+  "source_sha256": "328f32a030f43e072443cc9baa282e85087ef1515966af2e97bd049ada54b177",
+  "source_bytes": 58224,
+  "source_records": 3639,
+  "records": [
+    {
+      "record_id": 45710,
+      "raw": "8eb2028161816820000408e201520000"
+    },
+    {
+      "record_id": 45711,
+      "raw": "8fb2028f61816820000408e281520900"
+    },
+    {
+      "record_id": 45712,
+      "raw": "90b2028f61816820000408e281500900"
+    },
+    {
+      "record_id": 45713,
+      "raw": "91b2022762816820000408e201500000"
+    },
+    {
+      "record_id": 45714,
+      "raw": "92b2022762816820000408e201520000"
+    },
+    {
+      "record_id": 45715,
+      "raw": "93b2022e62816820000408e281520300"
+    },
+    {
+      "record_id": 45716,
+      "raw": "94b2022e62816820000408e281500300"
+    }
+  ]
+}

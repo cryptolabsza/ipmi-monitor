@@ -1,0 +1,28 @@
+{
+  "utc": "2026-11-11T05:05:18.432786+00:00",
+  "decision": "PASS_SCOPED_DEFINITION_FOR_SOURCE",
+  "reviewer": "root independent acceptance after Astra PC01-PC04 and exact targeted test revision",
+  "authority_sha256": "c1b0ef34efe4217d85e77757534b09d09b726cfc4504434924d2b9a63c0a09de",
+  "baseline": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "reviewed": [
+    "all initial and state/native tests+actual assertion failures vs interface absence distinction",
+    "preserved original clear-clock barrier assertions, added collection contention",
+    "finite180+30 lease+owner death/reaping proof; no time-only or mutation unknown reclaim",
+    "late ticket cannotrelease newerowner orcommit",
+    "freshness aged781s whilegenericreachable/probefresh",
+    "both real normalproducer entrypoints x acquisition/storagefail/success",
+    "real_get redirectrequestboundary",
+    "recorded GREEN includesnewstatefile",
+    "accessibleincomplete=held notcompletesuccess",
+    "same qualified mutation/archive/CAS/timeownership guards retained"
+  ],
+  "red_evidence": "artifacts/red-precode-correction.txt",
+  "review_limit": "Tests ending at missing interface have not yet executed downstream assertions; source GREEN and fresh independent validation must do so. No hardware qualification or release acceptance.",
+  "schema_review": "authority/requirements mapping accepted for bounded new approved repair; unrelated historical intent records unchanged",
+  "conditions": [
+    "Source uses real local owner/child proof, never caller-reported enum or time-only reclaim; independently exercise actual liveness/proof boundary in validation",
+    "Allnewdownstreamcases mustexecuteGREEN, no weakening",
+    "No production/BMC/source publication by builder; root acceptance and exactrelease/sitesteps remain"
+  ],
+  "source_GO": true
+}

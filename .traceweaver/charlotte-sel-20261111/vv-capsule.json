@@ -1,0 +1,174 @@
+{
+  "schema_version": "tw-vv-capsule/1",
+  "workflow_profile": "L3",
+  "work_item_id": "WORK-CHARLOTTESEL-20261111",
+  "plan_ref": ".traceweaver/charlotte-sel-20261111/approved-plan.txt",
+  "authority_ref": ".traceweaver/charlotte-sel-20261111/authority.json",
+  "baseline": "3da448d43fb83273f1d6f39c9129347fd5441145",
+  "definition_status": "review-passed definition; source verification and independent source reviews passed; target validation held",
+  "high_risk_controls": {
+    "rollback": "Retain consistent full DB/WAL/config backup, previous immutable artifact and all acknowledged subsequent evidence; reconcile before restore. BMC clear cannot be undone: preserve complete dual raw archives/audit. Ambiguous clock/clear effects require actual readback and no blind replay. Automatic policies OFF.",
+    "owner_decision": "Canonical nine-step plan c1b0ef34 and retained owner receipt authorize bounded repair and guarded manual clock90/91 and clear93/95/96 subject fresh exact identity/archive/qualification/ownership/trusted UTC. Root owns review/source GO/publication/deployment; no LTX or automatic arming. No repeated generic owner approval is required."
+  },
+  "requirements": [
+    {
+      "req_id": "REQ-SEL-001",
+      "trace_id": "TRACE-SEL-001",
+      "ver_id": "VER-CHARLOTTESEL-001",
+      "val_id": "VAL-CHARLOTTESEL-001",
+      "verification_artifact": "tests/test_sel_collection_regressions.py",
+      "red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+      "validation_artifact": "docs/validation/charlotte-sel-20261111.md",
+      "coverage": "partial; native clock requirement only preservation across rewind, not live writes",
+      "matrix_row_ref": "pending-merge; .traceweaver/charlotte-sel-20261111/proposed-matrix-rows.json",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "TEST-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        }
+      ],
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "req_id": "REQ-SEL-003",
+      "trace_id": "TRACE-SEL-003",
+      "ver_id": "VER-CHARLOTTESEL-003",
+      "val_id": "VAL-CHARLOTTESEL-003",
+      "verification_artifact": "tests/test_sel_collection_regressions.py",
+      "red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+      "validation_artifact": "docs/validation/charlotte-sel-20261111.md",
+      "coverage": "partial; native clock requirement only preservation across rewind, not live writes",
+      "matrix_row_ref": "pending-merge; .traceweaver/charlotte-sel-20261111/proposed-matrix-rows.json",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "TEST-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        }
+      ],
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "req_id": "REQ-SEL-004",
+      "trace_id": "TRACE-SEL-004",
+      "ver_id": "VER-CHARLOTTESEL-004",
+      "val_id": "VAL-CHARLOTTESEL-004",
+      "verification_artifact": "tests/test_sel_collection_regressions.py",
+      "red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+      "validation_artifact": "docs/validation/charlotte-sel-20261111.md",
+      "coverage": "partial; native clock requirement only preservation across rewind, not live writes",
+      "matrix_row_ref": "pending-merge; .traceweaver/charlotte-sel-20261111/proposed-matrix-rows.json",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "TEST-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        }
+      ],
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "req_id": "REQ-SEL-005",
+      "trace_id": "TRACE-SEL-005",
+      "ver_id": "VER-CHARLOTTESEL-005",
+      "val_id": "VAL-CHARLOTTESEL-005",
+      "verification_artifact": "tests/test_sel_collection_regressions.py",
+      "red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-collection-final.txt",
+      "validation_artifact": "docs/validation/charlotte-sel-20261111.md",
+      "coverage": "partial; native clock requirement only preservation across rewind, not live writes",
+      "matrix_row_ref": "pending-merge; .traceweaver/charlotte-sel-20261111/proposed-matrix-rows.json",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "TEST-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        }
+      ],
+      "phase2_verification_artifact": "tests/test_sel_collection_state.py",
+      "phase2_red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt"
+    },
+    {
+      "req_id": "REQ-SEL-002",
+      "trace_id": "TRACE-SEL-002",
+      "ver_id": "VER-CHARLOTTESEL-002",
+      "val_id": "VAL-CHARLOTTESEL-002",
+      "verification_artifact": "tests/test_sel_collection_state.py",
+      "red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-phase2-final.txt",
+      "validation_artifact": "docs/validation/charlotte-sel-20261111.md",
+      "matrix_row_ref": "pending-merge",
+      "coverage": "Actual current snapshot deficit and bounded recovery-session error RED; exact guarded maintenance qualification remains existing coverage and live held",
+      "reviews": [
+        {
+          "gate": "tw-doc-review",
+          "id": "DOC-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        },
+        {
+          "gate": "tw-code-review",
+          "id": "TEST-CHARLOTTESEL-PRECODE",
+          "status": "passed",
+          "evidence_path": ".traceweaver/charlotte-sel-20261111/root-precode-review.json"
+        }
+      ]
+    }
+  ],
+  "remaining_requirements": [],
+  "precode_correction": {
+    "contract": ".traceweaver/charlotte-sel-20261111/collection-contract.json",
+    "verification_artifacts": [
+      "tests/test_sel_collection_state.py",
+      "tests/test_sel_collection_regressions.py",
+      "tests/test_sel_management.py"
+    ],
+    "red_evidence": ".traceweaver/charlotte-sel-20261111/artifacts/red-precode-correction.txt",
+    "review_status": "pending root actual acceptance; old review statuses intentionally unchanged"
+  },
+  "precode_held_history": [
+    "All independent precode reviews pending root acceptance.",
+    "New begin/finish API missing on baseline: downstream tests are executable prospective contracts, not yet verified transactional outcomes.",
+    "No source implementation, hardware qualification, deployment or acceptance claimed."
+  ],
+  "held": [
+    "Official CI and immutable published artifact",
+    "Actual Charlotte installed payload, preservation and two ordinary complete native cycles",
+    "CCC94 native access remains degraded",
+    "No firmware/power/reset/credential mutation; no LTX rollout",
+    "Automatic clear and clock OFF; manual90/91clock and93/95/96clear remain exact qualification/fresh dual archive/same reservation/CAS/time/ownership guarded",
+    "Interrupted read foreign-namespace ownership remains held, never age-only reclaimed",
+    "Slow blocked RF HTTP chunk may outlive soft total deadline; no hard interruption claim"
+  ],
+  "current_source_result": ".traceweaver/charlotte-sel-20261111/root-source-acceptance.json"
+}

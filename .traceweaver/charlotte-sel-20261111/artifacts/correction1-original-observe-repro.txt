@@ -1,0 +1,21 @@
+[2026-11-11 08:09:21,836] WARNING: ⚠️  IPMI_PASS not set! IPMI commands will fail. Set via environment variable.
+[2026-11-11 08:09:21,836] WARNING: ⚠️  IPMI_PASS_NVIDIA not set! NVIDIA BMC commands will fail.
+============================================================
+⚠️  WARNING: No servers configured!
+   If you expected existing data, check your volume mounts.
+   
+   Recommended: Use docker-compose with named volumes:
+     volumes:
+       - ipmi_data:/app/data
+   
+   Or with docker run:
+     -v ipmi_data:/app/data
+============================================================
+first_lease_committed 37de9f4a-dc76-4084-9bb3-8f91cb9f5817
+state_after_observe {"active_attempt_id": "37de9f4a-dc76-4084-9bb3-8f91cb9f5817", "active_ticket": {"attempt_id": "37de9f4a-dc76-4084-9bb3-8f91cb9f5817", "binding": "334a022482504ab98de48aa3bcbb514bfe14d42910d5df38b0627e321fff3960", "bmc_ip": "192.0.2.40", "child": null, "child_state": "none", "deadline": 1908514.4814655, "fingerprint": "{\"device_id_reply\": \"2001020151005701000100\", \"guid\": \"000102030405060708090a0b0c0d0e0f\"}", "generation": 0, "owner": {"boot": "synthetic-boot", "namespace": "synthetic-namespace", "pid": 96679, "ppid": 96669, "start": "synthetic-start", "state": "R"}, "process_instance": "35d5cf9283754447afddf62e310c3713", "revision": 1, "snapshot_epoch": 0, "started_at": "2026-11-11T06:09:21.978387Z", "target_id": "83dc5a90-d892-4ac9-b939-c4a48c809b9a"}, "baseline_complete": false, "last_attempt_at": "2026-11-11T06:09:21.978387Z", "last_complete_success_at": null, "native_expected": null, "native_persisted": null, "native_received": null, "outcome": "in_progress", "receipt_digest": null, "safe_reason": null}
+Traceback (most recent call last):
+  File "/Users/hanneszietsman/CrypotAI/artifacts/charlotte-sel-repair-20261111/artifacts/security-review-repro.py", line 35, in <module>
+    second=r.sel_manager.begin_collection(bmc)
+  File "/Users/hanneszietsman/CrypotAI/ipmi-monitor-charlotte-sel-20261111/src/ipmi_monitor/sel_management.py", line 743, in begin_collection
+    raise SELUnavailable('collection_busy_or_maintenance') from None
+ipmi_monitor.sel_management.SELUnavailable: collection_busy_or_maintenance
