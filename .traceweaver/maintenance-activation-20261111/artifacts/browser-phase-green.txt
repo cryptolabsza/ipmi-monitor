@@ -1,0 +1,28 @@
+..............                                                           [100%]
+=============================== warnings summary ===============================
+tests/test_sel_activation.py::test_manual_commissioning_does_not_offer_automatic_opt_in[src/ipmi_monitor/templates]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:3289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_activation.py: 60 warnings
+tests/test_sel_management.py: 108 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_activation.py: 2 warnings
+tests/test_sel_management.py: 12 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:6664: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_activation.py: 2 warnings
+tests/test_sel_management.py: 12 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:6668: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+tests/test_sel_activation.py: 2 warnings
+tests/test_sel_management.py: 12 warnings
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:9232: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=hours)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+14 passed, 119 deselected, 211 warnings in 12.64s

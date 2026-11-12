@@ -10,6 +10,7 @@ import time
 
 import pytest
 from ipmi_monitor import sel_management as sel
+from tests.test_sel_management import qualified_site, sel_site
 
 
 @pytest.fixture()
@@ -32,6 +33,10 @@ def child_tool(tmp_path, monkeypatch):
 import sys, time
 MODE = MODE_VALUE
 def response(values):
+    if values[:2] == [6,1]: return bytes.fromhex('2001020151005701000100')
+    if values[:2] == [6,55]: return bytes(range(16))
+    if values[:2] == [10,72]: return int(time.time()).to_bytes(4,'little')
+    if values[:2] == [10,92]: return (120).to_bytes(2,'little',signed=True)
     if values[:2] == [10,64]: return bytes.fromhex('5103000000010000000000000002')
     if values[:2] == [10,66]: return bytes.fromhex('3412')
     if values[:2] == [10,67]:
@@ -79,6 +84,27 @@ def test_complete_snapshot_and_clear_share_one_child_and_reservation(child_tool)
     finally:
         getattr(adapter, 'close', lambda: None)()
     assert all(child.poll() is not None for child in children)
+
+
+def test_clock_after_real_snapshot_child_uses_guarded_direct_writes(qualified_site, child_tool, monkeypatch):
+    """A read-only snapshot shell must be reaped before direct clock commands."""
+    from tests.test_sel_management import BMC, intent
+    (client, app, _db, _models, runtime, commands), _state, _registry = qualified_site
+    make, children = child_tool
+    make()  # Materialize the same local executable used by persistent tests.
+    def real_session(adapter, reservation=None):
+        if adapter._shell is None:
+            adapter._shell = sel.IPMIShellSession(adapter, reservation)
+    monkeypatch.setattr(sel.IPMISELAdapter, 'open_session', real_session)
+    headers, data = intent(client)
+    response = client.post(f'/api/server/{BMC}/sel/clock', json=data, headers=headers)
+    assert response.status_code == 200, response.get_json()
+    assert response.get_json()['outcome'] == 'clock_verified'
+    assert any('0x49' in argv for argv, _ in commands)
+    assert len(children) == 1
+    assert all(child.poll() is not None for child in children)
+    with app.app_context():
+        assert runtime.SELArchive.query.one().operation_id == response.get_json()['id']
 
 
 @pytest.mark.parametrize('mode', ['eof', 'malformed', 'oversize', 'timeout'])

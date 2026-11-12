@@ -1,0 +1,58 @@
+{
+  "reviewer": "adversarial",
+  "reviewed_at": "2026-11-11T19:40:13.071783+00:00",
+  "review_scope": "Single identity-scoped repair1 closure of ADV-SEL-001 and its directly affected binding/test boundary; no second broad review cycle",
+  "CODE_verdict": "PASS_WITHIN_REVIEWED_SOURCE_SCOPE",
+  "HARDWARE_PREREQ_verdict": "UNCHANGED: SUPPORTED_FOR_NARROW_FIRST_MANUAL_CLEAR_SUBJECT_TO_FRESH_GATES",
+  "findings": [],
+  "open_findings": 0,
+  "closed_findings": [
+    {
+      "id": "ADV-SEL-001",
+      "previous_severity": "P1",
+      "status": "CLOSED",
+      "confidence": 100,
+      "file": "src/ipmi_monitor/sel_qualifications.py",
+      "line": 571,
+      "evidence": [
+        "Independently checked all 26 source_files manifest hashes against current files and recomputed canonical source manifest SHA256 49527b5a5e99910bbdd6147b5f67e737e6cd0100fd7d22ae984d731c5714a374.",
+        "Removed the exact three added lines in memory and independently recovered old frozen loader SHA256 2945836d145fd1accd00e5e31d5945ea7c5c4c4b988075fee629836d606bde83. Repaired loader is db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b. No other production loader delta exists.",
+        "Historical records now pass through actual resolve_trust against base/bundles/parent envelope digest before original_binding calculation, matching the original operator_state resolution location. Structural candidate and acceptance hashing remain unchanged and relative-path based.",
+        "Independent deterministic execution confirms historical and runtime hashes now agree, while original raw structural records retain relative CA paths. validate_registry_v1 AST independently matches the reconstructed pre-repair body.",
+        "Inspected genuine Linux real API/SQLite/files lane implementation and retained old-loader RED/new-loader GREEN: manual clock completes and ordinary collection persists before old promotion_local_operation_mismatch. Repaired lane passes promotion, expiry/retention, receipt and row tampering, carry-forward, fresh consent, and automatic clock with a new dual archive.",
+        "Existing clock TLS substitute checks exact selected managed CA file contents and expected credential boundary before forwarding to the existing synthetic TLS fixture. Real production trust, NTP/offset and ownership gates were not bypassed by the production repair."
+      ]
+    }
+  ],
+  "source_manifest_sha256": "49527b5a5e99910bbdd6147b5f67e737e6cd0100fd7d22ae984d731c5714a374",
+  "repaired_loader_sha256": "db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b",
+  "verification": {
+    "independent_executions": [
+      "All 26 current file hashes and canonical manifest hash",
+      "Exact old loader reconstruction from three-line delta",
+      "v1 validator AST comparison",
+      "Actual resolve_trust historical/runtime binding equality witness"
+    ],
+    "retained_logs_reviewed": {
+      "repair1-red-clock-promotion.log": "cc4fcd068e6b689aa7c8de6f07dd3a4c137e9ce88764cf84873caec6910b6d9d",
+      "repair1-green-clock-promotion.log": "daa03a6dbe90db28a56e52d0f58bafd81d9d3d27eee8db057c3de907f33ca66e",
+      "repair1-clear-cas-linux.log": "9e5d5a5eca7b34def9ed0fcbca179409086ac748504f3b8eec02767185f2db3e",
+      "repair1-full-suite.log": "e2750c6a50d918390a21bba2db14f50e52a3ce31b6abe2396d30e63fbdd96a0c"
+    },
+    "clock_red": "Observed old-frozen-loader promotion_local_operation_mismatch after manual clock/collection success assertions",
+    "clock_green": "Terminal PASS; root Linux, real local API/SQLite/files and synthetic external tool/TLS",
+    "clear_and_cas": "Terminal clear lifetime PASS plus 9 offline installed contract/CAS tests OK",
+    "full_suite": "Terminal 524 passed, 4323 warnings in 180.45 seconds observed in repair1-full-suite.log",
+    "reviewer_did_not_rerun_full_suite_or_external_commands": true
+  },
+  "residual_risks": [
+    "Source review closure does not certify deployed artifact identity, protected CI/publication, site acceptance, physical commissioning, automatic policy activation, or requirement closure. Root retains these decisions.",
+    "Hardware prerequisite packet and physical observation limits remain exactly as in astra-final.json; no new hardware operation was performed.",
+    "External hardware and TLS responses in the Linux commissioning lanes remain explicitly synthetic; they establish source integration behavior, not firmware qualification."
+  ],
+  "testing_gaps": [],
+  "repair_cycle": 1,
+  "repair_cap_exhausted": true,
+  "source_edits": false,
+  "publication_or_live_operations": false
+}

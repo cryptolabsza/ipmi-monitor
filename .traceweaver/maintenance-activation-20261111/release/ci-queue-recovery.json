@@ -1,0 +1,24 @@
+{
+  "schema": "ipmi-release-ci-recovery-evidence/1",
+  "source_reviewed_release_head": "51218edfe1fb83f0cf3224a41fcb663c05ace4e6",
+  "observed_on_UTC": "2026-11-12",
+  "release_version": "1.5.0",
+  "release_metadata_change": "Unpublished release date corrected to12November2026; priorchangeloghistoryretained",
+  "queued_workflows": [
+    43096352769,
+    43096352772
+  ],
+  "observations": [
+    "Both workflow objects remainedqueued withzerojobs since2026-11-11T20:29:25Z",
+    "RepositoryActionsenabled; no pendingdeploymentapproval forCPUworkflow",
+    "One normal CPU rerunrequest returned403: This workflow is already running",
+    "One normal CPU cancellationrequest returned409: Cannot cancel a workflow run that has not been queued yet."
+  ],
+  "recovery": "One fresh PR synchronization event from this release-metadata-only commit; source/tests/dependencies/CIconfigurationunchanged",
+  "boundaries": [
+    "No forcecancel, syntheticcheckstatus, branchprotectionoverride, broader runner access or credential change",
+    "RequiredCPU and relevantimagechecks mustactuallypass onnewhead beforeseparatemerge",
+    "Officialartifact, sitepreservation andphysicalqualification stillheld"
+  ],
+  "earlier_feature_merge_control_deviation": "Retained in feature-merge-control-deviation.json; no retroactive controlledmergeclaim"
+}

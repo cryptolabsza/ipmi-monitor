@@ -1,0 +1,113 @@
+{
+  "utc": "2026-11-11T19:46:18.454005+00:00",
+  "decision": "PASS_SOURCE_LOCAL_DELIVERY_AND_REPAIRED_OPS_PREPARATION_LIMITED_SCOPE",
+  "source_integrity": "source-integrity.json",
+  "ops_integrity": "ops-integrity.json",
+  "baseline": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "environment": {
+    "host": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+    "cached_image": "sha256:392f25e4a25dca1041898080075adf28ab3465bdb0154d7cc3cd201bc55e1d94",
+    "linux": "linux/amd64 Docker on macOS arm64 emulation; Python3.11 image, root inside isolated container only"
+  },
+  "tests": [
+    {
+      "command": "python3 -m pytest -q tests/test_sel_activation.py tests/test_sel_persistent.py tests/test_sel_management.py -k 'raw_snapshot_has or unavailable_durable or final_archive_corruption or valid_empty_clock or manual_only_phase or typed_manual or commission_claim_race or manual_commissioning_does or clock_after_real_snapshot or complete_snapshot_and_clear or qualified_clear_archives or unspecified_utc_offset or clock_restores_positive or clock_failure_or_external or linux_reference_requires or pending_archive_and_independent or policy_defaults_are or unrelated_policy_edit or other_action_off'",
+      "cwd": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111",
+      "exit": 1,
+      "passed": 34,
+      "failed": 2,
+      "deselected": 104,
+      "seconds": 8.72,
+      "log": "focused.log",
+      "failure": "Both actual-rendered UI tests blocked by sandbox loopback HTTPServer bind; no assertion weakened"
+    },
+    {
+      "command": "python3 -m pytest -q tests/test_sel_activation.py -k manual_commissioning_does",
+      "cwd": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111",
+      "escalated": true,
+      "exit": 0,
+      "passed": 2,
+      "deselected": 19,
+      "seconds": 2.35,
+      "log": "ui-escalated.log"
+    },
+    {
+      "command": "python3 -m pytest -q tests/test_sel_qualifications.py -k clock_trust_and_supporting",
+      "cwd": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111",
+      "exit": 0,
+      "passed": 2,
+      "deselected": 18,
+      "seconds": 0.77,
+      "log": "trust-guards.log"
+    },
+    {
+      "command": "docker --config /private/tmp/ccc90-146-public-docker-20261111 --host unix:///Users/hanneszietsman/.docker/run/docker.sock run --rm --name sel-independent-20261111-clock --pull never --platform linux/amd64 --network none --read-only --user 0:0 --cap-drop ALL --security-opt no-new-privileges --cpus 2 --memory 2g --pids-limit 256 --tmpfs /tmp:rw,exec,nosuid,size=256m --tmpfs /app/data:rw,nosuid,noexec,size=128m --tmpfs /usr/local/lib/python3.11/site-packages/ipmi_monitor:rw,nosuid,noexec,size=128m -v /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111:/candidate:ro -v /Users/hanneszietsman/CrypotAI/artifacts/ipmi-maintenance-activation-20261111/source/test-tools:/test-tools:ro --entrypoint /bin/sh sha256:392f25e4a25dca1041898080075adf28ab3465bdb0154d7cc3cd201bc55e1d94 -c 'cp -a /candidate/src/ipmi_monitor/. /usr/local/lib/python3.11/site-packages/ipmi_monitor/; cd /tmp; PYTHONPATH=/candidate:/test-tools python /candidate/tests/test_sel_activation.py --linux-clock-promotion; PYTHONPATH=/candidate:/test-tools python /candidate/tests/test_sel_activation.py --linux-promotion; python -I /candidate/tests/sel_qualification_linux.py'",
+      "escalated": true,
+      "exit": 0,
+      "managed_roundtrip_lanes": [
+        "clock PASS",
+        "clear PASS"
+      ],
+      "unittest_passed": 9,
+      "unittest_seconds": 0.556,
+      "log": "linux.log",
+      "exit_limitation": "shell combined exit is last lane; both earlier independent roundtrip PASS receipts explicitly verified in rawlog; no tracebacks"
+    },
+    {
+      "command": "python3 -m unittest -v test_preservation test_environment_preservation",
+      "exit": 0,
+      "passed": 8,
+      "seconds": 0.069,
+      "log": "ops-tests.log",
+      "scope": "original six synthetic SQLite +two actual updater Env-prefix contracts"
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v test_preservation test_environment_preservation",
+      "exit": 0,
+      "passed": 9,
+      "log": "ops-final-frozen.log",
+      "scope": "six retained SQLite +actual live146 sel_operation DDL +two Env-prefix contracts"
+    }
+  ],
+  "counts": {
+    "unique_host_source_cases_passing_after_scoped_rerun": 38,
+    "linux_installed_cases": 9,
+    "linux_managed_lanes": 2,
+    "ops_final_cases": 9
+  },
+  "provenance": {
+    "managed_inputs": "Actual Flask authenticated API operation -> actual SELOperation/archive/audit -> actual normal collector receipt -> typed result from those integrating rows -> real Linux managed install/replace and pointer; no API-shaped invented success rows",
+    "synthetic_boundaries": "External IPMI subprocess and TLS/network responses; typed vendor/native/owner inputs synthetic; no firmware/physical/target qualification",
+    "ops_fixture": "Actual root-captured live146 sel_operation SQL; other30 tables placeholders in added DDL case. Six older SQLite fixtures synthetic. Env prefix AST-extracted from retained actual updater, public synthetic env values; not live target env evidence"
+  },
+  "held": [
+    "root final acceptance",
+    "all31production schema/data preservation against fresh private target checkpoint",
+    "fresh immutable artifact QA and producer binding",
+    "live broker behavior/target quiescence and checkpoint",
+    "physical commissioning/qualification and runtime/policy activation",
+    "publication/deployment/VAL-SEL closure"
+  ],
+  "issues": [
+    {
+      "id": "OPS-DDL-001",
+      "status": "REPAIRED_IN_REVIEWED_OPS_HELPER",
+      "proof": "actual-ddl-reproduction.json",
+      "finding": "naive string insertion expected invalid placement after table-level PRIMARY KEY; legitimate SQLite ALTER rejected",
+      "repair": "generate expected table SQL in in-memory SQLite with exact captured baseline CREATE and exact approved ALTER; retain strict columns/index/other objects"
+    }
+  ],
+  "artifact_sha256": {
+    "ui-escalated.log": "791417a976cef5bcd33bf896cc71155c1505ce5028686533f5b4b9179d0b99ba",
+    "source-integrity.json": "f8dac7fb5a07e355a4e14d7afeb5ff6080b348cc20e085ae28afc9e4c7b3bdf4",
+    "ops-repair-observed-green.log": "6bf70cb649839a228b9639c7878b9759fb704ef054329b754a9aa4f0410b2a63",
+    "trust-guards.log": "1028f74523049a2249ce7986dabe4d54d59027a8accb2f0a0bbd731d7367a36d",
+    "ops-final-frozen.log": "dfb30ef341cef6c3162c369fcf049bf001e985207e2ead42c326203b446802b6",
+    "ops-tests.log": "90b282c21097a37797ac04cdbad3d74c376529a8706c6f4987767da0847a6782",
+    "ops-integrity.json": "612dd56dddf913cb16c50dd0bf964e57bcb48bd2b87cd2ebff07aefdd0866ffd",
+    "linux.log": "eb22abc3a7cc8c64dfb807b1ec3c2663605a646224f634e5b9bfdcef75450f3f",
+    "actual-ddl-reproduction.json": "0bc1c77181c32e4ec8fb6ca15ebe8b34f87fd7c85060f7058a09364be1a70caf",
+    "focused.log": "aefe7868cb2c83eca2a97cafaaf2ce981ecf3299e77c2f2185b5803c6e45fc19"
+  }
+}

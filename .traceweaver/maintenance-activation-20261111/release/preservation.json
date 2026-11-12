@@ -1,0 +1,295 @@
+{
+  "decision": "PASS_RELEASE_METADATA_1_5_0_WITH_EXACT_MAIN_UNION_PRESERVATION",
+  "source_dev": "ed475e353f801d85f0c38c88883090df5cd3ee88",
+  "current_main": "1a933d31a03d1e2825cc8521c80f2715e02b2a55",
+  "approved_pre_version_union_tree": "6516fdf7a5a16f4541c082128a7a7bbcfed34704",
+  "staged_index_union_unchanged": true,
+  "index_sha256_before": "2b41b5f09afb757cab17ba416cd5fe6387804e5866bad12359afd321030432ef",
+  "index_sha256_after": "2b41b5f09afb757cab17ba416cd5fe6387804e5866bad12359afd321030432ef",
+  "MERGE_HEAD_unchanged": true,
+  "MERGE_HEAD": "1a933d31a03d1e2825cc8521c80f2715e02b2a55",
+  "version_before": "1.4.6",
+  "version_after": "1.5.0",
+  "main_preservation_paths": [
+    {
+      "path": ".github/ci-build-timeout-policy.json",
+      "main_sha256": "6466ce578150abda3e5f33c471bfbd2e330ac9f6426adff06ca4b1f6f8a52e2d",
+      "approved_union_sha256": "6466ce578150abda3e5f33c471bfbd2e330ac9f6426adff06ca4b1f6f8a52e2d",
+      "final_worktree_sha256": "6466ce578150abda3e5f33c471bfbd2e330ac9f6426adff06ca4b1f6f8a52e2d",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/ccc90-cipher3-20261111/release/preservation.json",
+      "main_sha256": "5b8f0f8949755e7fce43fd8db7799622a9f4b4a3d3fecbd430db66b9c99759e8",
+      "approved_union_sha256": "5b8f0f8949755e7fce43fd8db7799622a9f4b4a3d3fecbd430db66b9c99759e8",
+      "final_worktree_sha256": "5b8f0f8949755e7fce43fd8db7799622a9f4b4a3d3fecbd430db66b9c99759e8",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/charlotte-completion-receipt-20261111/release/preservation.json",
+      "main_sha256": "9d01bd749f02381dd2ad97d422d3a416d096b549b0ed3c6dc04c9dff831aa30d",
+      "approved_union_sha256": "9d01bd749f02381dd2ad97d422d3a416d096b549b0ed3c6dc04c9dff831aa30d",
+      "final_worktree_sha256": "9d01bd749f02381dd2ad97d422d3a416d096b549b0ed3c6dc04c9dff831aa30d",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/charlotte-owned-receipt-20261111/release/preservation.json",
+      "main_sha256": "c9d8808a520dcdd4e516b5e1687c3b66a676128624a394d75def372c989c8782",
+      "approved_union_sha256": "c9d8808a520dcdd4e516b5e1687c3b66a676128624a394d75def372c989c8782",
+      "final_worktree_sha256": "c9d8808a520dcdd4e516b5e1687c3b66a676128624a394d75def372c989c8782",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/charlotte-sel-20261111/release/main-baseline-preservation.json",
+      "main_sha256": "d35ef63e0ea41600a01813a80e00e62e48c91c174ee5f344034c85fd450089f9",
+      "approved_union_sha256": "d35ef63e0ea41600a01813a80e00e62e48c91c174ee5f344034c85fd450089f9",
+      "final_worktree_sha256": "d35ef63e0ea41600a01813a80e00e62e48c91c174ee5f344034c85fd450089f9",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/install-guides-20261107/checks.json",
+      "main_sha256": "63bc6537da12b8b6a819a71469127ec42281ff4a663b7f233170ef52e3dacc02",
+      "approved_union_sha256": "63bc6537da12b8b6a819a71469127ec42281ff4a663b7f233170ef52e3dacc02",
+      "final_worktree_sha256": "63bc6537da12b8b6a819a71469127ec42281ff4a663b7f233170ef52e3dacc02",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/install-guides-20261107/main-baseline-preservation.json",
+      "main_sha256": "a314b38c5c3d37c46cc6fcf84ba1a713b1eedb6d82ec9a8240a48e1cc850efee",
+      "approved_union_sha256": "a314b38c5c3d37c46cc6fcf84ba1a713b1eedb6d82ec9a8240a48e1cc850efee",
+      "final_worktree_sha256": "a314b38c5c3d37c46cc6fcf84ba1a713b1eedb6d82ec9a8240a48e1cc850efee",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/install-guides-20261107/scope.json",
+      "main_sha256": "ccc8f5963fe7784356763f598e640aabaef84bec17e6bf2342ecf0fcdba40a48",
+      "approved_union_sha256": "ccc8f5963fe7784356763f598e640aabaef84bec17e6bf2342ecf0fcdba40a48",
+      "final_worktree_sha256": "ccc8f5963fe7784356763f598e640aabaef84bec17e6bf2342ecf0fcdba40a48",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/intent-contract.yml",
+      "main_sha256": "8f307cc4a7ba9a29d7974528eb9bc15439159132f33e0d31fa94076971e1fb9d",
+      "approved_union_sha256": "9392bc51a10baed1e644e136d65f3959a5d7609315a9a69640f9e661b278f8db",
+      "final_worktree_sha256": "9392bc51a10baed1e644e136d65f3959a5d7609315a9a69640f9e661b278f8db",
+      "exception": null,
+      "preservation": "exact_approved_git_union",
+      "union_equals_main": false
+    },
+    {
+      "path": ".traceweaver/latest-alias-20261107/main-baseline-preservation.json",
+      "main_sha256": "26f21b6e97fe06aec34d7591cf52f69480be2d43116b7dec36fb1d27477363ea",
+      "approved_union_sha256": "26f21b6e97fe06aec34d7591cf52f69480be2d43116b7dec36fb1d27477363ea",
+      "final_worktree_sha256": "26f21b6e97fe06aec34d7591cf52f69480be2d43116b7dec36fb1d27477363ea",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/latest-alias-20261107/main-integration.txt",
+      "main_sha256": "2d64f5efe68cd5c5f52e1e95217950d8dfe7c265a675f984d0161b62df17dee8",
+      "approved_union_sha256": "2d64f5efe68cd5c5f52e1e95217950d8dfe7c265a675f984d0161b62df17dee8",
+      "final_worktree_sha256": "2d64f5efe68cd5c5f52e1e95217950d8dfe7c265a675f984d0161b62df17dee8",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/latest-alias-20261107/scope.json",
+      "main_sha256": "97fae1a0ff85ffe7c384d56d73a9773359c8b299e418b3ce189695b3f31f0f94",
+      "approved_union_sha256": "97fae1a0ff85ffe7c384d56d73a9773359c8b299e418b3ce189695b3f31f0f94",
+      "final_worktree_sha256": "97fae1a0ff85ffe7c384d56d73a9773359c8b299e418b3ce189695b3f31f0f94",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/ltx-bmc-qualification-20261104/release/full-suite.stdout",
+      "main_sha256": "27967be8489f322d8a9641bc6690aea9bde5fee177ca90b7f2331885aef6f2cc",
+      "approved_union_sha256": "27967be8489f322d8a9641bc6690aea9bde5fee177ca90b7f2331885aef6f2cc",
+      "final_worktree_sha256": "27967be8489f322d8a9641bc6690aea9bde5fee177ca90b7f2331885aef6f2cc",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/ltx-bmc-qualification-20261104/release/release-scope.json",
+      "main_sha256": "3978b6875da290441e3a3146f3a9b6b2ab4fc538c727af08c2b19031b47dc328",
+      "approved_union_sha256": "3978b6875da290441e3a3146f3a9b6b2ab4fc538c727af08c2b19031b47dc328",
+      "final_worktree_sha256": "3978b6875da290441e3a3146f3a9b6b2ab4fc538c727af08c2b19031b47dc328",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/ltx-bmc-qualification-20261104/release/validation.json",
+      "main_sha256": "8407b1d0e55e12c2910b3acefc3cd8e4bb1edb7d6fb198a497f17b2a881bcf5a",
+      "approved_union_sha256": "8407b1d0e55e12c2910b3acefc3cd8e4bb1edb7d6fb198a497f17b2a881bcf5a",
+      "final_worktree_sha256": "8407b1d0e55e12c2910b3acefc3cd8e4bb1edb7d6fb198a497f17b2a881bcf5a",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/sel-release-20261104/owner-approval.json",
+      "main_sha256": "2c9af5bbab2b522bab6ecba6c5e1bc7c6b49123a654e643e38ca0f204f02b0a5",
+      "approved_union_sha256": "2c9af5bbab2b522bab6ecba6c5e1bc7c6b49123a654e643e38ca0f204f02b0a5",
+      "final_worktree_sha256": "2c9af5bbab2b522bab6ecba6c5e1bc7c6b49123a654e643e38ca0f204f02b0a5",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": ".traceweaver/sel-release-20261104/release-scope.json",
+      "main_sha256": "abbcac9d29b5c8aac27030aad567e59efe0b390d1c5ef4185adb09aabe3b49e3",
+      "approved_union_sha256": "abbcac9d29b5c8aac27030aad567e59efe0b390d1c5ef4185adb09aabe3b49e3",
+      "final_worktree_sha256": "abbcac9d29b5c8aac27030aad567e59efe0b390d1c5ef4185adb09aabe3b49e3",
+      "exception": null,
+      "preservation": "exact_main_bytes",
+      "union_equals_main": true
+    },
+    {
+      "path": "CHANGELOG.md",
+      "main_sha256": "4f98b7a59e7faff57aa72093650fece7f914a73bf68ee13066415a69bb689882",
+      "approved_union_sha256": "4f98b7a59e7faff57aa72093650fece7f914a73bf68ee13066415a69bb689882",
+      "final_worktree_sha256": "7a4f36b4676d86a329b0db25373771633a003abf4809036e3e978db4eca01242",
+      "exception": "prepend_1.5.0_release_notes_keep_entire_prior_history",
+      "preservation": "deliberate_release_metadata_exception",
+      "union_equals_main": true
+    },
+    {
+      "path": "pyproject.toml",
+      "main_sha256": "3105299980def1072e84b25d5aaecd4b6b5768cf4749301100fd7bcbe84d13cd",
+      "approved_union_sha256": "3105299980def1072e84b25d5aaecd4b6b5768cf4749301100fd7bcbe84d13cd",
+      "final_worktree_sha256": "5b4329b61c4ce573cd54342acb834d8b62f26e4b5e0acfde288cdd18cc7ca43d",
+      "exception": "release_version_1.5.0_only",
+      "preservation": "deliberate_release_metadata_exception",
+      "union_equals_main": true
+    },
+    {
+      "path": "requirements.md",
+      "main_sha256": "a03e083fb518df87346d718b473398baa55ba8f8ad3547167152e4e557c1af63",
+      "approved_union_sha256": "0ee6705c1069f1b9022dbd077664569198cdf0d55aa06ba3bf2fa71527182ab0",
+      "final_worktree_sha256": "0ee6705c1069f1b9022dbd077664569198cdf0d55aa06ba3bf2fa71527182ab0",
+      "exception": null,
+      "preservation": "exact_approved_git_union",
+      "union_equals_main": false
+    },
+    {
+      "path": "src/ipmi_monitor/__init__.py",
+      "main_sha256": "b2b904e9da229513caef1adc61467653ed8b32608b10be9478eb9ca1784426d0",
+      "approved_union_sha256": "b2b904e9da229513caef1adc61467653ed8b32608b10be9478eb9ca1784426d0",
+      "final_worktree_sha256": "cd8df9a8b8d89bc4d62bc489a181e97873878977795e91086c423f332f7f863c",
+      "exception": "release_version_1.5.0_only",
+      "preservation": "deliberate_release_metadata_exception",
+      "union_equals_main": true
+    },
+    {
+      "path": "traceability-matrix.md",
+      "main_sha256": "c44508348a8a1b216756c2b51c9993cb1130af6ecb9ad79e2955c6cdb16a8972",
+      "approved_union_sha256": "ab5b12ee48b9cfaeb3e0581517a5721d1181a89dfc387d2adaef1cb965d5f998",
+      "final_worktree_sha256": "ab5b12ee48b9cfaeb3e0581517a5721d1181a89dfc387d2adaef1cb965d5f998",
+      "exception": null,
+      "preservation": "exact_approved_git_union",
+      "union_equals_main": false
+    }
+  ],
+  "reviewed_source_manifest_sha256": "49527b5a5e99910bbdd6147b5f67e737e6cd0100fd7d22ae984d731c5714a374",
+  "eight_reviewed_code_test_files": [
+    {
+      "path": "src/ipmi_monitor/sel_management.py",
+      "reviewed_sha256": "baafe40522faad5e29c6332f950ad127755e3bc7cc5b98cf1bd089a9ea6bd5c2",
+      "final_sha256": "baafe40522faad5e29c6332f950ad127755e3bc7cc5b98cf1bd089a9ea6bd5c2",
+      "unchanged": true
+    },
+    {
+      "path": "src/ipmi_monitor/sel_qualifications.py",
+      "reviewed_sha256": "db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b",
+      "final_sha256": "db63c041c5ee4445f546e1ce65611ae398262f9204090350f4d9b83a72b06b5b",
+      "unchanged": true
+    },
+    {
+      "path": "src/ipmi_monitor/templates/server_detail.html",
+      "reviewed_sha256": "4c7532049b0598eaf5944c27fb8e6a7a8660546a4061f4146a11062d7cb9fb6b",
+      "final_sha256": "4c7532049b0598eaf5944c27fb8e6a7a8660546a4061f4146a11062d7cb9fb6b",
+      "unchanged": true
+    },
+    {
+      "path": "templates/server_detail.html",
+      "reviewed_sha256": "b35e516b32506331cd29ef3e30373cbe8f14920c1c6d6162640cd443cbad246e",
+      "final_sha256": "b35e516b32506331cd29ef3e30373cbe8f14920c1c6d6162640cd443cbad246e",
+      "unchanged": true
+    },
+    {
+      "path": "tests/test_sel_activation.py",
+      "reviewed_sha256": "1067b29b4fb910a3ba4ec24daf9378c8cbe633b7fd783b261eea8ce7822a3627",
+      "final_sha256": "1067b29b4fb910a3ba4ec24daf9378c8cbe633b7fd783b261eea8ce7822a3627",
+      "unchanged": true
+    },
+    {
+      "path": "tests/test_sel_management.py",
+      "reviewed_sha256": "ce787d1b1d945e33701f2b66b0a60ece0292dc22ba28a65e6861a366d25e2677",
+      "final_sha256": "ce787d1b1d945e33701f2b66b0a60ece0292dc22ba28a65e6861a366d25e2677",
+      "unchanged": true
+    },
+    {
+      "path": "tests/test_sel_persistent.py",
+      "reviewed_sha256": "910aff7cf7c48cd2fe6c2bcaab803c2bd8ed51a0dde7bb4ae0bde47d25ff9c80",
+      "final_sha256": "910aff7cf7c48cd2fe6c2bcaab803c2bd8ed51a0dde7bb4ae0bde47d25ff9c80",
+      "unchanged": true
+    },
+    {
+      "path": "tests/sel_qualification_linux.py",
+      "reviewed_sha256": "a45709d0b629aed8433adde066b3fa8a050229e735acbf5ea79b09239a34cb1c",
+      "final_sha256": "a45709d0b629aed8433adde066b3fa8a050229e735acbf5ea79b09239a34cb1c",
+      "unchanged": true
+    }
+  ],
+  "metadata_exception_paths": [
+    "CHANGELOG.md",
+    "pyproject.toml",
+    "src/ipmi_monitor/__init__.py"
+  ],
+  "old_changelog_history_preserved": true,
+  "dependency_change": false,
+  "feature_dev_version_bump": false,
+  "tests": {
+    "existing_version_metadata_before": "1passed0.01s; exit0",
+    "existing_version_metadata_after": ".                                                                        [100%]\n1 passed in 0.01s",
+    "after_exit": 0,
+    "deterministic_version_module": {
+      "version": "1.5.0",
+      "module": "/Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-release-1.5.0-20261111/src/ipmi_monitor/__init__.py"
+    },
+    "git_diff_check": "exit0",
+    "git_cached_diff_check": "exit0"
+  },
+  "deviation": "Feature merge occurred without a created or consumed controlled merge capsule after failed preparation; copied exact truthful receipt, no retroactive capsule or enforcement pass claimed. This metadata record grants no publication authority.",
+  "deviation_artifact": ".traceweaver/maintenance-activation-20261111/release/feature-merge-control-deviation.json",
+  "future_sequence_evidence": ".traceweaver/maintenance-activation-20261111/release/publication-failclosed-sequence-check.json",
+  "final_tree_sha": null,
+  "final_tree_status": "Not computed: index intentionally remains approved pre-version union; root may stage/commit only after its separate current capsule.",
+  "held": [
+    "root mechanical review",
+    "fresh exact stage/commit/publication/merge capsules",
+    "protected CI/release/official image QA",
+    "actual target deployment/maintenance acceptance"
+  ],
+  "no_worker_git_mutations": true
+}

@@ -1,0 +1,39 @@
+{
+  "source_revision": "49c85af62f6be053e9f7a7af1153e374fb4057cb",
+  "git_tree": "fd82307d8ba00c2227a6a7cbefe992db2e8a0046",
+  "construction": "git archive exact revision piped to tar in source/red-staging; no canonical/worktree mutation",
+  "scratch_only_addition": "tests/test_sel_activation_red.py",
+  "source_sha256": {
+    "src/ipmi_monitor/sel_management.py": "ffd1905248da6742f54f7b0de817c4654f7eb911d1f0426dd7ab839f8da71af4",
+    "src/ipmi_monitor/sel_qualifications.py": "88ed511dad83d3f26bdeb0290d0453784f8bfc8dc8a0d4f85dfbb0ac4c07a3e1",
+    "tests/test_sel_management.py": "5761d7bcd47f34a50ca906d3eb5416aebd9a911cd3f33fe35bface88980789b7",
+    "tests/test_sel_qualifications.py": "ccfe1f06833668f779c0a71979db67af6c93a5eae398c1ee44229cdda701f89a",
+    "tests/conftest.py": "e8a269a0ce972c0de4dc233c5b939be7c1d5952442cc07484890adaee7492740",
+    "requirements.md": "213386cbf19983c57bf536c0d76de6e6249edac177b6cdd0a72a1b76a89f38c4",
+    "traceability-matrix.md": "b510b67ed328de578a2e9a45f3e2914d64dbd815c67cc362d440b8e99d5b34bd",
+    ".traceweaver/intent-contract.yml": "d4eeb37c316a9fb8a95abb833055a519da5f92b43148527b551047c9606af626"
+  },
+  "python": "3.14.6 (main, Jun 10 2026, 10:03:53) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "execution_surface": "native Codex worker; requested Sol per root; observed runtime model identity unavailable",
+  "baseline": {
+    "command": "python3 -m pytest tests/test_sel_management.py -q -k 'qualified_clear_archives_raw_before_same_reservation_dispatch or clock_restores_positive_and_negative_offset'",
+    "exit_code": 0,
+    "result": "3 passed,109 deselected in0.93s",
+    "log": "baseline-focused.log"
+  },
+  "red": {
+    "command": "python3 -m pytest tests/test_sel_activation_red.py -q",
+    "exit_code": 1,
+    "result": "2 failed in0.75s; clear missing file, clock missing DB+file before write",
+    "log": "red-backup.log"
+  },
+  "environment": "macOS local Flask/SQLite; network forbidden by existing fixture; subprocess and TLS synthetic; no physical BMC evidence",
+  "red_activation": {
+    "command": "python3 -m pytest tests/test_sel_activation_red.py -q",
+    "exit_code": 1,
+    "result": "3failed in1.07s; v2manual409 required vs200; clear missing file; clock missing snapshot",
+    "log": "red-activation.log",
+    "test_sha256": "7a0e068b425c6d344345b57d25196c776498bbab0dc04422e980833412015d7b"
+  }
+}

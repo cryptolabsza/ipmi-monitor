@@ -1,0 +1,13 @@
+{
+  "status": "root_authorized_scope_refinement",
+  "authority": "Root message during active delegated source work, 2026-11-11",
+  "reason": "Existing phase-truthful UI contract: automatic opt-in must use automatic_available, not manual available.",
+  "files": [
+    "templates/server_detail.html",
+    "src/ipmi_monitor/templates/server_detail.html",
+    "tests/test_sel_management.py",
+    "tests/test_sel_activation.py"
+  ],
+  "root_instruction": "Adapt plan/source-scope to those TWO tiny template changes: use automatic_available===true for enabling automatic opt-in, and show clear product text for manual-only phase as text, not rawHTML. Necessary unchanged outcome/refinement, root approved scope addition; no new endpoint or redesign.",
+  "verification": "Actual manager API output through both fully rendered templates in real Chromium; RED2 then GREEN2 plus unchanged12 existing full-page cases."
+}

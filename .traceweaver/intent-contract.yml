@@ -184,3 +184,13 @@ charlotte_completion_receipt_20261111:
   status: scoped_source_verified_independently_reviewed_target_held
   publication_scope: protected_feature_to_dev_then_compatible_1.4.5_main_patch
   held: official_artifact_live_acceptance_physical_qualification_and_policy_arming
+
+# Additive current owner-directed maintenance activation; historical scopes retained.
+sel_maintenance_activation_20261111:
+  authority: .traceweaver/maintenance-activation-20261111/authority.json
+  source_go: .traceweaver/maintenance-activation-20261111/root-source-go.json
+  vv_capsule: .traceweaver/maintenance-activation-20261111/vv-capsule.json
+  workflow_profile: .traceweaver/maintenance-activation-20261111/workflow-profile.json
+  requirements: [REQ-SEL-001, REQ-SEL-002, REQ-SEL-003, REQ-SEL-004, REQ-SEL-005]
+  status: bounded_source_verified_reviewed_root_accepted
+  held: protected_publication_official_artifact_site_acceptance_physical_commissioning_policy_arming_and_full_validation

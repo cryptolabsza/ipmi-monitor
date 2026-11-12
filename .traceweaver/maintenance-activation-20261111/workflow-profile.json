@@ -1,0 +1,49 @@
+{
+  "schema_version": "tw-workflow-profile/1",
+  "task_id": "WORK-SEL-ACTIVATION-20261111",
+  "profile_revision": 1,
+  "risk": "L3",
+  "selection_rationale": "Destructive external actions plus persisted authorization/security and release-facing behavior",
+  "selected_controls": [
+    "Authentic3caseRED verifiedroot before source; per-slice RED beforeadditionalmutation",
+    "Reviewed fullVV and unchangedauthority",
+    "Root accepted Astra architecture, independent Astra finaladversarial plusfresh Sol finalverification/rootacceptance",
+    "Exact fullidentity/source/action/phase binding, dualarchive finalbarrier, oneuseDBconstraint and no retry",
+    "No worker publication orlive access; rootcaps perartifactandsite",
+    "No clock qualification withoutoffset/mapping/trust/allwriters",
+    "RealLinuxartifact andprotectedCI/release/target preservation acceptance"
+  ],
+  "child_roles": {
+    "builder": "nativegpt-6.1-sol high",
+    "reviewer": "nativegpt-6-astra high; freshnativegpt-6.1-sol highvalidation",
+    "deployer": "rootonly"
+  },
+  "model_routing": {
+    "available": [
+      "gpt-6.1-sol",
+      "gpt-6-astra"
+    ],
+    "selected": [
+      "gpt-6.1-sol",
+      "gpt-6-astra"
+    ],
+    "rationale": "Owner-invokedOrchestra; requestedmodeltoolaccepted,servedmodelattestationunavailable"
+  },
+  "reviewer_cap": 2,
+  "repair_cycle_cap": 1,
+  "requires_deploy": true,
+  "requires_browser_dogfood": false,
+  "deploy_requirement": "Freshper-siteIPMI-onlyimmutableofficialartifactcap; priorallowancesnotreused",
+  "dogfood_requirement": "OnequalifiedCCC93clear actualDB+filepreservation/readback/collection beforepromotion; clockseparatelyqualified",
+  "process_budget": {
+    "estimated_delivery_minutes": 180,
+    "estimated_process_target_minutes": 20,
+    "estimated_process_ceiling_minutes": 180,
+    "builder_timebox_minutes_max": 60,
+    "reviewer_timebox_minutes_max": 6,
+    "target_ratio": 0.25,
+    "hard_ceiling_ratio": 1
+  },
+  "immutable_after_building": true,
+  "profile_hash": "sha256:424456f95fa431d93cfccb84e18379eea850d0b6e9d6a39b5b31933c7b7de43f"
+}

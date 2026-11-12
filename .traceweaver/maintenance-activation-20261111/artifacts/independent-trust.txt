@@ -1,0 +1,22 @@
+..                                                                       [100%]
+=============================== warnings summary ===============================
+tests/test_sel_qualifications.py::test_clock_trust_and_supporting_evidence_must_be_admitted[ca_digest]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:3289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    _instance_start_time = datetime.utcnow()
+
+tests/test_sel_qualifications.py: 58 warnings
+  /Users/hanneszietsman/Library/Python/3.14/lib/python/site-packages/sqlalchemy/sql/schema.py:3623: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_sel_qualifications.py::test_clock_trust_and_supporting_evidence_must_be_admitted[ca_digest]
+tests/test_sel_qualifications.py::test_clock_trust_and_supporting_evidence_must_be_admitted[ownership_reference]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:6664: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status.last_check = datetime.utcnow()
+
+tests/test_sel_qualifications.py::test_clock_trust_and_supporting_evidence_must_be_admitted[ca_digest]
+tests/test_sel_qualifications.py::test_clock_trust_and_supporting_evidence_must_be_admitted[ownership_reference]
+  /Users/hanneszietsman/CrypotAI/ipmi-monitor-maintenance-activation-20261111/tests/../src/ipmi_monitor/app.py:6668: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = datetime.utcnow() - timedelta(hours=24)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 18 deselected, 63 warnings in 0.77s

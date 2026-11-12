@@ -1,0 +1,7 @@
+{
+  "decision": "PASS_CHECKED_SEQUENCE_REFUSES_DEPENDENT_MUTATION",
+  "precondition_exit": 17,
+  "wrapper_exit": 1,
+  "mutation_marker_exists": false,
+  "scope": "Harmless local verification of the exact future subprocess check=True sequencing pattern; no Git/remote operation dispatched"
+}
